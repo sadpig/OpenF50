@@ -19,7 +19,7 @@ TOP=$(cd "$(dirname "$0")" && pwd)
 say() { printf '\n==> %s\n' "$*"; }
 die() { printf '\nERROR: %s\n' "$*" >&2; exit 1; }
 ask() { printf '%s [%s]: ' "$2" "$3"; read -r _a; [ -n "$_a" ] || _a=$3; eval "$1=\$_a"; }
-su_do() { adb shell "su -c '$1'" </dev/null | tr -d '\r'; }
+su_do() { adb shell "/debug_ramdisk/su -c '$1'" </dev/null | tr -d '\r'; }
 # tools/storage.sh finds the SD card; this script is English only, so its messages need no translation
 t() { printf '%s' "$1"; }
 gib() { awk -v b="$1" 'BEGIN { printf "%.1f GiB", b / 1073741824 }'; }
@@ -105,9 +105,9 @@ ask confirm "Type UNINSTALL to continue" no
 
 say "Making slot a the boot slot"
 MISC_TMP=$(mktemp)
-adb shell "su -c 'dd if=/dev/block/by-name/misc bs=4096 count=1 2>/dev/null > /data/local/tmp/mu300-pull.bin'" </dev/null >/dev/null
+adb shell "/debug_ramdisk/su -c 'dd if=/dev/block/by-name/misc bs=4096 count=1 2>/dev/null > /data/local/tmp/mu300-pull.bin'" </dev/null >/dev/null
 adb pull /data/local/tmp/mu300-pull.bin "$MISC_TMP" >/dev/null 2>&1
-adb shell "su -c 'rm -f /data/local/tmp/mu300-pull.bin'" </dev/null >/dev/null
+adb shell "/debug_ramdisk/su -c 'rm -f /data/local/tmp/mu300-pull.bin'" </dev/null >/dev/null
 NEW=$(python3 - "$MISC_TMP" <<'PY'
 import struct, sys, zlib
 head = open(sys.argv[1], 'rb').read()

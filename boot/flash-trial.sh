@@ -8,7 +8,7 @@ BASE=${IMG%.img}
 EXP=$(python3 -c "import json,sys;print(json.load(open(sys.argv[1]))['sha256'])" "$BASE.json")
 BC_B=$BASE.misc-slot-b-trial.bin
 A_HEX=$(python3 -c "import json,sys;print(json.load(open(sys.argv[1]))['misc_slot_a_hex'])" "$BASE.json")
-su_do() { adb shell "su -c '$1'" | tr -d '\r'; }
+su_do() { adb shell "/debug_ramdisk/su -c '$1'" | tr -d '\r'; }
 
 [ "$(shasum -a 256 "$IMG" | cut -d' ' -f1)" = "$EXP" ] || { echo "local image hash mismatch" >&2; exit 1; }
 [ "$(su_do 'getprop ro.boot.slot_suffix')" = "_a" ] || { echo "device is not running slot a" >&2; exit 1; }

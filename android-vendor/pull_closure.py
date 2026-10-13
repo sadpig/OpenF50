@@ -35,7 +35,7 @@ def run(args, timeout=TIMEOUT, **kw):
 def adb(cmd):
     """run one command as root on the device and return its output (b'' when the command failed)"""
     for _ in range(TRIES):
-        r = run(['adb', 'exec-out', f"su -c '{cmd}; echo __RC$?'"], capture_output=True)
+        r = run(['adb', 'exec-out', f"/debug_ramdisk/su -c '{cmd}; echo __RC$?'"], capture_output=True)
         if r is None:
             continue
         out = r.stdout
@@ -70,11 +70,11 @@ def locate(libs):
 # A binary read must not go through `adb exec-out "su -c ..."`: on some devices su gives the command a pty
 # whose ONLCR rewrites every LF as CRLF, and the file arrives inflated and unparsable (issue #2).
 def adb_pull_file(path):
-    adb_shell(f"su -c 'cat {path} > {DEV}'")
+    adb_shell(f"/debug_ramdisk/su -c 'cat {path} > {DEV}'")
     if WORK.exists():
         WORK.unlink()
     r = run(['adb', 'pull', DEV, str(WORK)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    adb_shell(f"su -c 'rm -f {DEV}'")
+    adb_shell(f"/debug_ramdisk/su -c 'rm -f {DEV}'")
     if r is None or r.returncode != 0 or not WORK.is_file():
         return b''
     return WORK.read_bytes()

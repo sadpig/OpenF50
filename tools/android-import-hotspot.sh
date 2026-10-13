@@ -16,7 +16,7 @@ case $SD in
 esac
 if [ -z "$SD" ]; then
     # the same search reset-password.sh does (tools/storage.sh; this script is English only)
-    su_do() { adb shell "su -c '$1'" </dev/null | tr -d '\r'; }
+    su_do() { adb shell "/debug_ramdisk/su -c '$1'" </dev/null | tr -d '\r'; }
     t() { printf '%s' "$1"; }
     . "$TOP/tools/storage.sh"; sd_probe
     if [ -n "$SD_DEV" ] && [ "$(sd_existing)" = yes ]; then
@@ -24,7 +24,7 @@ if [ -z "$SD" ]; then
         echo "SD card $SD (mu300sd): the installation that boots"
     fi
 fi
-adb shell "su -c '
+adb shell "/debug_ramdisk/su -c '
 set -e
 X=/data/misc/apexdata/com.android.wifi/WifiConfigStoreSoftAp.xml
 R=/data/local/tmp/mu300root

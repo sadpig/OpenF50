@@ -76,7 +76,7 @@ fetch() {
 }
 
 # adb shell/exec-out read stdin; never let them eat the answers typed (or piped) into this script
-su_do() { adb shell "su -c '$1'" </dev/null | tr -d '\r'; }
+su_do() { adb shell "/debug_ramdisk/su -c '$1'" </dev/null | tr -d '\r'; }
 
 # Never stream a binary through `adb exec-out "su -c ..."`. On some devices su gives the command a pty, and
 # the tty layer's ONLCR rewrites every LF as CRLF: the bytes arrive inflated by about one in 256 and nothing

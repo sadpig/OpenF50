@@ -142,10 +142,10 @@ region_probe() {
 region_find_existing() {
     existing=no
     for cand in $OFF 27762098176; do
-        m=$(su_do "dd if=/dev/block/mmcblk0 bs=1 skip=$((cand + 1080)) count=2 2>/dev/null | od -An -tx1" | tr -d ' ')
-        l=$(su_do "dd if=/dev/block/mmcblk0 bs=1 skip=$((cand + 1144)) count=16 2>/dev/null" | LC_ALL=C tr -d '\000')
+        m=$(su_do "timeout 8 dd if=/dev/block/mmcblk0 bs=1 skip=$((cand + 1080)) count=2 2>/dev/null | od -An -tx1" | tr -d ' ')
+        l=$(su_do "timeout 8 dd if=/dev/block/mmcblk0 bs=1 skip=$((cand + 1144)) count=16 2>/dev/null" | LC_ALL=C tr -d '\000')
         if [ "$m" = 53ef ] && [ "$l" = mu300root ]; then
-            blocks=$(su_do "dd if=/dev/block/mmcblk0 bs=1 skip=$((cand + 1028)) count=4 2>/dev/null | od -An -tu4" | tr -d ' ')
+            blocks=$(su_do "timeout 8 dd if=/dev/block/mmcblk0 bs=1 skip=$((cand + 1028)) count=4 2>/dev/null | od -An -tu4" | tr -d ' ')
             OFF=$cand; SIZE=$((blocks * 4096)); existing=yes; return 0
         fi
     done

@@ -15,9 +15,9 @@ SRC=$TOP/android/magisk/mu300-linux-switch
 MOD=/data/adb/modules/mu300_linux_switch
 TMP=/data/local/tmp/mu300-magisk
 
-su_do() { adb shell "su -c '$1'" 2>/dev/null | tr -d '\r'; }
+su_do() { adb shell "/debug_ramdisk/su -c '$1'" 2>/dev/null | tr -d '\r'; }
 
-have_magisk() { [ -n "$(su_do 'magisk -v' || true)" ]; }
+have_magisk() { [ -n "$(su_do '/debug_ramdisk/magisk -v' || true)" ]; }
 
 if [ "${1:-}" = --remove ]; then
     have_magisk || { echo "no Magisk on this device, nothing to remove"; exit 0; }

@@ -15,7 +15,7 @@ T=/data/local/tmp
 
 say() { printf '\n==> %s\n' "$*"; }
 die() { printf '\nERROR: %s\n' "$*" >&2; exit 1; }
-su_do() { adb shell "su -c '$1'" </dev/null | tr -d '\r'; }
+su_do() { adb shell "/debug_ramdisk/su -c '$1'" </dev/null | tr -d '\r'; }
 # tools/storage.sh finds the SD card; this script is English only
 t() { printf '%s' "$1"; }
 gib() { awk -v b="$1" 'BEGIN { printf "%.1f GiB", b / 1073741824 }'; }
@@ -82,9 +82,9 @@ for os in $found; do
     case $os in ubuntu) user=ubuntu ;; openwrt|openwrt-*) user=root ;; esac
     # the hash contains $ and /, which the device shell would expand inside su -c: edit the file on this computer
     tmp=$(mktemp)
-    adb shell "su -c 'cat $T/mu300root/$os/etc/shadow > /data/local/tmp/mu300-pull.bin'" </dev/null >/dev/null
+    adb shell "/debug_ramdisk/su -c 'cat $T/mu300root/$os/etc/shadow > /data/local/tmp/mu300-pull.bin'" </dev/null >/dev/null
     adb pull /data/local/tmp/mu300-pull.bin "$tmp" >/dev/null 2>&1
-    adb shell "su -c 'rm -f /data/local/tmp/mu300-pull.bin'" </dev/null >/dev/null
+    adb shell "/debug_ramdisk/su -c 'rm -f /data/local/tmp/mu300-pull.bin'" </dev/null >/dev/null
     [ -s "$tmp" ] || { rm -f "$tmp"; die "$os: could not read /etc/shadow"; }
     HASH=$HASH USER=$user python3 - "$tmp" <<'PY' || { rm -f "$tmp"; die "$os: no line for that account in /etc/shadow"; }
 import os, sys
@@ -105,7 +105,7 @@ PY
     rm -f "$tmp"
     # write through the existing file so owner and mode stay as they are
     su_do "cat $T/shadow.new > $T/mu300root/$os/etc/shadow && rm -f $T/shadow.new"
-    ok=$(adb shell "su -c 'cat $T/mu300root/$os/etc/shadow'" </dev/null | tr -d '\r' | awk -F: -v u="$user" '$1 == u && $2 ~ /^\$6\$/ {n++} END {print n + 0}')
+    ok=$(adb shell "/debug_ramdisk/su -c 'cat $T/mu300root/$os/etc/shadow'" </dev/null | tr -d '\r' | awk -F: -v u="$user" '$1 == u && $2 ~ /^\$6\$/ {n++} END {print n + 0}')
     [ "$ok" = 1 ] || die "$os: the password line was not rewritten"
     say "$os: password of \"$user\" reset"
 done
