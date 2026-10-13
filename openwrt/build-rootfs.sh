@@ -67,6 +67,20 @@ if [ "$SYSTEM" = openwrt-luci ]; then
     [ "${theme_hash%% *}" = "$THEME_SHA" ] || {
         echo "Aurora APK checksum mismatch: $THEME_APK" >&2; exit 1;
     }
+    # iStore 应用商店（OpenF50 默认集成）：上游 apk 签名公钥，固定哈希（与 Aurora 同一可复现策略）。
+    # 商店里的插件走官方 apk 源，不逐一固定——与 OpenWrt 官方 feeds 一致的策略（packages.txt 会记录本次装的版本）。
+    ISTORE=${MU300_ISTORE:-1}
+    if [ "$ISTORE" != 0 ]; then
+        ISTORE_PEM=${MU300_ISTORE_PEM:-$TOP/work/istore-apk.pem}
+        ISTORE_PEM_SHA=17d39c124a39a0f0bf54601073ddb3d42bad45b40be9ad28c17e805bee04db08
+        if [ ! -s "$ISTORE_PEM" ]; then
+            [ -z "${MU300_ISTORE_PEM:-}" ] || { echo "iStore 公钥缺失: $ISTORE_PEM" >&2; exit 1; }
+            curl -fL -o "$ISTORE_PEM.part" https://istore.istoreos.com/repo-apk/istore-apk.pem
+            mv "$ISTORE_PEM.part" "$ISTORE_PEM"
+        fi
+        pem_hash=$(shasum -a 256 "$ISTORE_PEM" 2>/dev/null || sha256sum "$ISTORE_PEM")
+        [ "${pem_hash%% *}" = "$ISTORE_PEM_SHA" ] || { echo "iStore key checksum mismatch: $ISTORE_PEM" >&2; exit 1; }
+    fi
     # The panel's catalogs in the image: Turkish and Simplified Chinese (the others are the lang extra,
     # tools/make-extra.sh). A catalog without translations (English: the msgids are the English text) is no file at
     # all. Named by LuCI's code for the language (openwrt/luci-languages.tsv: zh_Hans is zh-cn), or LuCI does not
@@ -81,6 +95,7 @@ if [ "$SYSTEM" = openwrt-luci ]; then
     [ -s "$CAT/mu300.zh-cn.lmo" ] || { echo "no Chinese catalog built from openwrt/luci-app-mu300/po/zh_Hans" >&2; exit 1; }
     set -- -v "$THEME_APK:/in/luci-theme-aurora.apk:ro" -v "$TOP/openwrt/luci-app-mu300:/in/luci-plugin:ro" \
         -v "$TOP/openwrt/luci-overlay:/in/luci-overlay:ro" -v "$CAT:/in/catalogs:ro"
+    [ "$ISTORE" = 0 ] || set -- "$@" -v "$ISTORE_PEM:/in/istore-apk.pem:ro"
 fi
 TARBALL=$FLAVOUR-$VER-armsr-armv8-rootfs.tar.gz
 URL=$BASEURL/$VER/targets/armsr/armv8
@@ -135,6 +150,19 @@ apk add wireguard-tools luci-proto-wireguard ppp-mod-pptp xl2tpd 6in4 6rd ds-lit
     luci-proto-vxlan ipset sqm-scripts luci-app-sqm >/dev/null
 # the pinned Aurora theme
 [ -d /in/luci-plugin ] && apk add --allow-untrusted /in/luci-theme-aurora.apk >/dev/null
+# iStore 应用商店：官方 apk 源（key 由宿主侧固定哈希），源留在镜像的 customfeeds.list 里，
+# 之后可以直接 apk add 商店里的插件（注意本机运营商对 istoreos.com 可达性）
+if [ -e /in/istore-apk.pem ]; then
+    cp /in/istore-apk.pem /etc/apk/keys/istore.pem
+    printf "%s\n" "https://istore.istoreos.com/repo-apk/all/store/packages.adb" \
+        "https://istore.istoreos.com/repo-apk/all/nas_luci/packages.adb" \
+        "https://istore.istoreos.com/repo-apk/all/meta/packages.adb" \
+        "https://istore.istoreos.com/repo-apk/aarch64_generic/nas/packages.adb" \
+        >> /etc/apk/repositories.d/customfeeds.list
+    apk update >/dev/null
+    apk add luci-app-store luci-lib-taskd luci-lib-xterm taskd >/dev/null
+    [ -s /usr/lib/lua/luci/controller/store.lua ] || { echo "iStore install failed" >&2; exit 1; }
+fi
 # ujail drops CAP_PERFMON (38), which this 5.4 kernel does not know: jailed services (dnsmasq, ntpd) crash-loop
 apk del procd-ujail procd-seccomp >/dev/null 2>&1 || true
 # online firmware upgrades flash whole-disk armsr images: that would overwrite the eMMC, so remove them
