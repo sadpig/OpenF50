@@ -152,7 +152,7 @@ apk add wireguard-tools luci-proto-wireguard ppp-mod-pptp xl2tpd 6in4 6rd ds-lit
 # the pinned Aurora theme
 [ -d /in/luci-plugin ] && apk add --allow-untrusted /in/luci-theme-aurora.apk >/dev/null
 # iStore app store: its official apk feed (the key is hash-pinned on the host side). The feed stays
-# in the image's customfeeds.list, so packages from the store can be added later with apk add.
+# in the image customfeeds.list, so packages from the store can be added later with apk add.
 if [ -e /in/istore-apk.pem ]; then
     cp /in/istore-apk.pem /etc/apk/keys/istore.pem
     printf "%s\n" "https://istore.istoreos.com/repo-apk/all/store/packages.adb" \
