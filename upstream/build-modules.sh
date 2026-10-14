@@ -1,7 +1,7 @@
 #!/bin/bash
 # Build the out-of-tree vendor modules (WCN, modem, Mali) against the mainline tree built by build.sh, and collect
 # the kernel's own modules next to them (upstream/out/modules, flat).
-# Run inside the mu300-mainline-build container: bash /work/build-modules.sh [module-dir...]
+# Run inside the openf50-mainline-build container: bash /work/build-modules.sh [module-dir...]
 set -eo pipefail
 KV=${KV:-6.18.55}
 K=/src/linux-$KV
@@ -14,8 +14,8 @@ mkdir -p $OUT/modules
 [ $# -gt 0 ] || rm -f $OUT/modules/*.ko $OUT/modules/*.log
 # Module.symvers for the built-in exports (pcie-sprd etc.)
 make -C $K O=$O ARCH=arm64 -j"$(nproc)" modules > $O/modules.log 2>&1 || { tail -20 $O/modules.log; exit 1; }
-# the kernel's own modules (the =m options of mu300-mainline.config), stripped, flat next to the vendor ones: the
-# bundle and mu300-update keep one flat directory, which depmod (Ubuntu) and kmodloader (OpenWrt) both index
+# the kernel's own modules (the =m options of openf50-mainline.config), stripped, flat next to the vendor ones: the
+# bundle and openf50-update keep one flat directory, which depmod (Ubuntu) and kmodloader (OpenWrt) both index
 rm -rf "$O/mod-install"
 make -C $K O=$O ARCH=arm64 INSTALL_MOD_PATH="$O/mod-install" INSTALL_MOD_STRIP=1 DEPMOD=true modules_install >> $O/modules.log 2>&1 ||
     { tail -20 $O/modules.log; exit 1; }

@@ -1,5 +1,5 @@
 #!/bin/sh
-# Remove MU300 Linux and return the device to stock Android. Run on a macOS/Linux host with the device booted in
+# Remove OPENF50 Linux and return the device to stock Android. Run on a macOS/Linux host with the device booted in
 # rooted Android (adb + su), like install.sh.
 #
 #   ./uninstall.sh
@@ -9,7 +9,7 @@
 #   * copies boot_a to boot_b, so slot b holds a stock Android boot image instead of the Linux one,
 #   * erases the Linux filesystem in the unpartitioned eMMC region (secure: overwrite everything and verify;
 #     quick: only the filesystem headers, the data stays readable until the space is reused),
-#   * erases the Linux filesystem on the SD card (ext4 labelled mu300sd) when there is one and you say so: its
+#   * erases the Linux filesystem on the SD card (ext4 labelled openf50sd) when there is one and you say so: its
 #     first 64 MiB are overwritten, and a card with any other filesystem is never touched,
 #   * removes the installer leftovers in /data/local/tmp.
 # boot_a, the GPT, userdata and every other partition stay untouched. Needs adb and python3.
@@ -34,7 +34,7 @@ require_android
 model="$(su_do 'getprop ro.product.model') / $(su_do 'getprop ro.product.device')"
 echo "device: $model"
 case "$model" in *MU300*|*F50*|*mu300*|*U30Air*|*U30_Air*) ;; *) die "this does not look like a ZTE F50/MU300 or U30 Air" ;; esac
-[ "$(su_do 'getprop ro.boot.slot_suffix')" = _a ] || die "Android must be running from slot a (boot Android first: mu300-next-boot android)"
+[ "$(su_do 'getprop ro.boot.slot_suffix')" = _a ] || die "Android must be running from slot a (boot Android first: openf50-next-boot android)"
 
 say "Looking for the Linux installation"
 set -- $(su_do 'e=0; for p in /sys/block/mmcblk0/mmcblk0p*; do x=$(( $(cat $p/start) + $(cat $p/size) )); [ $x -gt $e ] && e=$x; done; echo $e $(cat /sys/block/mmcblk0/size)')
@@ -45,20 +45,20 @@ start=$(( (last_end / 4096 + 1) * 4096 * 512 ))
 for cand in $start 27762098176; do
     m=$(su_do "dd if=/dev/block/mmcblk0 bs=1 skip=$((cand + 1080)) count=2 2>/dev/null | od -An -tx1" | tr -d ' ')
     l=$(su_do "dd if=/dev/block/mmcblk0 bs=1 skip=$((cand + 1144)) count=16 2>/dev/null" | tr -d '\000')
-    if [ "$m" = 53ef ] && [ "$l" = mu300root ]; then
+    if [ "$m" = 53ef ] && [ "$l" = openf50root ]; then
         blocks=$(su_do "dd if=/dev/block/mmcblk0 bs=1 skip=$((cand + 1028)) count=4 2>/dev/null | od -An -tu4" | tr -d ' ')
         OFF=$cand; SIZE=$((blocks * 4096)); break
     fi
 done
 # the region must lie completely after the last partition and before the backup GPT
 if [ -n "$OFF" ]; then
-    [ $((OFF / 512)) -ge "$last_end" ] && [ $(( (OFF + SIZE) / 512 )) -le $((disk - 34)) ] || die "the mu300root filesystem overlaps a partition, refusing to touch it"
+    [ $((OFF / 512)) -ge "$last_end" ] && [ $(( (OFF + SIZE) / 512 )) -le $((disk - 34)) ] || die "the openf50root filesystem overlaps a partition, refusing to touch it"
     [ $((OFF % 1048576)) -eq 0 ] || die "unexpected filesystem offset $OFF"
     echo "Linux filesystem: offset $OFF, $((SIZE / 1048576)) MiB"
 else
-    echo "no mu300root filesystem found (already erased?)"
+    echo "no openf50root filesystem found (already erased?)"
 fi
-# the card's installation is a filesystem of its own (sd_existing: yes only for ext4 labelled mu300sd)
+# the card's installation is a filesystem of its own (sd_existing: yes only for ext4 labelled openf50sd)
 sd_probe; SD_HAS=no
 [ -n "$SD_DEV" ] && SD_HAS=$(sd_existing)
 [ "$SD_HAS" = yes ] && echo "Linux filesystem on the SD card: $SD_DEV, $(gib "$SD_BYTES")"
@@ -77,7 +77,7 @@ if [ -n "$OFF" ]; then
 fi
 sdwipe=keep
 if [ "$SD_HAS" = yes ]; then
-    echo "  The SD card holds a Linux installation (ext4 labelled mu300sd):"
+    echo "  The SD card holds a Linux installation (ext4 labelled openf50sd):"
     echo "  erase   remove the filesystem from the card (its first 64 MiB are overwritten: fast, but the files"
     echo "          stay readable on the card until the space is reused)"
     echo "  keep    leave the card as it is (it does not boot once boot_b is restored)"
@@ -93,7 +93,7 @@ else
     echo "  Linux:    $([ $wipe = keep ] && echo "kept on the eMMC (not bootable)" || echo "$wipe erase of $((SIZE / 1048576)) MiB at offset $OFF")"
 fi
 if [ $sdwipe = erase ]; then
-    echo "  SD card:  mu300sd filesystem erased ($SD_DEV, first 64 MiB)"
+    echo "  SD card:  openf50sd filesystem erased ($SD_DEV, first 64 MiB)"
 elif [ "$SD_HAS" = yes ]; then
     echo "  SD card:  kept ($SD_DEV, not bootable)"
 else
@@ -105,9 +105,9 @@ ask confirm "Type UNINSTALL to continue" no
 
 say "Making slot a the boot slot"
 MISC_TMP=$(mktemp)
-adb shell "/debug_ramdisk/su -c 'dd if=/dev/block/by-name/misc bs=4096 count=1 2>/dev/null > /data/local/tmp/mu300-pull.bin'" </dev/null >/dev/null
-adb pull /data/local/tmp/mu300-pull.bin "$MISC_TMP" >/dev/null 2>&1
-adb shell "/debug_ramdisk/su -c 'rm -f /data/local/tmp/mu300-pull.bin'" </dev/null >/dev/null
+adb shell "/debug_ramdisk/su -c 'dd if=/dev/block/by-name/misc bs=4096 count=1 2>/dev/null > /data/local/tmp/openf50-pull.bin'" </dev/null >/dev/null
+adb pull /data/local/tmp/openf50-pull.bin "$MISC_TMP" >/dev/null 2>&1
+adb shell "/debug_ramdisk/su -c 'rm -f /data/local/tmp/openf50-pull.bin'" </dev/null >/dev/null
 NEW=$(python3 - "$MISC_TMP" <<'PY'
 import struct, sys, zlib
 head = open(sys.argv[1], 'rb').read()
@@ -124,8 +124,8 @@ rm -f "$MISC_TMP"
 if [ "$BC" != "$NEW" ]; then
     BIN=$(mktemp)
     python3 -c 'import sys; open(sys.argv[2], "wb").write(bytes.fromhex(sys.argv[1]))' "$NEW" "$BIN"
-    adb push "$BIN" $T/mu300-bc-a.bin </dev/null >/dev/null; rm -f "$BIN"
-    su_do "dd if=$T/mu300-bc-a.bin of=/dev/block/by-name/misc bs=1 seek=2048 conv=notrunc 2>/dev/null && sync && rm $T/mu300-bc-a.bin"
+    adb push "$BIN" $T/openf50-bc-a.bin </dev/null >/dev/null; rm -f "$BIN"
+    su_do "dd if=$T/openf50-bc-a.bin of=/dev/block/by-name/misc bs=1 seek=2048 conv=notrunc 2>/dev/null && sync && rm $T/openf50-bc-a.bin"
     [ "$(hex32)" = "$NEW" ] || die "misc verify failed"
     echo "slot a set"
 else
@@ -168,20 +168,20 @@ fi
 
 if [ $sdwipe = erase ]; then
     say "Erasing the Linux filesystem on the SD card"
-    # sd_erase checks the card again on the device (never mmcblk0, an SD card, still mu300sd) before it writes
+    # sd_erase checks the card again on the device (never mmcblk0, an SD card, still openf50sd) before it writes
     sd_erase
     echo "erased ($SD_DEV)"
 fi
 # A kept internal installation may hold the marker of a card installation next to it (boot/init then waits for
 # the card). With the card's installation gone it would only make a later boot wait for nothing.
 if [ -n "$OFF" ] && [ $wipe = keep ] && { [ $sdwipe = erase ] || [ "$SD_HAS" != yes ]; }; then
-    adb push "$TOP/tools/android-mount-mu300root.sh" $T/ </dev/null >/dev/null
-    r=$(su_do "MU300_OFF=$OFF MU300_SIZE=$SIZE sh $T/android-mount-mu300root.sh $T/mu300root >/dev/null && { rm -f $T/mu300root/.mu300/root-on-sd; sync; sh $T/android-mount-mu300root.sh -u $T/mu300root >/dev/null; echo CLEARED; }" 2>/dev/null) || true
+    adb push "$TOP/tools/android-mount-openf50root.sh" $T/ </dev/null >/dev/null
+    r=$(su_do "OPENF50_OFF=$OFF OPENF50_SIZE=$SIZE sh $T/android-mount-openf50root.sh $T/openf50root >/dev/null && { rm -f $T/openf50root/.openf50/root-on-sd; sync; sh $T/android-mount-openf50root.sh -u $T/openf50root >/dev/null; echo CLEARED; }" 2>/dev/null) || true
     case $r in *CLEARED*) ;; *) echo "note: could not open the kept Linux filesystem to clear its SD card marker (harmless: boot_b is Android)" ;; esac
 fi
 
 # never delete through a still mounted Linux filesystem
-su_do "grep -q \" $T/mu300root \" /proc/mounts || rm -rf $T/mu300root; rm -f $T/mu300-* $T/android-install.sh $T/android-mount-mu300root.sh" >/dev/null
+su_do "grep -q \" $T/openf50root \" /proc/mounts || rm -rf $T/openf50root; rm -f $T/openf50-* $T/android-install.sh $T/android-mount-openf50root.sh" >/dev/null
 
 # ---------------------------------------------------------------- giving the space back (EXPERIMENTAL)
 # Only for a device where the installer shrank userdata to make room (the 32 GB variant). Growing it back is

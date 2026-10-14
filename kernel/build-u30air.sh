@@ -1,6 +1,6 @@
 #!/bin/bash
-# The ZTE U30 Air modules: the MU300 kernel config (/src/out-linux/.config, from build-linux.sh) plus
-# u30air.fragment, built in /src/out-u30air. What goes out is only what differs from the MU300 set - modules the
+# The ZTE U30 Air modules: the OPENF50 kernel config (/src/out-linux/.config, from build-linux.sh) plus
+# u30air.fragment, built in /src/out-u30air. What goes out is only what differs from the OPENF50 set - modules the
 # F50 does not have, and same-named ones built differently (sprd-charger-manager from the SQC charger manager) -
 # into /work/out/modules-u30air/, for the boot ramdisk and the root filesystems to load on a U30 Air only.
 set -e
@@ -27,7 +27,7 @@ P
 # no module of an earlier build may linger (one the fragment no longer builds would be taken for a U30 Air module)
 find $OUT -name '*.ko' -delete
 $M Image modules 2>&1 | grep -E "error|Error" | tail -20 || true
-# the Image must be the MU300 one: a fragment option that changes built-in code shows up as a different set of
+# the Image must be the OPENF50 one: a fragment option that changes built-in code shows up as a different set of
 # symbols vmlinux exports to modules (I2C_SMBUS did: of_i2c_setup_smbus_alert)
 cmp -s <(awk '$3=="vmlinux"' $BASE/Module.symvers | sort) <(awk '$3=="vmlinux"' $OUT/Module.symvers | sort) \
     && echo "vmlinux exports: identical" || { echo "vmlinux exports differ between the two builds" >&2; exit 1; }

@@ -1,0 +1,12 @@
+[Unit]
+Description=OPENF50 extra vendor drivers (thermal cooling, LEDs, SAR, SIM tray, DVFS)
+After=openf50-vendor.service systemd-modules-load.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStartPre=/bin/sleep 20
+ExecStart=/opt/openf50/bin/extra-modules
+
+[Install]
+WantedBy=multi-user.target

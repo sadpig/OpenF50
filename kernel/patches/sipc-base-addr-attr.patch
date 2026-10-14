@@ -19,7 +19,7 @@ diff -ru a/drivers/soc/sprd/modem/sipc/sblock.c b/drivers/soc/sprd/modem/sipc/sb
  				       dev_no,
  				       sblock_dev, "sipc_sblock");
 -	device_create_file(&sblock_dev->pdev.dev, &dev_attr_base_addr);
-+	/* MU300: the vendor also created a "base_addr" attribute here: with neither show nor store, on a device that
++	/* OPENF50: the vendor also created a "base_addr" attribute here: with neither show nor store, on a device that
 +	 * is never registered - it could never be read, and each one warned twice (about a second of boot each) */
  
  	return 0;
@@ -40,7 +40,7 @@ diff -ru a/drivers/soc/sprd/modem/sipc/sbuf.c b/drivers/soc/sprd/modem/sipc/sbuf
  				       dev_no,
  				       sbuf_dev, "sipc_sbuf");
 -	device_create_file(&sbuf_dev->pdev.dev, &dev_attr_base_addr);
-+	/* MU300: the vendor also created a "base_addr" attribute here: with neither show nor store, on a device that
++	/* OPENF50: the vendor also created a "base_addr" attribute here: with neither show nor store, on a device that
 +	 * is never registered - it could never be read, and each one warned twice (about a second of boot each) */
  
  	return 0;
@@ -61,7 +61,7 @@ diff -ru a/drivers/soc/sprd/modem/sipc/sipx.c b/drivers/soc/sprd/modem/sipc/sipx
  				       dev_no,
  				       sipx_device, "sipx");
 -	device_create_file(&sipx_device->pdev.dev, &dev_attr_base_addr);
-+	/* MU300: the vendor also created a "base_addr" attribute here: with neither show nor store, on a device that
++	/* OPENF50: the vendor also created a "base_addr" attribute here: with neither show nor store, on a device that
 +	 * is never registered - it could never be read, and each one warned twice (about a second of boot each) */
  
  	return 0;
@@ -82,7 +82,7 @@ diff -ru a/drivers/soc/sprd/modem/sipc/smem.c b/drivers/soc/sprd/modem/sipc/smem
  				       dev_no,
  				       smem_dev, "sipc_smem");
 -	device_create_file(&smem_dev->pdev.dev, &dev_attr_base_addr);
-+	/* MU300: the vendor also created a "base_addr" attribute here: with neither show nor store, on a device that
++	/* OPENF50: the vendor also created a "base_addr" attribute here: with neither show nor store, on a device that
 +	 * is never registered - it could never be read, and each one warned twice (about a second of boot each) */
  
  	return 0;
@@ -103,7 +103,7 @@ diff -ru a/drivers/soc/sprd/modem/sipc/smsg.c b/drivers/soc/sprd/modem/sipc/smsg
  				       dev_no,
  				       smsg_dev, "sipc_smsg");
 -	device_create_file(&smsg_dev->pdev.dev, &dev_attr_base_addr);
-+	/* MU300: the vendor also created a "base_addr" attribute here: with neither show nor store, on a device that
++	/* OPENF50: the vendor also created a "base_addr" attribute here: with neither show nor store, on a device that
 +	 * is never registered - it could never be read, and each one warned twice (about a second of boot each) */
  
  	return 0;
@@ -124,7 +124,7 @@ diff -ru a/drivers/unisoc_platform/mailbox/unisoc-mailbox-hal.c b/drivers/unisoc
  				       dev_no,
  				       mbox_dev, "mbox");
 -	device_create_file(&mbox_dev->pdev.dev, &dev_attr_base_addr);
-+	/* MU300: the vendor also created a "base_addr" attribute here: with neither show nor store, on a device that
++	/* OPENF50: the vendor also created a "base_addr" attribute here: with neither show nor store, on a device that
 +	 * is never registered - it could never be read, and each one warned twice (about a second of boot each) */
  
  	return 0;

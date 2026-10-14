@@ -160,7 +160,7 @@ int kbasep_pm_metrics_init(struct kbase_device *kbdev)
 
 #ifdef CONFIG_MALI_MIDGARD_DVFS
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 15, 0)
-	hrtimer_setup(&kbdev->pm.backend.metrics.timer, dvfs_callback, CLOCK_MONOTONIC, HRTIMER_MODE_REL);	/* MU300: hrtimer_init() is gone */
+	hrtimer_setup(&kbdev->pm.backend.metrics.timer, dvfs_callback, CLOCK_MONOTONIC, HRTIMER_MODE_REL);	/* OPENF50: hrtimer_init() is gone */
 #else
 	hrtimer_init(&kbdev->pm.backend.metrics.timer, CLOCK_MONOTONIC,
 							HRTIMER_MODE_REL);

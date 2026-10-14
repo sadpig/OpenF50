@@ -39,7 +39,7 @@
 
 #ifdef SPRD_SUPPORT_FAULT_KEYWORD
 #include <string.h>
-extern s64 time[FAULT_KEYWORD_NUM];	/* MU300: s64 is gone from the kernel headers */
+extern s64 time[FAULT_KEYWORD_NUM];	/* OPENF50: s64 is gone from the kernel headers */
 #endif
 
 extern void kbase_trace_gpu_work_period(struct kbase_device *kbdev, struct kbase_jd_atom *katom, ktime_t end_timestamp);

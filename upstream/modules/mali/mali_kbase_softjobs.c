@@ -43,7 +43,7 @@
 
 #ifdef SPRD_SUPPORT_FAULT_KEYWORD
 #include <linux/sunrpc/cache.h>
-extern s64 time[FAULT_KEYWORD_NUM];  /* MU300: s64 is gone from the kernel headers */
+extern s64 time[FAULT_KEYWORD_NUM];  /* OPENF50: s64 is gone from the kernel headers */
 #endif
 
 #if !MALI_USE_CSF
@@ -289,7 +289,7 @@ void kbasep_complete_triggered_soft_events(struct kbase_context *kctx, u64 evt)
 
 	if (cancel_timer)
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 15, 0)
-		timer_delete(&kctx->soft_job_timeout);	/* MU300: del_timer() was renamed */
+		timer_delete(&kctx->soft_job_timeout);	/* OPENF50: del_timer() was renamed */
 #else
 		del_timer(&kctx->soft_job_timeout);
 #endif

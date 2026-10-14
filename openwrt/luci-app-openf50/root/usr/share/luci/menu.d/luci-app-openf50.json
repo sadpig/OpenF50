@@ -1,0 +1,90 @@
+{
+	"admin/home": {
+		"title": "Status dashboard",
+		"order": 5,
+		"action": {
+			"type": "view",
+			"path": "openf50/home"
+		},
+		"depends": {
+			"acl": [ "luci-app-openf50" ]
+		}
+	},
+
+	"admin/modem": {
+		"title": "Cellular",
+		"order": 25,
+		"action": {
+			"type": "firstchild"
+		},
+		"depends": {
+			"acl": [ "luci-app-openf50" ]
+		}
+	},
+
+	"admin/modem/locks": {
+		"title": "Network locks",
+		"order": 1,
+		"action": {
+			"type": "view",
+			"path": "openf50/locks"
+		},
+		"depends": {
+			"acl": [ "luci-app-openf50" ]
+		}
+	},
+
+	"admin/modem/sms": {
+		"title": "SMS",
+		"order": 2,
+		"action": {
+			"type": "view",
+			"path": "openf50/sms"
+		},
+		"depends": {
+			"acl": [ "luci-app-openf50" ]
+		}
+	},
+
+	"admin/modem/at": {
+		"title": "AT terminal",
+		"order": 3,
+		"action": {
+			"type": "view",
+			"path": "openf50/at"
+		},
+		"depends": {
+			"acl": [ "luci-app-openf50" ]
+		}
+	},
+
+	"admin/modem/settings": {
+		"title": "Adapter settings",
+		"order": 6,
+		"action": {
+			"type": "view",
+			"path": "openf50/settings"
+		},
+		"depends": {
+			"acl": [ "luci-app-openf50" ]
+		}
+	},
+	"admin/modem/ttl": {
+		"title": "TTL",
+		"order": 4,
+		"action": { "type": "view", "path": "openf50/ttl" },
+		"depends": { "acl": [ "luci-app-openf50" ] }
+	},
+	"admin/modem/device": {
+		"title": "Device management",
+		"order": 5,
+		"action": { "type": "view", "path": "openf50/device" },
+		"depends": { "acl": [ "luci-app-openf50" ] }
+	},
+	"admin/system/openf50-languages": {
+		"title": "Languages",
+		"order": 15,
+		"action": { "type": "view", "path": "openf50/languages" },
+		"depends": { "acl": [ "luci-app-openf50" ] }
+	}
+}

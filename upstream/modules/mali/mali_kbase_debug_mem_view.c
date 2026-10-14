@@ -235,7 +235,7 @@ static int debug_mem_open(struct inode *i, struct file *file)
 	int ret;
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 7, 0)
-	/* MU300: get_file_rcu() takes the slot, not the file, and returns the file it managed to grab */
+	/* OPENF50: get_file_rcu() takes the slot, not the file, and returns the file it managed to grab */
 	if (!get_file_rcu(&kctx->filp))
 		return -ENOENT;
 #else

@@ -1,11 +1,11 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * MU300: linux/of_gpio.h is gone in 7.x; the legacy GPIO number API the vendor code feeds with it is not. kbuild
+ * OPENF50: linux/of_gpio.h is gone in 7.x; the legacy GPIO number API the vendor code feeds with it is not. kbuild
  * searches the kernel's include directories first, so this file is only used by a kernel that has no header of
  * this name - on 6.x the kernel's own of_get_named_gpio() is.
  */
-#ifndef _MU300_OF_GPIO_H
-#define _MU300_OF_GPIO_H
+#ifndef _OPENF50_OF_GPIO_H
+#define _OPENF50_OF_GPIO_H
 
 #include <linux/err.h>
 #include <linux/gpio.h>
@@ -29,7 +29,7 @@ static inline int of_get_named_gpio(const struct device_node *np, const char *pr
 		con[n - 5] = '\0';
 
 	desc = fwnode_gpiod_get_index(of_fwnode_handle((struct device_node *)np), con, index,
-				      GPIOD_ASIS, "mu300-of-gpio");
+				      GPIOD_ASIS, "openf50-of-gpio");
 	if (IS_ERR(desc))
 		return PTR_ERR(desc);
 	gpio = desc_to_gpio(desc);

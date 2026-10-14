@@ -183,7 +183,7 @@ static void iface_stop_net(struct sprd_vif *vif)
 	spin_unlock_bh(&priv->list_lock);
 }
 
-/* MU300: no Android /mnt/vendor/wifimac.txt; LK puts androidboot.wifimac=<12 hex digits> in /chosen/bootargs */
+/* OPENF50: no Android /mnt/vendor/wifimac.txt; LK puts androidboot.wifimac=<12 hex digits> in /chosen/bootargs */
 static bool iface_bootargs_mac(u8 *addr)
 {
 	struct device_node *chosen = of_find_node_by_path("/chosen");
@@ -226,7 +226,7 @@ static void iface_set_mac_addr(struct sprd_vif *vif, u8 *pending_addr,
 				is_valid_ether_addr(priv->default_mac_sta_second)) {
 		ether_addr_copy(addr, priv->default_mac_sta_second);
 	} else if (strncmp(vif->name, "wlan1", 5) != 0 && iface_bootargs_mac(addr)) {
-		/* MU300: factory address that LK passes in /chosen/bootargs */
+		/* OPENF50: factory address that LK passes in /chosen/bootargs */
 	} else {
 		random_ether_addr(addr);
 		netdev_warn(vif->ndev, "%s Warning: use random MAC address\n",
@@ -267,7 +267,7 @@ int sprd_iface_set_power(struct sprd_hif *hif, int val)
 	int ret = 0;
 
 	/*
-	 * MU300: power_cnt is atomic, the transitions behind it are not.  Probe powers the chip off after it
+	 * OPENF50: power_cnt is atomic, the transitions behind it are not.  Probe powers the chip off after it
 	 * registered wlan0, outside RTNL, so userspace (hostapd, netifd) can open the interface meanwhile: the
 	 * open's power-on (1st count) ran start_marlin + post_init while the probe's power-off (last count) was
 	 * still in post_deinit.  post_deinit then cleared the channels and sc2355_hif.hif that post_init had just
@@ -1726,7 +1726,7 @@ static int iface_core_init(struct device *dev, struct sprd_priv *priv)
 	}
 #ifdef CONFIG_PM
 	/*
-	 * MU300: WoWLAN "any" on by default. Without a WoWLAN configuration cfg80211's wiphy_suspend() closes every
+	 * OPENF50: WoWLAN "any" on by default. Without a WoWLAN configuration cfg80211's wiphy_suspend() closes every
 	 * interface (cfg80211_leave_all), and the WCN PCI function, which suspends asynchronously, has usually taken
 	 * the bus down by then: CMD_CLOSE and CMD_DISCONNECT were dropped ("fail because bus done"), the firmware kept
 	 * them open, and the next close and open of Wi-Fi after the resume hit a firmware assert (mchn.c line 137)
@@ -1823,7 +1823,7 @@ int sprd_iface_probe(struct platform_device *pdev,
 	ret = iface_core_init(&pdev->dev, priv);
 	if (ret) {
 		pr_err("%s core init failed: %d\n", __func__, ret);
-		/* MU300: power off while hif still exists (sprd_core_free frees priv, and hif with it) */
+		/* OPENF50: power off while hif still exists (sprd_core_free frees priv, and hif with it) */
 		sprd_iface_set_power(hif, false);
 		sprd_hif_deinit(hif);
 		sprd_core_free(priv);
@@ -1863,7 +1863,7 @@ int sprd_iface_remove(struct platform_device *pdev)
 
 	iface_notify_deinit(priv);
 	iface_core_deinit(priv);
-	/* MU300: power off while hif still exists (sprd_core_free frees priv, and hif and its lock with it) */
+	/* OPENF50: power off while hif still exists (sprd_core_free frees priv, and hif and its lock with it) */
 	pr_info("Power off WCN (%d time)\n", atomic_read(&hif->power_cnt));
 	sprd_iface_set_power(hif, false);
 	sprd_hif_deinit(hif);

@@ -24,7 +24,7 @@
 #include "txrx.h"
 
 /*
- * MU300: the firmware hands each frame up with a 16-bit sum over the transport header and payload. It is checked
+ * OPENF50: the firmware hands each frame up with a 16-bit sum over the transport header and payload. It is checked
  * here against the pseudo-header of the frame's own IP header (lengths from that header, every header inside the
  * frame): true means the transport checksum is right. Only TCP and UDP (IPv4, IPv6) and ICMPv6 are checked, and only
  * behind a plain IP header (no IPv4 options, no IPv6 extension headers: where the firmware starts its sum is not
@@ -344,7 +344,7 @@ sc2355_rx_mh_addr_process(struct rx_mgmt *rx_mgmt, void *data,
 
 	} else {
 		pr_debug("%s: Add TX complete code here\n", __func__);
-		/* MU300: the vendor printed "out of time" here whenever two TX completions were more than a second
+		/* OPENF50: the vendor printed "out of time" here whenever two TX completions were more than a second
 		 * apart - which is every idle second (hundreds of lines an hour, none of them a problem) */
 		sc2355_tx_free_data_num(hif, (unsigned char *)data);
 		misc_work = sprd_alloc_work(sizeof(void *));
@@ -382,7 +382,7 @@ static void rx_net_work_queue(struct work_struct *work)
 
 
 /*
- * MU300: verify the firmware's sum, never trust it and never drop a frame for it. The vendor code handed every
+ * OPENF50: verify the firmware's sum, never trust it and never drop a frame for it. The vendor code handed every
  * frame but IPv6 up as CHECKSUM_COMPLETE with this sum unchecked - when the firmware had it wrong (seen: the DHCP
  * DISCOVER of a client that was joining) the stack found the frame good and printed "hw csum failure" with a
  * stack dump - and dropped any IPv6 frame whose sum did not match here: IPv6 fragments always, and TCP from Wi-Fi

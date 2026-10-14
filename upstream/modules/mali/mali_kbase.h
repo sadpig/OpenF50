@@ -481,7 +481,7 @@ static inline void kbase_free_user_buffer(
 *
 *      return the seconds of rigth_now .
 */
-/* MU300: s64 is gone from the kernel headers; this only ever held milliseconds since the epoch */
+/* OPENF50: s64 is gone from the kernel headers; this only ever held milliseconds since the epoch */
 static inline s64 seconds_right_now(void)
 {
 	s64 rigth_now;

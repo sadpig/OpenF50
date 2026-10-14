@@ -1681,7 +1681,7 @@ int sbuf_init_debug(void)
 	dev_t dev_no;
 
 	/*
-	 * MU300: sprd_ipc_probe() calls this once per SIPC device (four of them), but there is one class and one
+	 * OPENF50: sprd_ipc_probe() calls this once per SIPC device (four of them), but there is one class and one
 	 * device of this name: every later call failed with "cannot create duplicate filename '/class/sbuf'" and a
 	 * stack dump, and leaked a chrdev region and a cdev.
 	 */

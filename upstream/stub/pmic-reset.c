@@ -1,5 +1,5 @@
 /*
- * Bare-metal probe for the MU300 LK entry point: reset the board through the UMP9620 PMIC (ADI bus, MMU off).
+ * Bare-metal probe for the OPENF50 LK entry point: reset the board through the UMP9620 PMIC (ADI bus, MMU off).
  * Used to prove that a reset path exists before the kernel runs. SPDX-License-Identifier: GPL-2.0-only
  */
 typedef unsigned int u32;

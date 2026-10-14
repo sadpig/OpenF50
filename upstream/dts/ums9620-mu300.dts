@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * ZTE F50 / MU300 (Unisoc UMS9620 / T760) - minimal device tree for mainline Linux.
+ * ZTE F50 / OPENF50 (Unisoc UMS9620 / T760) - minimal device tree for mainline Linux.
  * Only generic ARM blocks and memory layout; SoC peripherals (clocks, pinctrl, USB, PCIe) have no mainline drivers.
  * sprd,sc-id is what the Unisoc LK bootloader uses to pick this DTB out of vendor_boot.
  */
@@ -9,7 +9,7 @@
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 
 / {
-	model = "ZTE F50 (MU300, Unisoc UMS9620)";
+	model = "ZTE F50 (OPENF50, Unisoc UMS9620)";
 	compatible = "zte,mu300", "sprd,ums9620";
 	sprd,sc-id = "ums9620 1000 1000";
 	interrupt-parent = <&gic>;

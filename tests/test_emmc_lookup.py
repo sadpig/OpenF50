@@ -1,5 +1,5 @@
 """The Linux-side partition lookups that lead to writes - init's misc and boot_<slot> (the BCB, the persistent log,
-mu300-next-boot), early-recorder's log partition, mu300-update's kernel partition - and Android's by-name links: all of
+openf50-next-boot), early-recorder's log partition, openf50-update's kernel partition - and Android's by-name links: all of
 them on the eMMC only. A card can carry an eMMC-style GPT (a raw clone of a device backup) with partitions named misc,
 boot_a and boot_b, and must never be written to, whichever of mmcblk0 and mmcblk1 it is (FINDINGS 31l)."""
 import re
@@ -36,18 +36,18 @@ class EmmcLookup(ShellTest):
         return root
 
     def lookups(self, shell, root, name):
-        """What each of the four finds for partition NAME: init, early-recorder, mu300-update, android-vendor-start"""
+        """What each of the four finds for partition NAME: init, early-recorder, openf50-update, android-vendor-start"""
         sysd = root / 'sys'
-        init = self.sh(shell, 'log() { :; }\n' + block(INIT, 'emmc') + f'\nemmc_part {name}', MU300_SYS=sysd,
-                       MU300_DEV='/dev').stdout.strip()
+        init = self.sh(shell, 'log() { :; }\n' + block(INIT, 'emmc') + f'\nemmc_part {name}', OPENF50_SYS=sysd,
+                       OPENF50_DEV='/dev').stdout.strip()
         rec = self.sh(shell, f'PART={name}\n' + block((BIN / 'early-recorder').read_text(), 'part')
-                      + '\necho "$LOGDEV"', MU300_SYS=sysd).stdout.strip()
-        upd = self.sh(shell, f'. "{BIN}/mu300-update"; part_dev {name}', MU300_LIB=1, MU300_BIN=BIN,
-                      MU300_SYSROOT=root).stdout.strip()
+                      + '\necho "$LOGDEV"', OPENF50_SYS=sysd).stdout.strip()
+        upd = self.sh(shell, f'. "{BIN}/openf50-update"; part_dev {name}', OPENF50_LIB=1, OPENF50_BIN=BIN,
+                      OPENF50_SYSROOT=root).stdout.strip()
         avs = self.sh(shell, block((BIN / 'android-vendor-start').read_text(), 'emmc')
                       + f'\nfor u in "$SYS/block/$E/$E"p*/uevent; do grep -qx PARTNAME={name} "$u" && '
-                      'p=${u%/uevent} && echo /dev/${p##*/}; done', MU300_SYS=sysd).stdout.strip()
-        return {'init': init, 'early-recorder': rec, 'mu300-update': upd, 'android-vendor-start': avs}
+                      'p=${u%/uevent} && echo /dev/${p##*/}; done', OPENF50_SYS=sysd).stdout.strip()
+        return {'init': init, 'early-recorder': rec, 'openf50-update': upd, 'android-vendor-start': avs}
 
     def test_a_card_with_an_emmc_gpt_is_never_chosen(self):
         for card, emmc in (('mmcblk0', 'mmcblk1'), ('mmcblk1', 'mmcblk0')):
@@ -84,7 +84,7 @@ class EmmcLookup(ShellTest):
                              ({'mmcblk0': ('SD', CARD_GPT), 'mmcblk1': (None, EMMC_GPT)}, 'mmcblk1')):
             root = self.fake(layout)
             for shell in self.each_shell():
-                r = self.sh(shell, 'set -e\n' + block(src, 'emmc') + '\necho "E=$E"', MU300_SYS=root / 'sys')
+                r = self.sh(shell, 'set -e\n' + block(src, 'emmc') + '\necho "E=$E"', OPENF50_SYS=root / 'sys')
                 self.assertEqual((r.returncode, r.stdout), (0, f'E={want}\n'), (shell, r.stderr))
             shutil.rmtree(root)
 
@@ -96,7 +96,7 @@ class EmmcDev(ShellTest):
             (s / 'block' / disk / 'device').mkdir(parents=True, exist_ok=True)
             if typ:
                 (s / 'block' / disk / 'device' / 'type').write_text(typ + '\n')
-        return self.sh(shell, block(INIT, 'emmc') + f'\n{call}; echo "rc=$?"', MU300_SYS=s, MU300_DEV='/dev').stdout
+        return self.sh(shell, block(INIT, 'emmc') + f'\n{call}; echo "rc=$?"', OPENF50_SYS=s, OPENF50_DEV='/dev').stdout
 
     def test_fallback_is_never_a_card(self):
         for shell in self.each_shell():

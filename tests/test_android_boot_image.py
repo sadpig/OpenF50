@@ -97,7 +97,7 @@ class DeviceSide(ShellTest):
         self.stub('magiskboot', MAGISKBOOT)
 
     def lib(self, shell, code, magiskboot='magiskboot', **env):
-        pre = f'MU300_LIB=1 . "{BIN}/mu300-update"; . "{LIB}"; '
+        pre = f'OPENF50_LIB=1 . "{BIN}/openf50-update"; . "{LIB}"; '
         return self.sh(shell, pre + code, MAGISKBOOT=self.stubs / magiskboot, **env)
 
     def test_blocks_equal_the_python_builders(self):
@@ -123,7 +123,7 @@ class DeviceSide(ShellTest):
         for shell in self.each_shell():
             s, fw = self.tmp / 'subset', self.tmp / 'fw'
             r = self.lib(shell, f'collect_subset "{TOP}/android-vendor/subset-files.txt" "{s}" && collect_firmware "{fw}"',
-                         MU300_ANDROID_ROOT=root, MU300_FW_DIRS=f'{root}/odm/firmware {root}/vendor/firmware')
+                         OPENF50_ANDROID_ROOT=root, OPENF50_FW_DIRS=f'{root}/odm/firmware {root}/vendor/firmware')
             self.assertEqual(r.returncode, 0, r.stderr)
             self.assertTrue((s / 'vendor/bin/modem_control').is_file())
             self.assertEqual(os.readlink(s / 'system/bin/linker64'), '/apex/com.android.runtime/bin/linker64')
@@ -131,7 +131,7 @@ class DeviceSide(ShellTest):
             self.assertEqual(sorted(os.listdir(fw)), sorted(os.listdir(root / 'vendor/firmware')))
             shutil.rmtree(fw)
             (root / 'vendor/firmware/gnssmodem.bin').rename(root / 'gnss.bak')
-            r = self.lib(shell, f'collect_firmware "{fw}"', MU300_FW_DIRS=f'{root}/vendor/firmware')
+            r = self.lib(shell, f'collect_firmware "{fw}"', OPENF50_FW_DIRS=f'{root}/vendor/firmware')
             self.assertNotEqual(r.returncode, 0)
             self.assertIn('gnssmodem.bin', r.stdout)
             (root / 'gnss.bak').rename(root / 'vendor/firmware/gnssmodem.bin')
@@ -146,16 +146,16 @@ class DeviceSide(ShellTest):
                 out = self.tmp / f'v-{os_name}.tar.gz'
                 r = self.lib(shell, f'collect_subset "{TOP}/android-vendor/subset-files.txt" "{self.tmp}/s" && '
                                     f'collect_firmware "{self.tmp}/fw" && vendor_overlay {os_name} "{self.tmp}/fw" "{self.tmp}/s" "" "{out}"',
-                             MU300_ANDROID_ROOT=root, MU300_FW_DIRS=f'{root}/vendor/firmware')
+                             OPENF50_ANDROID_ROOT=root, OPENF50_FW_DIRS=f'{root}/vendor/firmware')
                 self.assertEqual(r.returncode, 0, r.stderr)
                 names = subprocess.run(['tar', '-tzf', str(out)], capture_output=True, text=True).stdout.split()
                 names = [n.lstrip('./') for n in names]
                 self.assertIn(f'{fwdir}/wcnmodem.bin', names)
-                self.assertIn('opt/mu300/android/vendor/bin/modem_control', names)
-                self.assertTrue(any(n.startswith('opt/mu300/android/dev-properties/') for n in names))
-                self.assertFalse([n for n in names if n.startswith('opt/mu300/android/dev/')])
+                self.assertIn('opt/openf50/android/vendor/bin/modem_control', names)
+                self.assertTrue(any(n.startswith('opt/openf50/android/dev-properties/') for n in names))
+                self.assertFalse([n for n in names if n.startswith('opt/openf50/android/dev/')])
                 # no entry for a directory the system already has: Ubuntu's lib is a link to usr/lib
-                self.assertFalse([n for n in names if n.rstrip('/') in ('lib', 'usr', 'usr/lib', 'opt', 'opt/mu300')])
+                self.assertFalse([n for n in names if n.rstrip('/') in ('lib', 'usr', 'usr/lib', 'opt', 'opt/openf50')])
                 shutil.rmtree(self.tmp / 's'); shutil.rmtree(self.tmp / 'fw')
 
     def bundle_inputs(self):
@@ -186,12 +186,12 @@ class DeviceSide(ShellTest):
         shutil.rmtree(work, ignore_errors=True)
         seg, out = work / 'seg', work / 'out'
         seg.mkdir(parents=True); out.mkdir()
-        r = self.lib(shell, f'mkdir -p "{seg}/etc" && echo f50 > "{seg}/etc/mu300-device" && '
-                            f'echo b > "{seg}/etc/mu300-linux-slot" && bc_files {LIVE_A.hex()} "{seg}/etc" && '
+        r = self.lib(shell, f'mkdir -p "{seg}/etc" && echo f50 > "{seg}/etc/openf50-device" && '
+                            f'echo b > "{seg}/etc/openf50-linux-slot" && bc_files {LIVE_A.hex()} "{seg}/etc" && '
                             f'collect_subset "{TOP}/android-vendor/subset-files.txt" "{seg}/android" && '
                             f'device_segment "{seg}" "{work}/dev.lz4" && '
                             f'linux_boot_image "{self.stock}" "{self.bundle}" "{work}/dev.lz4" "{out}"',
-                     magiskboot=magiskboot, MU300_ANDROID_ROOT=self.root)
+                     magiskboot=magiskboot, OPENF50_ANDROID_ROOT=self.root)
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertFalse((work / 'dev.lz4.cpio').exists())
         return work
@@ -217,7 +217,7 @@ class DeviceSide(ShellTest):
             got = leaves(cpio_all(unlz4_legacy(ramdisk_of(new))))
             self.assertEqual(got, leaves(cpio_all(unlz4_legacy(ramdisk_of(pyimg)))))
             self.assertTrue(got['android/vendor/bin/modem_control'][1], 'modem_control is not executable')
-            self.assertEqual(got['etc/mu300-device'][2], b'f50\n')
+            self.assertEqual(got['etc/openf50-device'][2], b'f50\n')
 
             # the kernel does not create the parents of what it unpacks: the device segment names every one
             devseg = cpio_files(unlz4_legacy((work / 'dev.lz4').read_bytes()))
@@ -254,7 +254,7 @@ class DeviceSide(ShellTest):
             for n in generic:
                 self.assertIn(n, files)
             self.assertIn('android/vendor/bin/modem_control', files)
-            self.assertEqual(files['etc/mu300-device'][1], b'f50\n')
+            self.assertEqual(files['etc/openf50-device'][1], b'f50\n')
 
     def test_device_segment_refuses_a_bad_frame_and_leaves_no_copy(self):
         d = self.tmp / 'd'
@@ -288,12 +288,12 @@ class DeviceSide(ShellTest):
         root, lst, paths = self.gpu_root()
         g = self.tmp / 'gpu'
         for shell in self.each_shell():
-            r = self.lib(shell, f'collect_gpu "{lst}" "{g}"', MU300_ANDROID_ROOT=root)
+            r = self.lib(shell, f'collect_gpu "{lst}" "{g}"', OPENF50_ANDROID_ROOT=root)
             self.assertEqual(r.returncode, 0, r.stderr)
             for p in paths:
                 self.assertEqual((g / p).read_bytes(), b'gpu ' + p.encode())
             (root / paths[1]).rename(self.tmp / 'gone')
-            r = self.lib(shell, f'collect_gpu "{lst}" "{g}"', MU300_ANDROID_ROOT=root)
+            r = self.lib(shell, f'collect_gpu "{lst}" "{g}"', OPENF50_ANDROID_ROOT=root)
             self.assertNotEqual(r.returncode, 0)
             self.assertFalse(g.exists())
             (self.tmp / 'gone').rename(root / paths[1])
@@ -311,13 +311,13 @@ class DeviceSide(ShellTest):
                f'collect_firmware "{self.tmp}/fw" && ')
         for shell in self.each_shell():
             r = self.lib(shell, pre + f'vendor_overlay ubuntu "{self.tmp}/fw" "{self.tmp}/s" "{g}" "{out}"',
-                         MU300_ANDROID_ROOT=root, MU300_FW_DIRS=f'{root}/vendor/firmware')
+                         OPENF50_ANDROID_ROOT=root, OPENF50_FW_DIRS=f'{root}/vendor/firmware')
             self.assertEqual(r.returncode, 0, r.stderr)
             with tarfile.open(out) as t:
                 files = {m.name.lstrip('./'): t.extractfile(m).read() for m in t.getmembers() if m.isreg()}
-            self.assertEqual(files['opt/mu300/android/vendor/lib64/libOpenCL.so'], b'opencl')
+            self.assertEqual(files['opt/openf50/android/vendor/lib64/libOpenCL.so'], b'opencl')
             # the subset's file wins
-            self.assertEqual(files['opt/mu300/android/vendor/bin/modem_control'], b'data vendor/bin/modem_control')
+            self.assertEqual(files['opt/openf50/android/vendor/bin/modem_control'], b'data vendor/bin/modem_control')
             self.assertFalse(list(self.tmp.glob('v.tar.gz.*')))
             # a GPU file that cannot be copied fails the overlay (here its directory is a file of the subset), and
             # leaves neither the archive nor the copies behind
@@ -325,7 +325,7 @@ class DeviceSide(ShellTest):
             (bad / 'vendor/bin/modem_control').mkdir(parents=True)
             (bad / 'vendor/bin/modem_control/x').write_bytes(b'x')
             r = self.lib(shell, pre + f'vendor_overlay ubuntu "{self.tmp}/fw" "{self.tmp}/s" "{bad}" "{out}"',
-                         MU300_ANDROID_ROOT=root, MU300_FW_DIRS=f'{root}/vendor/firmware')
+                         OPENF50_ANDROID_ROOT=root, OPENF50_FW_DIRS=f'{root}/vendor/firmware')
             self.assertNotEqual(r.returncode, 0)
             self.assertFalse(list(self.tmp.glob('v.tar.gz*')))
             shutil.rmtree(bad); shutil.rmtree(self.tmp / 's'); shutil.rmtree(self.tmp / 'fw')

@@ -1,8 +1,8 @@
-"""tools/android-mount-mu300root.sh -u: the unmount, with stubs for Android's umount and losetup, a mount table
-(MU300_MOUNTS) and a sysfs tree (MU300_SYSFS) standing in for the device's."""
+"""tools/android-mount-openf50root.sh -u: the unmount, with stubs for Android's umount and losetup, a mount table
+(OPENF50_MOUNTS) and a sysfs tree (OPENF50_SYSFS) standing in for the device's."""
 from helpers import TOP, ShellTest
 
-HELPER = TOP / 'tools' / 'android-mount-mu300root.sh'
+HELPER = TOP / 'tools' / 'android-mount-openf50root.sh'
 
 
 class Unmount(ShellTest):
@@ -30,8 +30,8 @@ class Unmount(ShellTest):
     def run_u(self, shell, **env):
         self.loop.mkdir(parents=True, exist_ok=True)
         (self.loop / 'backing_file').write_text('/dev/block/mmcblk0\n')
-        r = self.script(shell, HELPER, '-u', self.mp, MU300_MOUNTS=self.tmp / 'mounts',
-                        MU300_SYSFS=self.tmp / 'sys', **env)
+        r = self.script(shell, HELPER, '-u', self.mp, OPENF50_MOUNTS=self.tmp / 'mounts',
+                        OPENF50_SYSFS=self.tmp / 'sys', **env)
         calls = (self.tmp / 'calls').read_text() if (self.tmp / 'calls').exists() else ''
         (self.tmp / 'calls').unlink(missing_ok=True)
         return r, calls

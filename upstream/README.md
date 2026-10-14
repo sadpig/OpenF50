@@ -1,11 +1,11 @@
-# Mainline (LTS) kernel on the MU300
+# Mainline (LTS) kernel on the OPENF50
 
 Mainline **Linux 6.18.55** (the current longterm series) runs Ubuntu 24.04 and OpenWrt 25.12 on the ZTE F50 /
-MU300 (Unisoc UMS9620): all 8 CPUs (4×A55, 4×A76), eMMC, USB NCM + ACM, the 5 GHz hotspot, Bluetooth, the modem
+OPENF50 (Unisoc UMS9620): all 8 CPUs (4×A55, 4×A76), eMMC, USB NCM + ACM, the 5 GHz hotspot, Bluetooth, the modem
 with mobile data (downlink and uplink), SMS, the VPN, the Mali GPU, thermal/cpufreq, the PMIC watchdog and
 reboot. `docs/FINDINGS.md` 31-31f has what it took and what is still open.
 
-On a device: `sudo mu300-update kernel 6.18` (or `7.2`, the newest stable release), and `sudo mu300-update kernel
+On a device: `sudo openf50-update kernel 6.18` (or `7.2`, the newest stable release), and `sudo openf50-update kernel
 5.4` back; the installer offers all three. Every kernel's modules stay installed.
 
 Reference: Unisoc's UMS9620 DT series (LKML, 2023-12-15, "arm64: dts: sprd: Add support for Unisoc's UMS9620", not
@@ -26,22 +26,22 @@ merged) describes the same GIC/UART/timer layout; this device is derived from th
 
 ## Build and test
 ```sh
-docker build -t mu300-mainline-build upstream/
-docker volume create mu300-mainline   # build.sh fetches linux-$KV (default 6.18.55) into it, checked against kernel.org
-docker run --rm -v mu300-mainline:/src -v "$PWD/upstream":/work mu300-mainline-build bash /work/build.sh
-docker run --rm -v mu300-mainline:/src -v "$PWD/upstream":/work mu300-mainline-build bash /work/build-modules.sh
-upstream/make-bundle.sh mu300-kernel-6.18.tar.gz        # Image for LK, generic ramdisk segment, modules
-# on the device: MU300_KERNEL_BUNDLE=/path/mu300-kernel-6.18.tar.gz mu300-update boot
+docker build -t openf50-mainline-build upstream/
+docker volume create openf50-mainline   # build.sh fetches linux-$KV (default 6.18.55) into it, checked against kernel.org
+docker run --rm -v openf50-mainline:/src -v "$PWD/upstream":/work openf50-mainline-build bash /work/build.sh
+docker run --rm -v openf50-mainline:/src -v "$PWD/upstream":/work openf50-mainline-build bash /work/build-modules.sh
+upstream/make-bundle.sh openf50-kernel-6.18.tar.gz        # Image for LK, generic ramdisk segment, modules
+# on the device: OPENF50_KERNEL_BUNDLE=/path/openf50-kernel-6.18.tar.gz openf50-update boot
 ```
 The build stops on anything that drifts silently: a patch that neither applies nor is applied, a config option
 Kconfig does not take (unless listed in `config-ignored.txt`), a port edit whose anchor moved, or a module whose
-vermagic does not match the kernel. `tools/make-release.sh` packages the same bundle as `mu300-kernel-6.18.tar.gz`.
+vermagic does not match the kernel. `tools/make-release.sh` packages the same bundle as `openf50-kernel-6.18.tar.gz`.
 
-The config is allnoconfig plus `mu300-mainline.config`: what the board and the boot need is built in, along with
+The config is allnoconfig plus `openf50-mainline.config`: what the board and the boot need is built in, along with
 KVM (`/dev/kvm`; the CPUs start at EL2); what only matters once used - netfilter extras, tunnels, IPsec, tc,
 filesystems, USB modems/adapters/Wi-Fi sticks, device mapper - is a module. `build-modules.sh` installs the
 kernel's own modules (stripped) flat into `out/modules` next to the vendor ones, and the bundle ships them all;
-`mu300-update` indexes them on Ubuntu (depmod) and OpenWrt loads them by name (FINDINGS 31o).
+`openf50-update` indexes them on Ubuntu (depmod) and OpenWrt loads them by name (FINDINGS 31o).
 
 The bring-up path of old (hand-built image, `init-bringup`, `boot/flash-trial.sh`) still works for experiments:
 ```sh
@@ -52,7 +52,7 @@ boot/flash-trial.sh boot-mainline.img      # slot b only, falls back to Android
 ## Debugging without a console
 * `stub/pmic-reset.c`: bare-metal PMIC reset used as the kernel entry — proved that LK reaches our code and that the
   PMIC reset works (30 s cycle instead of the ~320 s PM power cut).
-* `debug/install-probe.py` (`MU300_PROBE_STAGE=N` for `build.sh`): resets at a chosen boot stage; the cycle time tells
+* `debug/install-probe.py` (`OPENF50_PROBE_STAGE=N` for `build.sh`): resets at a chosen boot stage; the cycle time tells
   whether the stage was reached. This located the custom-DTB hang in `setup_machine_fdt`.
 
 ## Newer kernels (7.x)
@@ -65,16 +65,16 @@ next jump is kept small.) One source serves both:
 
 * `port/install.py` recognises the layout of what it edits (`sprd-sc27xx-spi.c` was reworked in 7.x), and every
   edit is checked afterwards, so a drifted anchor stops the build instead of being skipped.
-* The modules get the missing pieces from `modules/wcn_bsp/kinclude`: `mu300_compat.h` (7.x-only shims:
+* The modules get the missing pieces from `modules/wcn_bsp/kinclude`: `openf50_compat.h` (7.x-only shims:
   `strncpy`, alarmtimer, `linux/hex.h`) and `linux/of_gpio.h`, a shim kbuild only finds when the kernel has no
   such header. API changes that need more than a shim are under `LINUX_VERSION_CODE` (the cfg80211 ops taking a
   `wireless_dev`, `dma_fence_signal()` returning nothing).
 * `.github/workflows/mainline.yml` builds the port every week against the current longterm and the newest stable
   release, so the next break shows up as a red run rather than at the next jump.
 
-Releases carry it as `mu300-kernel-7.2.tar.gz`: `sudo mu300-update kernel 7.2` on the device, or choice 3 in the
+Releases carry it as `openf50-kernel-7.2.tar.gz`: `sudo openf50-update kernel 7.2` on the device, or choice 3 in the
 installer. It is built next to 6.18: `OUTDIR=out-7.2 KV=7.2.9` for `build.sh` and `build-modules.sh`, and
-`MU300_UPSTREAM_OUT=upstream/out-7.2` for `make-bundle.sh`; `tools/make-release.sh` packs both.
+`OPENF50_UPSTREAM_OUT=upstream/out-7.2` for `make-bundle.sh`; `tools/make-release.sh` packs both.
 
 ## Remaining mainline work (as of 2026-09-26)
 
@@ -139,8 +139,8 @@ Before and after, from the same logs:
 
 ### Bring-up
 
-`tools/mu300-modem-ml-load` loads 25 modules (no `sipa-dele`, see its comment). `cp_diskserver` is started first,
-`modem_control` about 8 s later. "Modem Alive" arrives within a minute, and `mu300-atd` then serves AT normally -
+`tools/openf50-modem-ml-load` loads 25 modules (no `sipa-dele`, see its comment). `cp_diskserver` is started first,
+`modem_control` about 8 s later. "Modem Alive" arrives within a minute, and `openf50-atd` then serves AT normally -
 15 commands in a row with no reopen needed.
 
 ### GPU
@@ -192,7 +192,7 @@ Fixes needed on top of the port:
 - cpufreq: vendor `sprd_sip_svc` + `sprd-cpufreq-v2`; ATF does the DVFS, the kernel asks through SIP SMC calls
   (3 policies: 4 little / 3 mid / 1 big, schedutil). PSCI cpuidle (WFI, core sleep, cluster power-down).
   Idle temperature dropped from ~54 C to ~48 C.
-- The stock DT has trip points only on the vendor virtual zone, so `/opt/mu300/bin/thermal-guard` caps cpufreq
+- The stock DT has trip points only on the vendor virtual zone, so `/opt/openf50/bin/thermal-guard` caps cpufreq
   above 85 C and powers off above 105 C on kernels without SoC trip points.
 
 - Watchdog: the UMP9620 PMIC watchdog that LK arms is taken over (`ump9620-pmic-wdt`), 60 s, pinged by the
@@ -202,7 +202,7 @@ Fixes needed on top of the port:
   Marlin3 driver needs a contiguous block of 32 MSIs.
 - Wi-Fi/BT (SC2355 Marlin3): `modules/` holds the vendor `wcn_bsp`, `sprd_wlan_combo` (SC2355 PCIe only) and
   `sprdbt_tty` ported to 6.18 as out-of-tree modules (`build-modules.sh`; `tools/port54.py` does the mechanical
-  5.4 API changes, `wcn_bsp/kinclude/mu300_compat.h` the rest). On OpenWrt the chip boots its firmware and the
+  5.4 API changes, `wcn_bsp/kinclude/openf50_compat.h` the rest). On OpenWrt the chip boots its firmware and the
   5 GHz VHT80 AP beacons. The factory Wi-Fi MAC is read from `androidboot.wifimac` in `/chosen/bootargs`.
   The WCN modules cannot be unloaded and reloaded (same as on 5.4).
 

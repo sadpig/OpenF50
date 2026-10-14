@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Rebuild a vendor_boot (header v4) image with a different DTB for mainline bring-up on the MU300.
+"""Rebuild a vendor_boot (header v4) image with a different DTB for mainline bring-up on the OPENF50.
 
 The DTB section of Unisoc vendor_boot is an Android DT table (magic 0xd7b7ab1e) with one entry; LK selects the
 entry by the DTB's sprd,sc-id property. The vendor ramdisk, the ramdisk table and the header fields are kept;

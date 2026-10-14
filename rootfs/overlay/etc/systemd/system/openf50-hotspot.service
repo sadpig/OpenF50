@@ -1,0 +1,25 @@
+[Unit]
+# the radio does one thing at a time: no hotspot while the device is a client of another network
+ConditionPathExists=!/run/openf50-wifi-client.active
+# "wifi-client scan-mode on": this boot leaves the radio a station so that networks can be listed (taken from
+# /etc/openf50/wifi-scan-mode by openf50-wifi-scan-mode.service, for this boot only)
+ConditionPathExists=!/run/openf50-wifi-scan-mode
+After=openf50-wifi-scan-mode.service
+Description=OPENF50 Wi-Fi hotspot (hostapd on wlan0, bridged into br-lan)
+After=openf50-wifi.service openf50-lan.service
+Requires=openf50-wifi.service
+Wants=openf50-lan.service
+# hostapd owns wlan0 in AP mode
+Conflicts=wpa_supplicant.service
+
+[Service]
+ExecStart=/opt/openf50/bin/hotspot-start
+ExecStartPost=-/opt/openf50/bin/hotspot-verify
+ExecStartPost=-/opt/openf50/bin/openf50-led wifi on
+ExecStopPost=/opt/openf50/bin/hotspot-stop
+ExecStopPost=-/opt/openf50/bin/openf50-led wifi off
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

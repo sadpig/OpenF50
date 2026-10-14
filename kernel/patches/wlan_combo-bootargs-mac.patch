@@ -23,7 +23,7 @@ interface) keeps the old behaviour, as in mainline.
 +}
 +
 +/*
-+ * MU300: there is no Android /mnt/vendor/wifimac.txt, so every boot had a new random address; LK puts the factory
++ * OPENF50: there is no Android /mnt/vendor/wifimac.txt, so every boot had a new random address; LK puts the factory
 + * one in /chosen/bootargs as androidboot.wifimac=<12 hex digits> (as in the mainline port's iface.c)
 + */
 +static bool iface_bootargs_mac(u8 *addr)
@@ -59,7 +59,7 @@ interface) keeps the old behaviour, as in mainline.
  				is_valid_ether_addr(priv->default_mac_sta_second)) {
  		ether_addr_copy(addr, priv->default_mac_sta_second);
 +	} else if (strncmp(vif->name, "wlan1", 5) != 0 && iface_bootargs_mac(addr)) {
-+		/* MU300: the factory address that LK passes in /chosen/bootargs */
++		/* OPENF50: the factory address that LK passes in /chosen/bootargs */
  	} else {
  		random_ether_addr(addr);
  		netdev_warn(vif->ndev, "%s Warning: use random MAC address\n",

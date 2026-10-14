@@ -1,0 +1,13 @@
+[Unit]
+Description=OPENF50 toolkit: apply the saved performance profile and TTL setting
+ConditionPathExists=|/etc/openf50/toolkit.conf
+ConditionPathExists=|/etc/openf50/ttl.conf
+After=openf50-vendor.service openf50-firewall.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/opt/openf50/bin/openf50-toolkit apply
+
+[Install]
+WantedBy=multi-user.target

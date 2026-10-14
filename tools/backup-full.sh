@@ -14,7 +14,7 @@
 set -eu
 OUT=${1:?usage: tools/backup-full.sh OUTDIR}
 CHUNK=512            # MiB per piece
-T=/data/local/tmp/mu300-backup
+T=/data/local/tmp/openf50-backup
 command -v adb >/dev/null || { echo "adb not found" >&2; exit 1; }
 su_do() { adb shell "/debug_ramdisk/su -c '$1'" </dev/null | tr -d '\r'; }
 [ "$(su_do 'id -u')" = 0 ] || { echo "su does not work on the device" >&2; exit 1; }

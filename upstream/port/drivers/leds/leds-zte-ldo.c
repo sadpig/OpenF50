@@ -4,7 +4,7 @@
  * ZTE's zte_ldo_leds switches under Android. Without a driver the bootloader leaves them on and
  * regulator_ignore_unused keeps them that way, so the network, Wi-Fi and power lights never went out under
  * mainline. Each supply becomes an LED class device (zte-ldo0..2): on is the LDO enabled at 3.3 V, off disabled.
- * They start dark; mu300-led drives them.
+ * They start dark; openf50-led drives them.
  */
 #include <linux/leds.h>
 #include <linux/module.h>

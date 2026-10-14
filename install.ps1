@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-    MU300 / ZTE F50 Linux installer for Windows (same as install.sh on macOS/Linux).
+    OPENF50 / ZTE F50 Linux installer for Windows (same as install.sh on macOS/Linux).
 
 .DESCRIPTION
     Run with the device booted in rooted Android and connected over USB (adb).
@@ -17,7 +17,7 @@
     u:object_r:<context>:s0), so the archive from the device is kept beside it as work\android-subset\
     windows-source.tar.gz, and the tools that build the images take the subset from that file.
     Only the Linux region (or the SD card), boot_b and 32 bytes of misc are written; boot_a, the GPT and userdata
-    stay untouched. With an SD card in the slot it asks where the Linux filesystem goes ($env:MU300_STORAGE =
+    stay untouched. With an SD card in the slot it asks where the Linux filesystem goes ($env:OPENF50_STORAGE =
     'internal' or 'sd' answers without asking).
 #>
 [CmdletBinding()]
@@ -25,7 +25,7 @@ param(
     [switch]$Check,
     [string]$Release = '',   # empty: the newest published release
     [string]$ReleaseUrl,
-    [string]$Repo = 'dikeckaan/mu300-linux',
+    [string]$Repo = 'openf50-f50/OpenF50',
     [string]$Work = '',      # empty: .\work next to this script
     [string]$Lang = '',      # en, tr or zh; empty: ask (English is the default)
     [string]$Answers = '',   # file with one answer per line: run without a console (see Ask; the password too)
@@ -37,12 +37,12 @@ $T = '/data/local/tmp'
 # $PSScriptRoot can be empty in Windows PowerShell 5.1 (param defaults, `powershell -File` from cmd.exe)
 $Top = if ($PSScriptRoot) { $PSScriptRoot } else { Split-Path -Parent $MyInvocation.MyCommand.Path }
 if (-not $Work) { $Work = Join-Path $Top 'work' }
-# the USB network of each kind of device: F50 192.168.77.1, U30 Air 192.168.78.1; $MU300_IP is set to the one
+# the USB network of each kind of device: F50 192.168.77.1, U30 Air 192.168.78.1; $OPENF50_IP is set to the one
 # that answers
-$MU300_IP = '192.168.77.1'
+$OPENF50_IP = '192.168.77.1'
 function LinuxRunning {
     foreach ($ip in @('192.168.77.1', '192.168.78.1')) {
-        if (Test-NetConnection -ComputerName $ip -Port 22 -InformationLevel Quiet -WarningAction SilentlyContinue) { $script:MU300_IP = $ip; return $true }
+        if (Test-NetConnection -ComputerName $ip -Port 22 -InformationLevel Quiet -WarningAction SilentlyContinue) { $script:OPENF50_IP = $ip; return $true }
     }
     return $false
 }
@@ -126,9 +126,9 @@ function FindAdb {
 
 # Bring this copy of the project up to date with GitHub before doing anything (tools/self-update.sh does the same
 # for install.sh): a git clone is fast-forwarded to GitHub's main, a downloaded zip gets the files that differ,
-# with the commit checked kept in .mu300-source. Without GitHub the local copy runs; nothing here stops an install.
+# with the commit checked kept in .openf50-source. Without GitHub the local copy runs; nothing here stops an install.
 function SelfUpdate {
-    if ($NoSelfUpdate -or $env:MU300_NO_SELF_UPDATE -or $env:MU300_SELF_UPDATED) { return $false }
+    if ($NoSelfUpdate -or $env:OPENF50_NO_SELF_UPDATE -or $env:OPENF50_SELF_UPDATED) { return $false }
     $ProgressPreference = 'SilentlyContinue'   # Windows PowerShell 5.1 downloads many times slower with the bar
     try { [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12 } catch { }
     try { $remote = (Invoke-RestMethod "https://api.github.com/repos/$Repo/commits/main" -UseBasicParsing -TimeoutSec 15).sha } catch { $remote = $null }
@@ -157,10 +157,10 @@ function SelfUpdate {
             return $false
         }
     } else {
-        $stamp = Join-Path $Top '.mu300-source'
+        $stamp = Join-Path $Top '.openf50-source'
         if ((Test-Path $stamp) -and ((Get-Content $stamp -Raw).Trim() -eq $remote)) { return $false }
         Say (T 'Checking the installer against the newest version on GitHub')
-        $tmp = Join-Path ([IO.Path]::GetTempPath()) ("mu300-src-" + [Guid]::NewGuid().ToString('N'))
+        $tmp = Join-Path ([IO.Path]::GetTempPath()) ("openf50-src-" + [Guid]::NewGuid().ToString('N'))
         try {
             New-Item -ItemType Directory -Force -Path $tmp | Out-Null
             Invoke-WebRequest "https://codeload.github.com/$Repo/zip/$remote" -OutFile "$tmp\src.zip" -UseBasicParsing -TimeoutSec 600
@@ -171,11 +171,11 @@ function SelfUpdate {
             return $false
         }
         $src = (Get-ChildItem "$tmp\x" -Directory | Select-Object -First 1).FullName
-        # Files listed in .mu300-keep stay as they are: without this the published copy would replace the
+        # Files listed in .openf50-keep stay as they are: without this the published copy would replace the
         # fixed scripts of this copy on the very next run, and the install would fail in the same place
         # again. The git branch above does the same by refusing to touch a copy with local changes.
         $keep = @()
-        $keepFile = Join-Path $Top '.mu300-keep'
+        $keepFile = Join-Path $Top '.openf50-keep'
         if (Test-Path $keepFile) {
             $keep = @([IO.File]::ReadAllLines($keepFile, [Text.Encoding]::UTF8) |
                 ForEach-Object { $_.Trim().Replace('\', '/') } | Where-Object { $_ -and -not $_.StartsWith('#') })
@@ -210,7 +210,7 @@ function Die($m) { Write-Host ("`n" + (T 'ERROR:') + " $m") -ForegroundColor Red
 function Quiet([scriptblock]$QuietBlock_) { $ErrorActionPreference = 'Continue'; & $QuietBlock_ 2>$null }
 # With more than one adb device attached (a phone, an emulator, a device over the network) every plain adb command
 # fails with "more than one device/emulator", which read as "no adb device". Pick the F50 and point adb at it with
-# ANDROID_SERIAL: the only device, else the only one that says it is an F50/MU300 or a U30 Air, else ask (-Quiet
+# ANDROID_SERIAL: the only device, else the only one that says it is an F50/OPENF50 or a U30 Air, else ask (-Quiet
 # never asks).
 function SelectDevice([switch]$Quiet) {
     if ($env:ANDROID_SERIAL) { return }
@@ -250,7 +250,7 @@ function SuDo($cmd) {
 # side, but the damage happens on the other one: some devices give `su -c` a pty, whose ONLCR rewrites every
 # LF as CRLF, so the bytes are already corrupt before they reach the host (issue #2).
 function SuDoToFile($cmd, $path) {
-    $dev = '/data/local/tmp/mu300-pull.bin'
+    $dev = '/data/local/tmp/openf50-pull.bin'
     & adb shell "su -c '$cmd > $dev'" | Out-Null
     Quiet { adb pull $dev "$path" } | Out-Null
     & adb shell "su -c 'rm -f $dev'" | Out-Null
@@ -344,7 +344,7 @@ function PushUnix($src, $dst) {
 
 # first of all, make this the newest installer (it runs the updated one and ends when it changed)
 if (SelfUpdate) {
-    $env:MU300_SELF_UPDATED = '1'
+    $env:OPENF50_SELF_UPDATED = '1'
     $PSBoundParameters['Lang'] = $Lang
     & $PSCommandPath @PSBoundParameters
     exit $LASTEXITCODE
@@ -373,21 +373,21 @@ $target = @((Quiet { adb devices -l }) | Where-Object { $_ -match '^\S+\s+device
 $linuxFirst = (-not $env:ANDROID_SERIAL) -and $target.Count -eq 0 -and (LinuxRunning)
 if (-not $linuxFirst) { SelectDevice }
 if ($linuxFirst -or (AdbState) -notmatch 'device') {
-    # the device may be running MU300 Linux right now: then only SSH on the USB network answers
+    # the device may be running OPENF50 Linux right now: then only SSH on the USB network answers
     $linux = $linuxFirst -or (LinuxRunning)
     if (-not $linux) { Die (T 'no adb device (boot Android, enable USB debugging)') }
-    Say (T 'The device is running MU300 Linux, not Android')
+    Say (T 'The device is running OPENF50 Linux, not Android')
     Write-Host ('  ' + (T 'Installing and uninstalling happen from Android (slot a), so the device has to reboot first.'))
     Write-Host ('  ' + (T 'I can ask it over SSH; you will be prompted for its password.'))
-    if ((Ask (T 'Reboot the device into Android now? (yes/no)') 'yes') -ne 'yes') { Die (T 'boot Android yourself (on the device: sudo mu300-next-boot android && sudo reboot)') }
+    if ((Ask (T 'Reboot the device into Android now? (yes/no)') 'yes') -ne 'yes') { Die (T 'boot Android yourself (on the device: sudo openf50-next-boot android && sudo reboot)') }
     # -t: sudo needs a terminal to ask for the device password; reboot cuts the connection, so watch the port
     foreach ($u in 'ubuntu', 'root') {
-        Write-Host ('  ' + (T '{1} - enter the device password when asked (Ctrl-C to skip)' "$u@$MU300_IP"))
-        & ssh -t -o StrictHostKeyChecking=no -o UserKnownHostsFile=NUL -o LogLevel=ERROR -o ConnectTimeout=8 "$u@$MU300_IP" `
-            'if [ "$(id -u)" = 0 ]; then S=; else S=sudo; fi; $S sh -c "/opt/mu300/bin/mu300-next-boot android && sync && reboot"'
+        Write-Host ('  ' + (T '{1} - enter the device password when asked (Ctrl-C to skip)' "$u@$OPENF50_IP"))
+        & ssh -t -o StrictHostKeyChecking=no -o UserKnownHostsFile=NUL -o LogLevel=ERROR -o ConnectTimeout=8 "$u@$OPENF50_IP" `
+            'if [ "$(id -u)" = 0 ]; then S=; else S=sudo; fi; $S sh -c "/opt/openf50/bin/openf50-next-boot android && sync && reboot"'
         $gone = $false
         for ($i = 0; $i -lt 8; $i++) {
-            if (-not (Test-NetConnection -ComputerName $MU300_IP -Port 22 -InformationLevel Quiet -WarningAction SilentlyContinue)) { $gone = $true; break }
+            if (-not (Test-NetConnection -ComputerName $OPENF50_IP -Port 22 -InformationLevel Quiet -WarningAction SilentlyContinue)) { $gone = $true; break }
             Start-Sleep 5
         }
         if ($gone) { Write-Host ('  ' + (T 'rebooting')); break }
@@ -397,7 +397,7 @@ if ($linuxFirst -or (AdbState) -notmatch 'device') {
         if ((AdbState) -match 'device') { break }
         Start-Sleep 5
     }
-    if ((AdbState) -notmatch 'device') { Die (T 'the device did not come back as Android; boot it yourself (mu300-next-boot android)') }
+    if ((AdbState) -notmatch 'device') { Die (T 'the device did not come back as Android; boot it yourself (openf50-next-boot android)') }
     Write-Host ('  ' + (T 'Android is up'))
 }
 # an Android that is still starting answers adb before su and storage are ready: the pulls then failed
@@ -413,8 +413,8 @@ Write-Host (T 'device: {1}' $model)
 $DEVICE = 'f50'
 if ($model -match 'U30Air|U30_Air|U30 Air') {
     $DEVICE = 'u30air'
-} elseif ($model -notmatch 'MU300|F50|mu300') {
-    if ((Ask (T 'This does not look like a ZTE F50/MU300 or U30 Air. Continue anyway? (yes/no)') 'no') -ne 'yes') { exit 1 }
+} elseif ($model -notmatch 'OPENF50|F50|openf50') {
+    if ((Ask (T 'This does not look like a ZTE F50/OPENF50 or U30 Air. Continue anyway? (yes/no)') 'no') -ne 'yes') { exit 1 }
 }
 if ((SuDo 'getprop ro.boot.slot_suffix') -ne '_a') { Die (T 'Android must be running from slot a') }
 
@@ -435,32 +435,32 @@ function StorageDefault([int64]$InternalBytes, [string]$SdState) {
 }
 function ChooseStorage([string]$SdDev, [int64]$SdBytes, [int64]$InternalBytes, [string]$Forced, [string]$Answer, [string]$SdState) {
     if ($Forced -eq 'internal') { return 'internal' }
-    if ($Forced -eq 'sd') { if (-not $SdDev) { throw 'MU300_STORAGE=sd, but there is no usable SD card in the device' }; return 'sd' }
-    if ($Forced) { throw 'MU300_STORAGE must be internal or sd' }
+    if ($Forced -eq 'sd') { if (-not $SdDev) { throw 'OPENF50_STORAGE=sd, but there is no usable SD card in the device' }; return 'sd' }
+    if ($Forced) { throw 'OPENF50_STORAGE must be internal or sd' }
     if (-not $SdDev) { return 'internal' }
     if (-not $Answer) { return (StorageDefault $InternalBytes $SdState) }
     if ($Answer -eq 'internal' -or $Answer -eq 'sd') { return $Answer }
     throw 'invalid choice'
 }
 # The systems a choice stands for (1 Ubuntu, 2 OpenWrt, 3 both), the way install.sh's choose_systems has them. OpenWrt is
-# plain (1) or with the MU300 control panel (2, "openwrt-luci" then stands in the list instead of "openwrt"); $Preset
-# is MU300_OPENWRT (plain|luci) and answers without asking, an empty $Which is the default (plain).
+# plain (1) or with the OPENF50 control panel (2, "openwrt-luci" then stands in the list instead of "openwrt"); $Preset
+# is OPENF50_OPENWRT (plain|luci) and answers without asking, an empty $Which is the default (plain).
 function ChooseOpenWrt([string[]]$Oses, [string]$Preset, [string]$Which) {
     if ($Preset) {
-        if ($Preset -eq 'plain') { $Which = '1' } elseif ($Preset -eq 'luci') { $Which = '2' } else { throw 'MU300_OPENWRT must be plain or luci' }
+        if ($Preset -eq 'plain') { $Which = '1' } elseif ($Preset -eq 'luci') { $Which = '2' } else { throw 'OPENF50_OPENWRT must be plain or luci' }
     } elseif (-not $Which) { $Which = '1' }
     if ($Which -ne '1' -and $Which -ne '2') { throw 'invalid choice' }
     if ($Which -eq '2') { return @($Oses | ForEach-Object { if ($_ -eq 'openwrt') { 'openwrt-luci' } else { $_ } }) }
     return @($Oses)
 }
-# boot/init starts a mu300sd card before anything on the eMMC: an internal installation made while such a card is
+# boot/init starts a openf50sd card before anything on the eMMC: an internal installation made while such a card is
 # in the slot never starts, so that choice needs the typed word (storage.sh's internal_over_card)
 function InternalOverCard([string]$Where, [string]$SdState) { return ($Where -eq 'internal' -and $SdState -eq 'yes') }
-# What the card holds, from the ext4 magic and label of its superblock: yes for a mu300sd filesystem, foreign for
+# What the card holds, from the ext4 magic and label of its superblock: yes for a openf50sd filesystem, foreign for
 # any other ext4, labelled or not (someone's data: android-install.sh refuses to format it), no for anything else
 function SdState([string]$Magic, [string]$Label) {
     if ($Magic -ne '53ef') { return 'no' }
-    if ($Label.Trim() -eq 'mu300sd') { return 'yes' }
+    if ($Label.Trim() -eq 'openf50sd') { return 'yes' }
     return 'foreign'
 }
 # A card installation needs a kernel that reads the card (tools/storage.sh's sd_kernel_ok): the mainline bundles
@@ -470,7 +470,7 @@ function SdKernelOk([int]$SdMode, [string]$Dir) {
     $f = Join-Path $Dir 'features'
     return [bool]((Test-Path $f) -and (@(Get-Content $f) -contains 'sdcard'))
 }
-# mu300-install.env, what android-install.sh is told (tools/storage.sh's write_install_env writes the same text).
+# openf50-install.env, what android-install.sh is told (tools/storage.sh's write_install_env writes the same text).
 # OFF/SIZE and their sectors are always the internal region: in SD mode SIZE is the card's by now and INT_SIZE keeps
 # the region's, which the root-on-sd marker needs; the card's own size is read on the device.
 function InstallEnvText($v) {
@@ -505,19 +505,19 @@ $SD_MODE = 0; $sdEx = 'no'
 if ($Check) {
     if ($SD_DEV) {
         $sdEx = SdExisting
-        Write-Host (T 'SD card: {1}, {2}, existing mu300sd filesystem: {3}' $SD_DEV (Gib $SD_BYTES) (T $(if ($sdEx -eq 'yes') { 'yes' } else { 'no' })))
+        Write-Host (T 'SD card: {1}, {2}, existing openf50sd filesystem: {3}' $SD_DEV (Gib $SD_BYTES) (T $(if ($sdEx -eq 'yes') { 'yes' } else { 'no' })))
         if ($sdEx -eq 'foreign') { Write-Host ('  ' + (T 'the SD card holds another Linux (ext4) filesystem; the installer will not format it')) }
     }
 } else {
     $ans = ''
     if ($SD_DEV) { $sdEx = SdExisting }
-    if ($SD_DEV -and -not $env:MU300_STORAGE) {
+    if ($SD_DEV -and -not $env:OPENF50_STORAGE) {
         $ans = Ask (T 'Where should the Linux filesystem go: internal storage or the SD card ({1}, {2})? (internal/sd)' $SD_DEV (Gib $SD_BYTES)) (StorageDefault $SIZE $sdEx)
     }
-    try { $where = ChooseStorage $SD_DEV $SD_BYTES $SIZE ([string]$env:MU300_STORAGE) $ans $sdEx }
+    try { $where = ChooseStorage $SD_DEV $SD_BYTES $SIZE ([string]$env:OPENF50_STORAGE) $ans $sdEx }
     catch { Die (T $_.Exception.Message) }
     if (InternalOverCard $where $sdEx) {
-        Write-Host (T 'The SD card ({1}) holds a Linux installation (mu300sd), and the device always starts that one first: an installation to internal storage does not start while this card is in the slot.' $SD_DEV)
+        Write-Host (T 'The SD card ({1}) holds a Linux installation (openf50sd), and the device always starts that one first: an installation to internal storage does not start while this card is in the slot.' $SD_DEV)
         Write-Host (T 'Take the card out before the device restarts, or erase its installation first with the uninstaller.')
         if ((Ask (T 'Type internal to install to internal storage anyway') 'no') -ne 'internal') { Die (T 'cancelled') }
     }
@@ -526,7 +526,7 @@ if ($Check) {
         # Another Linux filesystem on the card may be someone's data, and the device refuses to format it. Say so
         # now, not after the password, the download and the build.
         if ($sdEx -eq 'foreign') {
-            Die ((T 'the SD card ({1}) holds another Linux (ext4) filesystem, and the installer never formats one that is not its own (mu300sd).' $SD_DEV) + "`n" + (T 'Copy off what you need and format the card elsewhere, use another card, or install to internal storage (MU300_STORAGE=internal).'))
+            Die ((T 'the SD card ({1}) holds another Linux (ext4) filesystem, and the installer never formats one that is not its own (openf50sd).' $SD_DEV) + "`n" + (T 'Copy off what you need and format the card elsewhere, use another card, or install to internal storage (OPENF50_STORAGE=internal).'))
         }
     }
 }
@@ -550,17 +550,17 @@ $existing = 'no'
 foreach ($cand in @($OFF, 27762098176)) {
     $m = (SuDo "dd if=/dev/block/mmcblk0 bs=1 skip=$($cand + 1080) count=2 2>/dev/null | od -An -tx1") -replace '\s', ''
     $l = (SuDo "dd if=/dev/block/mmcblk0 bs=1 skip=$($cand + 1144) count=16 2>/dev/null") -replace '\0', ''
-    if ($m -eq '53ef' -and $l.Trim() -eq 'mu300root') {
+    if ($m -eq '53ef' -and $l.Trim() -eq 'openf50root') {
         $blocks = [int64]((SuDo "dd if=/dev/block/mmcblk0 bs=1 skip=$($cand + 1028) count=4 2>/dev/null | od -An -tu4").Trim())
         $OFF = $cand; $SIZE = $blocks * 4096; $existing = 'yes'; break
     }
 }
-Write-Host (T 'Linux region: offset {1}, {2}, existing mu300root filesystem: {3}' $OFF (Gib $SIZE) (T $existing))
+Write-Host (T 'Linux region: offset {1}, {2}, existing openf50root filesystem: {3}' $OFF (Gib $SIZE) (T $existing))
 $INTERNAL_EXISTS = $(if ($existing -eq 'yes') { 1 } else { 0 }); [int64]$INT_SIZE = 0
 if ($SD_MODE -eq 1) {
     # from here on SIZE and existing describe the card; OFF and INT_SIZE keep the internal region for the marker
     $INT_SIZE = $SIZE; $SIZE = $SD_BYTES; $existing = SdExisting
-    Write-Host (T 'Linux filesystem: SD card {1}, {2}, existing mu300sd filesystem: {3}' $SD_DEV (Gib $SIZE) (T $existing))
+    Write-Host (T 'Linux filesystem: SD card {1}, {2}, existing openf50sd filesystem: {3}' $SD_DEV (Gib $SIZE) (T $existing))
 }
 
 $dirty = 0
@@ -579,7 +579,7 @@ if ($SD_MODE -eq 0 -and $existing -eq 'no') {
     }
 }
 if ($existing -eq 'yes') {
-    $verdict = T 'OK: a MU300 Linux installation is already present (it can be kept or replaced)'
+    $verdict = T 'OK: a OPENF50 Linux installation is already present (it can be kept or replaced)'
 } elseif ($SD_MODE -eq 1) {
     $verdict = T 'OK: the SD card will be formatted; everything on it is erased'
 } elseif ($dirty -gt 0) {
@@ -603,7 +603,7 @@ if ($dirty -gt 0 -and (Ask (T 'Type overwrite to use this region anyway') 'no') 
 Say (T 'What should be installed?')
 Write-Host ('  ' + (T '1) Ubuntu LTS: 24.04 or 26.04, asked next (full distribution, apt, ~500 MiB RAM in use)'))
 Write-Host ('  ' + (T '2) OpenWrt {1} (router, LuCI web UI, ~140 MiB RAM in use)' '25.12.5'))
-Write-Host ('  ' + (T '3) both (switch later with: mu300-os ubuntu|openwrt)'))
+Write-Host ('  ' + (T '3) both (switch later with: openf50-os ubuntu|openwrt)'))
 if ($SIZE -lt $NEED_BOTH) {
     $fits = if ($SIZE -ge $NEED_UBUNTU) { T 'one system fits, not both' } else { T 'only OpenWrt fits' }
     Write-Host ('  ' + (T '(this device has {1}: {2})' (Gib $SIZE) $fits))
@@ -615,13 +615,13 @@ switch (Ask (T 'Choice') '3') {
     default { Die (T 'invalid choice') }
 }
 if ($OSES -contains 'openwrt') {
-    $owPreset = [string]$env:MU300_OPENWRT
-    if ($owPreset -and $owPreset -notin 'plain', 'luci') { Die (T 'MU300_OPENWRT must be plain or luci') }
+    $owPreset = [string]$env:OPENF50_OPENWRT
+    if ($owPreset -and $owPreset -notin 'plain', 'luci') { Die (T 'OPENF50_OPENWRT must be plain or luci') }
     $owAnswer = ''
     if (-not $owPreset) {
         Say (T 'Which OpenWrt?')
         Write-Host ('  ' + (T '1) OpenWrt {1}: the standard LuCI web interface' '25.12.5'))
-        Write-Host ('  ' + (T '2) OpenWrt {1} with the MU300 control panel: dashboard, cellular locks, SMS, AT terminal, USB modes (by kanoqwq)' '25.12.5'))
+        Write-Host ('  ' + (T '2) OpenWrt {1} with the OPENF50 control panel: dashboard, cellular locks, SMS, AT terminal, USB modes (by kanoqwq)' '25.12.5'))
         $owAnswer = Ask (T 'Choice') '1'
     }
     try { $OSES = @(ChooseOpenWrt $OSES $owPreset $owAnswer) } catch { Die (T 'invalid choice') }
@@ -648,7 +648,7 @@ if ($OSES -contains 'ubuntu') {
     }
 }
 # the release file of a system: Ubuntu 26.04 has its own, 24.04 keeps the name it always had
-function RootfsFile($os) { if ($os -eq 'ubuntu' -and $UBUNTU -eq '26.04') { 'mu300-ubuntu-26.04-rootfs.tar.gz' } else { "mu300-$os-rootfs.tar.gz" } }
+function RootfsFile($os) { if ($os -eq 'ubuntu' -and $UBUNTU -eq '26.04') { 'openf50-ubuntu-26.04-rootfs.tar.gz' } else { "openf50-$os-rootfs.tar.gz" } }
 $DEFAULT_LINUX = if ((Ask (T 'Boot Linux by default instead of Android (falls back to Android if Linux fails)? (yes/no)') 'yes') -eq 'yes') { 1 } else { 0 }
 $BOOT_ATTEMPTS = 5
 if ($DEFAULT_LINUX -eq 1) {
@@ -665,15 +665,15 @@ if ($DEFAULT_LINUX -eq 1) {
     Write-Host ('  ' + (T '  many times in a row.'))
     Write-Host ''
     Write-Host ('  ' + (T "1 is how this project used to behave (a single interrupted boot returns to Android). 1-6; the device's"))
-    Write-Host ('  ' + (T 'boot counter has no room for more. It can be changed later with: mu300-next-boot attempts N'))
+    Write-Host ('  ' + (T 'boot counter has no room for more. It can be changed later with: openf50-next-boot attempts N'))
     $BOOT_ATTEMPTS = Ask (T 'Failed boots before Android (1-6)') '5'
     if ($BOOT_ATTEMPTS -notmatch '^[1-6]$') { Die (T 'enter a number from 1 to 6') }
 }
 $IMPORT_HOTSPOT = if ((Ask (T "Copy Android's hotspot name and password to Linux? (yes/no)") 'yes') -eq 'yes') { 1 } else { 0 }
 $gpu = Ask (T 'Include the Mali GPU (OpenCL) userspace (~90 MiB)? (yes/no)') 'yes'
 # the VPN engines are not part of the systems: an extra that goes onto the Linux partition only when wanted
-Write-Host ('  ' + (T 'The VPN (mu300-vpn) needs the vpn extra: Xray and sing-box. It can also be added later on the device:'))
-Write-Host '    sudo mu300-extra install vpn'
+Write-Host ('  ' + (T 'The VPN (openf50-vpn) needs the vpn extra: Xray and sing-box. It can also be added later on the device:'))
+Write-Host '    sudo openf50-extra install vpn'
 $vx = Ask (T 'Install the VPN extra (about 40 MB more to download, 120 MB on the device)? (yes/no)') 'no'
 $EXTRA_VPN = $null
 $KERNEL = $null
@@ -683,7 +683,7 @@ Write-Host ('  ' + (T '2) 6.18  mainline Linux, current long-term (LTS) release:
 Write-Host ('  ' + (T '         functions (hotspot, mobile data, SMS, Bluetooth, VPN, GPU); no USB-C video output yet'))
 Write-Host ('  ' + (T '3) 7.2   the newest stable mainline Linux (7.2 for now): the newest drivers, the same functions'))
 Write-Host ('  ' + (T '         as 6.18; tested less than 6.18'))
-Write-Host ('  ' + (T 'This can be changed later on the device: sudo mu300-update kernel 5.4|6.18|7.2'))
+Write-Host ('  ' + (T 'This can be changed later on the device: sudo openf50-update kernel 5.4|6.18|7.2'))
 while (-not $KERNEL) {
     switch (Ask (T 'Kernel') '1') {
         { $_ -in '1', '5.4' } {
@@ -701,8 +701,8 @@ if ($existing -eq 'no') {
     $FORMAT = 1
 } else {
     Write-Host ''
-    Write-Host ('  ' + (T 'A MU300 Linux installation is already on this device.'))
-    Write-Host ('    ' + (T 'update  reinstall the systems and keep settings and data (/etc/mu300, users and home directories,'))
+    Write-Host ('  ' + (T 'A OPENF50 Linux installation is already on this device.'))
+    Write-Host ('    ' + (T 'update  reinstall the systems and keep settings and data (/etc/openf50, users and home directories,'))
     Write-Host ('    ' + (T '        SSH host keys, OpenWrt UCI config; the hotspot settings are kept too)'))
     Write-Host ('    ' + (T 'wipe    erase the Linux filesystem and install from scratch'))
     switch (Ask (T 'update or wipe') 'update') {
@@ -751,7 +751,7 @@ foreach ($f in 'wcnmodem.bin', 'gnssmodem.bin', 'wifi_board_config.ini', 'wifi_b
 if ($gpu -eq 'yes') {
     # every run, not only the first: the script keeps what was already pulled and fills in the rest, and a
     # run that was interrupted used to leave a half-full directory behind that the old guard trusted
-    $env:MU300_CLOSURE_ROOT = "$Work\android-gpu-subset"
+    $env:OPENF50_CLOSURE_ROOT = "$Work\android-gpu-subset"
     Python "$Top\android-vendor\pull_closure.py" /vendor/lib64/libOpenCL.so /vendor/lib64/egl/libGLES_mali.so /vendor/lib64/hw/vulkan.ums9620.so
 }
 
@@ -772,16 +772,16 @@ foreach ($line in Get-Content "$REL\SHA256SUMS") {
     $p = $line -split '\s+', 2
     if ($p.Count -eq 2) { $sums[$p[1].TrimStart('*')] = $p[0] }
 }
-$files = @('mu300-kernel.tar.gz') + ($OSES | ForEach-Object { RootfsFile $_ })
-if ($KERNEL -ne '5.4') { $files += "mu300-kernel-$KERNEL.tar.gz" }
+$files = @('openf50-kernel.tar.gz') + ($OSES | ForEach-Object { RootfsFile $_ })
+if ($KERNEL -ne '5.4') { $files += "openf50-kernel-$KERNEL.tar.gz" }
 if ($vx -eq 'yes') {
     # from the same release and SHA256SUMS; a release from before extras still has the engines in its images
-    if ($sums.ContainsKey('mu300-extra-vpn.tar.gz')) { $files += 'mu300-extra-vpn.tar.gz'; $EXTRA_VPN = "$REL\mu300-extra-vpn.tar.gz" }
+    if ($sums.ContainsKey('openf50-extra-vpn.tar.gz')) { $files += 'openf50-extra-vpn.tar.gz'; $EXTRA_VPN = "$REL\openf50-extra-vpn.tar.gz" }
     else { Write-Host ('  ' + (T 'release {1} has no vpn extra: its systems still carry the VPN engines' $Release)) }
 }
 foreach ($f in $files) {
     if (-not $sums.ContainsKey($f)) {
-        $why = if ($KERNEL -ne '5.4' -and $f -eq "mu300-kernel-$KERNEL.tar.gz") { ' ' + (T '(choose kernel 5.4, or a newer release)') } else { '' }
+        $why = if ($KERNEL -ne '5.4' -and $f -eq "openf50-kernel-$KERNEL.tar.gz") { ' ' + (T '(choose kernel 5.4, or a newer release)') } else { '' }
         Die ((T '{1} is not part of release {2}' $f $Release) + $why)
     }
     $have = if (Test-Path "$REL\$f") { (Get-FileHash "$REL\$f" -Algorithm SHA256).Hash.ToLower() } else { '' }
@@ -794,7 +794,7 @@ foreach ($f in $files) {
 }
 Remove-Item -Recurse -Force "$REL\kernel" -ErrorAction SilentlyContinue
 New-Item -ItemType Directory -Force -Path "$REL\kernel" | Out-Null
-& tar -xzf "$REL\mu300-kernel.tar.gz" -C "$REL\kernel"
+& tar -xzf "$REL\openf50-kernel.tar.gz" -C "$REL\kernel"
 if ($DEVICE -ne 'f50' -and -not (Test-Path "$REL\kernel\modules-$DEVICE")) { Die (T 'release {1} does not support this device yet; use a newer one' $Release) }
 # a mainline kernel (6.18, 7.2): its bundle, unpacked
 $KMAIN = $null
@@ -802,23 +802,23 @@ if ($KERNEL -ne '5.4') {
     $KMAIN = "$REL\kernel-$KERNEL"
     Remove-Item -Recurse -Force $KMAIN -ErrorAction SilentlyContinue
     New-Item -ItemType Directory -Force -Path $KMAIN | Out-Null
-    & tar -xzf "$REL\mu300-kernel-$KERNEL.tar.gz" -C $KMAIN
+    & tar -xzf "$REL\openf50-kernel-$KERNEL.tar.gz" -C $KMAIN
     foreach ($k in 'Image', 'ramdisk-generic.lz4', 'kernel.release') {
-        if (-not (Test-Path "$KMAIN\$k")) { Die (T '{1} is incomplete' "mu300-kernel-$KERNEL.tar.gz") }
+        if (-not (Test-Path "$KMAIN\$k")) { Die (T '{1} is incomplete' "openf50-kernel-$KERNEL.tar.gz") }
     }
     # a bundle names the devices it runs on; older mainline kernels do not bring up the U30 Air's USB (FINDINGS 33c)
     if ($DEVICE -ne 'f50' -and -not ((Test-Path "$KMAIN\devices") -and ((Get-Content "$KMAIN\devices") -match "\b$DEVICE\b"))) {
         Die (T 'release {1} does not support this device yet; use a newer one' $Release)
     }
     if (-not (SdKernelOk $SD_MODE $KMAIN)) {
-        Die (T 'the {1} kernel of release {2} cannot read the SD card: choose kernel 5.4, a newer release, or internal storage (MU300_STORAGE=internal)' $KERNEL $Release)
+        Die (T 'the {1} kernel of release {2} cannot read the SD card: choose kernel 5.4, a newer release, or internal storage (OPENF50_STORAGE=internal)' $KERNEL $Release)
     }
 }
 
 Say (T 'Adding the vendor files from your device to the images')
 foreach ($os in $OSES) {
     $argv = @("$Top\tools\vendor-overlay.py", '--os', $os, '--firmware', "$Work\firmware",
-        '--android-subset', "$Work\android-subset", '--out', "$Work\mu300-vendor-$os.tar.gz")
+        '--android-subset', "$Work\android-subset", '--out', "$Work\openf50-vendor-$os.tar.gz")
     if ($gpu -eq 'yes' -and (Test-Path "$Work\android-gpu-subset")) { $argv += @('--gpu-subset', "$Work\android-gpu-subset") }
     if ($KMAIN) { $argv += @('--kernel-bundle', $KMAIN) }
     Python @argv
@@ -831,7 +831,7 @@ $PWHASH = ($p1 | & $script:PyExe "$Top\tools\sha512crypt.py").Trim()
 Say (T 'Building the boot image')
 WriteUnix "$Work\init" (((Get-Content -Raw "$Top\boot\init") -replace '(?m)^ROOT_OFFSET=[0-9]*', "ROOT_OFFSET=$OFF"))
 # a mainline kernel: its kernel, and its generic ramdisk segment behind this one (its init and modules win) - the
-# image that "mu300-update kernel 6.18" (or 7.2) writes on the device
+# image that "openf50-update kernel 6.18" (or 7.2) writes on the device
 $bootArgs = @("$Top\boot\build-boot-image.py", '--stock-boot', "$Work\dumps\boot_a.img", '--misc-head', "$Work\dumps\misc-head.bin",
     '--kernel', $(if ($KMAIN) { "$KMAIN\Image" } else { "$REL\kernel\Image" }),
     '--modules', "$REL\kernel\modules", '--init', "$Work\init", '--busybox', "$REL\kernel\busybox",
@@ -862,48 +862,48 @@ if ($SD_MODE -eq 1) {
 if ((Ask (T 'Type INSTALL to continue') 'no') -ne 'INSTALL') { Die (T 'cancelled') }
 
 Say (T 'Copying to the device')
-foreach ($f in 'android-mount-mu300root.sh', 'android-install.sh') { PushUnix "$Top\tools\$f" "$T/$f" | Out-Null }
+foreach ($f in 'android-mount-openf50root.sh', 'android-install.sh') { PushUnix "$Top\tools\$f" "$T/$f" | Out-Null }
 foreach ($os in $OSES) {
-    & adb push "$REL\$(RootfsFile $os)" "$T/mu300-$os.tar.gz" | Out-Null
-    & adb push "$Work\mu300-vendor-$os.tar.gz" "$T/mu300-vendor-$os.tar.gz" | Out-Null
+    & adb push "$REL\$(RootfsFile $os)" "$T/openf50-$os.tar.gz" | Out-Null
+    & adb push "$Work\openf50-vendor-$os.tar.gz" "$T/openf50-vendor-$os.tar.gz" | Out-Null
 }
-# android-install.sh puts every pushed mu300-extra-<name>.tar.gz onto the Linux partition (extra/<name>)
-if ($EXTRA_VPN) { & adb push $EXTRA_VPN "$T/mu300-extra-vpn.tar.gz" | Out-Null }
-$envFile = "$Work\mu300-install.env"
+# android-install.sh puts every pushed openf50-extra-<name>.tar.gz onto the Linux partition (extra/<name>)
+if ($EXTRA_VPN) { & adb push $EXTRA_VPN "$T/openf50-extra-vpn.tar.gz" | Out-Null }
+$envFile = "$Work\openf50-install.env"
 WriteUnix $envFile (InstallEnvText @{ OFF = $OFF; SIZE = $SIZE; INT_SIZE = $INT_SIZE; FORMAT = $FORMAT; OSES = $OSES
     WIPE_LEGACY = $WIPE_LEGACY; UPDATE = $UPDATE; BOOT_OS = $BOOT_OS; DEFAULT_LINUX = $DEFAULT_LINUX
     BOOT_ATTEMPTS = $BOOT_ATTEMPTS; IMPORT_HOTSPOT = $IMPORT_HOTSPOT; KERNEL = $KERNEL; SD_MODE = $SD_MODE
     SD_DEV = $SD_DEV; INTERNAL_EXISTS = $INTERNAL_EXISTS; PWHASH = $PWHASH })
-& adb push $envFile "$T/mu300-install.env" | Out-Null
+& adb push $envFile "$T/openf50-install.env" | Out-Null
 Remove-Item $envFile
 $log = SuDo "sh $T/android-install.sh"
 Write-Host $log
-if ($log -notmatch 'MU300-INSTALL-OK') { Die (T 'installation on the device failed; boot_b and misc were not changed') }
+if ($log -notmatch 'OPENF50-INSTALL-OK') { Die (T 'installation on the device failed; boot_b and misc were not changed') }
 
 Say (T 'Writing boot_b and arming slot b')
 $EXP = (Get-Content "$Work\boot-linux-slotb.json" | ConvertFrom-Json).sha256
-& adb push "$Work\boot-linux-slotb.img" "$T/mu300-boot.img" | Out-Null
-& adb push "$Work\boot-linux-slotb.misc-slot-b-trial.bin" "$T/mu300-bc-b.bin" | Out-Null
-if ((SuDo "sha256sum $T/mu300-boot.img").Split(' ')[0] -ne $EXP) { Die (T 'pushed boot image hash mismatch') }
-SuDo "dd if=$T/mu300-boot.img of=/dev/block/by-name/boot_b bs=4M && sync" | Out-Null
+& adb push "$Work\boot-linux-slotb.img" "$T/openf50-boot.img" | Out-Null
+& adb push "$Work\boot-linux-slotb.misc-slot-b-trial.bin" "$T/openf50-bc-b.bin" | Out-Null
+if ((SuDo "sha256sum $T/openf50-boot.img").Split(' ')[0] -ne $EXP) { Die (T 'pushed boot image hash mismatch') }
+SuDo "dd if=$T/openf50-boot.img of=/dev/block/by-name/boot_b bs=4M && sync" | Out-Null
 if ((SuDo 'sha256sum /dev/block/by-name/boot_b').Split(' ')[0] -ne $EXP) { Die (T 'boot_b verify failed (slot a still active, Android keeps booting)') }
-SuDo "dd if=$T/mu300-bc-b.bin of=/dev/block/by-name/misc bs=1 seek=2048 conv=notrunc && sync && rm $T/mu300-boot.img $T/mu300-bc-b.bin" | Out-Null
+SuDo "dd if=$T/openf50-bc-b.bin of=/dev/block/by-name/misc bs=1 seek=2048 conv=notrunc && sync && rm $T/openf50-boot.img $T/openf50-bc-b.bin" | Out-Null
 
 # on-device switch for later: one command in Android instead of plugging into a computer (needs Magisk)
 Say (T 'Installing the on-device switch (Magisk module)')
-$ModSrc = Join-Path $Top 'android\magisk\mu300-linux-switch'
-$Mod = '/data/adb/modules/mu300_linux_switch'
-$MTmp = "$T/mu300-magisk"
+$ModSrc = Join-Path $Top 'android\magisk\openf50-linux-switch'
+$Mod = '/data/adb/modules/openf50_linux_switch'
+$MTmp = "$T/openf50-magisk"
 if ((SuDo 'magisk -v')) {
     Quiet { adb shell "rm -rf $MTmp" } | Out-Null
     Quiet { adb shell "mkdir -p $MTmp/system/bin" } | Out-Null
     foreach ($f in 'module.prop', 'switch.sh', 'action.sh') {
         Quiet { PushUnix (Join-Path $ModSrc $f) "$MTmp/$f" } | Out-Null
     }
-    Quiet { PushUnix (Join-Path $ModSrc 'system\bin\mu300-linux') "$MTmp/system/bin/mu300-linux" } | Out-Null
-    SuDo "rm -rf $Mod && mkdir -p $Mod/system/bin && cp -a $MTmp/module.prop $MTmp/switch.sh $MTmp/action.sh $Mod/ && cp -a $MTmp/system/bin/mu300-linux $Mod/system/bin/ && chown -R 0:0 $Mod && chmod 755 $Mod/switch.sh $Mod/action.sh $Mod/system/bin/mu300-linux && chmod 644 $Mod/module.prop && rm -rf $MTmp && sync" | Out-Null
+    Quiet { PushUnix (Join-Path $ModSrc 'system\bin\openf50-linux') "$MTmp/system/bin/openf50-linux" } | Out-Null
+    SuDo "rm -rf $Mod && mkdir -p $Mod/system/bin && cp -a $MTmp/module.prop $MTmp/switch.sh $MTmp/action.sh $Mod/ && cp -a $MTmp/system/bin/openf50-linux $Mod/system/bin/ && chown -R 0:0 $Mod && chmod 755 $Mod/switch.sh $Mod/action.sh $Mod/system/bin/openf50-linux && chmod 644 $Mod/module.prop && rm -rf $MTmp && sync" | Out-Null
     if ((SuDo "[ -x $Mod/switch.sh ] && echo yes") -eq 'yes') {
-        Write-Host ('  ' + (T "installed: 'su -c mu300-linux' on the device starts Linux after the next Android boot"))
+        Write-Host ('  ' + (T "installed: 'su -c openf50-linux' on the device starts Linux after the next Android boot"))
     } else {
         Write-Host ('  ' + (T '(skipped; the installer keeps working either way)'))
     }
@@ -914,6 +914,6 @@ if ((SuDo 'magisk -v')) {
 Say (T 'Done. Rebooting into {1}' $BOOT_OS)
 $ip = if ($DEVICE -eq 'u30air') { '192.168.78.1' } else { '192.168.77.1' }
 Write-Host ('  ' + (T 'USB network: {1}   SSH: {2}' $ip $(if ($BOOT_OS -eq 'ubuntu') { "ubuntu@$ip" } else { "root@$ip, LuCI http://$ip" })))
-Write-Host ('  ' + (T 'switch systems: mu300-os {1}   back to Android: mu300-next-boot android' ($OSES -join '|')))
-Write-Host ('  ' + (T 'back to Linux from Android (with Magisk): su -c mu300-linux'))
+Write-Host ('  ' + (T 'switch systems: openf50-os {1}   back to Android: openf50-next-boot android' ($OSES -join '|')))
+Write-Host ('  ' + (T 'back to Linux from Android (with Magisk): su -c openf50-linux'))
 & adb reboot | Out-Null

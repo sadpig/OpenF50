@@ -3,7 +3,7 @@
  * UMP9620 PMIC watchdog (same register layout as sprd_wdt, behind the ADI regmap). LK arms it for 300 s and, on
  * Android, the PM co-processor firmware takes it over. Mainline has no PM firmware, so this driver takes it over
  * instead: it shortens the timeout and lets the watchdog core ping it until userspace opens /dev/watchdog. A hard
- * hang then resets the board, and LK falls back to Android. MU300 bring-up driver.
+ * hang then resets the board, and LK falls back to Android. OPENF50 bring-up driver.
  *
  * The watchdog runs on the PMIC's 32 kHz clock and keeps counting while the AP sleeps, where nothing pings it
  * (Android has the PM co-processor feed it): a system sleep longer than the timeout reset the board (FINDINGS 37).

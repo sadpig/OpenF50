@@ -119,7 +119,7 @@ static int sprd_wlan_probe(struct platform_device *pdev)
 
 	pr_info("%s %s %d.\n", __func__, of_id->compatible, p_match_data->hw_type);
 
-	/* MU300 build: only the SC2355 PCIe variant is compiled in */
+	/* OPENF50 build: only the SC2355 PCIe variant is compiled in */
 	if (p_match_data->hw_type == SPRD_HW_SC2355_PCIE) {
 		return pcie_probe(pdev);
 	} else {

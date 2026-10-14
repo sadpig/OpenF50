@@ -2197,7 +2197,7 @@ int kbase_pm_state_machine_init(struct kbase_device *kbdev)
 	hrtimer_setup(&stt->timer, shader_tick_timer_callback, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
 #else
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 15, 0)
-	hrtimer_setup(&stt->timer, shader_tick_timer_callback, CLOCK_MONOTONIC, HRTIMER_MODE_REL);	/* MU300: hrtimer_init() is gone */
+	hrtimer_setup(&stt->timer, shader_tick_timer_callback, CLOCK_MONOTONIC, HRTIMER_MODE_REL);	/* OPENF50: hrtimer_init() is gone */
 #else
 	hrtimer_init(&stt->timer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
 	stt->timer.function = shader_tick_timer_callback;
@@ -3095,7 +3095,7 @@ static int kbase_pm_do_reset(struct kbase_device *kbdev)
 	hrtimer_setup_on_stack(&rtdata.timer, kbasep_reset_timeout, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
 #else
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 15, 0)
-	hrtimer_setup_on_stack(&rtdata.timer, kbasep_reset_timeout, CLOCK_MONOTONIC, HRTIMER_MODE_REL);	/* MU300: hrtimer_init() is gone */
+	hrtimer_setup_on_stack(&rtdata.timer, kbasep_reset_timeout, CLOCK_MONOTONIC, HRTIMER_MODE_REL);	/* OPENF50: hrtimer_init() is gone */
 #else
 	hrtimer_init_on_stack(&rtdata.timer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
 	rtdata.timer.function = kbasep_reset_timeout;

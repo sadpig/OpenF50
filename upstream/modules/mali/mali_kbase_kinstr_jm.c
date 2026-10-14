@@ -650,7 +650,7 @@ static __poll_t reader_poll(struct file *const file,
 static const struct file_operations file_operations = {
 	.owner = THIS_MODULE,
 #if LINUX_VERSION_CODE < KERNEL_VERSION(6, 12, 0)
-	.llseek = no_llseek,	/* MU300: gone; not setting it means the same thing now */
+	.llseek = no_llseek,	/* OPENF50: gone; not setting it means the same thing now */
 #endif
 	.read = reader_read,
 	.poll = reader_poll,

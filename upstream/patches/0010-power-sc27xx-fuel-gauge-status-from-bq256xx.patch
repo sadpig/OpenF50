@@ -11,7 +11,7 @@ gauge in its supplied_to, so a plug or unplug is passed on.
  	"sc2720_charger",
  	"sc2721_charger",
  	"sc2723_charger",
-+	"bq256xx-charger",	/* MU300: the U30 Air's SGM41511 (patch 0009) */
++	"bq256xx-charger",	/* OPENF50: the U30 Air's SGM41511 (patch 0009) */
  };
  
  static int sc27xx_fgu_adc_to_current(struct sc27xx_fgu_data *data, s64 adc)

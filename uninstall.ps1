@@ -1,11 +1,11 @@
 <#
 .SYNOPSIS
-    Remove MU300 Linux and return the device to stock Android (Windows version of uninstall.sh).
+    Remove OPENF50 Linux and return the device to stock Android (Windows version of uninstall.sh).
 
 .DESCRIPTION
     Run with the device booted in rooted Android and connected over USB (adb). It makes slot a (Android) the boot
     slot in misc, copies boot_a over boot_b, erases the Linux filesystem in the unpartitioned eMMC region and, when you
-    say so, the one on the SD card (ext4 labelled mu300sd; a card with any other filesystem is never touched), and
+    say so, the one on the SD card (ext4 labelled openf50sd; a card with any other filesystem is never touched), and
     removes the installer leftovers. boot_a, the GPT, userdata and every other partition stay untouched.
     Needs: adb and Python 3.
 #>
@@ -14,12 +14,12 @@ param()
 
 $ErrorActionPreference = 'Stop'
 $T = '/data/local/tmp'
-# the USB network of each kind of device: F50 192.168.77.1, U30 Air 192.168.78.1; $MU300_IP is set to the one
+# the USB network of each kind of device: F50 192.168.77.1, U30 Air 192.168.78.1; $OPENF50_IP is set to the one
 # that answers
-$MU300_IP = '192.168.77.1'
+$OPENF50_IP = '192.168.77.1'
 function LinuxRunning {
     foreach ($ip in @('192.168.77.1', '192.168.78.1')) {
-        if (Test-NetConnection -ComputerName $ip -Port 22 -InformationLevel Quiet -WarningAction SilentlyContinue) { $script:MU300_IP = $ip; return $true }
+        if (Test-NetConnection -ComputerName $ip -Port 22 -InformationLevel Quiet -WarningAction SilentlyContinue) { $script:OPENF50_IP = $ip; return $true }
     }
     return $false
 }
@@ -50,7 +50,7 @@ function Die($m) { Write-Host "`nERROR: $m" -ForegroundColor Red; exit 1 }
 function Quiet([scriptblock]$QuietBlock_) { $ErrorActionPreference = 'Continue'; & $QuietBlock_ 2>$null }
 # With more than one adb device attached (a phone, an emulator, a device over the network) every plain adb command
 # fails with "more than one device/emulator", which read as "no adb device". Pick the F50 and point adb at it with
-# ANDROID_SERIAL: the only device, else the only one that says it is an F50/MU300 or a U30 Air, else ask (-Quiet
+# ANDROID_SERIAL: the only device, else the only one that says it is an F50/OPENF50 or a U30 Air, else ask (-Quiet
 # never asks).
 function SelectDevice([switch]$Quiet) {
     if ($env:ANDROID_SERIAL) { return }
@@ -86,7 +86,7 @@ function SuDo($cmd) { (Quiet { adb shell "su -c '$cmd'" }) -join "`n" -replace "
 # see install.ps1: `su -c` may run on a pty that rewrites LF as CRLF, so binaries are written on the device
 # and pulled rather than streamed (issue #2)
 function SuDoToFile($cmd, $path) {
-    $dev = '/data/local/tmp/mu300-pull.bin'
+    $dev = '/data/local/tmp/openf50-pull.bin'
     & adb shell "su -c '$cmd > $dev'" | Out-Null
     Quiet { adb pull $dev "$path" } | Out-Null
     & adb shell "su -c 'rm -f $dev'" | Out-Null
@@ -102,11 +102,11 @@ function Python { param([Parameter(ValueFromRemainingArguments = $true)][string[
     }
     & $script:PyExe @PyArgs
 }
-# What the card holds, from the ext4 magic and label of its superblock (install.ps1's SdState): yes for a mu300sd
+# What the card holds, from the ext4 magic and label of its superblock (install.ps1's SdState): yes for a openf50sd
 # filesystem, foreign for any other ext4, labelled or not, no for anything else. Only yes is ever erased.
 function SdState([string]$Magic, [string]$Label) {
     if ($Magic -ne '53ef') { return 'no' }
-    if ($Label.Trim() -eq 'mu300sd') { return 'yes' }
+    if ($Label.Trim() -eq 'openf50sd') { return 'yes' }
     return 'foreign'
 }
 function SdExisting {
@@ -114,9 +114,9 @@ function SdExisting {
     $l = (SuDo "dd if=$SD_DEV bs=1 skip=1144 count=16 2>/dev/null") -replace '\0', ''
     SdState $m $l
 }
-# The device command that erases the mu300sd filesystem on the card: the same text as tools/storage.sh's
+# The device command that erases the openf50sd filesystem on the card: the same text as tools/storage.sh's
 # sd_erase_cmd (tests/installer.Tests.ps1 compares them). The device checks again right before the write: never
-# mmcblk0, an SD card in sysfs, still ext4 labelled mu300sd; Android lets go of the card (vold mounts it as
+# mmcblk0, an SD card in sysfs, still ext4 labelled openf50sd; Android lets go of the card (vold mounts it as
 # /dev/block/vold/public:179,N), anything mounted from its own nodes is unmounted, and a card mount of either kind
 # that is still there stops it. Prints ERASED, else nothing is written. Single quotes only around the parts with $ for the device (no double quotes reach it intact).
 function SdEraseCommand([string]$Dev) {
@@ -126,7 +126,7 @@ function SdEraseCommand([string]$Dev) {
     "case $Dev in */mmcblk0|*/mmcblk0p*) echo REFUSED $Dev is the eMMC; exit 1 ;; esac; " +
     '[ x$(cat /sys/block/' + $d + '/device/type 2>/dev/null) = xSD ] || { echo REFUSED ' + $d + ' is not an SD card; exit 1; }; ' +
     'set -- $(dd if=' + $Dev + ' bs=1 skip=1080 count=2 2>/dev/null | od -An -tx1); [ x$1$2 = x53ef ] || { echo REFUSED no ext4 on ' + $Dev + '; exit 1; }; ' +
-    '[ x$(dd if=' + $Dev + ' bs=1 skip=1144 count=16 2>/dev/null | tr -d \\000) = xmu300sd ] || { echo REFUSED no mu300sd on ' + $Dev + '; exit 1; }; ' +
+    '[ x$(dd if=' + $Dev + ' bs=1 skip=1144 count=16 2>/dev/null | tr -d \\000) = xopenf50sd ] || { echo REFUSED no openf50sd on ' + $Dev + '; exit 1; }; ' +
     'for v in $(sm list-volumes 2>/dev/null | grep -o ^public:179,[0-9]*); do sm unmount $v >/dev/null 2>&1; done; ' +
     'while read d m r; do case $d in /dev/block/' + $d + '|/dev/block/' + $d + 'p*) umount $m 2>/dev/null ;; esac; done < /proc/mounts; ' +
     'grep -q -e ^/dev/block/' + $d + ' -e public:179, /proc/mounts && { echo BUSY; exit 1; }; ' +
@@ -144,17 +144,17 @@ if (-not $linuxFirst) { SelectDevice }
 if ($linuxFirst -or (AdbState) -notmatch 'device') {
     $linux = $linuxFirst -or (LinuxRunning)
     if (-not $linux) { Die 'no adb device (boot Android, enable USB debugging)' }
-    Say 'The device is running MU300 Linux, not Android'
+    Say 'The device is running OPENF50 Linux, not Android'
     Write-Host '  Uninstalling happens from Android (slot a), so the device has to reboot first.'
-    if ((Ask 'Reboot the device into Android now? (yes/no)' 'yes') -ne 'yes') { Die 'boot Android yourself (in Linux: sudo mu300-next-boot android && sudo reboot)' }
+    if ((Ask 'Reboot the device into Android now? (yes/no)' 'yes') -ne 'yes') { Die 'boot Android yourself (in Linux: sudo openf50-next-boot android && sudo reboot)' }
     # -t: sudo needs a terminal to ask for the device password; reboot cuts the connection, so watch the port
     foreach ($u in 'ubuntu', 'root') {
-        Write-Host "  $u@$MU300_IP - enter the device password when asked (Ctrl-C to skip)"
-        & ssh -t -o StrictHostKeyChecking=no -o UserKnownHostsFile=NUL -o LogLevel=ERROR -o ConnectTimeout=8 "$u@$MU300_IP" `
-            'if [ "$(id -u)" = 0 ]; then S=; else S=sudo; fi; $S sh -c "/opt/mu300/bin/mu300-next-boot android && sync && reboot"'
+        Write-Host "  $u@$OPENF50_IP - enter the device password when asked (Ctrl-C to skip)"
+        & ssh -t -o StrictHostKeyChecking=no -o UserKnownHostsFile=NUL -o LogLevel=ERROR -o ConnectTimeout=8 "$u@$OPENF50_IP" `
+            'if [ "$(id -u)" = 0 ]; then S=; else S=sudo; fi; $S sh -c "/opt/openf50/bin/openf50-next-boot android && sync && reboot"'
         $gone = $false
         for ($i = 0; $i -lt 8; $i++) {
-            if (-not (Test-NetConnection -ComputerName $MU300_IP -Port 22 -InformationLevel Quiet -WarningAction SilentlyContinue)) { $gone = $true; break }
+            if (-not (Test-NetConnection -ComputerName $OPENF50_IP -Port 22 -InformationLevel Quiet -WarningAction SilentlyContinue)) { $gone = $true; break }
             Start-Sleep 5
         }
         if ($gone) { Write-Host '  rebooting'; break }
@@ -169,8 +169,8 @@ if ($linuxFirst -or (AdbState) -notmatch 'device') {
 if ((SuDo 'id -u') -ne '0') { Die 'su does not work on the device' }
 $model = "$(SuDo 'getprop ro.product.model') / $(SuDo 'getprop ro.product.device')"
 Write-Host "device: $model"
-if ($model -notmatch 'MU300|F50|mu300|U30Air|U30_Air') { Die 'this does not look like a ZTE F50/MU300 or U30 Air' }
-if ((SuDo 'getprop ro.boot.slot_suffix') -ne '_a') { Die 'Android must be running from slot a (boot Android first: mu300-next-boot android)' }
+if ($model -notmatch 'OPENF50|F50|openf50|U30Air|U30_Air') { Die 'this does not look like a ZTE F50/OPENF50 or U30 Air' }
+if ((SuDo 'getprop ro.boot.slot_suffix') -ne '_a') { Die 'Android must be running from slot a (boot Android first: openf50-next-boot android)' }
 
 Say 'Looking for the Linux installation'
 $parts = (SuDo 'e=0; for p in /sys/block/mmcblk0/mmcblk0p*; do x=$(( $(cat $p/start) + $(cat $p/size) )); [ $x -gt $e ] && e=$x; done; echo $e $(cat /sys/block/mmcblk0/size)').Split(' ')
@@ -181,21 +181,21 @@ if ($parts.Count -ne 2) { Die 'could not read the partition table from the devic
 foreach ($cand in @($start, 27762098176)) {
     $m = (SuDo "dd if=/dev/block/mmcblk0 bs=1 skip=$($cand + 1080) count=2 2>/dev/null | od -An -tx1") -replace '\s', ''
     $l = (SuDo "dd if=/dev/block/mmcblk0 bs=1 skip=$($cand + 1144) count=16 2>/dev/null") -replace '\0', ''
-    if ($m -eq '53ef' -and $l.Trim() -eq 'mu300root') {
+    if ($m -eq '53ef' -and $l.Trim() -eq 'openf50root') {
         $blocks = [int64]((SuDo "dd if=/dev/block/mmcblk0 bs=1 skip=$($cand + 1028) count=4 2>/dev/null | od -An -tu4").Trim())
         $OFF = $cand; $SIZE = $blocks * 4096; break
     }
 }
 if ($OFF -gt 0) {
-    if (($OFF / 512) -lt $lastEnd -or (($OFF + $SIZE) / 512) -gt ($disk - 34)) { Die 'the mu300root filesystem overlaps a partition, refusing to touch it' }
+    if (($OFF / 512) -lt $lastEnd -or (($OFF + $SIZE) / 512) -gt ($disk - 34)) { Die 'the openf50root filesystem overlaps a partition, refusing to touch it' }
     if ($OFF % 1MB -ne 0) { Die "unexpected filesystem offset $OFF" }
     Write-Host "Linux filesystem: offset $OFF, $([int64]($SIZE / 1MB)) MiB"
 } else {
-    Write-Host 'no mu300root filesystem found (already erased?)'
+    Write-Host 'no openf50root filesystem found (already erased?)'
 }
 # The SD card (tools/storage.sh's sd_probe): "<block device> <512-byte sectors> <type>" of the first mmc disk that
 # is not the eMMC - its first partition when it has one, the whole card otherwise; the type keeps a second eMMC or
-# an SDIO function out. Its installation is a filesystem of its own: only ext4 labelled mu300sd counts.
+# an SDIO function out. Its installation is a filesystem of its own: only ext4 labelled openf50sd counts.
 $SD_DEV = ''; [int64]$SD_BYTES = 0; $SD_HAS = 'no'
 $sd = @((SuDo 'for b in /sys/block/mmcblk[1-9]; do [ -e $b/device/type ] || continue; n=${b##*/}; if [ -e $b/${n}p1 ]; then echo /dev/block/${n}p1 $(cat $b/${n}p1/size) $(cat $b/device/type); else echo /dev/block/$n $(cat $b/size) $(cat $b/device/type); fi; break; done').Trim() -split '\s+')
 if ($sd.Count -eq 3 -and $sd[2] -eq 'SD' -and $sd[1] -match '^[0-9]+$' -and [int64]$sd[1] * 512 -ge 700MB) {
@@ -218,7 +218,7 @@ if ($OFF -gt 0) {
 }
 $sdwipe = 'keep'
 if ($SD_HAS -eq 'yes') {
-    Write-Host '  The SD card holds a Linux installation (ext4 labelled mu300sd):'
+    Write-Host '  The SD card holds a Linux installation (ext4 labelled openf50sd):'
     Write-Host '  erase   remove the filesystem from the card (its first 64 MiB are overwritten: fast, but the files'
     Write-Host '          stay readable on the card until the space is reused)'
     Write-Host '  keep    leave the card as it is (it does not boot once boot_b is restored)'
@@ -230,7 +230,7 @@ Write-Host '  misc:     boot slot a (Android), Linux boot disabled'
 Write-Host '  boot_b:   replaced with a copy of boot_a (stock Android boot image)'
 if ($OFF -eq 0) { Write-Host '  Linux:    no installation on the eMMC' }
 else { Write-Host "  Linux:    $(if ($wipe -eq 'keep') { 'kept on the eMMC (not bootable)' } else { "$wipe erase of $([int64]($SIZE / 1MB)) MiB at offset $OFF" })" }
-if ($sdwipe -eq 'erase') { Write-Host "  SD card:  mu300sd filesystem erased ($SD_DEV, first 64 MiB)" }
+if ($sdwipe -eq 'erase') { Write-Host "  SD card:  openf50sd filesystem erased ($SD_DEV, first 64 MiB)" }
 elseif ($SD_HAS -eq 'yes') { Write-Host "  SD card:  kept ($SD_DEV, not bootable)" }
 else { Write-Host '  SD card:  no installation' }
 Write-Host '  untouched: boot_a, GPT, userdata and all other partitions'
@@ -257,9 +257,9 @@ if ($NEW.Length -ne 64) { Die 'cannot build the slot a boot control block' }
 if ($BC -ne $NEW) {
     $bin = [IO.Path]::GetTempFileName()
     [IO.File]::WriteAllBytes($bin, ([byte[]] -split ($NEW -replace '..', '0x$& ')))
-    & adb push $bin "$T/mu300-bc-a.bin" | Out-Null
+    & adb push $bin "$T/openf50-bc-a.bin" | Out-Null
     Remove-Item $bin
-    SuDo "dd if=$T/mu300-bc-a.bin of=/dev/block/by-name/misc bs=1 seek=2048 conv=notrunc 2>/dev/null && sync && rm $T/mu300-bc-a.bin" | Out-Null
+    SuDo "dd if=$T/openf50-bc-a.bin of=/dev/block/by-name/misc bs=1 seek=2048 conv=notrunc 2>/dev/null && sync && rm $T/openf50-bc-a.bin" | Out-Null
     if ((Hex32) -ne $NEW) { Die 'misc verify failed' }
     Write-Host 'slot a set'
 } else {
@@ -297,11 +297,11 @@ if ($wipe -ne 'keep') {
 
 if ($sdwipe -eq 'erase') {
     Say 'Erasing the Linux filesystem on the SD card'
-    if ((SdExisting) -ne 'yes') { Die "the SD card ($SD_DEV) holds no mu300sd filesystem; nothing was erased" }
+    if ((SdExisting) -ne 'yes') { Die "the SD card ($SD_DEV) holds no openf50sd filesystem; nothing was erased" }
     try { $cmd = SdEraseCommand $SD_DEV } catch { Die $_.Exception.Message }
     $out = SuDo $cmd
     if ($out -notmatch 'ERASED') { Die "the SD card was not erased: $out" }
-    if ((SdExisting) -ne 'no') { Die 'the SD card still shows a mu300sd filesystem' }
+    if ((SdExisting) -ne 'no') { Die 'the SD card still shows a openf50sd filesystem' }
     Write-Host "erased ($SD_DEV)"
 }
 # A kept internal installation may hold the marker of a card installation next to it (boot/init then waits for
@@ -309,18 +309,18 @@ if ($sdwipe -eq 'erase') {
 if ($OFF -gt 0 -and $wipe -eq 'keep' -and ($sdwipe -eq 'erase' -or $SD_HAS -ne 'yes')) {
     # LF line ends whatever the clone has (Android's sh stops at a CR)
     $lf = [IO.Path]::GetTempFileName()
-    [IO.File]::WriteAllText($lf, ([IO.File]::ReadAllText((Join-Path $PSScriptRoot 'tools\android-mount-mu300root.sh')) -replace "`r`n", "`n"))
-    $dst = "$T/android-mount-mu300root.sh"
+    [IO.File]::WriteAllText($lf, ([IO.File]::ReadAllText((Join-Path $PSScriptRoot 'tools\android-mount-openf50root.sh')) -replace "`r`n", "`n"))
+    $dst = "$T/android-mount-openf50root.sh"
     Quiet { adb push $lf $dst } | Out-Null
     Remove-Item $lf -ErrorAction SilentlyContinue
-    $r = SuDo "MU300_OFF=$OFF MU300_SIZE=$SIZE sh $T/android-mount-mu300root.sh $T/mu300root >/dev/null && { rm -f $T/mu300root/.mu300/root-on-sd; sync; sh $T/android-mount-mu300root.sh -u $T/mu300root >/dev/null; echo CLEARED; }"
+    $r = SuDo "OPENF50_OFF=$OFF OPENF50_SIZE=$SIZE sh $T/android-mount-openf50root.sh $T/openf50root >/dev/null && { rm -f $T/openf50root/.openf50/root-on-sd; sync; sh $T/android-mount-openf50root.sh -u $T/openf50root >/dev/null; echo CLEARED; }"
     if ($r -notmatch 'CLEARED') { Write-Host 'note: could not open the kept Linux filesystem to clear its SD card marker (harmless: boot_b is Android)' }
 }
 
 # (no double quotes in a command for the device: Windows PowerShell 5.1 drops them on the way to adb)
-SuDo "grep -qw $T/mu300root /proc/mounts || rm -rf $T/mu300root; rm -f $T/mu300-* $T/android-install.sh $T/android-mount-mu300root.sh" | Out-Null
+SuDo "grep -qw $T/openf50root /proc/mounts || rm -rf $T/openf50root; rm -f $T/openf50-* $T/android-install.sh $T/android-mount-openf50root.sh" | Out-Null
 # the on-device switch would point at a boot_b that is Android again
 Say 'Removing the on-device switch (Magisk module)'
-if ((SuDo 'magisk -v')) { SuDo '[ -d /data/adb/modules/mu300_linux_switch ] && touch /data/adb/modules/mu300_linux_switch/remove' | Out-Null }
+if ((SuDo 'magisk -v')) { SuDo '[ -d /data/adb/modules/openf50_linux_switch ] && touch /data/adb/modules/openf50_linux_switch/remove' | Out-Null }
 
 Say 'Done. The device boots stock Android; reboot it once to check.'

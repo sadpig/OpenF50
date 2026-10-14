@@ -462,7 +462,7 @@ int kbase_mem_pool_init(struct kbase_mem_pool *pool, const struct kbase_mem_pool
 	INIT_LIST_HEAD(&pool->page_list);
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 7, 0)
-	/* MU300: the core allocates the shrinker and hands the context back through private_data */
+	/* OPENF50: the core allocates the shrinker and hands the context back through private_data */
 	pool->reclaim = shrinker_alloc(0, "mali-mem-pool");
 	if (!pool->reclaim)
 		return -ENOMEM;

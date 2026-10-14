@@ -50,7 +50,7 @@
 
 #ifdef SPRD_SUPPORT_FAULT_KEYWORD
 #include <linux/sunrpc/cache.h>
-extern s64 time[FAULT_KEYWORD_NUM];	/* MU300: s64 is gone from the kernel headers */
+extern s64 time[FAULT_KEYWORD_NUM];	/* OPENF50: s64 is gone from the kernel headers */
 #endif
 
 /* Return whether katom will run on the GPU or not. Currently only soft jobs and
@@ -1924,7 +1924,7 @@ void kbase_jd_zap_context(struct kbase_context *kctx)
 	 */
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 15, 0)
-	timer_delete_sync(&kctx->soft_job_timeout);	/* MU300: del_timer_sync() was renamed */
+	timer_delete_sync(&kctx->soft_job_timeout);	/* OPENF50: del_timer_sync() was renamed */
 #else
 	del_timer_sync(&kctx->soft_job_timeout);
 #endif

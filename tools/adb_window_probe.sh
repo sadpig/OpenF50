@@ -1,13 +1,13 @@
 #!/bin/sh
-# 在 F50 开机早期的短暂 ADB 窗口里，一次性只读采集设备信息。不写任何东西。
-OUT=${1:-/Users/tanwei/Documents/中兴F50/backup/probe-$(date +%H%M%S).txt}
+# Read-only device probe inside the short early-boot ADB window of a stock B16 F50. Writes nothing.
+OUT=${1:-probe-$(date +%H%M%S).txt}
 end=$(( $(date +%s) + 150 ))
 while [ $(date +%s) -lt $end ]; do
     [ "$(adb get-state 2>/dev/null)" = device ] && break
     sleep 0.3
 done
-[ "$(adb get-state 2>/dev/null)" = device ] || { echo "超时：没等到 ADB"; exit 1; }
-echo "$(date +%H:%M:%S) 抓到 ADB，开始采集 -> $OUT"
+[ "$(adb get-state 2>/dev/null)" = device ] || { echo "timed out: no ADB window"; exit 1; }
+echo "$(date +%H:%M:%S) ADB window caught, collecting -> $OUT"
 adb shell '
 echo "## id"; id
 echo "## su"; for p in /system/bin/su /system/xbin/su /sbin/su /debug_ramdisk/su /data/adb/magisk; do [ -e $p ] && echo "EXISTS $p"; done; which su magisk 2>&1
@@ -22,4 +22,4 @@ echo "## df"; df 2>&1 | head -30
 echo "## mounts-sd"; grep -iE "mmcblk1|vold|sdcard" /proc/mounts 2>&1 | head
 echo "## end"
 ' > "$OUT" 2>&1
-echo "$(date +%H:%M:%S) 采集结束，$(wc -l < "$OUT") 行"
+echo "$(date +%H:%M:%S) done, $(wc -l < "$OUT") lines"

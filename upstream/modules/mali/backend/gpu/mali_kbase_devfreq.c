@@ -176,10 +176,10 @@ kbase_devfreq_target(struct device *dev, unsigned long *target_freq, u32 flags)
 	if (kbdev->enable_freq_stats) {
 #if LINUX_VERSION_CODE < KERNEL_VERSION(6, 0, 0)
 		trace_clock_set_rate("unisoc-gpu-freq", nominal_freq, raw_smp_processor_id());
-#endif	/* MU300: vendor tracepoint */
+#endif	/* OPENF50: vendor tracepoint */
 #if LINUX_VERSION_CODE < KERNEL_VERSION(6, 0, 0)
 		trace_clock_set_rate("unisoc-gpu-utilization", busy_time*100/total_time, raw_smp_processor_id());
-#endif	/* MU300: vendor tracepoint */
+#endif	/* OPENF50: vendor tracepoint */
 	}
 #if KERNEL_VERSION(4, 11, 0) > LINUX_VERSION_CODE
 	rcu_read_unlock();
@@ -788,8 +788,8 @@ int kbase_devfreq_init(struct kbase_device *kbdev)
 	dev_set_drvdata(&kbdev->devfreq->dev, kbdev);
 	
 	//set max and min freq
-	mu300_devfreq_min_freq(kbdev->devfreq) = kbase_platform_get_min_freq();
-	mu300_devfreq_max_freq(kbdev->devfreq) = kbase_platform_get_max_freq();
+	openf50_devfreq_min_freq(kbdev->devfreq) = kbase_platform_get_min_freq();
+	openf50_devfreq_max_freq(kbdev->devfreq) = kbase_platform_get_max_freq();
 
 	err = devfreq_register_opp_notifier(kbdev->dev, kbdev->devfreq);
 	if (err) {

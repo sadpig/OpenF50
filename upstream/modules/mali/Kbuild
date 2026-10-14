@@ -191,7 +191,7 @@ ifeq ($(CONFIG_MALI_DEVFREQ),y)
 		else ifeq ($(CONFIG_SPRD_GPU_COOLING_DEVICE),m)
 			DEFINES +=-DCONFIG_SPRD_GPU_COOLING_DEVICE
 		else
-			MU300_NEED_IPA := 1
+			OPENF50_NEED_IPA := 1
 		endif
 	endif
 endif
@@ -317,9 +317,9 @@ else
     include $(INCLUDE_SUBDIR)
 endif
 
-# MU300: the power model (ipa/) has to be added here, at the very end. The include used to sit next to the
+# OPENF50: the power model (ipa/) has to be added here, at the very end. The include used to sit next to the
 # -DCONFIG_SPRD_GPU_COOLING_DEVICE decision above, where a later "mali_kbase-y := ..." wiped its objects again;
 # that goes unnoticed on the vendor kernel, which uses the Unisoc cooling device instead of ipa.
-ifeq ($(MU300_NEED_IPA),1)
+ifeq ($(OPENF50_NEED_IPA),1)
 include $(src)/ipa/Kbuild
 endif

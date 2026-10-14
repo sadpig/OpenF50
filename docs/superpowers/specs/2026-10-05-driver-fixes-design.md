@@ -1,6 +1,6 @@
 # Driver and kernel-module fixes
 
-Date: 2026-10-05. Status: approved in conversation (the fourth piece of work taken from `kanoqwq/mu300-linux`,
+Date: 2026-10-05. Status: approved in conversation (the fourth piece of work taken from `kanoqwq/openf50-linux`,
 after the SD card, the Magisk module and the fork's OpenWrt); decisions below were taken without the user, who
 asked for them to be taken and written down.
 
@@ -93,14 +93,14 @@ Accept if the ping mean falls and throughput stays within 10 %.
 
 ### 6. `mobile-data status` as a user hangs (D4)
 
-`mu300-at` loops on `mkdir /run/mu300-at/lock`; when a stale lock's pid file cannot be removed (not root) the
+`openf50-at` loops on `mkdir /run/openf50-at/lock`; when a stale lock's pid file cannot be removed (not root) the
 `continue` skips the wait counter, so it never ends. Change: a client that cannot write the daemon's directory
 says so and exits (`needs root`), and a stale lock that cannot be removed counts as busy. TDD.
 
 ### 7. Connections reset for 5-10 s after mobile data comes up (D5)
 
-Investigated on the device first (what the VPN does in that window). The least that is done: `mu300-update`'s
-GitHub requests retry for a short while, so `mu300-update check` right after boot does not report "could not reach
+Investigated on the device first (what the VPN does in that window). The least that is done: `openf50-update`'s
+GitHub requests retry for a short while, so `openf50-update check` right after boot does not report "could not reach
 GitHub" for a transient reset. Root cause in the VPN start, if found, fixed there.
 
 ### 8. br-lan's IPv6 link-local changes between boots (D6)
@@ -110,10 +110,10 @@ persistent MAC: the bridge then has `usb0`'s MAC when IPv6 makes the link-local,
 Change: wait for udev to process the new bridge (`udevadm settle` with a timeout) before adding ports. Test: link-
 local and MAC over 5+ boots; accept if constant.
 
-### 9. `mu300-device` and `mu300-led` not on the PATH (D7)
+### 9. `openf50-device` and `openf50-led` not on the PATH (D7)
 
 `rootfs-fixups` (which adds the `/usr/local/bin` links on installed systems) has a shorter list than the image
-build. One list, with `mu300-device`; a test that the three lists (Ubuntu image, OpenWrt image, fixups) agree.
+build. One list, with `openf50-device`; a test that the three lists (Ubuntu image, OpenWrt image, fixups) agree.
 
 ### 11. The USB identity of two devices restored from one backup (added during the work)
 

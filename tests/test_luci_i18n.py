@@ -4,11 +4,11 @@ from pathlib import Path
 from helpers import GIT_CHECKOUT, TOP
 
 TOOL = [sys.executable, str(TOP / 'tools' / 'luci-i18n.py')]
-APP = TOP / 'openwrt' / 'luci-app-mu300'
+APP = TOP / 'openwrt' / 'luci-app-openf50'
 CJK = '\u4e2d\u6587'        # written as escapes: this file is not one of the places Chinese is allowed
 
-VIEW = 'htdocs/luci-static/resources/view/mu300/home.js'
-DASH = 'root/usr/libexec/rpcd/mu300dash'
+VIEW = 'htdocs/luci-static/resources/view/openf50/home.js'
+DASH = 'root/usr/libexec/rpcd/openf50dash'
 
 
 def run(*args):
@@ -24,10 +24,10 @@ def po(header_lang, pairs):
 
 # A small app with every kind of source; check passes on it, and each test breaks one thing.
 MINI = {
-    'root/usr/share/luci/menu.d/luci-app-mu300.json':
+    'root/usr/share/luci/menu.d/luci-app-openf50.json':
         '{\n "admin/home": {\n  "title": "Dashboard",\n  "order": 5\n }\n}\n',
-    'root/usr/share/rpcd/acl.d/luci-app-mu300.json':
-        '{\n "luci-app-mu300": {\n  "description": "MU300 control panel",\n  "read": {}\n }\n}\n',
+    'root/usr/share/rpcd/acl.d/luci-app-openf50.json':
+        '{\n "luci-app-openf50": {\n  "description": "OPENF50 control panel",\n  "read": {}\n }\n}\n',
     VIEW: (
         "'use strict';\n"
         "// _('Not a message: a comment') and /* _('nor this') */\n"
@@ -60,7 +60,7 @@ MINI = {
         "error() { printf '{\"ok\":0,\"error\":%s}\\n' \"$(json_str \"$1\")\"; exit 1; }\n"
         "[ -w \"$F\" ] || error 'USB role switch is unavailable'\n"),
 }
-MESSAGES = ['Dashboard', 'MU300 control panel', 'It\'s "quoted" A', '· %d messages', 'In a template',
+MESSAGES = ['Dashboard', 'OPENF50 control panel', 'It\'s "quoted" A', '· %d messages', 'In a template',
             'Literal error', 'Refused here', 'No valid reply', 'Built elsewhere', 'Radio did not come up', 'Done',
             'USB role switch is unavailable']
 
@@ -71,7 +71,7 @@ def po_str(m):
 
 class Catalogs(unittest.TestCase):
     def setUp(self):
-        self.tmp = Path(tempfile.mkdtemp(prefix='mu300-test-'))
+        self.tmp = Path(tempfile.mkdtemp(prefix='openf50-test-'))
 
     def tearDown(self):
         shutil.rmtree(self.tmp, ignore_errors=True)
@@ -83,7 +83,7 @@ class Catalogs(unittest.TestCase):
             (root / rel).write_text(text, encoding='utf-8')
         for lang, mark in (('tr', 'TR'), ('zh_Hans', CJK)):
             (root / 'po' / lang).mkdir(parents=True)
-            (root / 'po' / lang / 'mu300.po').write_text(
+            (root / 'po' / lang / 'openf50.po').write_text(
                 po(lang, [(po_str(m), po_str(m.replace('messages', 'x') + ' ' + mark)) for m in MESSAGES]),
                 encoding='utf-8')
         return root
@@ -98,7 +98,7 @@ class Catalogs(unittest.TestCase):
         # without --root the check reads the files git tracks: Chinese in a shared script is found, Chinese in the
         # installers' i18n data is not (a copy of the tool, the app and two such files in a scratch repository)
         repo = self.tmp / 'repo'
-        shutil.copytree(APP, repo / 'openwrt' / 'luci-app-mu300')
+        shutil.copytree(APP, repo / 'openwrt' / 'luci-app-openf50')
         shutil.copy(TOP / 'openwrt' / 'luci-languages.tsv', repo / 'openwrt' / 'luci-languages.tsv')
         (repo / 'tools').mkdir()
         for name in ('luci-i18n.py', 'po2lmo.py'):
@@ -127,21 +127,21 @@ class Catalogs(unittest.TestCase):
         # directory the language table does not know is an error (the build could not name its .lmo)
         root = self.mini()
         (root / 'po' / 'ja').mkdir()
-        (root / 'po' / 'ja' / 'mu300.po').write_text(
+        (root / 'po' / 'ja' / 'openf50.po').write_text(
             po('ja', [(po_str(m), po_str(m.replace('messages', 'x') + ' ' + CJK)) for m in MESSAGES[1:]]),
             encoding='utf-8')
         (root / 'po' / 'xx').mkdir()
-        (root / 'po' / 'xx' / 'mu300.po').write_text(
+        (root / 'po' / 'xx' / 'openf50.po').write_text(
             po('xx', [(po_str(m), po_str(m.replace('messages', 'x') + ' X')) for m in MESSAGES]), encoding='utf-8')
         r = run('check', '--root', str(root))
         self.assertEqual(r.returncode, 1)
         lines = r.stdout.splitlines()
         self.assertEqual(len(lines), 2, lines)
-        self.assertTrue(lines[0].startswith('missing: po/ja/mu300.po:0: "Dashboard" (used at '), lines)
-        self.assertEqual(lines[1], 'language: po/xx/mu300.po:0: po/xx has no row in openwrt/luci-languages.tsv')
+        self.assertTrue(lines[0].startswith('missing: po/ja/openf50.po:0: "Dashboard" (used at '), lines)
+        self.assertEqual(lines[1], 'language: po/xx/openf50.po:0: po/xx has no row in openwrt/luci-languages.tsv')
         # update keeps every catalog, the third one included
         run('update', '--root', str(root))
-        self.assertIn('msgid "Dashboard"', (root / 'po' / 'ja' / 'mu300.po').read_text(encoding='utf-8'))
+        self.assertIn('msgid "Dashboard"', (root / 'po' / 'ja' / 'openf50.po').read_text(encoding='utf-8'))
 
     def test_language_table(self):
         # one row per catalog of the app; codes as LuCI names its .lmo files; no row for English (the source)
@@ -154,20 +154,20 @@ class Catalogs(unittest.TestCase):
         for d, code, name in rows:
             self.assertRegex(code, r'^[a-z]{2,3}(-[a-z]{2})?$', d)
             self.assertRegex(name, r'^[^\t"\'\\$`]+ \([A-Z][A-Za-z ]+\)$', d)
-        cats = sorted(p.parent.name for p in (APP / 'po').glob('*/mu300.po'))
+        cats = sorted(p.parent.name for p in (APP / 'po').glob('*/openf50.po'))
         self.assertTrue(set(cats) <= set(dirs), set(cats) - set(dirs))
         self.assertGreaterEqual(len(cats), 25, 'the panel speaks at least the 23 languages asked for, tr and zh')
 
     def test_update_adds_missing_and_removes_stale_in_order_of_first_use(self):
         root = self.mini()
-        tr = root / 'po' / 'tr' / 'mu300.po'
+        tr = root / 'po' / 'tr' / 'openf50.po'
         tr.write_text(po('tr', [('Done', 'Tamam'), ('Gone', 'Yok')]), encoding='utf-8')
         shutil.rmtree(root / 'po' / 'zh_Hans')
         r = run('update', '--root', str(root))
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         want = po('tr', [(po_str(m), 'Tamam' if m == 'Done' else '') for m in MESSAGES])
         self.assertEqual(tr.read_text(encoding='utf-8'), want)
-        zh = (root / 'po' / 'zh_Hans' / 'mu300.po').read_text(encoding='utf-8')
+        zh = (root / 'po' / 'zh_Hans' / 'openf50.po').read_text(encoding='utf-8')
         self.assertIn('"Language: zh_Hans\\n"', zh)
         self.assertEqual(zh.count('msgstr ""'), len(MESSAGES) + 1)
         r = run('check', '--root', str(root))       # still failing: the new entries have no translation yet
@@ -185,7 +185,7 @@ class Catalogs(unittest.TestCase):
             return apply
 
         def tr_entry(msgid, msgstr):
-            return append('po/tr/mu300.po', f'\nmsgid "{msgid}"\nmsgstr "{msgstr}"\n')
+            return append('po/tr/openf50.po', f'\nmsgid "{msgid}"\nmsgstr "{msgstr}"\n')
 
         def both(*steps):
             def apply(root):
@@ -227,16 +227,16 @@ class Catalogs(unittest.TestCase):
                     shutil.rmtree(root)
 
 
-COMMON = APP / 'htdocs/luci-static/resources/mu300/common.js'
+COMMON = APP / 'htdocs/luci-static/resources/openf50/common.js'
 BUILD = TOP / 'openwrt' / 'build-rootfs.sh'
 
 
 def catalog(lang):
-    """{msgid: msgstr} of po/<lang>/mu300.po, read as the tool reads it."""
+    """{msgid: msgstr} of po/<lang>/openf50.po, read as the tool reads it."""
     spec = importlib.util.spec_from_file_location('luci_i18n', TOP / 'tools' / 'luci-i18n.py')
     tool = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(tool)
-    return {e['msgid']: e['msgstr'] for e in tool.read_po(APP / 'po' / lang / 'mu300.po')[1]}
+    return {e['msgid']: e['msgstr'] for e in tool.read_po(APP / 'po' / lang / 'openf50.po')[1]}
 
 
 @unittest.skipUnless(shutil.which('node'), 'Node.js is needed for the LuCI JS tests')
@@ -350,7 +350,7 @@ return { colours: levels.map((l) => M.qCol(l)),
     def test_views_pass_level_keys_to_qcol(self):
         # every qCol argument in the views is a level key literal or a qLevel result, never a (Chinese or
         # translated) label; the literals the pages grade with (home.js) are all level keys
-        views = APP / 'htdocs/luci-static/resources/view/mu300'
+        views = APP / 'htdocs/luci-static/resources/view/openf50'
         for js in sorted(views.glob('*.js')):
             src = js.read_text(encoding='utf-8')
             for arg in re.findall(r'M\.qCol\(([^()]*(?:\([^()]*\))?[^()]*)\)', src):
@@ -397,20 +397,20 @@ if (selected !== true) throw Error('the Bootstrap token bridge must survive the 
     def test_common_menu_and_acl_have_no_chinese_and_are_in_both_catalogs(self):
         # Task 13's files: the catalog check finds no problem in them (the views and backend are Tasks 14-16)
         r = run('check')
-        mine = ('mu300/common.js', 'menu.d/luci-app-mu300.json', 'acl.d/luci-app-mu300.json')
+        mine = ('openf50/common.js', 'menu.d/luci-app-openf50.json', 'acl.d/luci-app-openf50.json')
         self.assertEqual([l for l in r.stdout.splitlines() if any(m in l for m in mine)], [])
         self.assertEqual([l for l in r.stdout.splitlines() if l.startswith(('stale', 'po:', 'placeholder'))], [])
         self.assertFalse((APP / 'po' / 'en').exists(), 'English is the source: no po/en catalog')
 
     def test_build_requires_the_chinese_catalog(self):
-        # once po/zh_Hans exists, the build stops when mu300.zh-cn.lmo (LuCI's code for zh_Hans) was
+        # once po/zh_Hans exists, the build stops when openf50.zh-cn.lmo (LuCI's code for zh_Hans) was
         # not compiled from it: without it the panel is in English in a Chinese browser
-        self.assertTrue((APP / 'po' / 'zh_Hans' / 'mu300.po').is_file())
-        self.assertTrue('[ -s "$CAT/mu300.zh-cn.lmo" ] ||' in BUILD.read_text(encoding='utf-8'),
+        self.assertTrue((APP / 'po' / 'zh_Hans' / 'openf50.po').is_file())
+        self.assertTrue('[ -s "$CAT/openf50.zh-cn.lmo" ] ||' in BUILD.read_text(encoding='utf-8'),
                         'build-rootfs.sh does not stop without the Chinese panel catalog')
 
 
-VIEWS = APP / 'htdocs/luci-static/resources/view/mu300'
+VIEWS = APP / 'htdocs/luci-static/resources/view/openf50'
 VIEW_NAMES = ('home', 'locks', 'sms', 'at', 'settings', 'device', 'languages', 'ttl')
 CJK_RE = re.compile('[\u2e80-\u9fff\uf900-\ufaff\uff00-\uffef]')
 
@@ -517,7 +517,7 @@ const notes = () => toasts.map((t) => t.lastChild.textContent);
     HOME = '''
 const root = V.render();
 await flush();
-V.update({ info: { ts: 10, host: 'mu300', uptime: 3720, modem: { alive: true, atd: false },
+V.update({ info: { ts: 10, host: 'openf50', uptime: 3720, modem: { alive: true, atd: false },
                    wifi: { ssid: 'x', channel: 36, band: '5g', clients_n: 2, hidden: 1, up: 1 },
                    lan: { ip: '192.168.0.1', leases: 3, list: [ { host: 'a', ip: '1', mac: 'm', left: 7200 } ] },
                    temps: { soc: 50 }, mem: { total_kb: 1024, avail_kb: 512 }, power: { present: 1, capacity: 80,
@@ -752,22 +752,22 @@ V.paintServing({ error: 'Applying network locks: no live signal right now' });
 return [ text('lock-nrline'), text('srv-rat') ];""",
          [(None, 'Lock cache unavailable', None), (None, 'Applying network locks: no live signal right now', None)]),
         ('sms', """V.render();
-rpcReply = { error: 'mu300-sms is not available (the SMS service is not installed or not running)' };
+rpcReply = { error: 'openf50-sms is not available (the SMS service is not installed or not running)' };
 await V.reload(); await flush();
 const convs = html('sms-convs');
 M.choiceBox = () => Promise.resolve('local'); toasts.length = 0;
 rpcReply = { ok: 0, error: 'Delete failed', detail: 'no message 4' };
 V.delMsg('4'); await flush(); await flush();
 return [ convs.replace(/<[^>]*>/g, ''), notes().pop() ];""",
-         [(None, 'mu300-sms is not available (the SMS service is not installed or not running)', None),
+         [(None, 'openf50-sms is not available (the SMS service is not installed or not running)', None),
           (None, 'Delete failed', 'no message 4')]),
         # a message whose full text cannot be read says so, as send and delete do (R31: it used to stay silent)
         ('sms', """V.render();
 rpcReply = { pages: 1, total: 1, msgs: [ { id: '9', peer: '10086', dir: 'mt', preview: 'x', time: 't9' } ] };
 await V.reload(); await flush(); toasts.length = 0;
-rpcReply = { ok: 0, error: 'Read failed', detail: 'mu300-sms: no message 9' };
+rpcReply = { ok: 0, error: 'Read failed', detail: 'openf50-sms: no message 9' };
 V.open('10086'); await flush(); await flush();
-return notes();""", [(None, 'Read failed', 'mu300-sms: no message 9')]),
+return notes();""", [(None, 'Read failed', 'openf50-sms: no message 9')]),
         ('device', """V.render({ ok: 1, role: 'host', host_supported: 1 }); await flush();
 get('mud-usb-adapters').children = [];
 rpcReply = { ok: 1, devices: [ { name: 'eth2', carrier: 0, in_lan: 0 } ] };

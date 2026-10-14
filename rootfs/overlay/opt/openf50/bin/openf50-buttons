@@ -1,0 +1,33 @@
+#!/bin/sh
+# The buttons (Ubuntu and OpenWrt; run by openf50-buttons.service / /etc/init.d/openf50-buttons):
+#   power, short press        wake the LEDs (they go dark after LED_TIMEOUT, see openf50-led)
+#   power, held 3 s           shut down cleanly (the battery-powered U30 Air; the F50 starts again on USB power)
+#   Wi-Fi key, short press    hotspot 2.4 <-> 5 GHz (U30 Air; the Wi-Fi LED shows the band: blue 5, white 2.4)
+#   Wi-Fi key, held 3 s       hotspot off / on
+# openf50-keys reports the presses; its tick every 5 s lets the LEDs time out. Ubuntu's logind leaves the power key
+# to this script (/etc/systemd/logind.conf.d/openf50-buttons.conf): it used to power the device off at a touch.
+export PATH="$PATH:/opt/openf50/bin:/usr/sbin:/sbin"
+KEY_POWER=116
+KEY_WIFI=138   # "Wifi Switch Key" in the U30 Air's device tree (KEY_HELP's code, as its Android maps it)
+is_openwrt() { [ -e /etc/openwrt_release ]; }
+
+hotspot_toggle() {
+    if is_openwrt; then
+        if ubus call hostapd.wlan0 get_status >/dev/null 2>&1; then wifi down; openf50-led wifi off
+        else wifi up; ( openf50-led wifi sync 120 ) </dev/null >/dev/null 2>&1 & fi
+    elif systemctl is-active --quiet openf50-hotspot; then systemctl stop openf50-hotspot
+    else systemctl start openf50-hotspot; fi
+}
+
+openf50-keys -l 3000 -t 5 | while read -r code kind; do
+    case "$code $kind" in
+        "$KEY_POWER short") openf50-led wake ;;
+        "$KEY_POWER long")
+            logger -t openf50-buttons "power button held: shutting down" 2>/dev/null
+            openf50-led wake
+            if is_openwrt; then poweroff; else systemctl poweroff; fi ;;
+        "$KEY_WIFI short") openf50-led wake; openf50-wifi-band toggle | logger -t openf50-buttons 2>/dev/null ;;
+        "$KEY_WIFI long") openf50-led wake; hotspot_toggle ;;
+        "0 tick") openf50-led sleep --if-due ;;
+    esac
+done

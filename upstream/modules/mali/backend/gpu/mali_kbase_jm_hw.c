@@ -1477,7 +1477,7 @@ int kbase_reset_gpu_init(struct kbase_device *kbdev)
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 15, 0)
 	hrtimer_setup(&kbdev->hwaccess.backend.reset_timer, kbasep_reset_timer_callback,
-		      CLOCK_MONOTONIC, HRTIMER_MODE_REL);	/* MU300: hrtimer_init() is gone */
+		      CLOCK_MONOTONIC, HRTIMER_MODE_REL);	/* OPENF50: hrtimer_init() is gone */
 #else
 	hrtimer_init(&kbdev->hwaccess.backend.reset_timer, CLOCK_MONOTONIC,
 							HRTIMER_MODE_REL);

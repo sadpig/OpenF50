@@ -1,8 +1,8 @@
 # Running other distributions
 
 The boot path does not care which distribution it starts. The initramfs mounts the Linux filesystem (ext4 on an SD
-card labelled `mu300sd`, else the one in the free eMMC area), reads `/.mu300/boot-os`, and `switch_root`s into the directory named there. So a system is just a directory
-with a root filesystem in it, and `mu300-os <name>` picks the one to boot next.
+card labelled `openf50sd`, else the one in the free eMMC area), reads `/.openf50/boot-os`, and `switch_root`s into the directory named there. So a system is just a directory
+with a root filesystem in it, and `openf50-os <name>` picks the one to boot next.
 
 What a distribution has to bring:
 
@@ -18,13 +18,13 @@ What a distribution has to bring:
 | Distribution | Build | Notes |
 |---|---|---|
 | Ubuntu 24.04 LTS | `rootfs/` (default) | the tested default, systemd 255 |
-| Ubuntu 26.04 LTS | `docker build --build-arg BASE=ubuntu:26.04 -t mu300-ubuntu:26.04 rootfs/` then `rootfs/assemble.sh` | released (beta); needs kernel 6.18 or 7.2 |
+| Ubuntu 26.04 LTS | `docker build --build-arg BASE=ubuntu:26.04 -t openf50-ubuntu:26.04 rootfs/` then `rootfs/assemble.sh` | released (beta); needs kernel 6.18 or 7.2 |
 | OpenWrt 25.12 | `openwrt/build-rootfs.sh` | router use, LuCI, ~140 MiB RAM |
-| OpenWrt 25.12 with the MU300 panel | `MU300_SYSTEM=openwrt-luci openwrt/build-rootfs.sh` | released as `openwrt-luci`, see [BUILD.md](BUILD.md) |
-| ImmortalWrt 25.12 | `MU300_FLAVOUR=immortalwrt openwrt/build-rootfs.sh` | OpenWrt fork with more drivers and LuCI apps |
+| OpenWrt 25.12 with the OPENF50 panel | `OPENF50_SYSTEM=openwrt-luci openwrt/build-rootfs.sh` | released as `openwrt-luci`, see [BUILD.md](BUILD.md) |
+| ImmortalWrt 25.12 | `OPENF50_FLAVOUR=immortalwrt openwrt/build-rootfs.sh` | OpenWrt fork with more drivers and LuCI apps |
 | Arch Linux ARM | `arch/build-rootfs.sh` | rolling, 258 MiB image / 922 MiB installed; built, not yet booted on hardware |
-| Debian 13 | `docker build --build-arg BASE=debian:13 -t mu300-debian:13 rootfs/` then `rootfs/assemble.sh` | same package names as Ubuntu |
-| Kali Linux | `docker build --build-arg BASE=kalilinux/kali-rolling -t mu300-kali rootfs/` then `rootfs/assemble.sh` | see below |
+| Debian 13 | `docker build --build-arg BASE=debian:13 -t openf50-debian:13 rootfs/` then `rootfs/assemble.sh` | same package names as Ubuntu |
+| Kali Linux | `docker build --build-arg BASE=kalilinux/kali-rolling -t openf50-kali rootfs/` then `rootfs/assemble.sh` | see below |
 
 The Arch build removes the `linux-aarch64` kernel and `linux-firmware` packages that the generic Arch ARM image
 ships (about 1.5 GB): this device boots the vendor kernel from the boot image and takes its firmware from Android.
@@ -39,7 +39,7 @@ it cannot do on this device:
   station and access-point mode only. `airmon-ng` has nothing to switch, so the classic Wi-Fi attacks are out.
 * **No external Wi-Fi adapter on the F50**: its USB-C port runs as a *gadget* (the device pretends to be a network
   card for your computer) and is its power supply. The U30 Air has host mode on the mainline kernels
-  (`mu300-usb host`), and those kernels carry MediaTek, Ralink and Realtek USB Wi-Fi drivers; an adapter has not
+  (`openf50-usb host`), and those kernels carry MediaTek, Ralink and Realtek USB Wi-Fi drivers; an adapter has not
   been tried here.
 * **No screen.** Everything is over SSH; Kali's desktop tooling is pointless on this hardware.
 
@@ -75,7 +75,7 @@ programs reaching for new syscalls, and those can be swapped out one by one.
 
 ### The part that is actual work
 
-The MU300 services — modem bring-up, the Android vendor chroot, Wi-Fi, the LAN bridge, the hotspot, the toolkit —
+The OPENF50 services — modem bring-up, the Android vendor chroot, Wi-Fi, the LAN bridge, the hotspot, the toolkit —
 exist as **systemd units** (used by Ubuntu, Debian, Kali, Arch, Fedora and friends) and as **procd init scripts**
 for OpenWrt/ImmortalWrt. A distribution with a different init (Alpine's OpenRC, Void's runit) boots fine, but
 somebody has to write those ~15 service definitions again before the modem and Wi-Fi come up by themselves.
@@ -94,14 +94,14 @@ somebody has to write those ~15 service definitions again before the modem and W
 
 The installer knows `ubuntu`, `openwrt` and `openwrt-luci` by name.
  For anything else, unpack the tarball next to them and select
-it (from Android, with the Linux filesystem mounted as in `tools/android-mount-mu300root.sh`):
+it (from Android, with the Linux filesystem mounted as in `tools/android-mount-openf50root.sh`):
 
 ```sh
-mkdir -p /data/local/tmp/mu300root/arch
-tar -xzpf mu300-arch-rootfs.tar.gz -C /data/local/tmp/mu300root/arch
-echo arch > /data/local/tmp/mu300root/.mu300/boot-os
+mkdir -p /data/local/tmp/openf50root/arch
+tar -xzpf openf50-arch-rootfs.tar.gz -C /data/local/tmp/openf50root/arch
+echo arch > /data/local/tmp/openf50root/.openf50/boot-os
 ```
 
-From a running Linux on the device, the same thing under `/mnt/mu300-disk/`, then `mu300-os arch` and reboot.
-If it does not boot, the bootloader falls back to Android by itself, and `mu300-os ubuntu` brings the old system
+From a running Linux on the device, the same thing under `/mnt/openf50-disk/`, then `openf50-os arch` and reboot.
+If it does not boot, the bootloader falls back to Android by itself, and `openf50-os ubuntu` brings the old system
 back.

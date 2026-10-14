@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""ZTE F50 (B16) 后台 API 小工具：登录、读取 nv、带 AD 签名的设置命令。
+"""ZTE F50 (B16) stock web-UI API helper: login, nv reads, AD-signed set commands.
 
-用法:
-  zte_api.py get  KEY[,KEY...]            读取（不登录也能读部分字段）
-  zte_api.py login PASSWORD               登录并打印 loginfo
-  zte_api.py lget PASSWORD KEY[,KEY...]   登录后读取
-  zte_api.py set  PASSWORD GOFORM_ID k=v [k=v...]   登录后执行设置命令
+Usage:
+  zte_api.py get  KEY[,KEY...]            read (some keys work without login)
+  zte_api.py login PASSWORD               login and print loginfo
+  zte_api.py lget PASSWORD KEY[,KEY...]   read while logged in
+  zte_api.py set  PASSWORD GOFORM_ID k=v [k=v...]   run a signed set command while logged in
 """
 import hashlib
 import json
@@ -59,7 +59,7 @@ def post(data: dict):
 def login(password: str):
     ld = get("LD").get("LD", "")
     if not ld:
-        raise SystemExit("无法获取 LD（登录随机数）")
+        raise SystemExit("cannot fetch LD (login nonce)")
     pw = sha256_upper(sha256_upper(password) + ld)
     res = post({"isTest": "false", "goformId": "LOGIN", "password": pw})
     info = get("loginfo")
@@ -93,12 +93,12 @@ if __name__ == "__main__":
     elif a[0] == "lget":
         res, info = login(a[1])
         if info.get("loginfo") != "ok":
-            raise SystemExit(f"登录失败: {res} {info}")
+            raise SystemExit(f"login failed: {res} {info}")
         print(json.dumps(get(a[2]), ensure_ascii=False))
     elif a[0] == "set":
         res, info = login(a[1])
         if info.get("loginfo") != "ok":
-            raise SystemExit(f"登录失败: {res} {info}")
+            raise SystemExit(f"login failed: {res} {info}")
         kv = dict(x.split("=", 1) for x in a[3:])
         print(json.dumps(set_cmd(a[2], **kv), ensure_ascii=False))
     else:

@@ -1,4 +1,4 @@
-# 简体中文 - MU300 Linux installer. One line per message: English<TAB>translation; {1}.. are the arguments.
+# 简体中文 - OPENF50 Linux installer. One line per message: English<TAB>translation; {1}.. are the arguments.
 # Check with: tools/check-i18n.py
 parallel download failed, retrying as a single stream	并行下载失败，改为单线程重试
 could not read {1} from the device	无法从设备读取 {1}
@@ -7,7 +7,7 @@ Checking host tools and device	正在检查电脑上的工具和设备
 kernel outputs missing in {1} (run kernel/build-all.sh)	{1} 中缺少内核编译输出（请运行 kernel/build-all.sh）
 su does not work on the device	设备上的 su 无法使用
 device: {1}	设备：{1}
-This does not look like a ZTE F50/MU300 or U30 Air. Continue anyway? (yes/no)	这看起来不是 ZTE F50/MU300 或 U30 Air。仍要继续吗？(是/否)
+This does not look like a ZTE F50/OPENF50 or U30 Air. Continue anyway? (yes/no)	这看起来不是 ZTE F50/OPENF50 或 U30 Air。仍要继续吗？(是/否)
 Android must be running from slot a	Android 必须从 a 槽 (slot a) 启动
 Not enough free space - this looks like the 32 GB variant	空闲空间不足——这似乎是 32 GB 版本
 could not read the partition table	无法读取分区表
@@ -44,9 +44,9 @@ Reboot now? (yes/no)	现在重启吗？(是/否)
 Locating free eMMC space after the last partition	正在查找最后一个分区之后的空闲 eMMC 空间
 could not read the partition table from the device (is su granted? try again)	无法从设备读取分区表（是否已授予 su 权限？请重试）
 eMMC: {1} ({2} sectors), partitions end at {3} (sector {4}), free after them: {5}	eMMC：{1}（{2} 个扇区），分区结束于 {3}（扇区 {4}），其后空闲：{5}
-Linux region: offset {1}, {2}, existing mu300root filesystem: {3}	Linux 区域：偏移 {1}，{2}，已有 mu300root 文件系统：{3}
+Linux region: offset {1}, {2}, existing openf50root filesystem: {3}	Linux 区域：偏移 {1}，{2}，已有 openf50root 文件系统：{3}
 data check: {1} of 16 samples contain data	数据检查：16 个样本中有 {1} 个含有数据
-OK: a MU300 Linux installation is already present (it can be kept or replaced)	正常：已存在 MU300 Linux 安装（可以保留或替换）
+OK: a OPENF50 Linux installation is already present (it can be kept or replaced)	正常：已存在 OPENF50 Linux 安装（可以保留或替换）
 WARNING: the unpartitioned space is not empty; it may be used by this firmware. Installing overwrites it	警告：未分区空间并非空白，可能正被此固件使用。安装将覆盖它
 OK: free and empty, same layout as the tested device (~32 GiB after userdata on the 64 GB eMMC)	正常：空闲且为空，与测试设备布局相同（64 GB eMMC 上 userdata 之后约 32 GiB）
 OK: free and empty, smaller than on the tested device but enough for both systems	正常：空闲且为空，比测试设备小，但足够安装两个系统
@@ -59,7 +59,7 @@ cancelled	已取消
 What should be installed?	要安装什么？
 1) Ubuntu LTS: 24.04 or 26.04, asked next (full distribution, apt, ~500 MiB RAM in use)	1) Ubuntu LTS：24.04 或 26.04，稍后选择（完整发行版，apt，约占用 500 MiB 内存）
 2) OpenWrt {1} (router, LuCI web UI, ~140 MiB RAM in use)	2) OpenWrt {1}（路由器系统，LuCI 网页界面，约占用 140 MiB 内存）
-3) both (switch later with: mu300-os ubuntu|openwrt)	3) 两者都装（之后用 mu300-os ubuntu|openwrt 切换）
+3) both (switch later with: openf50-os ubuntu|openwrt)	3) 两者都装（之后用 openf50-os ubuntu|openwrt 切换）
 (this device has {1}: {2})	（此设备有 {1}：{2}）
 one system fits, not both	只能装一个系统，不能同时装两个
 only OpenWrt fits	只能装 OpenWrt
@@ -67,8 +67,8 @@ Choice	选择
 invalid choice	无效的选择
 Which OpenWrt?	要哪个 OpenWrt？
 1) OpenWrt {1}: the standard LuCI web interface	1) OpenWrt {1}：标准的 LuCI 网页界面
-2) OpenWrt {1} with the MU300 control panel: dashboard, cellular locks, SMS, AT terminal, USB modes (by kanoqwq)	2) OpenWrt {1} 搭配 MU300 控制面板：仪表盘、蜂窝锁定、短信、AT 终端、USB 模式（kanoqwq 制作）
-MU300_OPENWRT must be plain or luci	MU300_OPENWRT 必须是 plain 或 luci
+2) OpenWrt {1} with the OPENF50 control panel: dashboard, cellular locks, SMS, AT terminal, USB modes (by kanoqwq)	2) OpenWrt {1} 搭配 OPENF50 控制面板：仪表盘、蜂窝锁定、短信、AT 终端、USB 模式（kanoqwq 制作）
+OPENF50_OPENWRT must be plain or luci	OPENF50_OPENWRT 必须是 plain 或 luci
 that choice needs about {1} MiB and this device has {2} MiB of free space	该选择需要约 {1} MiB，而此设备只有 {2} MiB 空闲空间
 Which one should boot ({1})	启动哪个系统（{1}）
 invalid system	无效的系统
@@ -82,7 +82,7 @@ Linux hangs - before about a minute after power-on. One boot that does finish re
 * It is also your way back to Android with no computer at hand: cut the power while it is starting this	* 这也是手边没有电脑时回到 Android 的方法：在启动过程中连续断电
   many times in a row.	  这么多次。
 1 is how this project used to behave (a single interrupted boot returns to Android). 1-6; the device's	1 是本项目以前的行为（一次中断的启动就会回到 Android）。可选 1-6；设备的
-boot counter has no room for more. It can be changed later with: mu300-next-boot attempts N	启动计数器容纳不了更多。之后可以用以下命令更改：mu300-next-boot attempts N
+boot counter has no room for more. It can be changed later with: openf50-next-boot attempts N	启动计数器容纳不了更多。之后可以用以下命令更改：openf50-next-boot attempts N
 Failed boots before Android (1-6)	回到 Android 前允许的失败启动次数（1-6）
 enter a number from 1 to 6	请输入 1 到 6 之间的数字
 Copy Android's hotspot name and password to Linux? (yes/no)	将 Android 的热点名称和密码复制到 Linux 吗？(是/否)
@@ -93,7 +93,7 @@ Which kernel?	选择哪个内核？
          functions (hotspot, mobile data, SMS, Bluetooth, VPN, GPU); no USB-C video output yet	         功能相同（热点、移动数据、短信、蓝牙、VPN、GPU）；暂不支持 USB-C 视频输出
 3) 7.2   the newest stable mainline Linux (7.2 for now): the newest drivers, the same functions	3) 7.2   最新的稳定版主线 Linux（目前为 7.2）：最新的驱动，功能与 6.18 相同；
          as 6.18; tested less than 6.18	         测试比 6.18 少
-This can be changed later on the device: sudo mu300-update kernel 5.4|6.18|7.2	之后可以在设备上更改：sudo mu300-update kernel 5.4|6.18|7.2
+This can be changed later on the device: sudo openf50-update kernel 5.4|6.18|7.2	之后可以在设备上更改：sudo openf50-update kernel 5.4|6.18|7.2
 Which Ubuntu?	选择哪个 Ubuntu？
 1) 24.04 LTS  the longest tested, supported until 2029	1) 24.04 LTS  测试时间最长，支持到 2029 年
 2) 26.04 LTS  BETA: the newest (systemd 259, newer packages), supported until 2031; tested less	2) 26.04 LTS  测试版（BETA）：最新版本（systemd 259，更新的软件包），支持到 2031 年；测试较少
@@ -104,8 +104,8 @@ no answer left for the question: {1}	这个问题已经没有可用的答案了�
 Device	设备
 Kernel	内核
 enter 1, 2 or 3	请输入 1、2 或 3
-A MU300 Linux installation is already on this device.	此设备上已经安装了 MU300 Linux。
-update  reinstall the systems and keep settings and data (/etc/mu300, users and home directories,	update  重新安装系统，保留设置和数据（/etc/mu300、用户和主目录、
+A OPENF50 Linux installation is already on this device.	此设备上已经安装了 OPENF50 Linux。
+update  reinstall the systems and keep settings and data (/etc/openf50, users and home directories,	update  重新安装系统，保留设置和数据（/etc/openf50、用户和主目录、
         SSH host keys, OpenWrt UCI config; the hotspot settings are kept too)	        SSH 主机密钥、OpenWrt UCI 配置；热点设置也会保留）
 wipe    erase the Linux filesystem and install from scratch	wipe    清除 Linux 文件系统并全新安装
 update or wipe	update（更新）或 wipe（清除）
@@ -116,7 +116,7 @@ Pulling device data into {1} (stays on this computer)	正在将设备数据拉�
 could not read the misc header from the device	无法从设备读取 misc 头部
 these firmware files could not be read from the device:{1}	无法从设备读取以下固件文件：{1}
 Wi-Fi and Bluetooth need them; without them the system installs and boots but has no hotspot.	Wi-Fi 和蓝牙需要这些文件；缺少它们系统仍可安装和启动，但没有热点。
-cannot find the newest release of {1} (set MU300_RELEASE=<tag> to pick one)	找不到 {1} 的最新版本（可设置 MU300_RELEASE=<标签> 指定）
+cannot find the newest release of {1} (set OPENF50_RELEASE=<tag> to pick one)	找不到 {1} 的最新版本（可设置 OPENF50_RELEASE=<标签> 指定）
 Downloading release {1}	正在下载版本 {1}
 cannot download {1}	无法下载 {1}
 {1} is not part of release {2}	{1} 不在版本 {2} 中
@@ -154,8 +154,8 @@ Installing the on-device switch (Magisk module)	正在安装设备端切换工�
 (skipped; the installer keeps working either way)	（已跳过；不影响安装程序的使用）
 Done. Rebooting into {1}	完成。正在重启进入 {1}
 USB network: {1}   SSH: {2}	USB 网络：{1}   SSH：{2}
-switch systems: mu300-os {1}   back to Android: mu300-next-boot android	切换系统：mu300-os {1}   回到 Android：mu300-next-boot android
-back to Linux from Android (with Magisk): su -c mu300-linux	从 Android 回到 Linux（需 Magisk）：su -c mu300-linux
+switch systems: openf50-os {1}   back to Android: openf50-next-boot android	切换系统：openf50-os {1}   回到 Android：openf50-next-boot android
+back to Linux from Android (with Magisk): su -c openf50-linux	从 Android 回到 Linux（需 Magisk）：su -c openf50-linux
 Type ERASE to rewrite the partition table and wipe Android's data	输入 ERASE 以重写分区表并清除 Android 数据
 The backup copy at the end of the disk was written first, so Android's own repair may still fix this. Do not power off.	磁盘末尾的备份副本已先写入，Android 自身的修复仍可能解决此问题。请勿断电。
 Clearing Android's data filesystem so it is recreated on the next boot	正在清除 Android 的数据文件系统，以便下次启动时重新创建
@@ -164,23 +164,23 @@ Python 3 not found (install it from python.org or the Microsoft Store)	未找到
 Python 3.8 or newer is required	需要 Python 3.8 或更高版本
 the lz4 Python module is required to build the boot image: pip install lz4	构建启动镜像需要 lz4 Python 模块：pip install lz4
 no adb device (boot Android, enable USB debugging)	没有 adb 设备（请启动 Android 并开启 USB 调试）
-The device is running MU300 Linux, not Android	设备当前运行的是 MU300 Linux，而不是 Android
+The device is running OPENF50 Linux, not Android	设备当前运行的是 OPENF50 Linux，而不是 Android
 Installing and uninstalling happen from Android (slot a), so the device has to reboot first.	安装和卸载需在 Android（a 槽）中进行，因此设备需要先重启。
 I can ask it over SSH; you will be prompted for its password.	我可以通过 SSH 让它重启；届时会要求输入设备密码。
 Reboot the device into Android now? (yes/no)	现在重启设备进入 Android 吗？(是/否)
-boot Android yourself (on the device: sudo mu300-next-boot android && sudo reboot)	请自行启动 Android（在设备上执行：sudo mu300-next-boot android && sudo reboot）
+boot Android yourself (on the device: sudo openf50-next-boot android && sudo reboot)	请自行启动 Android（在设备上执行：sudo openf50-next-boot android && sudo reboot）
 {1} - enter the device password when asked (Ctrl-C to skip)	{1}——提示时请输入设备密码（按 Ctrl-C 跳过）
 rebooting	正在重启
 waiting for Android	正在等待 Android
-the device did not come back as Android; boot it yourself (mu300-next-boot android)	设备没有以 Android 启动；请自行启动（mu300-next-boot android）
+the device did not come back as Android; boot it yourself (openf50-next-boot android)	设备没有以 Android 启动；请自行启动（openf50-next-boot android）
 Android is up	Android 已启动
 only {1} MiB of free space after the last partition: this device has a different layout, nothing is changed.	最后一个分区之后只有 {1} MiB 空闲空间：此设备布局不同，未做任何更改。
 Please report the numbers above (eMMC size and where the partitions end); they identify the variant.	请报告上面的数字（eMMC 大小和分区结束位置），它们可以识别设备型号。
 pulling boot_a failed	拉取 boot_a 失败
 cannot find the newest release of {1} (use -Release <tag> to pick one)	找不到 {1} 的最新版本（可用 -Release <标签> 指定）
 no Magisk (or no root) on this device - skipped	此设备没有 Magisk（或没有 root）——已跳过
-installed: 'su -c mu300-linux' on the device starts Linux after the next Android boot	已安装：下次 Android 启动后，在设备上执行 'su -c mu300-linux' 即可启动 Linux
-could not reboot it over SSH; on the device run: sudo mu300-next-boot android && sudo reboot	无法通过 SSH 重启；请在设备上执行：sudo mu300-next-boot android && sudo reboot
+installed: 'su -c openf50-linux' on the device starts Linux after the next Android boot	已安装：下次 Android 启动后，在设备上执行 'su -c openf50-linux' 即可启动 Linux
+could not reboot it over SSH; on the device run: sudo openf50-next-boot android && sudo reboot	无法通过 SSH 重启；请在设备上执行：sudo openf50-next-boot android && sudo reboot
 could not check GitHub for a newer installer; continuing with this copy	无法在 GitHub 上检查是否有更新的安装程序；继续使用当前副本
 a newer installer is on GitHub, but this copy has local changes; not updating it	GitHub 上有更新的安装程序，但此副本有本地修改，因此不更新
 Updating the installer to the newest version from GitHub	正在将安装程序更新到 GitHub 上的最新版本
@@ -200,24 +200,24 @@ Python 3 is not installed; installing it for this user	未安装 Python 3；正�
 waiting for Android to finish starting	正在等待 Android 启动完成
 which adb device is the F50 or U30 Air?	哪个 adb 设备是 F50 或 U30 Air？
 SD card present but smaller than 700 MiB; not used	已插入 SD 卡，但容量小于 700 MiB；不使用
-SD card: {1}, {2}, existing mu300sd filesystem: {3}	SD 卡：{1}，{2}，已有 mu300sd 文件系统：{3}
-Linux filesystem: SD card {1}, {2}, existing mu300sd filesystem: {3}	Linux 文件系统：SD 卡 {1}，{2}，已有 mu300sd 文件系统：{3}
+SD card: {1}, {2}, existing openf50sd filesystem: {3}	SD 卡：{1}，{2}，已有 openf50sd 文件系统：{3}
+Linux filesystem: SD card {1}, {2}, existing openf50sd filesystem: {3}	Linux 文件系统：SD 卡 {1}，{2}，已有 openf50sd 文件系统：{3}
 OK: the SD card will be formatted; everything on it is erased	正常：SD 卡将被格式化；卡上的所有内容都会被清除
 Everything on the SD card ({1}, {2}) will be erased. Type ERASE to continue	SD 卡（{1}，{2}）上的所有内容都将被清除。输入 ERASE 继续
 CREATE new ext4 (erases the SD card)	创建新的 ext4（将清除 SD 卡）
 writes:         SD card {1}, boot_b, 32 bytes of misc (the eMMC region, boot_a, GPT and userdata are not touched)	写入：          SD 卡 {1}、boot_b、misc 的 32 字节（不会触碰 eMMC 上的 Linux 区域、boot_a、GPT 和 userdata）
-MU300_STORAGE=sd, but there is no usable SD card in the device	MU300_STORAGE=sd，但设备中没有可用的 SD 卡
-MU300_STORAGE must be internal or sd	MU300_STORAGE 必须是 internal 或 sd
+OPENF50_STORAGE=sd, but there is no usable SD card in the device	OPENF50_STORAGE=sd，但设备中没有可用的 SD 卡
+OPENF50_STORAGE must be internal or sd	OPENF50_STORAGE 必须是 internal 或 sd
 Where should the Linux filesystem go: internal storage or the SD card ({1}, {2})? (internal/sd)	Linux 文件系统要放在哪里：内部存储还是 SD 卡（{1}，{2}）？(internal/sd)
-the SD card ({1}) holds another Linux (ext4) filesystem, and the installer never formats one that is not its own (mu300sd).	SD 卡（{1}）上有另一个 Linux（ext4）文件系统，安装程序绝不会格式化不属于自己（不是 mu300sd）的文件系统。
-Copy off what you need and format the card elsewhere, use another card, or install to internal storage (MU300_STORAGE=internal).	请先复制出需要的数据并在别处格式化该卡，或换一张卡，或安装到内部存储（MU300_STORAGE=internal）。
+the SD card ({1}) holds another Linux (ext4) filesystem, and the installer never formats one that is not its own (openf50sd).	SD 卡（{1}）上有另一个 Linux（ext4）文件系统，安装程序绝不会格式化不属于自己（不是 openf50sd）的文件系统。
+Copy off what you need and format the card elsewhere, use another card, or install to internal storage (OPENF50_STORAGE=internal).	请先复制出需要的数据并在别处格式化该卡，或换一张卡，或安装到内部存储（OPENF50_STORAGE=internal）。
 the SD card holds another Linux (ext4) filesystem; the installer will not format it	SD 卡上有另一个 Linux（ext4）文件系统；安装程序不会格式化它
 too little free eMMC space for Linux; the installer will offer the SD card instead (no repartitioning needed)	eMMC 上的空闲空间不足以安装 Linux；安装程序将改为提供 SD 卡选项（无需重新分区）
-the {1} kernel of release {2} cannot read the SD card: choose kernel 5.4, a newer release, or internal storage (MU300_STORAGE=internal)	版本 {2} 的 {1} 内核无法读取 SD 卡：请选择 5.4 内核、更新的版本，或内部存储（MU300_STORAGE=internal）
-The SD card ({1}) holds a Linux installation (mu300sd), and the device always starts that one first: an installation to internal storage does not start while this card is in the slot.	SD 卡（{1}）上已有 Linux 安装（mu300sd），设备总是先启动它：只要这张卡还在卡槽中，安装到内部存储的系统就不会启动。
+the {1} kernel of release {2} cannot read the SD card: choose kernel 5.4, a newer release, or internal storage (OPENF50_STORAGE=internal)	版本 {2} 的 {1} 内核无法读取 SD 卡：请选择 5.4 内核、更新的版本，或内部存储（OPENF50_STORAGE=internal）
+The SD card ({1}) holds a Linux installation (openf50sd), and the device always starts that one first: an installation to internal storage does not start while this card is in the slot.	SD 卡（{1}）上已有 Linux 安装（openf50sd），设备总是先启动它：只要这张卡还在卡槽中，安装到内部存储的系统就不会启动。
 Take the card out before the device restarts, or erase its installation first with the uninstaller.	请在设备重启前取出这张卡，或先用卸载程序（uninstall）清除卡上的安装。
 Type internal to install to internal storage anyway	输入 internal 以仍然安装到内部存储
-The VPN (mu300-vpn) needs the vpn extra: Xray and sing-box. It can also be added later on the device:	VPN（mu300-vpn）需要 vpn 扩展组件：Xray 和 sing-box。也可以稍后在设备上添加：
+The VPN (openf50-vpn) needs the vpn extra: Xray and sing-box. It can also be added later on the device:	VPN（openf50-vpn）需要 vpn 扩展组件：Xray 和 sing-box。也可以稍后在设备上添加：
 Install the VPN extra (about 40 MB more to download, 120 MB on the device)? (yes/no)	安装 VPN 扩展组件吗（约多下载 40 MB，在设备上占用 120 MB）？(是/否)
 release {1} has no vpn extra: its systems still carry the VPN engines	版本 {1} 没有 vpn 扩展组件：其系统仍自带 VPN 引擎
 extras:         {1}	扩展组件：      {1}
@@ -225,11 +225,11 @@ none	无
 Android runs from slot {1}; Linux goes to slot {2} (boot_{2})	Android 从槽位 {1} 运行；Linux 将安装到槽位 {2}（boot_{2}）
 CREATE new ext4 (erases what is there)	新建 ext4（会清除上面的内容）
 Dry run: nothing was written.	试运行：未写入任何内容。
-MU300_BOOT_OS={1}, but {1} is not installed	MU300_BOOT_OS={1}，但 {1} 未安装
+OPENF50_BOOT_OS={1}, but {1} is not installed	OPENF50_BOOT_OS={1}，但 {1} 未安装
 Magisk's magiskboot was not found; install this zip with Magisk 26 or newer	未找到 Magisk 的 magiskboot；请使用 Magisk 26 或更新版本安装此 zip
 Plan	计划
-Take the card out and install the zip again, or install to the card (MU300_STORAGE=sd in /sdcard/mu300-install.conf).	请取出这张卡后重新安装此 zip，或安装到卡上（在 /sdcard/mu300-install.conf 中写入 MU300_STORAGE=sd）。
-Ubuntu 26.04 is installed, and it needs a mainline kernel (6.18 or 7.2): use a zip with one of those kernels, or MU300_MODE=wipe.	已安装 Ubuntu 26.04，它需要主线内核（6.18 或 7.2）：请使用带有其中一个内核的 zip，或设置 MU300_MODE=wipe。
+Take the card out and install the zip again, or install to the card (OPENF50_STORAGE=sd in /sdcard/openf50-install.conf).	请取出这张卡后重新安装此 zip，或安装到卡上（在 /sdcard/openf50-install.conf 中写入 OPENF50_STORAGE=sd）。
+Ubuntu 26.04 is installed, and it needs a mainline kernel (6.18 or 7.2): use a zip with one of those kernels, or OPENF50_MODE=wipe.	已安装 Ubuntu 26.04，它需要主线内核（6.18 或 7.2）：请使用带有其中一个内核的 zip，或设置 OPENF50_MODE=wipe。
 Unpacking {1} and {2}	正在解压 {1} 和 {2}
 already there:  {1}	已有：          {1}
 boot_a and boot_b are the same partition	boot_a 和 boot_b 是同一个分区
@@ -241,9 +241,9 @@ could not unpack the zip	无法解压 zip
 default	默认
 keep: settings and data of {1} are kept	保留：{1} 的设置和数据会保留
 misc holds no valid boot control block; nothing was changed	misc 中没有有效的启动控制块；未做任何更改
-mu300-install.conf: MU300_PASSWORD must have at least 6 characters	mu300-install.conf：MU300_PASSWORD 至少需要 6 个字符
-mu300-install.conf: {1} is not a setting of this installer; ignored	mu300-install.conf：{1} 不是此安装程序的设置；已忽略
-mu300-install.conf: {1}={2} is not valid	mu300-install.conf：{1}={2} 无效
+openf50-install.conf: OPENF50_PASSWORD must have at least 6 characters	openf50-install.conf：OPENF50_PASSWORD 至少需要 6 个字符
+openf50-install.conf: {1} is not a setting of this installer; ignored	openf50-install.conf：{1} 不是此安装程序的设置；已忽略
+openf50-install.conf: {1}={2} is not valid	openf50-install.conf：{1}={2} 无效
 not enough free space in {1}: {2} needed, {3} free	{1} 中空闲空间不足：需要 {2}，仅剩 {3}
 settings from {1}:{2}	来自 {1} 的设置：{2}
 storage:        SD card {1}, {2} ({3})	存储：          SD 卡 {1}，{2}（{3}）
@@ -256,23 +256,23 @@ this is not an A/B device with misc, boot_a and boot_b	这不是带有 misc、bo
 this kernel cannot read the SD card; use a newer zip	此内核无法读取 SD 卡；请使用更新的 zip
 this kernel does not support the {1}	此内核不支持 {1}
 writes:         {1}, boot_{2}, 32 bytes of misc (boot_{3}, the partition table and userdata are not touched)	写入：          {1}、boot_{2}、misc 的 32 字节（不会触碰 boot_{3}、分区表和 userdata）
-mu300-install.conf: {1} is taken only from {2}, which only root can change; ignored in {3}	mu300-install.conf：{1} 只从 {2} 读取（只有 root 能修改该文件）；在 {3} 中已忽略
+openf50-install.conf: {1} is taken only from {2}, which only root can change; ignored in {3}	openf50-install.conf：{1} 只从 {2} 读取（只有 root 能修改该文件）；在 {3} 中已忽略
 To use{1}, make the file one only root can change: {2}	如要使用{1}，请把该文件变为只有 root 能修改：{2}
 {1} is not owned by root, or others can change it: it is read like a file on /sdcard	{1} 不属于 root，或其他用户可以修改它：按 /sdcard 上的文件对待
-This does not look like a ZTE F50/MU300 or U30 Air. If it is one, put MU300_DEVICE=f50 or u30air into {1}.	这看起来不是 ZTE F50/MU300 或 U30 Air。如果是，请在 {1} 中写入 MU300_DEVICE=f50 或 u30air。
+This does not look like a ZTE F50/OPENF50 or U30 Air. If it is one, put OPENF50_DEVICE=f50 or u30air into {1}.	这看起来不是 ZTE F50/OPENF50 或 U30 Air。如果是，请在 {1} 中写入 OPENF50_DEVICE=f50 或 u30air。
 could not create a work directory in {1}	无法在 {1} 中创建工作目录
 A Linux filesystem is still mounted in {1}; it was left as it is. Restart the device before installing again.	{1} 中仍挂载着 Linux 文件系统；已保持原样。再次安装前请重启设备。
 There is too little free space inside for Linux, and the SD card ({1}) holds another Linux (ext4) filesystem, which the installer never formats. Copy off what you need and format the card elsewhere, or use another card.	内部存储空闲空间不足以安装 Linux，而 SD 卡（{1}）上有另一个 Linux（ext4）文件系统，安装程序绝不会格式化它。请先复制所需内容并在别处格式化该卡，或换一张卡。
-There is too little free space inside for Linux. The SD card ({1}, {2}) can hold it: put MU300_STORAGE=sd and MU300_SD_ERASE=yes into {3}, a file only root can change (everything on the card is erased).	内部存储空闲空间不足以安装 Linux。SD 卡（{1}，{2}）可以容纳：请在只有 root 能修改的 {3} 中写入 MU300_STORAGE=sd 和 MU300_SD_ERASE=yes（卡上的全部内容将被清除）。
-There is too little free space inside for Linux, and the SD card is smaller than 700 MiB. Use a bigger card (MU300_STORAGE=sd and MU300_SD_ERASE=yes in {1}), or make room with the installer for computers.	内部存储空闲空间不足以安装 Linux，且 SD 卡小于 700 MiB。请使用更大的卡（在 {1} 中写入 MU300_STORAGE=sd 和 MU300_SD_ERASE=yes），或用电脑版安装程序腾出空间。
-There is too little free space inside for Linux and no SD card. Insert a card (MU300_STORAGE=sd and MU300_SD_ERASE=yes in {1}), or make room with the installer for computers.	内部存储空闲空间不足以安装 Linux，且没有 SD 卡。请插入一张卡（在 {1} 中写入 MU300_STORAGE=sd 和 MU300_SD_ERASE=yes），或用电脑版安装程序腾出空间。
-MU300_MODE=wipe formats the SD card ({1}, {2}): the installation on it and everything else is erased. To allow that, put MU300_SD_ERASE=yes into {3} as well.	MU300_MODE=wipe 会格式化 SD 卡（{1}，{2}）：卡上的安装和其他所有内容都会被清除。如允许，请同时在 {3} 中写入 MU300_SD_ERASE=yes。
+There is too little free space inside for Linux. The SD card ({1}, {2}) can hold it: put OPENF50_STORAGE=sd and OPENF50_SD_ERASE=yes into {3}, a file only root can change (everything on the card is erased).	内部存储空闲空间不足以安装 Linux。SD 卡（{1}，{2}）可以容纳：请在只有 root 能修改的 {3} 中写入 OPENF50_STORAGE=sd 和 OPENF50_SD_ERASE=yes（卡上的全部内容将被清除）。
+There is too little free space inside for Linux, and the SD card is smaller than 700 MiB. Use a bigger card (OPENF50_STORAGE=sd and OPENF50_SD_ERASE=yes in {1}), or make room with the installer for computers.	内部存储空闲空间不足以安装 Linux，且 SD 卡小于 700 MiB。请使用更大的卡（在 {1} 中写入 OPENF50_STORAGE=sd 和 OPENF50_SD_ERASE=yes），或用电脑版安装程序腾出空间。
+There is too little free space inside for Linux and no SD card. Insert a card (OPENF50_STORAGE=sd and OPENF50_SD_ERASE=yes in {1}), or make room with the installer for computers.	内部存储空闲空间不足以安装 Linux，且没有 SD 卡。请插入一张卡（在 {1} 中写入 OPENF50_STORAGE=sd 和 OPENF50_SD_ERASE=yes），或用电脑版安装程序腾出空间。
+OPENF50_MODE=wipe formats the SD card ({1}, {2}): the installation on it and everything else is erased. To allow that, put OPENF50_SD_ERASE=yes into {3} as well.	OPENF50_MODE=wipe 会格式化 SD 卡（{1}，{2}）：卡上的安装和其他所有内容都会被清除。如允许，请同时在 {3} 中写入 OPENF50_SD_ERASE=yes。
 could not unmount the Linux filesystem from {1}	无法从 {1} 卸载 Linux 文件系统
 password:       from {1}, written to {2}	密码：          来自 {1}，将写入 {2}
 password:       generated, written to {1}	密码：          自动生成，将写入 {1}
 the zip is incomplete or damaged (its manifest is not valid)	zip 不完整或已损坏（其 manifest 无效）
-The free space behind the partitions is not empty ({1} of 16 samples hold data); it may be used by this firmware. To use it anyway, put MU300_STORAGE=internal and MU300_REGION_OVERWRITE=yes into {2}, a file only root can change.	分区之后的空闲空间并不为空（16 个采样中有 {1} 个含有数据）；它可能正被此固件使用。如仍要使用，请在只有 root 能修改的 {2} 中写入 MU300_STORAGE=internal 和 MU300_REGION_OVERWRITE=yes。
-Installing to the SD card ({1}, {2}) erases everything on it. To allow that, put MU300_STORAGE=sd and MU300_SD_ERASE=yes into {3}, a file only root can change.	安装到 SD 卡（{1}，{2}）会清除卡上的全部内容。如允许，请在只有 root 能修改的 {3} 中写入 MU300_STORAGE=sd 和 MU300_SD_ERASE=yes。
+The free space behind the partitions is not empty ({1} of 16 samples hold data); it may be used by this firmware. To use it anyway, put OPENF50_STORAGE=internal and OPENF50_REGION_OVERWRITE=yes into {2}, a file only root can change.	分区之后的空闲空间并不为空（16 个采样中有 {1} 个含有数据）；它可能正被此固件使用。如仍要使用，请在只有 root 能修改的 {2} 中写入 OPENF50_STORAGE=internal 和 OPENF50_REGION_OVERWRITE=yes。
+Installing to the SD card ({1}, {2}) erases everything on it. To allow that, put OPENF50_STORAGE=sd and OPENF50_SD_ERASE=yes into {3}, a file only root can change.	安装到 SD 卡（{1}，{2}）会清除卡上的全部内容。如允许，请在只有 root 能修改的 {3} 中写入 OPENF50_STORAGE=sd 和 OPENF50_SD_ERASE=yes。
 could not read the Android files the modem needs from this device	无法从本设备读取调制解调器所需的 Android 文件
 the Mali GPU files are incomplete on this device; installing without them	本设备上的 Mali GPU 文件不完整；将不带这些文件安装
 could not pack the vendor files	无法打包厂商文件

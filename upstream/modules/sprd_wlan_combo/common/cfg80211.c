@@ -1562,7 +1562,7 @@ int sprd_uninit_fw(struct sprd_vif *vif)
 }
 
 /*
- * MU300: the stations of the access point. hostapd knows them, but iw, iwinfo and so LuCI ask the driver, which
+ * OPENF50: the stations of the access point. hostapd knows them, but iw, iwinfo and so LuCI ask the driver, which
  * had no dump_station (issue #8). The firmware's peer table has them: the entries of this interface with a
  * unicast address other than its own (the table also holds the interface itself and its broadcast entry). The
  * firmware reports no signal or byte counts for them, so only the address is filled in.
@@ -1591,7 +1591,7 @@ static int sprd_cfg80211_dump_station(struct wiphy *wiphy, struct net_device *nd
 	return -ENOENT;
 }
 
-/* MU300: the access point's channel, which cfg80211 keeps from start_ap (iwinfo showed "Channel: 0") */
+/* OPENF50: the access point's channel, which cfg80211 keeps from start_ap (iwinfo showed "Channel: 0") */
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
 static int sprd_cfg80211_get_channel(struct wiphy *wiphy, struct wireless_dev *wdev, unsigned int link_id,
 				     struct cfg80211_chan_def *chandef)
@@ -1615,7 +1615,7 @@ static int sprd_cfg80211_get_channel(struct wiphy *wiphy, struct wireless_dev *w
 
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(7, 0, 0))
 /*
- * MU300: 7.x hands the key and station ops a wireless_dev where 6.x passed the net_device, and adds rx_addr to
+ * OPENF50: 7.x hands the key and station ops a wireless_dev where 6.x passed the net_device, and adds rx_addr to
  * remain_on_channel. The driver's functions stay as they are; these adapt the calls.
  */
 static int sprd_cfg80211_add_key_wdev(struct wiphy *wiphy, struct wireless_dev *wdev, int link_id,
@@ -1673,27 +1673,27 @@ static int sprd_cfg80211_remain_on_channel_wdev(struct wiphy *wiphy, struct wire
 {
 	return sprd_cfg80211_remain_on_channel(wiphy, wdev, chan, duration, cookie);
 }
-#define MU300_WDEV_OP(f) f##_wdev
+#define OPENF50_WDEV_OP(f) f##_wdev
 #else
-#define MU300_WDEV_OP(f) f
+#define OPENF50_WDEV_OP(f) f
 #endif
 
 static struct cfg80211_ops sprd_cfg80211_ops = {
 	.add_virtual_intf = sprd_cfg80211_add_iface,
 	.del_virtual_intf = sprd_cfg80211_del_iface,
 	.change_virtual_intf = sprd_cfg80211_change_iface,
-	.add_key = MU300_WDEV_OP(sprd_cfg80211_add_key),
-	.del_key = MU300_WDEV_OP(sprd_cfg80211_del_key),
+	.add_key = OPENF50_WDEV_OP(sprd_cfg80211_add_key),
+	.del_key = OPENF50_WDEV_OP(sprd_cfg80211_del_key),
 	.set_default_key = sprd_cfg80211_set_default_key,
-	.set_default_mgmt_key = MU300_WDEV_OP(sprd_cfg80211_set_default_mgmt_key),
+	.set_default_mgmt_key = OPENF50_WDEV_OP(sprd_cfg80211_set_default_mgmt_key),
 	.start_ap = sprd_cfg80211_start_ap,
 	.change_beacon = sprd_cfg80211_change_beacon,
 	.stop_ap = sprd_cfg80211_stop_ap,
-	.add_station = MU300_WDEV_OP(sprd_cfg80211_add_station),
-	.del_station = MU300_WDEV_OP(sprd_cfg80211_del_station),
-	.change_station = MU300_WDEV_OP(sprd_cfg80211_change_station),
-	.get_station = MU300_WDEV_OP(sprd_cfg80211_get_station),
-	.dump_station = MU300_WDEV_OP(sprd_cfg80211_dump_station),
+	.add_station = OPENF50_WDEV_OP(sprd_cfg80211_add_station),
+	.del_station = OPENF50_WDEV_OP(sprd_cfg80211_del_station),
+	.change_station = OPENF50_WDEV_OP(sprd_cfg80211_change_station),
+	.get_station = OPENF50_WDEV_OP(sprd_cfg80211_get_station),
+	.dump_station = OPENF50_WDEV_OP(sprd_cfg80211_dump_station),
 	.get_channel = sprd_cfg80211_get_channel,
 	.libertas_set_mesh_channel = sprd_cfg80211_set_channel,
 	.scan = sprd_cfg80211_scan,
@@ -1704,7 +1704,7 @@ static struct cfg80211_ops sprd_cfg80211_ops = {
 	.set_pmksa = sprd_cfg80211_set_pmksa,
 	.del_pmksa = sprd_cfg80211_del_pmksa,
 	.flush_pmksa = sprd_cfg80211_flush_pmksa,
-	.remain_on_channel = MU300_WDEV_OP(sprd_cfg80211_remain_on_channel),
+	.remain_on_channel = OPENF50_WDEV_OP(sprd_cfg80211_remain_on_channel),
 	.cancel_remain_on_channel = sprd_cfg80211_cancel_remain_on_channel,
 	.mgmt_tx = sprd_cfg80211_mgmt_tx,
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))

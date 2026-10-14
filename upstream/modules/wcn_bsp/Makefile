@@ -1,4 +1,4 @@
-subdir-ccflags-y := -include $(src)/kinclude/mu300_compat.h -I $(srctree) \
+subdir-ccflags-y := -include $(src)/kinclude/openf50_compat.h -I $(srctree) \
 	-I $(src)/kinclude \
 	-I $(src)/include \
 	-I $(src)/boot \
@@ -10,7 +10,7 @@ subdir-ccflags-y := -include $(src)/kinclude/mu300_compat.h -I $(srctree) \
 	-I $(src)/sipc
 
 # compile WCN_PCIE or not
-# MU300: out-of-tree build against the mainline kernel; Marlin3 (SC2355) on the pcie-sprd RC
+# OPENF50: out-of-tree build against the mainline kernel; Marlin3 (SC2355) on the pcie-sprd RC
 BUILD_WCN_PCIE := true
 CONFIG_UNISOC_WCN_BSP := m
 ccflags-y += -DCONFIG_WCN_BOOT=1 -DCONFIG_WCN_SLP=1
@@ -27,7 +27,7 @@ endif
 obj-$(CONFIG_UNISOC_WCN_BSP) += wcn_bsp.o
 wcn_bsp-y += wcn_bus.o
 wcn_bsp-y += sprd_wcn.o
-wcn_bsp-y += mu300_stubs.o
+wcn_bsp-y += openf50_stubs.o
 
 #PLATFORM FILE
 wcn_bsp-y += platform/wcn_parn_parser.o

@@ -1900,7 +1900,7 @@ static int sipa_plat_drv_probe(struct platform_device *pdev_p)
 
 	init_waitqueue_head(&ipa->set_rps_waitq);
 	/*
-	 * MU300: the vendor keeps rps_cpus fixed ("zsw changed" in sipa resume) and so never wakes this thread, but
+	 * OPENF50: the vendor keeps rps_cpus fixed ("zsw changed" in sipa resume) and so never wakes this thread, but
 	 * still created it: it sat in its pre-start state for good - uninterruptible, a hung-task report every two
 	 * minutes and one more on the load average. Its wakers only signal set_rps_waitq, which needs no thread.
 	 */

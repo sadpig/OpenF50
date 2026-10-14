@@ -1,14 +1,14 @@
 # Messages of the installer scripts in other languages. i18n/<lang>.tsv holds one "English<TAB>translation" line
 # per message, where {1}..{6} stand for the arguments; a message without a line there stays in English, so a
 # missing translation never breaks anything. install.ps1 reads the same files. Needs $TOP.
-#   MU300_LANG=en|tr|zh   the language (asked by choose_language when it is not set)
-MU300_LANG=${MU300_LANG:-}
+#   OPENF50_LANG=en|tr|zh   the language (asked by choose_language when it is not set)
+OPENF50_LANG=${OPENF50_LANG:-}
 
 # t "English message with {1}" ARG...: the message in the chosen language, without a newline
 t() {
     _tk=$1; shift
     _tf=/dev/null
-    [ -n "$MU300_LANG" ] && [ "$MU300_LANG" != en ] && [ -f "$TOP/i18n/$MU300_LANG.tsv" ] && _tf=$TOP/i18n/$MU300_LANG.tsv
+    [ -n "$OPENF50_LANG" ] && [ "$OPENF50_LANG" != en ] && [ -f "$TOP/i18n/$OPENF50_LANG.tsv" ] && _tf=$TOP/i18n/$OPENF50_LANG.tsv
     TK=$_tk TF=$_tf T1=${1-} T2=${2-} T3=${3-} T4=${4-} T5=${5-} T6=${6-} awk 'BEGIN {
         s = ENVIRON["TK"]
         while ((getline l < ENVIRON["TF"]) > 0) {
@@ -25,12 +25,12 @@ t() {
     }'
 }
 
-# the language, asked once unless MU300_LANG is set; English is the default
+# the language, asked once unless OPENF50_LANG is set; English is the default
 choose_language() {
-    case $MU300_LANG in en|tr|zh) return 0 ;; esac
+    case $OPENF50_LANG in en|tr|zh) return 0 ;; esac
     printf '\n  1) English   2) Türkçe   3) 中文\n  Language / Dil / 语言 [1]: '
     read -r _l || _l=
-    case $_l in 2|tr|TR) MU300_LANG=tr ;; 3|zh|ZH) MU300_LANG=zh ;; *) MU300_LANG=en ;; esac
+    case $_l in 2|tr|TR) OPENF50_LANG=tr ;; 3|zh|ZH) OPENF50_LANG=zh ;; *) OPENF50_LANG=en ;; esac
 }
 
 # answers typed in the chosen language count as the English keywords the scripts compare with

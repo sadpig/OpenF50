@@ -131,7 +131,7 @@ static bool align_and_check(unsigned long *gap_end, unsigned long gap_start,
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 1, 0)
 /*
- * MU300: this function is the kernel's own unmapped_area_topdown() with extra alignment rules, and it walked
+ * OPENF50: this function is the kernel's own unmapped_area_topdown() with extra alignment rules, and it walked
  * the VMA rbtree - which is gone since 6.1 (the maple tree replaced it). The kernel's vm_unmapped_area() does
  * the search now, so ask it for a gap and, if the gap does not satisfy the DDK's extra rules (shader code must
  * not touch a 4 GB boundary, some allocations must stay inside one 4 GB chunk), search again below the gap we

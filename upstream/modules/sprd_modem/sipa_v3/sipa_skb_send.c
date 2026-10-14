@@ -147,7 +147,7 @@ static void sipa_free_sent_items(void)
 		while (!node->address && --retry_cnt)
 			udelay(1);
 
-		/* MU300: per packet, and it comes in bursts while the delegate is not up yet: rate limited */
+		/* OPENF50: per packet, and it comes in bursts while the delegate is not up yet: rate limited */
 		if (node->err_code || !retry_cnt)
 			dev_err_ratelimited(sender->dev,
 				"node->address = 0x%llx, have node transfer err = %d retry_cnt = %d\n",
@@ -273,7 +273,7 @@ static int sipa_free_thread(void *data)
 
 	sched_setscheduler(current, SCHED_RR, &param);
 	/*
-	 * MU300: the vendor created this thread with kthread_create() and woke it only at the IPA's first runtime
+	 * OPENF50: the vendor created this thread with kthread_create() and woke it only at the IPA's first runtime
 	 * resume; on a device whose IPA never resumes (no SIM) it stayed in the kthread pre-start sleep, which is
 	 * TASK_UNINTERRUPTIBLE: +1 load and a hung-task report every two minutes. It now starts at once and waits here,
 	 * interruptibly, until that resume; from then on the loop is the vendor's (which must not run before it:
@@ -349,7 +349,7 @@ int sipa_sender_prepare_resume(struct sipa_skb_sender *sender)
 {
 	atomic_set(&sender->check_suspend, 0);
 	if (unlikely(sender->init_flag)) {
-		/* MU300: what used to be the thread's first wake-up (sipa_free_thread) */
+		/* OPENF50: what used to be the thread's first wake-up (sipa_free_thread) */
 		WRITE_ONCE(sender->free_started, true);
 		wake_up(&sender->free_waitq);
 		sender->init_flag = false;
@@ -415,7 +415,7 @@ int sipa_create_skb_sender(struct sipa_plat_drv_cfg *ipa,
 		kfree(sender);
 		return ret;
 	}
-	wake_up_process(sender->free_thread);	/* MU300: it waits for free_started */
+	wake_up_process(sender->free_thread);	/* OPENF50: it waits for free_started */
 
 	*sender_pp = sender;
 

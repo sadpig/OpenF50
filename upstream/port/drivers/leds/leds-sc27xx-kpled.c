@@ -2,7 +2,7 @@
 /*
  * The PMIC's keypad backlight sink (UMP9620), after Unisoc's leds-sc27xx-keypad.c (current mode only). The ZTE
  * U30 Air has no keypad: the sink drives the red of its network LED (no service), which ZTE's firmware blinks
- * through the same "keyboard-backlight" name - kept here, so mu300-led knows it under 5.4 and mainline alike.
+ * through the same "keyboard-backlight" name - kept here, so openf50-led knows it under 5.4 and mainline alike.
  * Bootloader state is not trusted: it starts dark.
  */
 #include <linux/leds.h>

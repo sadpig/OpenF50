@@ -1,5 +1,5 @@
-"""Small device scripts, against a fake / (MU300_SYSROOT) and stub commands: mu300-device, mu300-lan-ip, mu300-led,
-mu300-ttl. They run on Ubuntu (dash, bash) and OpenWrt (busybox ash)."""
+"""Small device scripts, against a fake / (OPENF50_SYSROOT) and stub commands: openf50-device, openf50-lan-ip, openf50-led,
+openf50-ttl. They run on Ubuntu (dash, bash) and OpenWrt (busybox ash)."""
 import os
 import pty
 import re
@@ -19,33 +19,33 @@ from helpers import BIN, TOP, ShellTest
 class Device(ShellTest):
     def root(self, device=None, dt_u30=False):
         r = self.tmp / 'root'
-        (r / 'run' / 'mu300').mkdir(parents=True, exist_ok=True)
+        (r / 'run' / 'openf50').mkdir(parents=True, exist_ok=True)
         if device is not None:
-            (r / 'run' / 'mu300' / 'device').write_text(device + '\n')
+            (r / 'run' / 'openf50' / 'device').write_text(device + '\n')
         if dt_u30:
             (r / 'proc' / 'device-tree' / 'charger_policy_service').mkdir(parents=True, exist_ok=True)
         return r
 
-    def test_mu300_device(self):
+    def test_openf50_device(self):
         cases = [(None, False, 'f50'), (None, True, 'u30air'), ('u30air', False, 'u30air'),
                  ('f50', True, 'f50')]  # what init wrote wins over the device tree
         for device, dt, want in cases:
             r = self.root(device, dt)
             for shell in self.each_shell():
-                out = self.script(shell, BIN / 'mu300-device', MU300_SYSROOT=r).stdout.strip()
+                out = self.script(shell, BIN / 'openf50-device', OPENF50_SYSROOT=r).stdout.strip()
                 self.assertEqual(out, want, (device, dt))
-            (r / 'run' / 'mu300' / 'device').unlink(missing_ok=True)
+            (r / 'run' / 'openf50' / 'device').unlink(missing_ok=True)
 
     def test_lan_ip(self):
         for device, want in (('f50', '192.168.77.1'), ('u30air', '192.168.78.1'), ('', '192.168.77.1')):
             r = self.root(device)
             for shell in self.each_shell():
-                out = self.script(shell, BIN / 'mu300-lan-ip', MU300_SYSROOT=r, MU300_BIN=BIN).stdout.strip()
+                out = self.script(shell, BIN / 'openf50-lan-ip', OPENF50_SYSROOT=r, OPENF50_BIN=BIN).stdout.strip()
                 self.assertEqual(out, want, device)
 
 
 class At(ShellTest):
-    """mu300-at against a fake daemon directory: a FIFO `cmd` and a thread that answers through the answer file."""
+    """openf50-at against a fake daemon directory: a FIFO `cmd` and a thread that answers through the answer file."""
 
     def setUp(self):
         super().setUp()
@@ -59,7 +59,7 @@ class At(ShellTest):
         self.sleeper.chmod(0o755)
 
     def daemon(self, reply, count=1, open_delay=0, answer_delay=0):
-        """Answer COUNT commands with REPLY the way mu300-atd does: open the FIFO afresh for each command (after
+        """Answer COUNT commands with REPLY the way openf50-atd does: open the FIFO afresh for each command (after
         OPEN_DELAY: the daemon is busy draining), read `T answer-file command`, write the answer file after
         ANSWER_DELAY. A command whose writer has gone before the open is lost, as with the real daemon."""
         def run():
@@ -78,7 +78,7 @@ class At(ShellTest):
         return th
 
     def at(self, shell, *args):
-        return self.script(shell, BIN / 'mu300-at', *args, MU300_AT_DIR=self.dir, MU300_BUSYBOX=self.sleeper)
+        return self.script(shell, BIN / 'openf50-at', *args, OPENF50_AT_DIR=self.dir, OPENF50_BUSYBOX=self.sleeper)
 
     def test_answer_needs_a_final_result_code(self):
         for shell in self.each_shell():
@@ -108,7 +108,7 @@ class At(ShellTest):
         for shell in self.each_shell():
             r = self.at(shell, '-t', 1, 'AT')
             self.assertEqual(r.returncode, 1)
-            self.assertEqual(r.stderr.strip(), 'mu300-at: no answer from the daemon', shell)
+            self.assertEqual(r.stderr.strip(), 'openf50-at: no answer from the daemon', shell)
 
     def test_command_survives_a_busy_daemon(self):
         # the daemon opens the FIFO only 0.5 s after the client wrote: the command must still be there
@@ -118,8 +118,8 @@ class At(ShellTest):
             self.assertEqual(r.returncode, 0, r.stderr)
 
     def test_live_daemon_gets_a_long_budget(self):
-        # a live mu300-atd (owner/pid) may drain before it collects: an answer after T + 2 s is still taken
-        owner = subprocess.Popen(['sh', '-c', 'sleep 60; :', 'mu300-atd'])
+        # a live openf50-atd (owner/pid) may drain before it collects: an answer after T + 2 s is still taken
+        owner = subprocess.Popen(['sh', '-c', 'sleep 60; :', 'openf50-atd'])
         try:
             (self.dir / 'owner').mkdir()
             (self.dir / 'owner' / 'pid').write_text(f'{owner.pid}\n')
@@ -135,8 +135,8 @@ class At(ShellTest):
 
     def test_a_caller_budget_caps_the_wait(self):
         # final review minor 4: a caller with a hard limit of its own (the LuCI panel; rpcd ends a call at 30 s)
-        # caps the wait with MU300_AT_BUDGET, even for a live daemon; it never lengthens it, and junk is ignored
-        owner = subprocess.Popen(['sh', '-c', 'sleep 60; :', 'mu300-atd'])
+        # caps the wait with OPENF50_AT_BUDGET, even for a live daemon; it never lengthens it, and junk is ignored
+        owner = subprocess.Popen(['sh', '-c', 'sleep 60; :', 'openf50-atd'])
         try:
             (self.dir / 'owner').mkdir()
             (self.dir / 'owner' / 'pid').write_text(f'{owner.pid}\n')
@@ -147,8 +147,8 @@ class At(ShellTest):
                     with self.subTest(budget=budget):
                         th = self.daemon('OK\r\n', answer_delay=3.5)
                         t0 = time.monotonic()
-                        r = self.script(shell, BIN / 'mu300-at', '-t', 1, 'AT', MU300_AT_DIR=self.dir,
-                                        MU300_BUSYBOX=self.sleeper, MU300_AT_BUDGET=budget)
+                        r = self.script(shell, BIN / 'openf50-at', '-t', 1, 'AT', OPENF50_AT_DIR=self.dir,
+                                        OPENF50_BUSYBOX=self.sleeper, OPENF50_AT_BUDGET=budget)
                         self.assertEqual(r.returncode == 0, ok, r.stderr)
                         if not ok:
                             self.assertLess(time.monotonic() - t0, 3)
@@ -162,8 +162,8 @@ class At(ShellTest):
 
     def test_signal_stops_the_client_and_frees_the_lock(self):
         for shell in self.each_shell():
-            p = subprocess.Popen(shell + [str(BIN / 'mu300-at'), '-t', '20', 'AT'], stderr=subprocess.PIPE,
-                                 env=self.env(MU300_AT_DIR=self.dir, MU300_BUSYBOX=self.sleeper))
+            p = subprocess.Popen(shell + [str(BIN / 'openf50-at'), '-t', '20', 'AT'], stderr=subprocess.PIPE,
+                                 env=self.env(OPENF50_AT_DIR=self.dir, OPENF50_BUSYBOX=self.sleeper))
             for _ in range(200):
                 if (self.dir / 'lock').exists():
                     break
@@ -193,7 +193,7 @@ class At(ShellTest):
 
 
 class Atd(ShellTest):
-    """mu300-atd on a pseudo terminal pair: the test is the modem (the pty master), the daemon runs for real."""
+    """openf50-atd on a pseudo terminal pair: the test is the modem (the pty master), the daemon runs for real."""
 
     FAST = 0.95   # a round trip without the one second drain wait: read -t 1 alone cannot be faster than this
 
@@ -234,12 +234,12 @@ class Atd(ShellTest):
         dev, master = self.pty('tty_nr1')
         if nr0:
             self.pty('tty_nr0')
-        e = self.env(MU300_AT_DEV=dev, MU300_AT_DIR=self.dir, **env)
-        if 'MU300_AT_URC_CHANNELS' not in env:
-            e.pop('MU300_AT_URC_CHANNELS', None)
+        e = self.env(OPENF50_AT_DEV=dev, OPENF50_AT_DIR=self.dir, **env)
+        if 'OPENF50_AT_URC_CHANNELS' not in env:
+            e.pop('OPENF50_AT_URC_CHANNELS', None)
         self.err = self.run_dir / 'atd.err'
         with self.err.open('w') as err:
-            self.procs.append(subprocess.Popen(shell + [str(BIN / 'mu300-atd')], stderr=err, env=e))
+            self.procs.append(subprocess.Popen(shell + [str(BIN / 'openf50-atd')], stderr=err, env=e))
         # "... is ours, draining N other channel(s)" comes once every drainer has been started
         n = None
         for _ in range(500):
@@ -296,7 +296,7 @@ class Atd(ShellTest):
 
     def test_empty_urc_channels_open_none(self):
         for shell in self.each_shell():
-            logs, _m = self.start(shell, MU300_AT_URC_CHANNELS='')
+            logs, _m = self.start(shell, OPENF50_AT_URC_CHANNELS='')
             self.assertRegex(self.err.read_text(), r'draining\s+0 other')
             self.assertEqual(logs, [])
 
@@ -361,29 +361,29 @@ class MobileData(ShellTest):
     def run_at(self, shell, nr2, nr1=True):
         run = self.tmp / 'run'
         shutil.rmtree(run, ignore_errors=True)
-        for flag, name in ((nr1, 'mu300-at'), (nr2, 'mu300-at2')):
+        for flag, name in ((nr1, 'openf50-at'), (nr2, 'openf50-at2')):
             d = run / name
             d.mkdir(parents=True, exist_ok=True)
             if flag:
                 os.mkfifo(d / 'cmd')
-        self.stub('mu300-at', 'echo "dir=$MU300_AT_DIR args=$*" >> "$STUBLOG/calls"')
+        self.stub('openf50-at', 'echo "dir=$OPENF50_AT_DIR args=$*" >> "$STUBLOG/calls"')
         text = (BIN / 'mobile-data').read_text()
         body = text[text.index('\nat() {'):text.index('\n}\n', text.index('\nat() {')) + 3]
-        body = body.replace('/run/', f'{run}/').replace('/opt/mu300/bin/mu300-at', 'mu300-at')
+        body = body.replace('/run/', f'{run}/').replace('/opt/openf50/bin/openf50-at', 'openf50-at')
         (self.tmp / 'calls').unlink(missing_ok=True)
-        r = self.sh(shell, body + '\nat "AT+CSQ" 4', MU300_AT_DIR='')
+        r = self.sh(shell, body + '\nat "AT+CSQ" 4', OPENF50_AT_DIR='')
         self.assertEqual(r.returncode, 0, r.stderr)
         return (self.tmp / 'calls').read_text().strip()
 
     def test_at_prefers_the_nr2_daemon(self):
         for shell in self.each_shell():
             out = self.run_at(shell, nr2=True)
-            self.assertRegex(out, r'^dir=\S*/run/mu300-at2 args=-t 4 AT\+CSQ$', shell)
-            # the nr1 daemon takes over while nr2's is not there (yet): mu300-at's own default directory
+            self.assertRegex(out, r'^dir=\S*/run/openf50-at2 args=-t 4 AT\+CSQ$', shell)
+            # the nr1 daemon takes over while nr2's is not there (yet): openf50-at's own default directory
             out = self.run_at(shell, nr2=False)
             self.assertEqual(out, 'dir= args=-t 4 AT+CSQ', shell)
 
-    # mobile-data's functions with MU300_LIB=1 (K56, K59-K62). mobile-data is a bash script (#!/bin/bash, on OpenWrt
+    # mobile-data's functions with OPENF50_LIB=1 (K56, K59-K62). mobile-data is a bash script (#!/bin/bash, on OpenWrt
     # too), so these run under bash only; under alpine they still use busybox's tail, wc, sleep and awk.
     # `at` is replaced by the modem below, which answers from a table and writes each command it was sent to
     # $STUBLOG/at as "<seconds since the start> <command>".
@@ -409,24 +409,24 @@ at() {
 '''
 
     def lib(self, code, modem=None, **env):
-        """Run CODE with bash after sourcing mobile-data (MU300_LIB=1) and replacing `at` by MODEM (or MODEM).
-        /run is the scratch directory's run/; mu300-led and mu300-at are stubs on PATH. The mu300-at stub is the nr1
+        """Run CODE with bash after sourcing mobile-data (OPENF50_LIB=1) and replacing `at` by MODEM (or MODEM).
+        /run is the scratch directory's run/; openf50-led and openf50-at are stubs on PATH. The openf50-at stub is the nr1
         daemon's client that radio_on's RIL handshake calls directly: it logs "nr1 <command>" to $STUBLOG/at and
         answers $SMMSWAP (OK by default; "none" is a timeout, "busy" the client lock held)."""
         if not shutil.which('bash'):
             self.skipTest('no bash')
         text = (BIN / 'mobile-data').read_text()
-        text = text.replace('/run/', f'{self.tmp}/run/').replace('/opt/mu300/bin/mu300-led', 'mu300-led')
-        text = text.replace('/opt/mu300/bin/mu300-at ', 'mu300-at ')
-        # K47: the delegate loader is a stub that logs "- sipa-dele-start wait=<MU300_DELE_WAIT>" in the AT order and
+        text = text.replace('/run/', f'{self.tmp}/run/').replace('/opt/openf50/bin/openf50-led', 'openf50-led')
+        text = text.replace('/opt/openf50/bin/openf50-at ', 'openf50-at ')
+        # K47: the delegate loader is a stub that logs "- sipa-dele-start wait=<OPENF50_DELE_WAIT>" in the AT order and
         # exits $DELE_RC (0 by default); /proc/modules is the scratch directory's proc-modules
-        text = text.replace('/opt/mu300/bin/sipa-dele-start', 'sipa-dele-start')
+        text = text.replace('/opt/openf50/bin/sipa-dele-start', 'sipa-dele-start')
         text = text.replace('/proc/modules', f'{self.tmp}/proc-modules')
-        text = text.replace('/tmp/mu300-sipa-dele.log', f'{self.tmp}/sipa-dele.log')
+        text = text.replace('/tmp/openf50-sipa-dele.log', f'{self.tmp}/sipa-dele.log')
         # R35: /lib/modules is the scratch directory's lib-modules, where this kernel has sipa-dele.ko unless a test
         # removes it; bootmark is a stub that appends its mark to $STUBLOG/marks
         text = text.replace('/lib/modules/', f'{self.tmp}/lib-modules/')
-        text = text.replace('/opt/mu300/bin/bootmark', f'{self.tmp}/bootmark')
+        text = text.replace('/opt/openf50/bin/bootmark', f'{self.tmp}/bootmark')
         if not (self.tmp / 'bootmark').exists():
             ko = self.tmp / 'lib-modules' / os.uname().release / 'sipa-dele.ko'
             ko.parent.mkdir(parents=True, exist_ok=True)
@@ -438,15 +438,15 @@ at() {
         (self.tmp / 'run').mkdir(exist_ok=True)
         for f in ('at', 'led', 'rf', 'nr1env'):
             (self.tmp / f).unlink(missing_ok=True)
-        self.stub('mu300-led', 'echo "$*" >> "$STUBLOG/led"')
-        self.stub('sipa-dele-start', 'echo "- sipa-dele-start wait=$MU300_DELE_WAIT" >> "$STUBLOG/at"\n'
+        self.stub('openf50-led', 'echo "$*" >> "$STUBLOG/led"')
+        self.stub('sipa-dele-start', 'echo "- sipa-dele-start wait=$OPENF50_DELE_WAIT" >> "$STUBLOG/at"\n'
                   'echo "sipa-dele-start: stub"\nexit "${DELE_RC:-0}"')
-        self.stub('mu300-at', '[ "$1" = -t ] && shift 2\necho "nr1 $1" >> "$STUBLOG/at"\n'
-                  'echo "dir=$MU300_AT_DIR wait=$MU300_AT_LOCK_WAIT" > "$STUBLOG/nr1env"\n'
-                  'case ${SMMSWAP:-OK} in none) echo "mu300-at: no answer from the daemon" >&2; exit 1 ;;\n'
-                  '    busy) echo "mu300-at: busy" >&2; exit 1 ;; esac\n'
+        self.stub('openf50-at', '[ "$1" = -t ] && shift 2\necho "nr1 $1" >> "$STUBLOG/at"\n'
+                  'echo "dir=$OPENF50_AT_DIR wait=$OPENF50_AT_LOCK_WAIT" > "$STUBLOG/nr1env"\n'
+                  'case ${SMMSWAP:-OK} in none) echo "openf50-at: no answer from the daemon" >&2; exit 1 ;;\n'
+                  '    busy) echo "openf50-at: busy" >&2; exit 1 ;; esac\n'
                   'echo "${SMMSWAP:-OK}"')
-        r = self.sh(['bash'], f'MU300_LIB=1; . "{lib}"\n{modem or self.MODEM}\nSECONDS=0\n{code}', **env)
+        r = self.sh(['bash'], f'OPENF50_LIB=1; . "{lib}"\n{modem or self.MODEM}\nSECONDS=0\n{code}', **env)
         sent = (self.tmp / 'at').read_text().splitlines() if (self.tmp / 'at').exists() else []
         return r, sent
 
@@ -455,16 +455,16 @@ at() {
         log = self.tmp / 'stty_nr0.log'
         # the modem's last word before the call was "searching"; the registration is appended a second later
         log.write_text('+CEREG: 2\n')
-        r, sent = self.lib('(sleep 1; printf \'+CEREG: 1,"1A2B","0123ABCD",7\\n\' >> "$MU300_URC_LOG") &\n'
+        r, sent = self.lib('(sleep 1; printf \'+CEREG: 1,"1A2B","0123ABCD",7\\n\' >> "$OPENF50_URC_LOG") &\n'
                            'rc=0; wait_registered || rc=$?; echo "rc=$rc t=$SECONDS"',
-                           MU300_URC_LOG=log, MU300_REGISTER_WAIT=20, CEREG='+CEREG: 2,2')
+                           OPENF50_URC_LOG=log, OPENF50_REGISTER_WAIT=20, CEREG='+CEREG: 2,2')
         self.assertRegex(r.stdout, r'rc=0 t=[0-4]\b', r.stderr)
         self.assertFalse([s for s in sent if 'AT+CEREG?' in s], sent)
-        # mu300-atd starts the log over at its size cap: a registration written after the cut still counts
+        # openf50-atd starts the log over at its size cap: a registration written after the cut still counts
         log.write_text('+CEREG: 2\n' * 50)
-        r, sent = self.lib('(sleep 1; : > "$MU300_URC_LOG"; printf \'+CEREG: 5\\n\' >> "$MU300_URC_LOG") &\n'
+        r, sent = self.lib('(sleep 1; : > "$OPENF50_URC_LOG"; printf \'+CEREG: 5\\n\' >> "$OPENF50_URC_LOG") &\n'
                            'rc=0; wait_registered || rc=$?; echo "rc=$rc t=$SECONDS"',
-                           MU300_URC_LOG=log, MU300_REGISTER_WAIT=20, CEREG='+CEREG: 2,2')
+                           OPENF50_URC_LOG=log, OPENF50_REGISTER_WAIT=20, CEREG='+CEREG: 2,2')
         self.assertRegex(r.stdout, r'rc=0 t=[0-4]\b', r.stderr)
         self.assertFalse([s for s in sent if 'AT+CEREG?' in s], sent)
 
@@ -473,13 +473,13 @@ at() {
         log = self.tmp / 'stty_nr0.log'
         log.write_text('+CEREG: 2\n+CEREG: 1,"1A2B","0123ABCD",7\n')
         r, sent = self.lib('rc=0; wait_registered || rc=$?; echo "rc=$rc t=$SECONDS"',
-                           MU300_URC_LOG=log, MU300_REGISTER_WAIT=20, CEREG='+CEREG: 2,1,"1A2B","0123ABCD",7')
+                           OPENF50_URC_LOG=log, OPENF50_REGISTER_WAIT=20, CEREG='+CEREG: 2,1,"1A2B","0123ABCD",7')
         self.assertRegex(r.stdout, r'rc=0 t=[01]\b', r.stderr)
         self.assertTrue([s for s in sent if 'AT+CEREG?' in s], sent)
         # nothing new arrives and the query says "searching": not registered when the budget is spent. "+CEREG: 1,2"
         # is the query form with <n>=1 and <stat>=2, not a registration.
         r, sent = self.lib('rc=0; wait_registered || rc=$?; echo "rc=$rc t=$SECONDS"',
-                           MU300_URC_LOG=log, MU300_REGISTER_WAIT=6, CEREG='+CEREG: 1,2')
+                           OPENF50_URC_LOG=log, OPENF50_REGISTER_WAIT=6, CEREG='+CEREG: 1,2')
         self.assertRegex(r.stdout, r'rc=1 t=[6-8]\b', r.stderr)
         # the fallback asks every 5 s, not every 2
         self.assertEqual(len([s for s in sent if 'AT+CEREG?' in s]), 2, sent)
@@ -495,9 +495,9 @@ at() {
     def test_address_after_one_cgact_reassert(self):
         """up (netifd mode): no AT+CGACT? first, one idempotent CGACT=1 reassert when the address is late, never
         CGACT=0, and the decision is in radio.log (K60, K62)."""
-        r, sent = self.lib('up_locked', MU300_NETIFD=1, MU300_AT_DEV='/dev/null', MU300_URC_LOG=self.tmp / 'none',
-                           CEREG='+CEREG: 2,1,"1A2B","0123ABCD",7', ADDR_AFTER=2, MU300_CFUN_WAIT=0,
-                           MU300_ADDR_WAIT_FIRST=2, MU300_ADDR_WAIT_RETRY=6)
+        r, sent = self.lib('up_locked', OPENF50_NETIFD=1, OPENF50_AT_DEV='/dev/null', OPENF50_URC_LOG=self.tmp / 'none',
+                           CEREG='+CEREG: 2,1,"1A2B","0123ABCD",7', ADDR_AFTER=2, OPENF50_CFUN_WAIT=0,
+                           OPENF50_ADDR_WAIT_FIRST=2, OPENF50_ADDR_WAIT_RETRY=6)
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertIn('IP=10.1.2.3\nPREFIX=24\nDNS1=8.8.8.8\nDNS2=1.1.1.1\n', r.stdout)
         cmds = [s.split(' ', 1)[1] for s in sent]
@@ -507,7 +507,7 @@ at() {
         self.assertEqual(cmds.count('AT+CGACT=1,1'), 2, cmds)
         self.assertNotIn('AT+CGACT?', cmds)
         self.assertFalse([c for c in cmds if c.startswith('AT+CGACT=0')], cmds)
-        radio = (self.tmp / 'run' / 'mu300' / 'radio.log').read_text()
+        radio = (self.tmp / 'run' / 'openf50' / 'radio.log').read_text()
         self.assertRegex(radio, r'(?m)^t=\S* +registered\b')
         self.assertIn('reasserting', radio)
 
@@ -515,7 +515,7 @@ at() {
         """K47: the IPA delegate is loaded by the dial itself, after the registration and before the PDP context
         (AT+CGACT=1), with a 20 s wait; when it does not load, the dial stops there and activates nothing; once it
         is loaded, a later dial does not call the loader again."""
-        env = dict(MU300_NETIFD=1, MU300_AT_DEV='/dev/null', MU300_URC_LOG=self.tmp / 'none', MU300_CFUN_WAIT=0,
+        env = dict(OPENF50_NETIFD=1, OPENF50_AT_DEV='/dev/null', OPENF50_URC_LOG=self.tmp / 'none', OPENF50_CFUN_WAIT=0,
                    CEREG='+CEREG: 2,1,"1A2B","0123ABCD",7')
         r, sent = self.lib('up_locked', **env)
         self.assertEqual(r.returncode, 0, r.stderr)
@@ -535,7 +535,7 @@ at() {
         self.assertFalse([c for c in cmds if c.startswith('AT+CGACT')], cmds)
         self.assertNotIn('IP=', r.stdout)
         self.assertIn('IPA delegate', r.stderr)
-        self.assertIn('IPA delegate', (self.tmp / 'run' / 'mu300' / 'radio.log').read_text())
+        self.assertIn('IPA delegate', (self.tmp / 'run' / 'openf50' / 'radio.log').read_text())
         # already in /proc/modules (a reconnect): straight on to the context, the loader is not called
         (self.tmp / 'proc-modules').write_text('sipa_dele 16384 0 - Live 0x0000000000000000 (O)\n')
         r, sent = self.lib('up_locked', DELE_RC=1, **env)
@@ -545,10 +545,10 @@ at() {
         self.assertIn('AT+CGACT=1,1', cmds)
 
     def test_up_applies_the_ttl(self):
-        """Every bring-up (netifd, the watchdog's reconnect) re-applies mu300-ttl's rule: the tc backend's filters
+        """Every bring-up (netifd, the watchdog's reconnect) re-applies openf50-ttl's rule: the tc backend's filters
         belong to the interface. Its output never reaches netifd's parser, and its failure fails nothing."""
-        env = dict(MU300_NETIFD=1, MU300_AT_DEV='/dev/null', MU300_URC_LOG=self.tmp / 'none', MU300_CFUN_WAIT=0,
-                   CEREG='+CEREG: 2,1,"1A2B","0123ABCD",7', MU300_TTL_CMD=self.stubs / 'ttl')
+        env = dict(OPENF50_NETIFD=1, OPENF50_AT_DEV='/dev/null', OPENF50_URC_LOG=self.tmp / 'none', OPENF50_CFUN_WAIT=0,
+                   CEREG='+CEREG: 2,1,"1A2B","0123ABCD",7', OPENF50_TTL_CMD=self.stubs / 'ttl')
         for rc in (0, 1):
             self.stub('ttl', f'echo "$*" >> "$STUBLOG/ttl.log"; echo noise; echo err >&2; exit {rc}')
             (self.tmp / 'ttl.log').unlink(missing_ok=True)
@@ -562,7 +562,7 @@ at() {
         """R35: a kernel without sipa-dele.ko (neither in /lib/modules/<release> nor under extra/) dials without the
         loader, and the boot timeline has no dial-sipa-dele mark; with the module (either place) the loader runs and
         the mark is written."""
-        env = dict(MU300_NETIFD=1, MU300_AT_DEV='/dev/null', MU300_URC_LOG=self.tmp / 'none', MU300_CFUN_WAIT=0,
+        env = dict(OPENF50_NETIFD=1, OPENF50_AT_DEV='/dev/null', OPENF50_URC_LOG=self.tmp / 'none', OPENF50_CFUN_WAIT=0,
                    CEREG='+CEREG: 2,1,"1A2B","0123ABCD",7')
         self.lib(':')                                   # makes lib-modules and the bootmark stub
         mods = self.tmp / 'lib-modules' / os.uname().release
@@ -591,12 +591,12 @@ at() {
     ROUND = ('up_locked() { echo start >> "$STUBLOG/rounds"; sleep "${ROUND:-1}"; echo end >> "$STUBLOG/rounds"; }\n')
 
     def up_lock_files(self):
-        return sorted(p.name for p in (self.tmp / 'run').iterdir() if p.name.startswith('mu300-mobile-data-up'))
+        return sorted(p.name for p in (self.tmp / 'run').iterdir() if p.name.startswith('openf50-mobile-data-up'))
 
     def test_up_lock_holder_is_named_from_the_start(self):
         """R35: the bring-up lock never exists without its owner's pid, and is gone after the round."""
         r, _ = self.lib(self.ROUND + 'ROUND=2; ( up ) & h=$!\n'
-                        f'sleep 1; echo "owner=$(readlink "{self.tmp}/run/mu300-mobile-data-up.owner") h=$h"; wait $h')
+                        f'sleep 1; echo "owner=$(readlink "{self.tmp}/run/openf50-mobile-data-up.owner") h=$h"; wait $h')
         m = re.search(r'owner=(\d+) h=(\d+)', r.stdout)
         self.assertTrue(m, r.stdout + r.stderr)
         self.assertEqual(m.group(1), m.group(2))
@@ -619,11 +619,11 @@ at() {
         self.assertEqual(self.up_lock_files(), [])
 
     def test_up_lock_wait_gives_up(self):
-        """R35: a bring-up that holds the lock past the wait (MU300_UP_LOCK_WAIT, 150 s by default) makes the
+        """R35: a bring-up that holds the lock past the wait (OPENF50_UP_LOCK_WAIT, 150 s by default) makes the
         second caller give up and say whose it is; down() leaves a running bring-up's AT channel alone."""
         r, sent = self.lib(self.ROUND + 'ROUND=4; ( up ) & h=$!\n'
-                           'sleep 1; rc=0; up 2>"$STUBLOG/err" || rc=$?; MU300_AT_DEV=/dev/null down\n'
-                           'echo "rc=$rc h=$h"; wait $h', MU300_UP_LOCK_WAIT=1)
+                           'sleep 1; rc=0; up 2>"$STUBLOG/err" || rc=$?; OPENF50_AT_DEV=/dev/null down\n'
+                           'echo "rc=$rc h=$h"; wait $h', OPENF50_UP_LOCK_WAIT=1)
         m = re.search(r'rc=(\d+) h=(\d+)', r.stdout)
         self.assertTrue(m, r.stdout + r.stderr)
         self.assertEqual(m.group(1), '1')
@@ -644,10 +644,10 @@ at() {
         text = (BIN / 'mobile-data').read_text()
         start = text.index('\nup_locked() {')
         body = text[start:text.index('\ndown() {', start)]   # the nft here-documents have their own '}' lines
-        netifd = body.index('if [ "${MU300_NETIFD:-0}" = 1 ]; then')
+        netifd = body.index('if [ "${OPENF50_NETIFD:-0}" = 1 ]; then')
         self.assertIn('[ -n "$iid" ] || v6_off', body[:netifd])
         self.assertIn('[ -n "$iid" ] && v6_up "$iid"', body[netifd:])
-        self.assertNotIn('MU300_PDP_TYPE:-IP}" != IP', body)   # the fork's replacement for v6_up
+        self.assertNotIn('OPENF50_PDP_TYPE:-IP}" != IP', body)   # the fork's replacement for v6_up
 
     # radio_on (K57, K65, K66). The radio's state: "+CFUN: $CFUN" (0 by default, "none" = no answer) until AT+SFUN=4
     # has been answered, then $RF_LAG more "+CFUN: 0" and "+CFUN: 1" from then on. AT+SFUN=4 takes $SFUN_DELAY s.
@@ -656,7 +656,7 @@ at() {
     echo "$SECONDS $1" >> "$STUBLOG/at"
     case $1 in
         'AT+CFUN?')
-            [ "${CFUN:-}" = none ] && { echo "mu300-at: modem returned no final response" >&2; return 1; }
+            [ "${CFUN:-}" = none ] && { echo "openf50-at: modem returned no final response" >&2; return 1; }
             if [ -e "$STUBLOG/rf" ]; then
                 k=$(cat "$STUBLOG/rf")
                 if [ "$k" -gt 0 ]; then echo $((k - 1)) > "$STUBLOG/rf"; printf '+CFUN: 0\nOK\n'
@@ -672,28 +672,28 @@ at() {
 
     def radio(self, code, urc='+CEREG: 2\n', **env):
         """CODE against RADIO, with nr0's URC log already written (URC=None: no log) and no plugin unless the test
-        names one (MU300_PLUGIN_LOCK)."""
+        names one (OPENF50_PLUGIN_LOCK)."""
         log = self.tmp / 'stty_nr0.log'
         log.unlink(missing_ok=True)
         if urc is not None:
             log.write_text(urc)
-        env.setdefault('MU300_PLUGIN_LOCK', self.tmp / 'no-plugin')
-        r, sent = self.lib(code, modem=self.RADIO, MU300_URC_LOG=log, **env)
+        env.setdefault('OPENF50_PLUGIN_LOCK', self.tmp / 'no-plugin')
+        r, sent = self.lib(code, modem=self.RADIO, OPENF50_URC_LOG=log, **env)
         return r, sent, [s.split(' ', 1)[1] for s in sent]
 
     def radio_log(self):
-        p = self.tmp / 'run' / 'mu300' / 'radio.log'
+        p = self.tmp / 'run' / 'openf50' / 'radio.log'
         return p.read_text() if p.exists() else ''
 
     def test_ril_handshake_once_per_boot(self):
         """AT+SMMSWAP=0 is nr1's first command, sent through the nr1 daemon once per boot (K57)."""
-        marker = self.tmp / 'run' / 'mu300-ril-handshake'
+        marker = self.tmp / 'run' / 'openf50-ril-handshake'
         r, sent, cmds = self.radio('radio_on; radio_on; echo ok', RF_LAG=0)
         self.assertIn('ok', r.stdout, r.stderr)
         self.assertEqual(cmds.count('AT+SMMSWAP=0'), 1, cmds)
         self.assertEqual(cmds[0], 'AT+SMMSWAP=0', cmds)
-        self.assertTrue(sent[0].startswith('nr1 '), sent)       # mu300-at to nr1, not at() (nr2)
-        self.assertEqual((self.tmp / 'nr1env').read_text().strip(), f'dir={self.tmp}/run/mu300-at wait=1')
+        self.assertTrue(sent[0].startswith('nr1 '), sent)       # openf50-at to nr1, not at() (nr2)
+        self.assertEqual((self.tmp / 'nr1env').read_text().strip(), f'dir={self.tmp}/run/openf50-at wait=1')
         self.assertTrue(marker.exists())
         self.assertEqual(cmds.count('AT+SFUN=4'), 1, cmds)       # the second call found the radio on
         # no answer to the handshake: the round ends there, nothing else is sent and the next round tries again
@@ -708,11 +708,11 @@ at() {
         """Final review minor 2: a firmware that refuses AT+SMMSWAP=0 still answers from a live channel. The refusal
         is logged, the handshake counts as done for this boot, and the round goes on to CFUN; only no answer at all
         (a timeout, the lock busy, no final result code) ends the round."""
-        marker = self.tmp / 'run' / 'mu300-ril-handshake'
+        marker = self.tmp / 'run' / 'openf50-ril-handshake'
         for answer in ('ERROR', '+CME ERROR: 4'):
             with self.subTest(answer=answer):
                 marker.unlink(missing_ok=True)
-                (self.tmp / 'run' / 'mu300' / 'radio.log').unlink(missing_ok=True)
+                (self.tmp / 'run' / 'openf50' / 'radio.log').unlink(missing_ok=True)
                 r, sent, cmds = self.radio('rc=0; radio_on || rc=$?; echo "rc=$rc"', SMMSWAP=answer, RF_LAG=0)
                 self.assertIn('rc=0', r.stdout, r.stderr)
                 self.assertEqual(cmds[:3], ['AT+SMMSWAP=0', 'AT+CFUN?', 'AT+SFUN=4'], cmds)
@@ -729,12 +729,12 @@ at() {
     def test_waits_for_nr0_first(self):
         """Nothing is sent before nr0 has said something (the CP is still starting); the wait is bounded."""
         r, sent, cmds = self.radio(f'(sleep 1; echo "+CEREG: 2" > "{self.tmp}/stty_nr0.log") &\nradio_on; echo ok',
-                                   urc=None, MU300_CFUN_WAIT=10)
+                                   urc=None, OPENF50_CFUN_WAIT=10)
         self.assertIn('ok', r.stdout, r.stderr)
         first = [s for s in sent if s[0].isdigit()][0]
         self.assertGreaterEqual(int(first.split()[0]), 1, sent)
-        # nr0 never speaks: go ahead after MU300_CFUN_WAIT s anyway
-        r, sent, cmds = self.radio('radio_on; echo "ok t=$SECONDS"', urc=None, MU300_CFUN_WAIT=1)
+        # nr0 never speaks: go ahead after OPENF50_CFUN_WAIT s anyway
+        r, sent, cmds = self.radio('radio_on; echo "ok t=$SECONDS"', urc=None, OPENF50_CFUN_WAIT=1)
         self.assertRegex(r.stdout, r'ok t=[12]\b', r.stderr)
         self.assertIn('AT+SFUN=4', cmds)
 
@@ -770,7 +770,7 @@ at() {
         self.assertEqual(self.radio_lock_files(), [])
 
     def radio_lock_files(self):
-        return sorted(p.name for p in (self.tmp / 'run').iterdir() if p.name.startswith('mu300-radio-on'))
+        return sorted(p.name for p in (self.tmp / 'run').iterdir() if p.name.startswith('openf50-radio-on'))
 
     # R32: radio_on's lock. A wrapped lock_owner_alive takes $DEAD_DELAY s (0.5) more over every "dead" verdict and
     # $ALIVE_DELAY s (0) over every "alive" one: two waiters can both see the dead owner before either acts on it.
@@ -800,20 +800,20 @@ at() {
         and calls the lock dead)."""
         r, sent, cmds = self.radio(
             'SFUN_DELAY=2; ( radio_on ) >/dev/null 2>&1 & h=$!\n'
-            f'sleep 1; echo "owner=$(readlink "{self.tmp}/run/mu300-radio-on.owner") h=$h"; wait $h')
+            f'sleep 1; echo "owner=$(readlink "{self.tmp}/run/openf50-radio-on.owner") h=$h"; wait $h')
         m = re.search(r'owner=(\d+) h=(\d+)', r.stdout)
         self.assertTrue(m, r.stdout + r.stderr)
         self.assertEqual(m.group(1), m.group(2))
         self.assertEqual(self.radio_lock_files(), [])
 
     def test_radio_lock_wait_is_in_seconds(self):
-        """R32: MU300_RADIO_LOCK_WAIT is a deadline in real seconds, not a number of polls: with a slow liveness
+        """R32: OPENF50_RADIO_LOCK_WAIT is a deadline in real seconds, not a number of polls: with a slow liveness
         check (0.3 s each) a 2 s wait still ends after about 2 s."""
         r, sent, cmds = self.radio(
             self.SLOW_DEAD +
             'SFUN_DELAY=8; ( radio_on ) >/dev/null 2>&1 & h=$!\n'
             'sleep 1; ALIVE_DELAY=0.3; t0=$SECONDS; rc=0; radio_on || rc=$?; t=$((SECONDS - t0))\n'
-            'kill -9 $h; echo "rc=$rc t=$t"', MU300_RADIO_LOCK_WAIT=2)
+            'kill -9 $h; echo "rc=$rc t=$t"', OPENF50_RADIO_LOCK_WAIT=2)
         self.assertRegex(r.stdout, r'rc=1 t=[23]\b', r.stderr)
         self.assertIn('still running; giving up', self.radio_log())
 
@@ -826,7 +826,7 @@ at() {
         pending = self.tmp / 'run' / 'unisoc-modem-early-hook-pending'
         pending.parent.mkdir(exist_ok=True)
         pending.touch()
-        r, sent, cmds = self.radio('radio_on; echo ok', MU300_PLUGIN_LOCK=hook)
+        r, sent, cmds = self.radio('radio_on; echo ok', OPENF50_PLUGIN_LOCK=hook)
         self.assertIn('ok', r.stdout, r.stderr)
         self.assertEqual(cmds[:4], ['AT+SMMSWAP=0', 'AT+CFUN?', 'hook replay early', 'AT+SFUN=4'], cmds)
         self.assertFalse(pending.exists())          # the plugin's generic worker may use nr1 now
@@ -836,17 +836,17 @@ at() {
         self.assertIn('AT+SFUN=4', cmds)
         # the plugin already replayed its locks this boot
         (self.tmp / 'run' / 'unisoc-modem-lock-replay-done').touch()
-        r, sent, cmds = self.radio('radio_on; echo ok', MU300_PLUGIN_LOCK=hook)
+        r, sent, cmds = self.radio('radio_on; echo ok', OPENF50_PLUGIN_LOCK=hook)
         self.assertNotIn('hook replay early', cmds)
         (self.tmp / 'run' / 'unisoc-modem-lock-replay-done').unlink()
         # a failed replay: said in radio.log, the radio comes on all the same
-        r, sent, cmds = self.radio('radio_on; echo ok', MU300_PLUGIN_LOCK=hook, HOOK_RC=1)
+        r, sent, cmds = self.radio('radio_on; echo ok', OPENF50_PLUGIN_LOCK=hook, HOOK_RC=1)
         self.assertIn('ok', r.stdout, r.stderr)
         self.assertIn('AT+SFUN=4', cmds)
         self.assertIn('early lock replay unverified; late fallback remains armed', self.radio_log())
         # a failed radio_on keeps the marker: the worker stays away from nr1 until a round succeeds
         pending.touch()
-        r, sent, cmds = self.radio('radio_on || echo failed', CFUN='none', MU300_PLUGIN_LOCK=hook)
+        r, sent, cmds = self.radio('radio_on || echo failed', CFUN='none', OPENF50_PLUGIN_LOCK=hook)
         self.assertIn('failed', r.stdout, r.stderr)
         self.assertNotIn('hook replay early', cmds)
         self.assertTrue(pending.exists())
@@ -857,7 +857,7 @@ at() {
         case = text[text.index('\ncase "${1:-status}" in'):]
         self.assertRegex(case, r'\n    radio-on\)')
         r, sent, cmds = self.radio('main() { set -- radio-on' + case + '\n}\nmain; echo ok',
-                                   MU300_AT_DEV='/dev/null')
+                                   OPENF50_AT_DEV='/dev/null')
         self.assertIn('ok', r.stdout, r.stderr)
         self.assertEqual(cmds, ['AT+SMMSWAP=0', 'AT+CFUN?', 'AT+SFUN=4', 'AT+CFUN?', 'AT+CAVIMS=1'])
 
@@ -866,8 +866,8 @@ at() {
         the parent's: the lock owner has to be the process that is reading the channel."""
         r, _ = self.lib('unset -f at; . "$STUBLOG/mobile-data.lib"\n'
                         '( at AT 2 >/dev/null ) & bg=$!\n'
-                        f'sleep 0.5; echo "owner=$(cat "{self.tmp}/run/mu300-at/owner/pid") bg=$bg parent=$$"; wait',
-                        MU300_AT_DEV='/dev/null')
+                        f'sleep 0.5; echo "owner=$(cat "{self.tmp}/run/openf50-at/owner/pid") bg=$bg parent=$$"; wait',
+                        OPENF50_AT_DEV='/dev/null')
         m = re.search(r'owner=(\d+) bg=(\d+) parent=(\d+)', r.stdout)
         self.assertTrue(m, r.stdout + r.stderr)
         self.assertEqual(m.group(1), m.group(2))
@@ -888,7 +888,7 @@ class RadioLocked(ShellTest):
         self.md = self.tmp / 'mobile-data'
         self.md.write_text((BIN / 'mobile-data').read_text().replace('/run/', f'{self.tmp}/run/'))
         self.md.chmod(0o755)
-        self.link = self.tmp / 'run' / 'mu300-radio-on.owner'
+        self.link = self.tmp / 'run' / 'openf50-radio-on.owner'
 
     def run_md(self, *args, **env):
         return subprocess.run(['bash', str(self.md)] + list(args), capture_output=True, text=True, timeout=30,
@@ -938,8 +938,8 @@ class RadioLocked(ShellTest):
 
 
 class SipaDele(ShellTest):
-    """K45, K46: extra-modules and sipa-dele-start, copied with /lib/modules, /proc/modules, /opt/mu300/bin and
-    /dev/stty_nr1 pointed at the scratch directory (and /dev/null); uname, insmod, modprobe, dmesg, sleep, mu300-at
+    """K45, K46: extra-modules and sipa-dele-start, copied with /lib/modules, /proc/modules, /opt/openf50/bin and
+    /dev/stty_nr1 pointed at the scratch directory (and /dev/null); uname, insmod, modprobe, dmesg, sleep, openf50-at
     and sipa-dele-start are stubs that write what they were asked to $STUBLOG/calls."""
 
     def setUp(self):
@@ -952,13 +952,13 @@ class SipaDele(ShellTest):
         # the sbuf lines from the modem loader's start may have left the ring buffer long ago: not asked for
         self.stub('dmesg', 'echo "[  80.1] sipa_dele: channel 5-120 send open msg"')
         self.stub('sleep', ':')
-        self.stub('mu300-at', 'echo "mu300-at $*" >> "$STUBLOG/calls"\nprintf "%s\\nOK\\n" "${CGATT:-+CGATT: 1}"')
+        self.stub('openf50-at', 'echo "openf50-at $*" >> "$STUBLOG/calls"\nprintf "%s\\nOK\\n" "${CGATT:-+CGATT: 1}"')
         self.stub('sipa-dele-start', 'echo "sipa-dele-start" >> "$STUBLOG/calls"')
 
     def copy(self, name):
         text = (BIN / name).read_text()
         for a, b in (('/lib/modules/', f'{self.tmp}/lib/modules/'), ('/proc/modules', f'{self.tmp}/proc-modules'),
-                     ('/opt/mu300/bin/', f'{self.stubs}/'), ('/dev/stty_nr1', '/dev/null')):
+                     ('/opt/openf50/bin/', f'{self.stubs}/'), ('/dev/stty_nr1', '/dev/null')):
             text = text.replace(a, b)
         p = self.tmp / name
         p.write_text(text)
@@ -987,13 +987,13 @@ class SipaDele(ShellTest):
             ko.unlink()
 
     def test_refuses_after_the_wait(self):
-        """K46: the packet domain never comes up: exit 1 after MU300_DELE_WAIT s, the module is not inserted."""
+        """K46: the packet domain never comes up: exit 1 after OPENF50_DELE_WAIT s, the module is not inserted."""
         (self.mods / 'sipa-dele.ko').write_text('')
         for shell in self.each_shell():
             t = time.monotonic()
-            r, calls = self.run_script(shell, 'sipa-dele-start', MU300_DELE_WAIT=1, CGATT='+CGATT: 0')
+            r, calls = self.run_script(shell, 'sipa-dele-start', OPENF50_DELE_WAIT=1, CGATT='+CGATT: 0')
             self.assertEqual(r.returncode, 1, r.stdout + r.stderr)
-            self.assertIn('mu300-at -t 8 AT+CGATT?', calls)
+            self.assertIn('openf50-at -t 8 AT+CGATT?', calls)
             self.assertNotIn('insmod', calls)
             self.assertIn('refusing', r.stdout)
             self.assertLess(time.monotonic() - t, 8)   # a deadline in seconds (sleep is a no-op here)
@@ -1005,7 +1005,7 @@ class SipaDele(ShellTest):
             ko.parent.mkdir(exist_ok=True)
             ko.write_text('')
             for shell in self.each_shell():
-                r, calls = self.run_script(shell, 'sipa-dele-start', MU300_DELE_WAIT=20)
+                r, calls = self.run_script(shell, 'sipa-dele-start', OPENF50_DELE_WAIT=20)
                 self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
                 self.assertEqual([c for c in calls.splitlines() if c.startswith('insmod')], [f'insmod {ko}'])
             ko.unlink()
@@ -1015,16 +1015,16 @@ class SipaDele(ShellTest):
         nothing inserted."""
         (self.mods / 'sipa-dele.ko').write_text('')
         for shell in self.each_shell():
-            r, calls = self.run_script(shell, 'sipa-dele-start', MU300_DELE_WAIT=20, INSMOD_RC=1)
+            r, calls = self.run_script(shell, 'sipa-dele-start', OPENF50_DELE_WAIT=20, INSMOD_RC=1)
             self.assertEqual(r.returncode, 1, r.stdout + r.stderr)
             self.assertIn('FAILED', r.stdout)
             r, calls = self.run_script(shell, 'sipa-dele-start', 'sipa_dele 16384 0 - Live 0x0 (O)\n',
-                                       MU300_DELE_WAIT=20)
+                                       OPENF50_DELE_WAIT=20)
             self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
             self.assertEqual(calls, '')
         (self.mods / 'sipa-dele.ko').unlink()
         for shell in self.each_shell():
-            r, calls = self.run_script(shell, 'sipa-dele-start', MU300_DELE_WAIT=20)
+            r, calls = self.run_script(shell, 'sipa-dele-start', OPENF50_DELE_WAIT=20)
             self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
             self.assertNotIn('insmod', calls)
 
@@ -1035,42 +1035,42 @@ class Bootmark(ShellTest):
     def test_two_calls_two_lines_and_reset_empties(self):
         up = self.tmp / 'uptime'
         up.write_text('12.34 56.78\n')
-        os.environ['MU300_UPTIME'] = str(up)
-        self.addCleanup(os.environ.pop, 'MU300_UPTIME', None)
+        os.environ['OPENF50_UPTIME'] = str(up)
+        self.addCleanup(os.environ.pop, 'OPENF50_UPTIME', None)
         for shell in self.each_shell():
             f = self.tmp / 'run' / 'boot-timeline'   # its directory does not exist yet: bootmark creates it
             shutil.rmtree(f.parent, ignore_errors=True)
             for words in ('first mark', 'second'):
-                r = self.script(shell, BIN / 'bootmark', *words.split(), MU300_TIMELINE=str(f))
+                r = self.script(shell, BIN / 'bootmark', *words.split(), OPENF50_TIMELINE=str(f))
                 self.assertEqual(r.returncode, 0, shell)
             lines = f.read_text().splitlines()
             self.assertEqual(len(lines), 2, shell)
             self.assertRegex(lines[0], r'^t=12\.34 +first mark$', shell)
             self.assertRegex(lines[1], r'^t=12\.34 +second$', shell)
-            self.script(shell, BIN / 'bootmark', '-r', 'fresh', MU300_TIMELINE=str(f))
+            self.script(shell, BIN / 'bootmark', '-r', 'fresh', OPENF50_TIMELINE=str(f))
             self.assertEqual(len(f.read_text().splitlines()), 1, shell)
             self.assertIn(' fresh', f.read_text(), shell)
-            self.script(shell, BIN / 'bootmark', '-r', MU300_TIMELINE=str(f))
+            self.script(shell, BIN / 'bootmark', '-r', OPENF50_TIMELINE=str(f))
             self.assertEqual(f.read_text().strip(), '', shell)
 
     def test_unwritable_path_is_exit_zero(self):
         for shell in self.each_shell():
             for path in ('/proc/nonexistent/x/boot-timeline', str(self.tmp)):   # no such directory; a directory
-                r = self.script(shell, BIN / 'bootmark', 'x', MU300_TIMELINE=path)
+                r = self.script(shell, BIN / 'bootmark', 'x', OPENF50_TIMELINE=path)
                 self.assertEqual(r.returncode, 0, (shell, path))
-                r = self.script(shell, BIN / 'bootmark', '-r', 'x', MU300_TIMELINE=path)
+                r = self.script(shell, BIN / 'bootmark', '-r', 'x', OPENF50_TIMELINE=path)
                 self.assertEqual(r.returncode, 0, (shell, path))
 
     def test_the_default_is_on_tmpfs_and_the_callers_guard_it(self):
-        self.assertIn('${MU300_TIMELINE:-/run/mu300/boot-timeline}', (BIN / 'bootmark').read_text())
+        self.assertIn('${OPENF50_TIMELINE:-/run/openf50/boot-timeline}', (BIN / 'bootmark').read_text())
         self.assertTrue(os.access(BIN / 'bootmark', os.X_OK))
         for f in (BIN / 'android-vendor-start', BIN / 'mobile-data',
-                  TOP / 'openwrt' / 'overlay' / 'etc' / 'init.d' / 'mu300-atd'):
+                  TOP / 'openwrt' / 'overlay' / 'etc' / 'init.d' / 'openf50-atd'):
             text = f.read_text()
-            self.assertRegex(text, r'\[ -x /opt/mu300/bin/bootmark \] && /opt/mu300/bin/bootmark .*\|\| true', f.name)
+            self.assertRegex(text, r'\[ -x /opt/openf50/bin/bootmark \] && /opt/openf50/bin/bootmark .*\|\| true', f.name)
             # no bare call: every bootmark call sits behind the guard or inside mark()
-            self.assertNotRegex(text, r'(?m)^\s*/opt/mu300/bin/bootmark', f.name)
-        self.assertIn('bootmark S19-atd-init', (TOP / 'openwrt' / 'overlay' / 'etc' / 'init.d' / 'mu300-atd').read_text())
+            self.assertNotRegex(text, r'(?m)^\s*/opt/openf50/bin/bootmark', f.name)
+        self.assertIn('bootmark S19-atd-init', (TOP / 'openwrt' / 'overlay' / 'etc' / 'init.d' / 'openf50-atd').read_text())
 
 
 class VendorStart(ShellTest):
@@ -1101,7 +1101,7 @@ class VendorStart(ShellTest):
             shutil.rmtree(dev / 'block'); (dev / 'block' / 'by-name').mkdir(parents=True)
 
     def test_slot_without_the_initramfs_file(self):
-        # a boot image from before the slot work publishes no /run/mu300/linux-slot: under set -e the script must
+        # a boot image from before the slot work publishes no /run/openf50/linux-slot: under set -e the script must
         # go on with the slot from the command line, not end before modem_control (seen on F50 #1: no modem)
         text = (BIN / 'android-vendor-start').read_text()
         m = re.search(r'# --- slot begin\n(.*?)# --- slot end', text, re.S)
@@ -1111,12 +1111,12 @@ class VendorStart(ShellTest):
         for shell in self.each_shell():
             for slot, want in (('a', 'L=a AS=b'), ('b', 'L=b AS=a')):
                 cmd.write_text(f'console=ttyS1 androidboot.slot_suffix=_{slot} quiet')
-                r = self.sh(shell, f'set -e\nsrc={cmd}\n' + m.group(1) + 'echo "L=$L AS=$AS"', MU300_RUN=run)
+                r = self.sh(shell, f'set -e\nsrc={cmd}\n' + m.group(1) + 'echo "L=$L AS=$AS"', OPENF50_RUN=run)
                 self.assertEqual(r.stdout.strip(), want, (shell, r.stderr))
-            (run / 'mu300').mkdir(parents=True, exist_ok=True)
-            (run / 'mu300' / 'linux-slot').write_text('a\n')
+            (run / 'openf50').mkdir(parents=True, exist_ok=True)
+            (run / 'openf50' / 'linux-slot').write_text('a\n')
             cmd.write_text('androidboot.slot_suffix=_b')
-            r = self.sh(shell, f'set -e\nsrc={cmd}\n' + m.group(1) + 'echo "L=$L AS=$AS"', MU300_RUN=run)
+            r = self.sh(shell, f'set -e\nsrc={cmd}\n' + m.group(1) + 'echo "L=$L AS=$AS"', OPENF50_RUN=run)
             self.assertEqual(r.stdout.strip(), 'L=a AS=b', shell)
             shutil.rmtree(run)
 
@@ -1130,7 +1130,7 @@ class VendorStart(ShellTest):
 
 
 class Os(ShellTest):
-    """mu300-os against a fake disk area: three systems, and a kept copy is never offered."""
+    """openf50-os against a fake disk area: three systems, and a kept copy is never offered."""
     def setUp(self):
         super().setUp()
         self.disk = self.tmp / 'disk'
@@ -1140,12 +1140,12 @@ class Os(ShellTest):
             init.write_text('#!/bin/sh\n'); init.chmod(0o755)
             (self.disk / name / 'etc').mkdir()
         self.root = self.tmp / 'root'
-        (self.root / 'etc' / 'mu300').mkdir(parents=True)
-        (self.root / 'etc' / 'mu300' / 'default-boot').write_text('linux\n')
+        (self.root / 'etc' / 'openf50').mkdir(parents=True)
+        (self.root / 'etc' / 'openf50' / 'default-boot').write_text('linux\n')
         self.stub('mountpoint', 'exit 0')
 
     def os(self, shell, *args):
-        return self.script(shell, BIN / 'mu300-os', *args, MU300_DISK=self.disk, MU300_SYSROOT=self.root)
+        return self.script(shell, BIN / 'openf50-os', *args, OPENF50_DISK=self.disk, OPENF50_SYSROOT=self.root)
 
     def test_lists_the_third_system(self):
         for shell in self.each_shell():
@@ -1155,17 +1155,17 @@ class Os(ShellTest):
 
     def test_choosing_it(self):
         for shell in self.each_shell():
-            (self.disk / 'openwrt-luci' / 'etc' / 'mu300' / 'default-boot').unlink(missing_ok=True)
+            (self.disk / 'openwrt-luci' / 'etc' / 'openf50' / 'default-boot').unlink(missing_ok=True)
             r = self.os(shell, 'openwrt-luci')
             self.assertEqual(r.returncode, 0, r.stderr)
-            self.assertEqual((self.disk / '.mu300' / 'boot-os').read_text().strip(), 'openwrt-luci')
-            self.assertEqual((self.disk / 'openwrt-luci' / 'etc' / 'mu300' / 'default-boot').read_text().strip(), 'linux')
+            self.assertEqual((self.disk / '.openf50' / 'boot-os').read_text().strip(), 'openwrt-luci')
+            self.assertEqual((self.disk / 'openwrt-luci' / 'etc' / 'openf50' / 'default-boot').read_text().strip(), 'linux')
 
     def test_a_kept_copy_cannot_be_chosen(self):
         for shell in self.each_shell():
             r = self.os(shell, 'openwrt-luci.old')
             self.assertEqual(r.returncode, 1)
-            self.assertFalse((self.disk / '.mu300' / 'boot-os').exists())
+            self.assertFalse((self.disk / '.openf50' / 'boot-os').exists())
 
 
 class Led(ShellTest):
@@ -1177,7 +1177,7 @@ class Led(ShellTest):
         super().setUp()
         self.root = self.tmp / 'root'
         self.setUp_leds()
-        (self.root / 'run' / 'mu300').mkdir(parents=True)
+        (self.root / 'run' / 'openf50').mkdir(parents=True)
         (self.root / 'proc').mkdir()
         self.conf = self.tmp / 'led.conf'
         self.uptime(100)
@@ -1197,9 +1197,9 @@ class Led(ShellTest):
     def reset(self):
         for n in self.LEDS:
             (self.root / 'sys/class/leds' / n / 'brightness').write_text('0\n')
-        for f in (self.root / 'run/mu300').glob('led/*'):
+        for f in (self.root / 'run/openf50').glob('led/*'):
             f.unlink()
-        for f in (self.root / 'run/mu300').glob('led/.awake-until'):
+        for f in (self.root / 'run/openf50').glob('led/.awake-until'):
             f.unlink()
         self.conf.unlink(missing_ok=True)
 
@@ -1207,9 +1207,9 @@ class Led(ShellTest):
         return {n: (self.root / 'sys/class/leds' / n / 'brightness').read_text().strip() for n in self.LEDS}
 
     def led(self, shell, device, *args):
-        (self.root / 'run/mu300/device').write_text(device + '\n')
-        return self.script(shell, BIN / 'mu300-led', *args, MU300_SYSROOT=self.root, MU300_BIN=BIN,
-                           MU300_LED_CONF=self.conf)
+        (self.root / 'run/openf50/device').write_text(device + '\n')
+        return self.script(shell, BIN / 'openf50-led', *args, OPENF50_SYSROOT=self.root, OPENF50_BIN=BIN,
+                           OPENF50_LED_CONF=self.conf)
 
     def test_u30air(self):
         for shell in self.each_shell():
@@ -1252,9 +1252,9 @@ class Led(ShellTest):
             conf = self.tmp / 'hotspot.conf'
             for band, lit in (('2.4', 'zte-ldo1'), ('5', 'zte-ldo2')):
                 conf.write_text(f'SSID=x\nPSK=12345678\nBAND={band}\n')
-                (self.root / 'run/mu300/device').write_text('u30air\n')
-                self.script(shell, BIN / 'mu300-led', 'wifi', 'on', MU300_SYSROOT=self.root, MU300_BIN=BIN,
-                            MU300_LED_CONF=self.conf, MU300_HOTSPOT_CONF=conf)
+                (self.root / 'run/openf50/device').write_text('u30air\n')
+                self.script(shell, BIN / 'openf50-led', 'wifi', 'on', OPENF50_SYSROOT=self.root, OPENF50_BIN=BIN,
+                            OPENF50_LED_CONF=self.conf, OPENF50_HOTSPOT_CONF=conf)
                 self.assertEqual(self.state()[lit], '255', band)
 
     def test_timeout(self):
@@ -1363,7 +1363,7 @@ class Led(ShellTest):
         # together, white lit throughout
         for shell in self.each_shell():
             self.reset()
-            pid = self.root / 'run/mu300/led-siren.pid'
+            pid = self.root / 'run/openf50/led-siren.pid'
             self.led(shell, 'u30air', 'alarm', 'on')
             p = int(pid.read_text())
             pid.write_text('1\n')                                 # someone else's now
@@ -1407,7 +1407,7 @@ class Led(ShellTest):
                 self.conf.write_text('LED_TIMEOUT=0\n')
                 self.led(shell, device, 'power', 'on')
                 self.led(shell, device, 'data', 'on')
-                pid = self.root / 'run/mu300/led-siren.pid'
+                pid = self.root / 'run/openf50/led-siren.pid'
                 try:
                     self.assertEqual(self.led(shell, device, 'alarm', 'on').returncode, 0)
                     self.assertTrue(pid.exists())
@@ -1435,9 +1435,9 @@ class Led(ShellTest):
     def test_missing_leds_and_bad_usage(self):
         for shell in self.each_shell():
             empty = self.tmp / 'empty'
-            (empty / 'run/mu300').mkdir(parents=True, exist_ok=True)
-            (empty / 'run/mu300/device').write_text('u30air\n')
-            r = self.script(shell, BIN / 'mu300-led', 'data', 'on', MU300_SYSROOT=empty, MU300_BIN=BIN)
+            (empty / 'run/openf50').mkdir(parents=True, exist_ok=True)
+            (empty / 'run/openf50/device').write_text('u30air\n')
+            r = self.script(shell, BIN / 'openf50-led', 'data', 'on', OPENF50_SYSROOT=empty, OPENF50_BIN=BIN)
             self.assertEqual(r.returncode, 0)  # an LED the device has not is skipped
             self.assertEqual(self.led(shell, 'u30air', 'blink').returncode, 2)
 
@@ -1448,7 +1448,7 @@ class WifiBand(ShellTest):
         self.conf = self.tmp / 'hotspot.conf'
 
     def band(self, shell, *args):
-        return self.script(shell, BIN / 'mu300-wifi-band', *args, MU300_HOTSPOT_CONF=self.conf)
+        return self.script(shell, BIN / 'openf50-wifi-band', *args, OPENF50_HOTSPOT_CONF=self.conf)
 
     def test_toggle(self):
         for shell in self.each_shell():
@@ -1479,43 +1479,43 @@ class WifiBand(ShellTest):
 
 class Buttons(ShellTest):
     def test_actions(self):
-        self.stub('mu300-keys', 'cat "$STUBLOG/keys.in"')
-        for name in ('mu300-led', 'mu300-wifi-band', 'systemctl', 'logger', 'poweroff'):
-            self.stub(name, f'echo "{name} $*" >> "$STUBLOG/calls"; [ "{name} $*" != "systemctl is-active --quiet mu300-hotspot" ]')
-        cases = [('116 short', ['mu300-led wake']),
-                 ('138 short', ['mu300-led wake', 'mu300-wifi-band toggle']),
-                 ('138 long', ['mu300-led wake', 'systemctl is-active --quiet mu300-hotspot', 'systemctl start mu300-hotspot']),
-                 ('0 tick', ['mu300-led sleep --if-due']),
-                 ('116 long', ['mu300-led wake', 'systemctl poweroff']),
+        self.stub('openf50-keys', 'cat "$STUBLOG/keys.in"')
+        for name in ('openf50-led', 'openf50-wifi-band', 'systemctl', 'logger', 'poweroff'):
+            self.stub(name, f'echo "{name} $*" >> "$STUBLOG/calls"; [ "{name} $*" != "systemctl is-active --quiet openf50-hotspot" ]')
+        cases = [('116 short', ['openf50-led wake']),
+                 ('138 short', ['openf50-led wake', 'openf50-wifi-band toggle']),
+                 ('138 long', ['openf50-led wake', 'systemctl is-active --quiet openf50-hotspot', 'systemctl start openf50-hotspot']),
+                 ('0 tick', ['openf50-led sleep --if-due']),
+                 ('116 long', ['openf50-led wake', 'systemctl poweroff']),
                  ('115 short', [])]
         for shell in self.each_shell():
             for event, want in cases:
                 (self.tmp / 'keys.in').write_text(event + '\n')
                 (self.tmp / 'calls').unlink(missing_ok=True)
-                r = self.script(shell, BIN / 'mu300-buttons')
+                r = self.script(shell, BIN / 'openf50-buttons')
                 self.assertEqual(r.returncode, 0, r.stderr)
                 calls = (self.tmp / 'calls').read_text().splitlines() if (self.tmp / 'calls').exists() else []
                 self.assertEqual([c for c in calls if not c.startswith('logger')], want, event)
 
 
 class ThermalGuard(ShellTest):
-    """thermal-guard's LED alarm (one round against a fake /: MU300_SYSROOT)."""
+    """thermal-guard's LED alarm (one round against a fake /: OPENF50_SYSROOT)."""
     def setUp(self):
         super().setUp()
         self.root = self.tmp / 'root'
         self.bin = self.tmp / 'bin'
         self.bin.mkdir()
-        led = self.bin / 'mu300-led'
-        led.write_text('#!/bin/sh\necho "mu300-led $*" >> "$STUBLOG/calls"\n')
+        led = self.bin / 'openf50-led'
+        led.write_text('#!/bin/sh\necho "openf50-led $*" >> "$STUBLOG/calls"\n')
         led.chmod(0o755)
-        shutil.copy(BIN / 'mu300-device', self.bin / 'mu300-device')
+        shutil.copy(BIN / 'openf50-device', self.bin / 'openf50-device')
         self.device('u30air')
         self.stub('logger', ':')
         self.stub('poweroff', 'echo poweroff >> "$STUBLOG/calls"')
 
     def device(self, name):
-        (self.root / 'run/mu300').mkdir(parents=True, exist_ok=True)
-        (self.root / 'run/mu300/device').write_text(name + '\n')
+        (self.root / 'run/openf50').mkdir(parents=True, exist_ok=True)
+        (self.root / 'run/openf50/device').write_text(name + '\n')
 
     def round(self, shell, soc, battery=None, trips=False):
         z = self.root / 'sys/class/thermal/thermal_zone0'
@@ -1529,7 +1529,7 @@ class ThermalGuard(ShellTest):
             (b / 'type').write_text('Battery\n')
             (b / 'temp').write_text(f'{battery}\n')
         (self.tmp / 'calls').unlink(missing_ok=True)
-        r = self.script(shell, BIN / 'thermal-guard', MU300_SYSROOT=self.root, MU300_BIN=self.bin)
+        r = self.script(shell, BIN / 'thermal-guard', OPENF50_SYSROOT=self.root, OPENF50_BIN=self.bin)
         self.assertEqual(r.returncode, 0, r.stderr)
         return (self.tmp / 'calls').read_text().splitlines() if (self.tmp / 'calls').exists() else []
 
@@ -1538,13 +1538,13 @@ class ThermalGuard(ShellTest):
             shutil.rmtree(self.root, ignore_errors=True)
             self.device('u30air')
             self.assertEqual(self.round(shell, 60000, 300), [])
-            self.assertEqual(self.round(shell, 86000, 300), ['mu300-led alarm on'])
+            self.assertEqual(self.round(shell, 86000, 300), ['openf50-led alarm on'])
             self.assertEqual(self.round(shell, 90000, 300), [])                # on already
             self.assertEqual(self.round(shell, 80000, 300), [])                # not cool enough yet
-            self.assertEqual(self.round(shell, 74000, 300), ['mu300-led alarm off'])
-            self.assertEqual(self.round(shell, 60000, 510), ['mu300-led alarm on'])   # the battery alone
+            self.assertEqual(self.round(shell, 74000, 300), ['openf50-led alarm off'])
+            self.assertEqual(self.round(shell, 60000, 510), ['openf50-led alarm on'])   # the battery alone
             self.assertEqual(self.round(shell, 60000, 460), [])
-            self.assertEqual(self.round(shell, 60000, 440), ['mu300-led alarm off'])
+            self.assertEqual(self.round(shell, 60000, 440), ['openf50-led alarm off'])
 
     def test_f50_battery_is_ignored(self):
         # the F50 has no battery, but mainline's fuel gauge reports one at 75.0 C from an open NTC input: the
@@ -1553,22 +1553,22 @@ class ThermalGuard(ShellTest):
             shutil.rmtree(self.root, ignore_errors=True)
             self.device('f50')
             self.assertEqual(self.round(shell, 46000, 750), [])
-            self.assertEqual(self.round(shell, 86000, 750), ['mu300-led alarm on'])    # the SoC still counts
-            self.assertEqual(self.round(shell, 74000, 750), ['mu300-led alarm off'])
+            self.assertEqual(self.round(shell, 86000, 750), ['openf50-led alarm on'])    # the SoC still counts
+            self.assertEqual(self.round(shell, 74000, 750), ['openf50-led alarm off'])
 
     def test_vendor_kernel_only_watches(self):
         # 5.4 has its own trip points: no throttling or power-off here, but the alarm still works
         for shell in self.each_shell():
             shutil.rmtree(self.root, ignore_errors=True)
             self.device('u30air')
-            self.assertEqual(self.round(shell, 110000, trips=True), ['mu300-led alarm on'])
+            self.assertEqual(self.round(shell, 110000, trips=True), ['openf50-led alarm on'])
             shutil.rmtree(self.root, ignore_errors=True)
             self.device('u30air')
-            self.assertEqual(self.round(shell, 110000), ['poweroff', 'mu300-led alarm on'])   # mainline: critical
+            self.assertEqual(self.round(shell, 110000), ['poweroff', 'openf50-led alarm on'])   # mainline: critical
 
 
 class Nfc(ShellTest):
-    """mu300-nfc against a fake FM11NT08: 1 KiB behind a stub i2ctransfer, which answers only while a stub gpioset
+    """openf50-nfc against a fake FM11NT08: 1 KiB behind a stub i2ctransfer, which answers only while a stub gpioset
     holds line 190 low, as the tag does."""
     EEPROM = r'''
 import os, sys
@@ -1596,7 +1596,7 @@ elif op.startswith('w'):
     def setUp(self):
         super().setUp()
         self.root = self.tmp / 'root'
-        (self.root / 'run/mu300').mkdir(parents=True)
+        (self.root / 'run/openf50').mkdir(parents=True)
         chip = self.tmp / 'devices/platform/soc/64170000.gpio/gpiochip4'
         chip.mkdir(parents=True)
         (self.root / 'sys/bus/gpio/devices').mkdir(parents=True)
@@ -1615,9 +1615,9 @@ elif op.startswith('w'):
         (self.tmp / 'writes').unlink(missing_ok=True)
 
     def nfc(self, shell, *args, device='u30air'):
-        (self.root / 'run/mu300/device').write_text(device + '\n')
-        return self.script(shell, BIN / 'mu300-nfc', *args, MU300_SYSROOT=self.root, MU300_BIN=BIN,
-                           MU300_HOTSPOT_CONF=self.conf)
+        (self.root / 'run/openf50/device').write_text(device + '\n')
+        return self.script(shell, BIN / 'openf50-nfc', *args, OPENF50_SYSROOT=self.root, OPENF50_BIN=BIN,
+                           OPENF50_HOTSPOT_CONF=self.conf)
 
     def writes(self):
         w = self.tmp / 'writes'
@@ -1649,8 +1649,8 @@ elif op.startswith('w'):
     def test_url_text_clear(self):
         for shell in self.each_shell():
             self.blank()
-            for args, shown in ((('url', 'https://github.com/dikeckaan/mu300-linux'),
-                                 'url: https://github.com/dikeckaan/mu300-linux'),
+            for args, shown in ((('url', 'https://github.com/openf50-f50/OpenF50'),
+                                 'url: https://github.com/openf50-f50/OpenF50'),
                                 (('url', 'tel:+905551112233'), 'url: tel:+905551112233'),
                                 (('url', 'geo:41.0,29.0'), 'url: geo:41.0,29.0'),
                                 (('text', 'Merhaba, şifre kutunun altında'), 'text: Merhaba, şifre kutunun altında'),
@@ -1733,7 +1733,7 @@ class Ttl(ShellTest):
                          '[ "$1" = list ] && exit 1; exit 0')
 
     def ttl(self, shell, *args):
-        return self.script(shell, BIN / 'mu300-ttl', *args, MU300_TTL_CONF=self.conf)
+        return self.script(shell, BIN / 'openf50-ttl', *args, OPENF50_TTL_CONF=self.conf)
 
     def reset(self):
         for f in ('nft.args', 'nft.in'):
@@ -1747,7 +1747,7 @@ class Ttl(ShellTest):
             self.assertEqual(r.returncode, 0, r.stderr)
             self.assertEqual(self.conf.read_text(), 'TTL=64\n')
             rules = (self.tmp / 'nft.in').read_text()
-            self.assertIn('table inet mu300_ttl', rules)
+            self.assertIn('table inet openf50_ttl', rules)
             self.assertIn('oifname "sipa_eth*" ip ttl set 64', rules)
             self.assertIn('oifname "sipa_eth*" ip6 hoplimit set 64', rules)
             self.assertIn('fixed at 64', r.stdout)
@@ -1769,7 +1769,7 @@ class Ttl(ShellTest):
             r = self.ttl(shell, 'off')
             self.assertEqual(r.returncode, 0)
             self.assertFalse(self.conf.exists())
-            self.assertIn('delete table inet mu300_ttl', (self.tmp / 'nft.args').read_text())
+            self.assertIn('delete table inet openf50_ttl', (self.tmp / 'nft.args').read_text())
             self.assertFalse((self.tmp / 'nft.in').exists())  # no rule without a setting
             self.assertIn('not changed', r.stdout)
             # a hand-edited file with junk sets nothing
@@ -1790,7 +1790,7 @@ class Ttl(ShellTest):
 
 
 class UsbReset(ShellTest):
-    """mu300-usb-reset (K67): no rebind in host role, configfs mounted when init unmounted it, --fast-run."""
+    """openf50-usb-reset (K67): no rebind in host role, configfs mounted when init unmounted it, --fast-run."""
 
     def setUp(self):
         super().setUp()
@@ -1808,10 +1808,10 @@ class UsbReset(ShellTest):
             self.stub(n, f'echo "{n} $*" >> "$STUBLOG/calls"')
 
     def reset(self, shell, *args, **env):
-        e = dict(MU300_GADGET=self.gadget, MU300_USB_ROLE=self.role, MU300_USB_HOOK=self.hook,
-                 MU300_RUN_DIR=self.run_dir, PATH=f'{self.stubs}:/usr/bin:/bin')
+        e = dict(OPENF50_GADGET=self.gadget, OPENF50_USB_ROLE=self.role, OPENF50_USB_HOOK=self.hook,
+                 OPENF50_RUN_DIR=self.run_dir, PATH=f'{self.stubs}:/usr/bin:/bin')
         e.update(env)
-        return self.script(shell, BIN / 'mu300-usb-reset', *args, **e)
+        return self.script(shell, BIN / 'openf50-usb-reset', *args, **e)
 
     def calls(self):
         p = self.tmp / 'calls'
@@ -1838,13 +1838,13 @@ class UsbReset(ShellTest):
             self.assertIn('usleep 100000\n', calls)
             self.assertNotIn('sleep 2', calls.replace('usleep', ''))
             self.assertIn('hook ifup lan\n', calls)
-            self.assertIn('mu300-usb', calls)       # logger tag
-            self.assertTrue(float((self.run_dir / 'mu300-usb-rebind-done').read_text().split()[0]) >= 0)
+            self.assertIn('openf50-usb', calls)       # logger tag
+            self.assertTrue(float((self.run_dir / 'openf50-usb-rebind-done').read_text().split()[0]) >= 0)
 
     def test_mounts_configfs_when_init_unmounted_it(self):
         for shell in self.each_shell():
             (self.tmp / 'calls').unlink(missing_ok=True)
-            r = self.reset(shell, '--fast-run', MU300_GADGET=self.tmp / 'nogadget')
+            r = self.reset(shell, '--fast-run', OPENF50_GADGET=self.tmp / 'nogadget')
             self.assertEqual(1, r.returncode)
             self.assertIn('mount -t configfs configfs /sys/kernel/config', self.calls())
             self.assertIn('no gadget', r.stderr)
@@ -1860,19 +1860,19 @@ class UsbReset(ShellTest):
         lease = self.tmp / 'leases'
         lease.write_text('1 aa:bb 10.0.0.2 h *\n')
         for shell in self.each_shell():
-            r = self.reset(shell, '--if-no-lease', '0', MU300_LEASES=lease)
+            r = self.reset(shell, '--if-no-lease', '0', OPENF50_LEASES=lease)
             self.assertEqual(0, r.returncode, r.stderr)
             self.assertEqual('5e100000.usb\n', (self.gadget / 'UDC').read_text())
 
 
 class Usb(ShellTest):
-    """mu300-usb against a fake charger (busybox i2cget/i2cset on files) and a fake role switch."""
+    """openf50-usb against a fake charger (busybox i2cget/i2cset on files) and a fake role switch."""
 
     def setUp(self):
         super().setUp()
         r = self.root = self.tmp / 'root'
-        (r / 'run/mu300').mkdir(parents=True)
-        (r / 'run/mu300/device').write_text('u30air\n')
+        (r / 'run/openf50').mkdir(parents=True)
+        (r / 'run/openf50/device').write_text('u30air\n')
         node = r / 'sys/firmware/devicetree/base/soc/i2c@22a0000'
         node.mkdir(parents=True)
         i2c = r / 'sys/bus/i2c/devices/i2c-6'
@@ -1883,7 +1883,7 @@ class Usb(ShellTest):
         (role / 'role').write_text('device\n')
         self.stub('id', 'echo 0')
         self.stub('sleep', ':')
-        # i2c-tools (which mu300-usb prefers to busybox's): i2cget -y BUS ADDR REG / i2cset -y BUS ADDR REG VALUE,
+        # i2c-tools (which openf50-usb prefers to busybox's): i2cget -y BUS ADDR REG / i2cset -y BUS ADDR REG VALUE,
         # one file per register. (Not a stub called busybox: that would also replace the "busybox sh" under test.)
         # The options (-y, and -f when a kernel driver owns the address) go to $STUBLOG/flags.
         opts = 'while case $1 in -*) true ;; *) false ;; esac; do echo "$1" >> "$STUBLOG/flags"; shift; done; '
@@ -1899,7 +1899,7 @@ class Usb(ShellTest):
         return int((self.tmp / f'reg-{r}').read_text(), 16)
 
     def usb(self, shell, *args):
-        return self.script(shell, BIN / 'mu300-usb', *args, MU300_SYSROOT=self.root,
+        return self.script(shell, BIN / 'openf50-usb', *args, OPENF50_SYSROOT=self.root,
                            PATH=f'{self.stubs}:{BIN}:/usr/bin:/bin')
 
     def role(self):
@@ -1971,7 +1971,7 @@ class Usb(ShellTest):
 
     def test_f50(self):
         for shell in self.each_shell():
-            (self.root / 'run/mu300/device').write_text('f50\n')
+            (self.root / 'run/openf50/device').write_text('f50\n')
             r = self.usb(shell, 'host')
             self.assertEqual(r.returncode, 1)
             self.assertIn('only the U30 Air', r.stderr)
@@ -1980,7 +1980,7 @@ class Usb(ShellTest):
 
 @unittest.skipIf(os.name == 'nt' or os.geteuid() == 0, 'needs a user that cannot write the daemon directory')
 class AtClient(ShellTest):
-    """mu300-at as a user who cannot write /run/mu300-at: it says so at once (it used to loop for ever on a stale
+    """openf50-at as a user who cannot write /run/openf50-at: it says so at once (it used to loop for ever on a stale
     lock it could not remove, printing "rm: cannot remove .../lock/pid", and `mobile-data status` hung with it)."""
 
     def setUp(self):
@@ -1997,7 +1997,7 @@ class AtClient(ShellTest):
 
     def at(self, shell):
         t = time.monotonic()
-        r = self.script(shell, BIN / 'mu300-at', 'AT+CSQ', MU300_AT_DIR=self.dir, MU300_AT_LOCK_WAIT=20)
+        r = self.script(shell, BIN / 'openf50-at', 'AT+CSQ', OPENF50_AT_DIR=self.dir, OPENF50_AT_LOCK_WAIT=20)
         return r, time.monotonic() - t
 
     def test_a_user_is_told_to_be_root(self):
@@ -2028,7 +2028,7 @@ class AtClient(ShellTest):
         (self.dir / 'lock').chmod(0o555)
         for shell in self.each_shell():
             t = time.monotonic()
-            r = self.script(shell, BIN / 'mu300-at', 'AT+CSQ', MU300_AT_DIR=self.dir, MU300_AT_LOCK_WAIT=1)
+            r = self.script(shell, BIN / 'openf50-at', 'AT+CSQ', OPENF50_AT_DIR=self.dir, OPENF50_AT_LOCK_WAIT=1)
             took = time.monotonic() - t
             self.assertNotEqual(r.returncode, 0)
             self.assertIn('busy', r.stderr)
@@ -2046,7 +2046,7 @@ class LanStart(ShellTest):
         self.stub('ip', 'echo "ip $*" >> "$STUBLOG/calls"; case "$*" in "link show br-lan") exit 1;; esac; exit 0')
         self.stub('udevadm', 'echo "udevadm $*" >> "$STUBLOG/calls"')
         self.stub('dnsmasq', 'echo "dnsmasq" >> "$STUBLOG/calls"')
-        r = self.script(['bash'], BIN / 'lan-start', MU300_LAN_IP='192.168.78.1')
+        r = self.script(['bash'], BIN / 'lan-start', OPENF50_LAN_IP='192.168.78.1')
         self.assertEqual(r.returncode, 0, r.stderr)
         calls = (self.tmp / 'calls').read_text().splitlines()
         add = calls.index('ip link add br-lan type bridge')
@@ -2076,7 +2076,7 @@ class KmsgForward(ShellTest):
                     (self.tmp / f).unlink(missing_ok=True)
                 if mark.exists():
                     mark.unlink()
-                env = dict(MU300_KMSG_MARK=mark, MU300_KMSG_IGNORE=self.tmp / 'ignore')
+                env = dict(OPENF50_KMSG_MARK=mark, OPENF50_KMSG_IGNORE=self.tmp / 'ignore')
                 for _ in range(2):
                     r = self.script(shell, BIN / 'kmsg-forward', **env)
                     self.assertEqual(r.returncode, 0, r.stderr)
@@ -2096,7 +2096,7 @@ if __name__ == '__main__':
 
 
 class NextBoot(ShellTest):
-    """mu300-next-boot (bash) re-arms the Linux slot with tries N+1 in the slot byte of whichever slot Linux is on."""
+    """openf50-next-boot (bash) re-arms the Linux slot with tries N+1 in the slot byte of whichever slot Linux is on."""
 
     def setUp(self):
         super().setUp()
@@ -2116,9 +2116,9 @@ class NextBoot(ShellTest):
     def nb(self, *args):
         if not shutil.which('bash'):
             self.skipTest('no bash')
-        return subprocess.run(['bash', str(BIN / 'mu300-next-boot'), *args], capture_output=True, text=True,
-                              env=self.env(MU300_RUN=self.run_dir, MU300_CONF=self.tmp / 'default-boot',
-                                           MU300_CMDLINE_SRC=self.tmp / 'cmdline'))
+        return subprocess.run(['bash', str(BIN / 'openf50-next-boot'), *args], capture_output=True, text=True,
+                              env=self.env(OPENF50_RUN=self.run_dir, OPENF50_CONF=self.tmp / 'default-boot',
+                                           OPENF50_CMDLINE_SRC=self.tmp / 'cmdline'))
 
     def bc(self):
         return self.misc.read_bytes()[0x800:0x820]
@@ -2191,5 +2191,5 @@ class EarlyRecorder(ShellTest):
                     p.unlink(missing_ok=True)
                     if data is not None:
                         p.write_text(data)
-                r = self.sh(shell, m.group(1) + '\necho "$PART"', MU300_RUN=run, MU300_CMDLINE_SRC=cmdline)
+                r = self.sh(shell, m.group(1) + '\necho "$PART"', OPENF50_RUN=run, OPENF50_CMDLINE_SRC=cmdline)
                 self.assertEqual((r.stdout.strip(), r.stderr), (f'boot_{want}', ''), (v, cl))

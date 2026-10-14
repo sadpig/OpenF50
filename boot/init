@@ -1,5 +1,5 @@
 #!/bin/busybox sh
-# MU300 standalone Linux initramfs v10 (switch_root to Ubuntu on the free eMMC region; comm fix; custom kernel + modem_control + node perms + Android's slot modem) (Linux on the other slot, tries=2 one-shot trial).
+# OPENF50 standalone Linux initramfs v10 (switch_root to Ubuntu on the free eMMC region; comm fix; custom kernel + modem_control + node perms + Android's slot modem) (Linux on the other slot, tries=2 one-shot trial).
 # Every stage is written to /dev/kmsg at KERN_ERR so it survives in
 # /sys/fs/pstore/console-ramoops-0 after the fallback boot into Android.
 /bin/busybox mkdir -p /bin /sbin /proc /sys /dev /run /tmp /root /etc /config
@@ -21,8 +21,8 @@ pmsg_major=$(awk '$2=="pmsg"{print $1}' /proc/devices)
 [ -n "$pmsg_major" ] && [ ! -e /dev/pmsg0 ] && mknod /dev/pmsg0 c "$pmsg_major" 0
 
 log() {
-    echo "<3>MU300-LINUX: $*" > /dev/kmsg
-    [ -c /dev/pmsg0 ] && echo "MU300-LINUX: $*" > /dev/pmsg0
+    echo "<3>OPENF50-LINUX: $*" > /dev/kmsg
+    [ -c /dev/pmsg0 ] && echo "OPENF50-LINUX: $*" > /dev/pmsg0
     [ -d /run ] && echo "$(cut -d' ' -f1 /proc/uptime) $*" >> /run/stages
 }
 
@@ -36,7 +36,7 @@ persist() {
     # the periodic loop and the reboot timer both call this
     mkdir /run/persist.lock 2>/dev/null || return
     {
-        echo "MU300-PERSIST-BEGIN uptime=$(cut -d' ' -f1 /proc/uptime)"
+        echo "OPENF50-PERSIST-BEGIN uptime=$(cut -d' ' -f1 /proc/uptime)"
         cat /run/stages
         echo "--- lsmod"
         cat /proc/modules
@@ -50,7 +50,7 @@ persist() {
         cat /sys/kernel/debug/devices_deferred 2>&1
         echo "--- dmesg"
         dmesg | tail -c 6000000
-        echo "MU300-PERSIST-END"
+        echo "OPENF50-PERSIST-END"
     } > /run/persist.txt 2>&1
     head -c 65536 /dev/zero >> /run/persist.txt
     dd if=/run/persist.txt of="$bootb" bs=4096 seek=12288 count=2048 conv=notrunc 2>/dev/null
@@ -87,10 +87,10 @@ echo 1 > /proc/sys/kernel/sysrq
 # Which device this is. The ZTE U30 Air is the F50's board with a battery: ZTE's SQC charger stack, USB-PD, LEDs.
 # It runs the same kernel with its own build of a few modules (linux-modules/u30air/, see kernel/build-u30air.sh)
 # and its own load order; without them the charger manager never probes and USB stays down. The installer names
-# the device in /etc/mu300-device (the device segment of the ramdisk, which the generic segment of an update does
+# the device in /etc/openf50-device (the device segment of the ramdisk, which the generic segment of an update does
 # not replace); without that file the stock device tree tells: only the U30 Air's has the charger policy service.
-if [ -s /etc/mu300-device ]; then
-    DEVICE=$(cat /etc/mu300-device)
+if [ -s /etc/openf50-device ]; then
+    DEVICE=$(cat /etc/openf50-device)
 elif [ -d /proc/device-tree/charger_policy_service ]; then
     DEVICE=u30air
 else
@@ -148,17 +148,17 @@ load_vendor_modules() {
 # Which slot this Linux runs from, and so which one is Android's (after an OTA Android often runs from b, and the
 # Magisk installer then puts Linux on a). LK names the slot it booted on the command line; the mainline kernel
 # replaces that line, so the bootargs LK put in the device tree come next, as for the vendor daemons below. Then
-# the slot the image was built for (etc/mu300-linux-slot, from the installer), and b: every image before this one
+# the slot the image was built for (etc/openf50-linux-slot, from the installer), and b: every image before this one
 # was built for b.
 # --- slot begin
 linux_slot_detect() {
     LINUX_SLOT=; _src=default
-    for _f in ${MU300_CMDLINE_SRC:-/proc/cmdline /proc/device-tree/chosen/bootargs}; do
+    for _f in ${OPENF50_CMDLINE_SRC:-/proc/cmdline /proc/device-tree/chosen/bootargs}; do
         [ -r "$_f" ] || continue
         LINUX_SLOT=$(tr '\000' ' ' < "$_f" | sed -n 's/.*androidboot\.slot_suffix=_\([ab]\).*/\1/p')
         [ -n "$LINUX_SLOT" ] && { _src=$_f; break; }
     done
-    _img=$(cat "${MU300_ETC:-/etc}/mu300-linux-slot" 2>/dev/null)
+    _img=$(cat "${OPENF50_ETC:-/etc}/openf50-linux-slot" 2>/dev/null)
     case $_img in a|b) ;; *) _img= ;; esac
     if [ -z "$LINUX_SLOT" ]; then
         LINUX_SLOT=${_img:-b}
@@ -168,12 +168,12 @@ linux_slot_detect() {
     if [ "$LINUX_SLOT" = a ]; then ANDROID_SLOT=b; else ANDROID_SLOT=a; fi
     log "stage=linux-slot slot=$LINUX_SLOT source=$_src"
 }
-restore_android() { write_misc_bc "${MU300_ETC:-/etc}/misc-bc-slot-$ANDROID_SLOT.bin" misc-restored; }
-# what userspace needs to choose the next boot (mu300-next-boot): the slot and the two blocks of this pair. The old
-# names, which an older mu300-next-boot reads, only where they mean what it thinks: Linux on b. With Linux on a its
+restore_android() { write_misc_bc "${OPENF50_ETC:-/etc}/misc-bc-slot-$ANDROID_SLOT.bin" misc-restored; }
+# what userspace needs to choose the next boot (openf50-next-boot): the slot and the two blocks of this pair. The old
+# names, which an older openf50-next-boot reads, only where they mean what it thinks: Linux on b. With Linux on a its
 # "android" would write the slot-a block - Linux, marked successful - and without the files it fails instead.
 publish_slot() {
-    _r=${MU300_RUN:-/run}/mu300 _e=${MU300_ETC:-/etc}
+    _r=${OPENF50_RUN:-/run}/openf50 _e=${OPENF50_ETC:-/etc}
     mkdir -p "$_r"
     echo "$LINUX_SLOT" > "$_r/linux-slot"
     cp "$_e/misc-bc-slot-$ANDROID_SLOT.bin" "$_r/misc-bc-android.bin"
@@ -190,7 +190,7 @@ linux_slot_detect
 # The eMMC and the card by what they are, never by number: the host index follows probe order, and under mainline
 # the card slot once took mmc0 and left mmcblk1 to the eMMC (FINDINGS 31l).
 mmc_disks() {  # mmc_disks TYPE: the whole mmcblkN disks whose card is of TYPE (MMC: the eMMC, SD: a card)
-    for b in "${MU300_SYS:-/sys}"/block/mmcblk*; do
+    for b in "${OPENF50_SYS:-/sys}"/block/mmcblk*; do
         case ${b##*/mmcblk} in ''|*[!0-9]*) continue ;; esac   # not mmcblk0boot0, mmcblk0rpmb, ...
         [ "$(cat "$b/device/type" 2>/dev/null)" = "$1" ] && echo "${b##*/}"
     done
@@ -199,14 +199,14 @@ mmc_disks() {  # mmc_disks TYPE: the whole mmcblkN disks whose card is of TYPE (
 # sysfs has no mmcblk disk at all (the order every kernel had until 31l). Only cards there: nothing, status 1.
 emmc_dev() {
     set -- $(mmc_disks MMC)
-    [ -n "${1:-}" ] && { echo "${MU300_DEV:-/dev}/$1"; return 0; }
+    [ -n "${1:-}" ] && { echo "${OPENF50_DEV:-/dev}/$1"; return 0; }
     _any=
-    for b in "${MU300_SYS:-/sys}"/block/mmcblk*; do
+    for b in "${OPENF50_SYS:-/sys}"/block/mmcblk*; do
         case ${b##*/mmcblk} in ''|*[!0-9]*) continue ;; esac
         _any=1
-        [ "$(cat "$b/device/type" 2>/dev/null)" = SD ] || { echo "${MU300_DEV:-/dev}/${b##*/}"; return 0; }
+        [ "$(cat "$b/device/type" 2>/dev/null)" = SD ] || { echo "${OPENF50_DEV:-/dev}/${b##*/}"; return 0; }
     done
-    [ -z "$_any" ] && { echo "${MU300_DEV:-/dev}/mmcblk0"; return 0; }
+    [ -z "$_any" ] && { echo "${OPENF50_DEV:-/dev}/mmcblk0"; return 0; }
     return 1
 }
 # The eMMC's partition named NAME in its GPT. Only the eMMC's: a card can carry the same names (a raw clone of a
@@ -214,10 +214,10 @@ emmc_dev() {
 emmc_part() {  # emmc_part NAME -> /dev/<partition>; nothing (status 1) when the eMMC has none of that name
     _e=$(emmc_dev) || return 1
     _e=${_e##*/}
-    for _u in "${MU300_SYS:-/sys}/block/$_e/$_e"p*/uevent; do
+    for _u in "${OPENF50_SYS:-/sys}/block/$_e/$_e"p*/uevent; do
         grep -qx "PARTNAME=$1" "$_u" 2>/dev/null || continue
         _u=${_u%/uevent}
-        echo "${MU300_DEV:-/dev}/${_u##*/}"
+        echo "${OPENF50_DEV:-/dev}/${_u##*/}"
         return 0
     done
     return 1
@@ -249,11 +249,11 @@ write_misc_bc() {  # write_misc_bc FILE STAGE
     if cmp -s /run/bc.bin "$1"; then log "stage=$2 dev=$misc"; else log "stage=$2-MISMATCH dev=$misc"; fi
 }
 
-hostname mu300-linux
+hostname openf50-linux
 ifconfig lo 127.0.0.1 up
 # --- usb-gadget begin
-setup_usb_gadget() {  # setup_usb_gadget [FUNCTIONS]: FUNCTIONS, else MU300_USBNET, else "ncm ecm" (see below)
-    usbnet_bound=${1:-${MU300_USBNET:-ncm ecm}}
+setup_usb_gadget() {  # setup_usb_gadget [FUNCTIONS]: FUNCTIONS, else OPENF50_USBNET, else "ncm ecm" (see below)
+    usbnet_bound=${1:-${OPENF50_USBNET:-ncm ecm}}
     log "stage=usb-configfs"
     [ -d /config/usb_gadget ] || mount -t configfs configfs /config
     g=/config/usb_gadget/linux
@@ -263,8 +263,8 @@ setup_usb_gadget() {  # setup_usb_gadget [FUNCTIONS]: FUNCTIONS, else MU300_USBN
     # is exactly what an "improvement" to NCM cost once (on a mainline build without it; both kernels have it now).
     # NCM by default, in a single configuration with the ACM console: Windows 10 2004+/11 bind their inbox
     # UsbNcm.sys to it, macOS and Linux their own drivers - all measured, none needs an INF. ECM, which Windows has
-    # no driver for, is the fallback. MU300_USBNET (kernel command line) picks the functions; without it, the
-    # system that boots may ask for others in its etc/mu300/usb-net (apply_usb_net below, D12).
+    # no driver for, is the fallback. OPENF50_USBNET (kernel command line) picks the functions; without it, the
+    # system that boots may ask for others in its etc/openf50/usb-net (apply_usb_net below, D12).
     # "rndis" is for Windows without NCM (7, 8, 10 before 2004): RNDIS and the ACM console share the single
     # configuration, and rndis.sys is bound to it through the MS OS descriptors below. Windows does not make its
     # composite parent for a device with several configurations: the earlier RNDIS + NCM arrangement bound the
@@ -295,9 +295,9 @@ setup_usb_gadget() {  # setup_usb_gadget [FUNCTIONS]: FUNCTIONS, else MU300_USBN
     echo 0xEF > "$g/bDeviceClass"
     echo 0x02 > "$g/bDeviceSubClass"
     echo 0x01 > "$g/bDeviceProtocol"
-    echo "MU300LINUX${USBID:+-$USBID}" > "$g/strings/0x409/serialnumber"
+    echo "OPENF50LINUX${USBID:+-$USBID}" > "$g/strings/0x409/serialnumber"
     echo Linux > "$g/strings/0x409/manufacturer"
-    echo "MU300 Linux USB Ethernet" > "$g/strings/0x409/product"
+    echo "OPENF50 Linux USB Ethernet" > "$g/strings/0x409/product"
     # USB serial console alongside the network function, in every configuration: recovery/debug access that does
     # not depend on networking
     mkdir -p "$g/functions/acm.GS0"
@@ -377,7 +377,7 @@ setup_usb_gadget() {  # setup_usb_gadget [FUNCTIONS]: FUNCTIONS, else MU300_USBN
     rm -f /run/udhcpd-usb0.pid
     if [ -e "/sys/class/net/$early_net" ]; then
         ifconfig "$early_net" "$NET.1" netmask 255.255.255.0 up
-        echo "$early_host_mac" > /run/mu300-usb-host-mac
+        echo "$early_host_mac" > /run/openf50-usb-host-mac
         cat > /run/udhcpd-usb0.conf <<EOF
 start $NET.200
 end $NET.200
@@ -410,22 +410,22 @@ teardown_usb_gadget() {  # unbind and take the functions away; setup_usb_gadget 
 load_vendor_modules
 find_partitions
 setup_usb_gadget
-# The SD card as the home of the Linux filesystem: ext4 with the label mu300sd, on the card's first partition or
-# on the whole card. Its own label, not mu300root - a device can hold both, and they must never be confused.
+# The SD card as the home of the Linux filesystem: ext4 with the label openf50sd, on the card's first partition or
+# on the whole card. Its own label, not openf50root - a device can hold both, and they must never be confused.
 # --- sd-root begin
 ext4_label() {  # ext4_label DEV: the volume label, nothing (and status 1) when DEV is not ext4
     [ "$(dd if="$1" bs=1 skip=1080 count=2 2>/dev/null | od -An -tx1 | tr -d ' \n')" = 53ef ] || return 1
     dd if="$1" bs=1 skip=1144 count=16 2>/dev/null | tr -d '\000'; echo
 }
 sd_candidates() {  # the card's first partition, then the whole card, for every SD card there is
-    [ -n "${MU300_SD_GLOB:-}" ] && { echo $MU300_SD_GLOB; return; }
-    for n in $(mmc_disks SD); do echo "${MU300_DEV:-/dev}/${n}p1"; done
-    for n in $(mmc_disks SD); do echo "${MU300_DEV:-/dev}/$n"; done
+    [ -n "${OPENF50_SD_GLOB:-}" ] && { echo $OPENF50_SD_GLOB; return; }
+    for n in $(mmc_disks SD); do echo "${OPENF50_DEV:-/dev}/${n}p1"; done
+    for n in $(mmc_disks SD); do echo "${OPENF50_DEV:-/dev}/$n"; done
 }
-find_sd_root() {  # the first card device that holds mu300sd; the eMMC is never looked at
+find_sd_root() {  # the first card device that holds openf50sd; the eMMC is never looked at
     for d in $(sd_candidates); do
         [ -e "$d" ] || continue
-        [ "$(ext4_label "$d")" = mu300sd ] && { echo "$d"; return 0; }
+        [ "$(ext4_label "$d")" = openf50sd ] && { echo "$d"; return 0; }
     done
     return 1
 }
@@ -434,7 +434,7 @@ find_sd_root() {  # the first card device that holds mu300sd; the eMMC is never 
 # block device is still being set up (its driver is bound once the partitions are read), and the vendor 5.4 kernel,
 # whose host waits for a card-detect line instead of polling and was once seen to bring the card only at 23.75 s.
 sd_coming() {
-    s=${MU300_SYS:-/sys}
+    s=${OPENF50_SYS:-/sys}
     for c in "$s"/bus/mmc/devices/mmc*:*; do
         [ "$(cat "$c/type" 2>/dev/null)" = SD ] || continue
         [ -e "$c/driver" ] && return 1
@@ -464,17 +464,17 @@ wait_sd_root() {  # wait_sd_root SECONDS [MAX]: a card the host has not found ye
 ROOT_OFFSET=27762098176   # linux-boot/rootfs-region.env; outside every GPT partition
 # The region is not at the same place on every device (eMMC size, partition layout), and a number in this file is
 # not enough: the installer writes the device's offset in here, but the generic ramdisk segment that updates put
-# behind this one (mu300-update, and a mainline kernel from the installer) carries its own init, which replaces
+# behind this one (openf50-update, and a mainline kernel from the installer) carries its own init, which replaces
 # this file - with the default above. Devices whose region is elsewhere then booted into standalone mode and went
 # back to Android. So find it the way the installer places it - the first 2 MiB boundary after the last partition
-# - and take the first candidate that really holds the mu300root filesystem (ext4 magic and label).
+# - and take the first candidate that really holds the openf50root filesystem (ext4 magic and label).
 # --- region begin
-is_mu300root() {  # is_mu300root OFFSET: on the eMMC ($EMMC)
+is_openf50root() {  # is_openf50root OFFSET: on the eMMC ($EMMC)
     [ "$(dd if="$EMMC" bs=1 skip=$(($1 + 1080)) count=2 2>/dev/null | od -An -tx1 | tr -d ' \n')" = 53ef ] &&
-    [ "$(dd if="$EMMC" bs=1 skip=$(($1 + 1144)) count=9 2>/dev/null)" = mu300root ]
+    [ "$(dd if="$EMMC" bs=1 skip=$(($1 + 1144)) count=11 2>/dev/null)" = openf50root ]
 }
 find_root_offset() {
-    b=${MU300_SYS:-/sys}/block/${EMMC##*/}
+    b=${OPENF50_SYS:-/sys}/block/${EMMC##*/}
     e=0
     for p in "$b/${EMMC##*/}"p*; do
         [ -r "$p/start" ] || continue
@@ -485,19 +485,19 @@ find_root_offset() {
     size=$(( $(cat "$b/size" 2>/dev/null || echo 0) * 512 ))
     for c in $(( (e / 4096 + 1) * 4096 * 512 )) $ROOT_OFFSET; do
         [ "$size" = 0 ] || [ $((c + 4096)) -le "$size" ] || continue
-        is_mu300root "$c" && { echo "$c"; return 0; }
+        is_openf50root "$c" && { echo "$c"; return 0; }
     done
     return 1
 }
 # --- region end
 # --- usb-net begin
-# The USB network mode the panel's Device page chose (D12): a file of the system that boots, etc/mu300/usb-net,
+# The USB network mode the panel's Device page chose (D12): a file of the system that boots, etc/openf50/usb-net,
 # holding ncm, ecm or rndis. It is read once the root is known, not before the gadget is made: the gadget comes up
-# as early as before (the card scan can take 8 s), and a different choice costs one rebind. MU300_USBNET on the
+# as early as before (the card scan can take 8 s), and a different choice costs one rebind. OPENF50_USBNET on the
 # kernel command line still wins.
 usb_net_policy() {  # usb_net_policy ROOTDIR: the functions ROOTDIR asks for, or nothing
-    [ -z "${MU300_USBNET:-}" ] || return 0
-    case $(cat "$1/etc/mu300/usb-net" 2>/dev/null) in
+    [ -z "${OPENF50_USBNET:-}" ] || return 0
+    case $(cat "$1/etc/openf50/usb-net" 2>/dev/null) in
         ncm) echo 'ncm ecm' ;;
         ecm) echo 'ecm ncm' ;;
         # NCM, then ECM, only when this kernel cannot make RNDIS (setup_usb_gadget lets RNDIS win): a saved choice
@@ -518,16 +518,16 @@ apply_usb_net() {  # apply_usb_net ROOTDIR: rebind once if ROOTDIR asks for othe
     # the choice is in effect: the system's device-usb consumes a one-boot choice when it finds this (K8). It names
     # the function made, which is NCM or ECM when this kernel has no RNDIS.
     if [ -n "$rndis" ]; then usbnet_made=rndis; else usbnet_made=${netfunc:-none}; fi
-    mkdir -p /run/mu300 && echo "$usbnet_made" > /run/mu300/usb-net-applied
+    mkdir -p /run/openf50 && echo "$usbnet_made" > /run/openf50/usb-net-applied
 }
 # --- usb-net end
 # --- pick-root begin
-# The ext4 area holds one or more systems: /ubuntu, /openwrt, /openwrt-luci (selected by /.mu300/boot-os), or a
+# The ext4 area holds one or more systems: /ubuntu, /openwrt, /openwrt-luci (selected by /.openf50/boot-os), or a
 # single Ubuntu directly in its root (first installs). Explicit names only: a kept copy (openwrt.old, ubuntu.broken)
 # must never be what boots, so a boot-os with a dot in it is ignored.
 has_init() { [ -x "$1/lib/systemd/systemd" ] || [ -x "$1/sbin/init" ]; }
 pick_root() {
-    want=$(cat /disk/.mu300/boot-os 2>/dev/null)
+    want=$(cat /disk/.openf50/boot-os 2>/dev/null)
     case $want in *.*|*/*) want= ;; esac
     for os in $want ubuntu openwrt openwrt-luci; do
         [ -d "/disk/$os" ] && has_init "/disk/$os" && { echo "/disk/$os"; return; }
@@ -540,7 +540,7 @@ mkdir -p /disk /newroot
 EMMC=$(emmc_dev)   # find_partitions has waited for the eMMC's partitions, so its disk is there
 log "stage=emmc dev=$EMMC sd=$(mmc_disks SD | tr '\n' ' ')"
 # --- root-select begin
-mount_internal() {  # the mu300root region on the eMMC; busybox mount sets up a loop only for regular files, so
+mount_internal() {  # the openf50root region on the eMMC; busybox mount sets up a loop only for regular files, so
     # attach it explicitly and verify its offset (the loop options would be handed to ext4: EINVAL)
     if found=$(find_root_offset); then
         [ "$found" = "$ROOT_OFFSET" ] || log "stage=root-offset found=$found (default $ROOT_OFFSET)"
@@ -553,7 +553,7 @@ mount_internal() {  # the mu300root region on the eMMC; busybox mount sets up a 
        && [ "$(cat /sys/block/${rootloop#/dev/}/loop/offset)" = "$ROOT_OFFSET" ] \
        && [ "$(dd if="$rootloop" bs=1 skip=1080 count=2 2>/dev/null | od -An -tx1 | tr -d ' ')" = 53ef ] \
        && mount -t ext4 -o noatime "$rootloop" /disk 2>>/run/rootmount.err \
-       && echo "${EMMC##*/}@$ROOT_OFFSET" > /run/mu300-root-dev && diskdev=$rootloop
+       && echo "${EMMC##*/}@$ROOT_OFFSET" > /run/openf50-root-dev && diskdev=$rootloop
 }
 mount_sd() {  # mount_sd DEV: the card, a block device of its own - no loop
     mount -t ext4 -o noatime "$1" /disk 2>>/run/rootmount.err || return 1
@@ -562,7 +562,7 @@ mount_sd() {  # mount_sd DEV: the card, a block device of its own - no loop
         # an internal system.
         log "stage=sd-root-empty dev=$1"; umount /disk; return 1
     fi
-    echo "$1" > /run/mu300-root-dev; diskdev=$1
+    echo "$1" > /run/openf50-root-dev; diskdev=$1
     log "stage=sd-root dev=$1"
 }
 sd_wait() { wait_sd_root 8 30; }
@@ -574,7 +574,7 @@ elif mount_internal; then
     # A card installation on a device that also has an internal one leaves this marker in the internal one: the
     # card is what should boot, and the polled SD host may simply not have found it yet. Only then is it worth
     # waiting; a device without a card installation never waits.
-    if [ -e /disk/.mu300/root-on-sd ]; then
+    if [ -e /disk/.openf50/root-on-sd ]; then
         if sd=$(sd_wait); then
             umount /disk && losetup -d "$rootloop" 2>/dev/null
             mount_sd "$sd" || { log "stage=sd-root-failed dev=$sd"; mount_internal || root_mounted=0; }
@@ -590,7 +590,7 @@ fi
 # --- root-select end
 # --- boot-tries begin
 # A way back to Android with no computer and no keyboard: cut the power during boot N times in a row (N is
-# .mu300/boot-attempts, 5 without it). Every boot counts up here and mu300-next-boot --rearm clears the count
+# .openf50/boot-attempts, 5 without it). Every boot counts up here and openf50-next-boot --rearm clears the count
 # once the system is really up, so only boots that never got that far add up. LK does the same with the
 # tries it was armed with (N+1) and normally gets there first; this is the backstop, and it goes to Android
 # on the boot after the Nth failed one, exactly when LK would.
@@ -609,21 +609,21 @@ lk_tries() {
 # boot_tries_exceeded ROOTDIR DISK: count this boot; true when the backstop sends it to Android
 boot_tries_exceeded() {
     # only in default-Linux mode: with the one-shot trial every power cut already lands in Android
-    [ "$(cat "$1/etc/mu300/default-boot" 2>/dev/null)" = linux ] || return 1
-    tries=$(cat "$2/.mu300/boot-tries" 2>/dev/null || echo 0)
+    [ "$(cat "$1/etc/openf50/default-boot" 2>/dev/null)" = linux ] || return 1
+    tries=$(cat "$2/.openf50/boot-tries" 2>/dev/null || echo 0)
     case $tries in ''|*[!0-9]*) tries=0 ;; esac
     tries=$((tries + 1))
-    max=$(cat "$2/.mu300/boot-attempts" 2>/dev/null); case $max in [1-6]) ;; *) max=5 ;; esac
+    max=$(cat "$2/.openf50/boot-attempts" 2>/dev/null); case $max in [1-6]) ;; *) max=5 ;; esac
     # LK left this slot one try: it goes to Android by itself at the next failed boot. A count above N then is one
-    # LK has already acted on - it fell back, and the slot was armed again from Android (su -c mu300-linux) - and
+    # LK has already acted on - it fell back, and the slot was armed again from Android (su -c openf50-linux) - and
     # sending this boot to Android as well would bounce every such arm straight back. Count from this boot.
     if [ "$tries" -gt "$max" ] && [ "$(lk_tries)" = 1 ]; then
         log "stage=boot-tries-restart count=$tries (LK armed this slot again after its own fallback)"
         tries=1
     fi
-    mkdir -p "$2/.mu300" && echo "$tries" > "$2/.mu300/boot-tries" && sync
+    mkdir -p "$2/.openf50" && echo "$tries" > "$2/.openf50/boot-tries" && sync
     [ "$tries" -gt "$max" ] || return 1
-    echo 0 > "$2/.mu300/boot-tries" && sync
+    echo 0 > "$2/.openf50/boot-tries" && sync
     log "stage=boot-tries-exceeded count=$tries (booting Android instead)"
 }
 # --- boot-tries end
@@ -643,23 +643,23 @@ if [ "$root_mounted" = 1 ] && rootdir=$(pick_root) && [ -n "$rootdir" ]; then
     else
         mount --bind "$rootdir" /newroot
         # keep the whole disk reachable from inside (switching systems, editing the other one)
-        mkdir -p /newroot/mnt/mu300-disk && mount --move /disk /newroot/mnt/mu300-disk
+        mkdir -p /newroot/mnt/openf50-disk && mount --move /disk /newroot/mnt/openf50-disk
     fi
     # Default-Linux mode: leave LK's decremented tries (Linux's slot: not successful). Userspace re-arms the Linux
     # slot (tries N+1) once the system is up; N boots in a row that never get there and LK falls back to Android on
     # the next one.
     trial=1
-    if [ "$(cat /newroot/etc/mu300/default-boot 2>/dev/null)" = linux ]; then
+    if [ "$(cat /newroot/etc/openf50/default-boot 2>/dev/null)" = linux ]; then
         log "stage=default-boot-linux (Android's slot restore skipped)"
         trial=
     else
         restore_android
     fi
     publish_slot
-    [ -n "$misc" ] && echo "$misc" > /run/mu300/misc-dev
+    [ -n "$misc" ] && echo "$misc" > /run/openf50/misc-dev
     # the device /disk was mounted from: the card, or the loop device over the internal region
-    echo "$diskdev" > /run/mu300/disk-dev
-    echo "$DEVICE" > /run/mu300/device
+    echo "$diskdev" > /run/openf50/disk-dev
+    echo "$DEVICE" > /run/openf50/device
     init=/sbin/init
     [ -x /newroot/lib/systemd/systemd ] && init=/lib/systemd/systemd
     log "stage=switch-root root=$rootdir init=$init os=$(sed -n 's/^PRETTY_NAME=//p' /newroot/etc/os-release)"
@@ -672,13 +672,13 @@ if [ "$root_mounted" = 1 ] && rootdir=$(pick_root) && [ -n "$rootdir" ]; then
     # switch_root: unless /run/stay exists by then (created over SSH), it reboots - into Android, as Android's slot
     # is already restored. switch_root deletes this ramdisk, so it runs from a copy of busybox in /run, reached
     # through its working directory once /run has moved.
-    # Only in a trial boot: mu300-update keeps the device segment of whatever image is in the Linux slot's boot
+    # Only in a trial boot: openf50-update keeps the device segment of whatever image is in the Linux slot's boot
     # partition, and a guard that came along from an experiment into an installed system restarted it every 10
     # minutes (FINDINGS 33e)
-    if [ -s /etc/mu300-trial-guard ] && [ -z "$trial" ]; then
+    if [ -s /etc/openf50-trial-guard ] && [ -z "$trial" ]; then
         log "stage=trial-guard-ignored (Linux is the default: not a trial)"
-    elif [ -s /etc/mu300-trial-guard ]; then
-        g=$(cat /etc/mu300-trial-guard)
+    elif [ -s /etc/openf50-trial-guard ]; then
+        g=$(cat /etc/openf50-trial-guard)
         # (named busybox: busybox takes the applet from its own name when that is not "busybox")
         mkdir -p /run/.trial-guard && cp /bin/busybox /run/.trial-guard/busybox
         log "stage=trial-guard ${g}s"
@@ -716,7 +716,7 @@ touch /run/udhcpd.leases
 udhcpd /etc/udhcpd.conf
 telnetd -b $NET.1 -p 23 -l /bin/sh
 mkdir -p /run/www
-echo "MU300 standalone Linux v5: telnet $NET.1; auto reboot to Android after 300s unless /run/stay exists" > /run/www/index.html
+echo "OPENF50 standalone Linux v5: telnet $NET.1; auto reboot to Android after 300s unless /run/stay exists" > /run/www/index.html
 httpd -p $NET.1:80 -h /run/www
 log "stage=ready"
 

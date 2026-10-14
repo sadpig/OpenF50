@@ -1,33 +1,33 @@
-# Shared by install.sh and uninstall.sh: both need the device in rooted Android, but it may be running MU300 Linux
+# Shared by install.sh and uninstall.sh: both need the device in rooted Android, but it may be running OPENF50 Linux
 # right now (then there is no adb device, only SSH on the USB network). Offer to send it back to Android.
 # Uses: say(), die(), ask(), and t() from tools/i18n.sh (loaded here when the caller has not)
 command -v t >/dev/null 2>&1 || . "$TOP/tools/i18n.sh"
 
-# the USB network of each kind of device: F50 192.168.77.1, U30 Air 192.168.78.1 (MU300_IP: another address)
-MU300_IPS=${MU300_IP:-192.168.77.1 192.168.78.1}
+# the USB network of each kind of device: F50 192.168.77.1, U30 Air 192.168.78.1 (OPENF50_IP: another address)
+OPENF50_IPS=${OPENF50_IP:-192.168.77.1 192.168.78.1}
 
-# true when something answers on the Linux SSH port of the USB network; MU300_IP is then that device, and only it
+# true when something answers on the Linux SSH port of the USB network; OPENF50_IP is then that device, and only it
 # is watched from here on (another device may still be running Linux next to it)
 linux_mode_running() {
     command -v nc >/dev/null || return 1
-    for _lm_ip in $MU300_IPS; do
-        nc -z -G 3 -w 3 "$_lm_ip" 22 >/dev/null 2>&1 && { MU300_IP=$_lm_ip; MU300_IPS=$_lm_ip; return 0; }
+    for _lm_ip in $OPENF50_IPS; do
+        nc -z -G 3 -w 3 "$_lm_ip" 22 >/dev/null 2>&1 && { OPENF50_IP=$_lm_ip; OPENF50_IPS=$_lm_ip; return 0; }
     done
     return 1
 }
 
 # ask the running Linux to boot Android next and reboot; then wait for adb
 linux_mode_to_android() {
-    say "$(t 'The device is running MU300 Linux, not Android')"
+    say "$(t 'The device is running OPENF50 Linux, not Android')"
     echo "  $(t 'Installing and uninstalling happen from Android (slot a), so the device has to reboot first.')"
     ask go "$(t 'Reboot the device into Android now? (yes/no)')" yes
-    [ "$go" = yes ] || die "$(t 'boot Android yourself (on the device: sudo mu300-next-boot android && sudo reboot)')"
+    [ "$go" = yes ] || die "$(t 'boot Android yourself (on the device: sudo openf50-next-boot android && sudo reboot)')"
     # -t: sudo needs a terminal to ask for the device password, and everything runs in one sudo call so it is
     # asked only once. reboot cuts the connection, so ssh's exit status says nothing: watch the port instead.
     for user in ubuntu root; do
-        echo "  $(t '{1} - enter the device password when asked (Ctrl-C to skip)' "$user@$MU300_IP")"
+        echo "  $(t '{1} - enter the device password when asked (Ctrl-C to skip)' "$user@$OPENF50_IP")"
         ssh -t -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR -o ConnectTimeout=8 \
-            "$user@$MU300_IP" 'if [ "$(id -u)" = 0 ]; then S=; else S=sudo; fi; $S sh -c "/opt/mu300/bin/mu300-next-boot android && sync && reboot"' || true
+            "$user@$OPENF50_IP" 'if [ "$(id -u)" = 0 ]; then S=; else S=sudo; fi; $S sh -c "/opt/openf50/bin/openf50-next-boot android && sync && reboot"' || true
         n=0
         while [ $n -lt 8 ]; do
             linux_mode_running || { echo "  $(t 'rebooting')"; break; }
@@ -36,7 +36,7 @@ linux_mode_to_android() {
         linux_mode_running || break
     done
     if linux_mode_running; then
-        die "$(t 'could not reboot it over SSH; on the device run: sudo mu300-next-boot android && sudo reboot')"
+        die "$(t 'could not reboot it over SSH; on the device run: sudo openf50-next-boot android && sudo reboot')"
     fi
     echo "  $(t 'waiting for Android')"
     n=0
@@ -45,12 +45,12 @@ linux_mode_to_android() {
         [ "$(adb get-state 2>/dev/null)" = device ] && { echo "  $(t 'Android is up')"; return 0; }
         n=$((n + 1)); sleep 5
     done
-    die "$(t 'the device did not come back as Android; boot it yourself (mu300-next-boot android)')"
+    die "$(t 'the device did not come back as Android; boot it yourself (openf50-next-boot android)')"
 }
 
 # With more than one adb device attached (a phone, an emulator, a device over the network) every plain adb command
 # fails with "more than one device/emulator", which read as "no adb device". Pick the F50 and point adb at it with
-# ANDROID_SERIAL: the only device, else the only one that says it is an F50/MU300 or a U30 Air, else ask.
+# ANDROID_SERIAL: the only device, else the only one that says it is an F50/OPENF50 or a U30 Air, else ask.
 select_device() {  # select_device [quiet]: quiet never asks, it only picks what is unambiguous
     [ -n "${ANDROID_SERIAL:-}" ] && return 0
     _sd_all=$(adb devices -l 2>/dev/null | awk 'NR > 1 && $2 == "device"')

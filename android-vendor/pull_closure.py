@@ -9,17 +9,17 @@ import tempfile
 import time
 from pathlib import Path
 
-ROOT = Path(os.environ.get('MU300_CLOSURE_ROOT', 'rootfs'))
+ROOT = Path(os.environ.get('OPENF50_CLOSURE_ROOT', 'rootfs'))
 SEARCH = ['/vendor/lib64', '/vendor/lib64/hw', '/vendor/lib64/egl', '/odm/lib64', '/apex/com.android.vndk.v33/lib64',
           '/system/lib64', '/apex/com.android.runtime/lib64/bionic', '/apex/com.android.runtime/lib64',
           '/apex/com.android.i18n/lib64', '/system_ext/lib64']
-DEV = '/data/local/tmp/mu300-pull.bin'
+DEV = '/data/local/tmp/openf50-pull.bin'
 # A transfer that never finishes used to leave the installer waiting for ever - the only way out was Ctrl-C,
 # and the traceback then looked like a crash in this script (issue: pull_closure.py KeyboardInterrupt). Every
 # call now has a deadline and is retried, so a stalled or rebooting device costs a few seconds, not the run.
 TIMEOUT = 120
 TRIES = 30
-TMP = Path(tempfile.mkdtemp(prefix='mu300-pull-'))
+TMP = Path(tempfile.mkdtemp(prefix='openf50-pull-'))
 WORK = TMP / 'file.bin'
 
 
@@ -129,7 +129,7 @@ def needed(p):
 def main():
     roots = list(dict.fromkeys(sys.argv[1:]))
     if not roots:
-        sys.exit('usage: pull_closure.py <binary or library> [...]  (MU300_CLOSURE_ROOT sets the output)')
+        sys.exit('usage: pull_closure.py <binary or library> [...]  (OPENF50_CLOSURE_ROOT sets the output)')
     todo, seen, missing = list(roots), set(), []
     while todo:
         path = todo.pop(0)

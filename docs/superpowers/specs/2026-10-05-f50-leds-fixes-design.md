@@ -14,26 +14,26 @@ What ZTE's Android does (F50-B, sampled from `/sys/class/leds`, no SIM):
 * hotspot up: `keyboard-backlight` 48, hotspot stopped (`cmd wifi stop-softap`): 0, started again: 48;
 * boot (`/vendor/bin/start_wifi_rgb_led.sh`): `sc27xx:green` 255 and `keyboard-backlight` 48 take turns.
 
-So the Wi-Fi light is `keyboard-backlight`, and it stays dark under our Linux because mu300-led maps no Wi-Fi LED on
+So the Wi-Fi light is `keyboard-backlight`, and it stays dark under our Linux because openf50-led maps no Wi-Fi LED on
 the F50 (only the U30 Air's LDOs). The F50's `sc27xx:green` is white (kanoqwq's fork, which ZTE's boot script blinks
 alternately with the Wi-Fi light; the U30 Air's PMIC LED is the same), so the network light follows the U30 Air:
 blue on 4G, white on 5G, red without service. 4G/5G colours were not seen in Android (F50-B has no SIM) - that part
 is the U30 Air's mapping and the fork's.
 
-Design (mu300-led, F50):
+Design (openf50-led, F50):
 * `data on` -> blue, `data 5g` -> white (green channel), `data error` -> red, `data off` -> dark;
 * `wifi on|off` -> `keyboard-backlight` at ZTE's 48 (not max: ZTE's current), whichever band;
 * `wifi sync` (new, both devices) -> on if wlan0 is an AP with an SSID, else off: OpenWrt calls it after a
   `wireless` reload (LuCI turning Wi-Fi off/on), which no hook reported before;
 * `power` -> nothing on the F50 (no such LED); `alarm` -> red, white, blue in turn on the RGB LED, as on the U30 Air;
 * timeout stays 0 on the F50 (no button to wake them).
-* OpenWrt's `mu300cell` no longer forces `data on` after `mobile-data up` (which already set 4G/5G): it turned a 5G
+* OpenWrt's `openf50cell` no longer forces `data on` after `mobile-data up` (which already set 4G/5G): it turned a 5G
   connection blue until the next watchdog round.
 * Wi-Fi clients: not shown (ZTE's Android not observed with a client; the U30 Air does not either).
 
 ## B. Defects
 
-* **F2 mu300-update.** The current updater already skips a system at the release's tag (`<os>: already <tag>`) and
+* **F2 openf50-update.** The current updater already skips a system at the release's tag (`<os>: already <tag>`) and
   the old (v2026.09.25) one cannot be changed. New: `apply` removes stale `<os>.broken` copies (left by a rollback)
   before the free-space check, except one that is the running root (a rollback not yet rebooted). Tests.
 * **F3 sipa kthreads (6.18/7.2).** `sipa-free-N` and `sipa-fill-recv-N` are created with `kthread_create()` and only

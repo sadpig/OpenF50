@@ -1,0 +1,13 @@
+[Unit]
+Description=OPENF50 modem log channel drain (see /opt/openf50/bin/modem-log-drain)
+ConditionPathExists=|/dev/stty_nr1
+After=openf50-vendor.service
+Wants=openf50-vendor.service
+
+[Service]
+ExecStart=/opt/openf50/bin/modem-log-drain
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

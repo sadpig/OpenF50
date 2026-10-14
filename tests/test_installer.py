@@ -16,7 +16,7 @@ class SelectDevice(ShellTest):
     def run_select(self, shell, devices, answer='', mode=''):
         (self.tmp / 'adb.out').write_text('List of devices attached\n' + ''.join(d + '\n' for d in devices) + '\n')
         self.stub('adb', '[ "$1 $2" = "devices -l" ] && cat "$STUBLOG/adb.out"; exit 0')
-        code = (f'TOP="{TOP}"; . "$TOP/tools/i18n.sh"; MU300_LANG=en; '
+        code = (f'TOP="{TOP}"; . "$TOP/tools/i18n.sh"; OPENF50_LANG=en; '
                 'say() { :; }; die() { echo "DIE $*"; exit 1; }; '
                 'ask() { printf "ASKED[%s] " "$3"; read -r _a; [ -n "$_a" ] || _a=$3; eval "$1=\\$_a"; }; '
                 f'. "$TOP/tools/linux-mode.sh"; unset ANDROID_SERIAL; select_device {mode}; '
@@ -70,13 +70,13 @@ class Storage(ShellTest):
             (self.tmp / 'label').write_text(label)
         (self.tmp / 'sd').write_text('' if card is None else '%s %s %s\n' % (
             card[0] + ('p1' if card[2] else ''), card[1], card[3]))
-        code = (f'TOP="{TOP}"; . "$TOP/tools/i18n.sh"; MU300_LANG=en; '
+        code = (f'TOP="{TOP}"; . "$TOP/tools/i18n.sh"; OPENF50_LANG=en; '
                 'say() { :; }; die() { echo "DIE $*"; exit 1; }; '
                 'gib() { echo "$1"; }; '
                 'ask() { printf "ASKED[%s] " "$3"; read -r _a; [ -n "$_a" ] || _a=$3; eval "$1=\\$_a"; }; '
                 f'su_do() {{ case $1 in *skip=1080*) [ -e "{self.tmp}/label" ] && echo " 53 ef" ;; '
                 f'*skip=1144*) cat "{self.tmp}/label" 2>/dev/null ;; *) cat "{self.tmp}/sd" ;; esac; }}; SIZE={internal}; '
-                f'{"MU300_STORAGE=" + forced + "; " if forced else "unset MU300_STORAGE; "}'
+                f'{"OPENF50_STORAGE=" + forced + "; " if forced else "unset OPENF50_STORAGE; "}'
                 '. "$TOP/tools/storage.sh"; sd_probe; ' + (tail or 'choose_storage; ') +
                 'echo "mode=$SD_MODE dev=${SD_DEV:-none}"')
         return self.sh(shell, code, stdin=answer + '\n').stdout
@@ -134,7 +134,7 @@ class Storage(ShellTest):
     def test_sd_existing(self):
         card = ('/dev/block/mmcblk1', 62 * 2 ** 21, True, 'SD')
         for shell in self.each_shell():
-            for label, want in ((None, 'no'), ('mu300sd', 'yes'), ('data', 'foreign'), ('', 'foreign')):
+            for label, want in ((None, 'no'), ('openf50sd', 'yes'), ('data', 'foreign'), ('', 'foreign')):
                 (self.tmp / 'label').unlink(missing_ok=True)
                 out = self.run_choose(shell, card, label=label, tail='echo "existing=$(sd_existing)"; SD_MODE=; ')
                 self.assertIn('existing=%s\n' % want, out)
@@ -159,17 +159,17 @@ class Storage(ShellTest):
             for kw in ({'answer': 'sd'}, {'forced': 'sd'}):
                 out = self.run_choose(shell, card, label='data', **kw)
                 self.assertIn('DIE', out)
-                self.assertIn('MU300_STORAGE=internal', out)
+                self.assertIn('OPENF50_STORAGE=internal', out)
             self.assertIn('mode=0', self.run_choose(shell, card, label='data'))        # internal stays possible
-            self.assertIn('mode=1', self.run_choose(shell, card, label='mu300sd', answer='sd'))
+            self.assertIn('mode=1', self.run_choose(shell, card, label='openf50sd', answer='sd'))
             self.assertIn('DIE', self.run_choose(shell, card, label='', answer='sd'))   # unlabelled ext4 too
 
 
     def test_card_with_an_installation_is_the_default(self):
-        # init starts a mu300sd card before anything internal: internal storage is not the safe answer then
+        # init starts a openf50sd card before anything internal: internal storage is not the safe answer then
         card = ('/dev/block/mmcblk1', 62 * 2 ** 21, True, 'SD')
         for shell in self.each_shell():
-            out = self.run_choose(shell, card, label='mu300sd')
+            out = self.run_choose(shell, card, label='openf50sd')
             self.assertIn('ASKED[sd]', out)
             self.assertIn('mode=1 dev=/dev/block/mmcblk1p1', out)
             self.assertNotIn('starts that one first', out)
@@ -178,13 +178,13 @@ class Storage(ShellTest):
         card = ('/dev/block/mmcblk1', 62 * 2 ** 21, True, 'SD')
         for shell in self.each_shell():
             for kw in ({'answer': 'internal\ninternal'}, {'forced': 'internal', 'answer': 'internal'}):
-                out = self.run_choose(shell, card, label='mu300sd', **kw)
+                out = self.run_choose(shell, card, label='openf50sd', **kw)
                 self.assertIn('starts that one first', out, kw)
                 self.assertIn('uninstall', out, kw)
                 self.assertIn('ASKED[no]', out, kw)
                 self.assertIn('mode=0', out, kw)
             for kw in ({'answer': 'internal\n'}, {'forced': 'internal', 'answer': 'yes'}):
-                out = self.run_choose(shell, card, label='mu300sd', **kw)
+                out = self.run_choose(shell, card, label='openf50sd', **kw)
                 self.assertIn('starts that one first', out, kw)
                 self.assertIn('DIE', out, kw)
                 self.assertNotIn('mode=', out, kw)
@@ -216,14 +216,14 @@ class Storage(ShellTest):
 
     def test_installer_refuses_a_card_install_with_a_kernel_that_cannot_read_it(self):
         src = (TOP / 'install.sh').read_text()
-        unpack = src.index('tar -xzf "$REL/mu300-kernel-$KERNEL.tar.gz" -C "$KMAIN"')
+        unpack = src.index('tar -xzf "$REL/openf50-kernel-$KERNEL.tar.gz" -C "$KMAIN"')
         check = src.index('sd_kernel_ok "$KMAIN" || die')
         self.assertLess(unpack, check)
         self.assertLess(check, src.index("say \"$(t 'Adding the vendor files from your device to the images')\""))
 
 
 class InstallEnv(ShellTest):
-    """mu300-install.env, what android-install.sh is told: tools/storage.sh's write_install_env (install.sh) and
+    """openf50-install.env, what android-install.sh is told: tools/storage.sh's write_install_env (install.sh) and
     install.ps1's InstallEnvText write the same text (tests/installer.Tests.ps1 compares the two)."""
     COMMON = dict(OFF=27762098176, FORMAT=1, OSES='ubuntu openwrt', WIPE_LEGACY=0, UPDATE=0, BOOT_OS='openwrt',
                   DEFAULT_LINUX=1, BOOT_ATTEMPTS=5, IMPORT_HOTSPOT=1, KERNEL='6.18', PWHASH='$6$salt$hash/x.y')
@@ -273,8 +273,8 @@ class InstallEnv(ShellTest):
 
 
 class ImportHotspot(ShellTest):
-    """tools/android-import-hotspot.sh writes into the installation that boots: the card's when it holds mu300sd
-    (found the way reset-password.sh finds it), the internal one otherwise; MU300_SD_DEV still names one by hand."""
+    """tools/android-import-hotspot.sh writes into the installation that boots: the card's when it holds openf50sd
+    (found the way reset-password.sh finds it), the internal one otherwise; OPENF50_SD_DEV still names one by hand."""
 
     def run_import(self, shell, card, label=None, **env):
         (self.tmp / 'sd').write_text(card)
@@ -294,9 +294,9 @@ class ImportHotspot(ShellTest):
 
     def test_card_installation_is_found_by_itself(self):
         for shell in self.each_shell():
-            r, imp = self.run_import(shell, '/dev/block/mmcblk1p1 62333952 SD\n', label='mu300sd')
+            r, imp = self.run_import(shell, '/dev/block/mmcblk1p1 62333952 SD\n', label='openf50sd')
             self.assertEqual(0, r.returncode, r.stderr)
-            self.assertIn('MU300_SD_DEV=/dev/block/mmcblk1p1 sh /data/local/tmp/android-mount-mu300root.sh', imp)
+            self.assertIn('OPENF50_SD_DEV=/dev/block/mmcblk1p1 sh /data/local/tmp/android-mount-openf50root.sh', imp)
 
     def test_internal_without_an_installed_card(self):
         for shell in self.each_shell():
@@ -304,20 +304,20 @@ class ImportHotspot(ShellTest):
                                 ('/dev/block/mmcblk1p1 62333952 SD\n', 'data')):
                 r, imp = self.run_import(shell, card, label=label)
                 self.assertEqual(0, r.returncode, r.stderr)
-                self.assertIn('android-mount-mu300root.sh', imp)
-                self.assertNotIn('MU300_SD_DEV', imp, (card, label))
+                self.assertIn('android-mount-openf50root.sh', imp)
+                self.assertNotIn('OPENF50_SD_DEV', imp, (card, label))
 
     def test_named_card_still_wins_and_the_emmc_is_refused(self):
         for shell in self.each_shell():
-            r, imp = self.run_import(shell, '', MU300_SD_DEV='/dev/block/mmcblk2p1')
-            self.assertIn('MU300_SD_DEV=/dev/block/mmcblk2p1 sh', imp)
-            r, imp = self.run_import(shell, '/dev/block/mmcblk1p1 62333952 SD\n', label='mu300sd',
-                                     MU300_SD_DEV='/dev/block/mmcblk0p1')
+            r, imp = self.run_import(shell, '', OPENF50_SD_DEV='/dev/block/mmcblk2p1')
+            self.assertIn('OPENF50_SD_DEV=/dev/block/mmcblk2p1 sh', imp)
+            r, imp = self.run_import(shell, '/dev/block/mmcblk1p1 62333952 SD\n', label='openf50sd',
+                                     OPENF50_SD_DEV='/dev/block/mmcblk0p1')
             self.assertNotEqual(0, r.returncode)
             self.assertEqual('', imp)
 
 class SdErase(ShellTest):
-    """tools/storage.sh's sd_erase (uninstall.sh): the card is erased only when it holds mu300sd, never the eMMC.
+    """tools/storage.sh's sd_erase (uninstall.sh): the card is erased only when it holds openf50sd, never the eMMC.
 
     su_do runs the device commands here, with dd, sm and umount as stubs: dd reads the superblock from the files
     label/magic and logs every write, sm lists the volumes in vols, umount drops the line from the mounts file."""
@@ -338,35 +338,35 @@ class SdErase(ShellTest):
         self.stub('sync', 'true')
         (t / 'vols').write_text('private mounted null\npublic:179,1 mounted 1234-ABCD\npublic:8,1 mounted 55AA-1\n')
         (t / 'mounts').write_text('/dev/block/mmcblk0p40 /data f2fs rw 0 0\n'
-                                  '/dev/block/mmcblk1p1 /data/local/tmp/mu300root ext4 rw 0 0\n')
+                                  '/dev/block/mmcblk1p1 /data/local/tmp/openf50root ext4 rw 0 0\n')
         (t / 'log').write_text('')
         for disk in ('mmcblk0', 'mmcblk1'):
             (t / 'sys' / 'block' / disk / 'device').mkdir(parents=True)
         (t / 'sys/block/mmcblk0/device/type').write_text('MMC\n')
         (t / 'sys/block/mmcblk1/device/type').write_text('SD\n')
 
-    def run_erase(self, shell, label='mu300sd', dev='/dev/block/mmcblk1', tail='sd_erase; echo SURVIVED'):
+    def run_erase(self, shell, label='openf50sd', dev='/dev/block/mmcblk1', tail='sd_erase; echo SURVIVED'):
         if label is not None:
             (self.tmp / 'label').write_bytes(label.encode() + b'\0' * (16 - len(label)))
         (self.tmp / 'sd').write_text(f'{dev} {62 * 2 ** 21} SD\n')
         code = (f'TOP="{TOP}"; say() {{ :; }}; die() {{ echo "DIE $*"; exit 1; }}; '
                 'gib() { echo "$1"; }; t() { printf "%s" "$1"; }; '
                 'su_do() { case $1 in "for b in /sys/block/mmcblk"*) cat "$STUBLOG/sd" ;; *) sh -c "$1" ;; esac; }; '
-                f'MU300_SYSFS="{self.tmp}/sys"; MU300_MOUNTS="{self.tmp}/mounts"; '
+                f'OPENF50_SYSFS="{self.tmp}/sys"; OPENF50_MOUNTS="{self.tmp}/mounts"; '
                 '. "$TOP/tools/storage.sh"; sd_probe; ' + tail)
         return self.sh(shell, code).stdout, (self.tmp / 'log').read_text()
 
-    def test_erases_the_mu300sd_card_after_releasing_it(self):
+    def test_erases_the_openf50sd_card_after_releasing_it(self):
         for shell in self.each_shell():
             (self.tmp / 'mounts').write_text('/dev/block/mmcblk0p40 /data f2fs rw 0 0\n'
-                                             '/dev/block/mmcblk1p1 /data/local/tmp/mu300root ext4 rw 0 0\n')
+                                             '/dev/block/mmcblk1p1 /data/local/tmp/openf50root ext4 rw 0 0\n')
             (self.tmp / 'log').write_text('')
             out, log = self.run_erase(shell, dev='/dev/block/mmcblk1p1')
             self.assertIn('SURVIVED', out)
             self.assertNotIn('DIE', out)
             self.assertIn('sm unmount public:179,1\n', log)
             self.assertNotIn('public:8,1', log)                     # a USB stick is not the card
-            self.assertIn('umount /data/local/tmp/mu300root\n', log)
+            self.assertIn('umount /data/local/tmp/openf50root\n', log)
             self.assertNotIn('umount /data\n', log)                 # the eMMC's own mounts stay
             self.assertIn('dd if=/dev/zero of=/dev/block/mmcblk1p1 bs=1048576 count=64 conv=notrunc', log)
             self.assertEqual(log.count('dd '), 1)
@@ -377,9 +377,9 @@ class SdErase(ShellTest):
             self.assertIn('SURVIVED', out)
             self.assertIn('of=/dev/block/mmcblk1 ', log)
 
-    def test_never_a_card_without_mu300sd(self):
+    def test_never_a_card_without_openf50sd(self):
         for shell in self.each_shell():
-            for label in (None, 'data', '', 'mu300root'):
+            for label in (None, 'data', '', 'openf50root'):
                 (self.tmp / 'label').unlink(missing_ok=True)
                 (self.tmp / 'log').write_text('')
                 out, log = self.run_erase(shell, label=label)
@@ -443,7 +443,7 @@ class SdErase(ShellTest):
     def test_still_mounted_is_not_erased(self):
         for shell in self.each_shell():
             (self.tmp / 'stuck-mount').write_text('')
-            (self.tmp / 'mounts').write_text('/dev/block/mmcblk1p1 /data/local/tmp/mu300root ext4 rw 0 0\n')
+            (self.tmp / 'mounts').write_text('/dev/block/mmcblk1p1 /data/local/tmp/openf50root ext4 rw 0 0\n')
             out, log = self.run_erase(shell, dev='/dev/block/mmcblk1p1')
             self.assertIn('DIE', out)
             self.assertNotIn('dd ', log)
@@ -478,7 +478,7 @@ class Region(ShellTest):
             if ext4_at is not None:
                 f.seek(ext4_at + 1024 + 4); f.write(struct.pack('<I', 1000))
                 f.seek(ext4_at + 1080); f.write(b'\x53\xef')
-                f.seek(ext4_at + 1144); f.write(b'mu300root')
+                f.seek(ext4_at + 1144); f.write(b'openf50root')
         return emmc
 
     def run_region(self, shell, call):
@@ -516,11 +516,11 @@ class ChooseSystems(ShellTest):
     def run_choose(self, shell, choice, answers='', preset='', size=100):
         m = re.search(r'# --- choose-systems begin\n(.*?)# --- choose-systems end', self.SRC, re.S)
         self.assertIsNotNone(m, 'install.sh has no choose-systems block')
-        code = (f'TOP="{TOP}"; . "$TOP/tools/i18n.sh"; MU300_LANG=en; OWRT_VER=25.12.5; '
+        code = (f'TOP="{TOP}"; . "$TOP/tools/i18n.sh"; OPENF50_LANG=en; OWRT_VER=25.12.5; '
                 f'NEED_OPENWRT=1; NEED_UBUNTU=2; NEED_BOTH=3; SIZE={size}; '
                 'say() { :; }; die() { echo "DIE $*"; exit 1; }; '
                 'ask() { printf "ASKED[%s] " "$3"; read -r _a; [ -n "$_a" ] || _a=$3; eval "$1=\\$_a"; }; '
-                f'choice={choice}; ' + (f'MU300_OPENWRT={preset}; ' if preset else 'unset MU300_OPENWRT; ') +
+                f'choice={choice}; ' + (f'OPENF50_OPENWRT={preset}; ' if preset else 'unset OPENF50_OPENWRT; ') +
                 m.group(1) + 'choose_systems; echo "OSES=$OSES BOOT=$BOOT_OS"')
         return self.sh(shell, code, stdin=answers).stdout
 
@@ -557,7 +557,7 @@ class ChooseSystems(ShellTest):
 
     def test_bad_preset(self):
         for shell in self.each_shell():
-            self.assertIn('DIE MU300_OPENWRT must be plain or luci', self.run_choose(shell, 2, preset='x'), shell)
+            self.assertIn('DIE OPENF50_OPENWRT must be plain or luci', self.run_choose(shell, 2, preset='x'), shell)
 
     def test_boot_question_offers_the_chosen_names(self):
         for shell in self.each_shell():

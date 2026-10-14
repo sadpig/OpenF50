@@ -2,15 +2,15 @@
 # tools/reset-password.sh (su_do, ask, t, die and gib are theirs).
 #   region_probe     last_end / disk (sectors) and OFF / SIZE (bytes) of the free eMMC region; 1 when the device
 #                    gave no answer
-#   region_find_existing  existing=yes|no; an installed mu300root defines OFF / SIZE
+#   region_find_existing  existing=yes|no; an installed openf50root defines OFF / SIZE
 #   region_dirty     DIRTY, how many of 16 samples across the region hold data
 #   sd_probe         SD_DEV / SD_BYTES of the card in the slot (empty without one), SD_SMALL=1 when it is too small
-#   sd_existing      yes when the card already holds a mu300sd filesystem, foreign for any other ext4, else no
-#   choose_storage   SD_MODE=0|1; MU300_STORAGE=internal|sd answers without asking (internal while the card
-#                    holds mu300sd still needs the typed word: that card would boot instead)
+#   sd_existing      yes when the card already holds a openf50sd filesystem, foreign for any other ext4, else no
+#   choose_storage   SD_MODE=0|1; OPENF50_STORAGE=internal|sd answers without asking (internal while the card
+#                    holds openf50sd still needs the typed word: that card would boot instead)
 #   sd_kernel_ok     a card installation refuses a kernel bundle that cannot read the card
-#   sd_erase         uninstall.sh: overwrite the start of the card's mu300sd filesystem (nothing else, ever)
-#   write_install_env  install.sh: the text of mu300-install.env (install.ps1's InstallEnvText writes the same)
+#   sd_erase         uninstall.sh: overwrite the start of the card's openf50sd filesystem (nothing else, ever)
+#   write_install_env  install.sh: the text of openf50-install.env (install.ps1's InstallEnvText writes the same)
 
 SD_MIN=$((700 * 1024 * 1024))
 
@@ -31,18 +31,18 @@ sd_existing() {
     # LC_ALL=C: those bytes need not be text, and macOS's tr in a UTF-8 locale complains about them
     l=$(su_do "dd if=$SD_DEV bs=1 skip=1144 count=16 2>/dev/null" | LC_ALL=C tr -d '\000')
     # any other ext4, labelled or not, is foreign: android-install.sh's sd_prepare refuses to format it
-    if [ "$l" = mu300sd ]; then echo yes; else echo foreign; fi
+    if [ "$l" = openf50sd ]; then echo yes; else echo foreign; fi
 }
 
 choose_storage() {
     SD_MODE=0
     _ex=no; [ -z "$SD_DEV" ] || _ex=$(sd_existing)
-    case ${MU300_STORAGE:-} in
+    case ${OPENF50_STORAGE:-} in
         internal) internal_over_card "$_ex"; return 0 ;;
-        sd) [ -n "$SD_DEV" ] || die "$(t 'MU300_STORAGE=sd, but there is no usable SD card in the device')"
+        sd) [ -n "$SD_DEV" ] || die "$(t 'OPENF50_STORAGE=sd, but there is no usable SD card in the device')"
             SD_MODE=1; sd_not_foreign; return 0 ;;
         '') ;;
-        *) die "$(t 'MU300_STORAGE must be internal or sd')" ;;
+        *) die "$(t 'OPENF50_STORAGE must be internal or sd')" ;;
     esac
     [ -n "$SD_DEV" ] || return 0
     # too little room inside: the card is the way that needs no repartitioning; a card that holds an installation
@@ -56,11 +56,11 @@ choose_storage() {
     esac
 }
 
-# boot/init starts a mu300sd card before anything on the eMMC, so an internal installation made while such a card
+# boot/init starts a openf50sd card before anything on the eMMC, so an internal installation made while such a card
 # is in the slot never starts. Say so, and go on only when the user types the word.
 internal_over_card() {  # internal_over_card EXISTING   (sd_existing of the card in the slot)
     [ "$1" = yes ] || return 0
-    echo "$(t 'The SD card ({1}) holds a Linux installation (mu300sd), and the device always starts that one first: an installation to internal storage does not start while this card is in the slot.' "$SD_DEV")"
+    echo "$(t 'The SD card ({1}) holds a Linux installation (openf50sd), and the device always starts that one first: an installation to internal storage does not start while this card is in the slot.' "$SD_DEV")"
     echo "$(t 'Take the card out before the device restarts, or erase its installation first with the uninstaller.')"
     ask _ok "$(t 'Type internal to install to internal storage anyway')" no
     [ "$_ok" = internal ] || die "$(t 'cancelled')"
@@ -77,13 +77,13 @@ sd_kernel_ok() {  # sd_kernel_ok DIR: the unpacked bundle DIR is fine for this i
 # not after the password, the download and the build.
 sd_not_foreign() {
     [ "$(sd_existing)" = foreign ] || return 0
-    die "$(t 'the SD card ({1}) holds another Linux (ext4) filesystem, and the installer never formats one that is not its own (mu300sd).' "$SD_DEV")
-$(t 'Copy off what you need and format the card elsewhere, use another card, or install to internal storage (MU300_STORAGE=internal).')"
+    die "$(t 'the SD card ({1}) holds another Linux (ext4) filesystem, and the installer never formats one that is not its own (openf50sd).' "$SD_DEV")
+$(t 'Copy off what you need and format the card elsewhere, use another card, or install to internal storage (OPENF50_STORAGE=internal).')"
 }
 
-# The device command that erases the mu300sd filesystem on DEV (uninstall.ps1 sends the same text, so no quotes of
+# The device command that erases the openf50sd filesystem on DEV (uninstall.ps1 sends the same text, so no quotes of
 # either kind). The host has checked all of this already; the device checks it again right before the write, so a
-# wrong DEV can never reach the eMMC: not mmcblk0, an SD card in sysfs, still ext4 labelled mu300sd. Android lets go of
+# wrong DEV can never reach the eMMC: not mmcblk0, an SD card in sysfs, still ext4 labelled openf50sd. Android lets go of
 # the card first (vold mounts it as /dev/block/vold/public:179,N, which no grep for the card's name finds), then
 # anything mounted from the card's own nodes is unmounted; a card mount of either kind that is still there stops it.
 # Prints ERASED, or REFUSED/BUSY and writes nothing.
@@ -91,18 +91,18 @@ $(t 'Copy off what you need and format the card elsewhere, use another card, or 
 # filesystem afterwards, and the rest of the card is free space for whatever the user formats it with.
 sd_erase_cmd() {  # sd_erase_cmd DEV  (/dev/block/mmcblk1p1, or /dev/block/mmcblk1 for a card without partitions)
     _d=${1#/dev/block/}; _d=${_d%p[0-9]*}
-    _s=${MU300_SYSFS:-/sys}; _m=${MU300_MOUNTS:-/proc/mounts}
+    _s=${OPENF50_SYSFS:-/sys}; _m=${OPENF50_MOUNTS:-/proc/mounts}
     printf '%s' "case $1 in */mmcblk0|*/mmcblk0p*) echo REFUSED $1 is the eMMC; exit 1 ;; esac; " \
         "[ x\$(cat $_s/block/$_d/device/type 2>/dev/null) = xSD ] || { echo REFUSED $_d is not an SD card; exit 1; }; " \
         "set -- \$(dd if=$1 bs=1 skip=1080 count=2 2>/dev/null | od -An -tx1); [ x\$1\$2 = x53ef ] || { echo REFUSED no ext4 on $1; exit 1; }; " \
-        "[ x\$(dd if=$1 bs=1 skip=1144 count=16 2>/dev/null | tr -d \\\\000) = xmu300sd ] || { echo REFUSED no mu300sd on $1; exit 1; }; " \
+        "[ x\$(dd if=$1 bs=1 skip=1144 count=16 2>/dev/null | tr -d \\\\000) = xopenf50sd ] || { echo REFUSED no openf50sd on $1; exit 1; }; " \
         "for v in \$(sm list-volumes 2>/dev/null | grep -o ^public:179,[0-9]*); do sm unmount \$v >/dev/null 2>&1; done; " \
         "while read d m r; do case \$d in /dev/block/$_d|/dev/block/${_d}p*) umount \$m 2>/dev/null ;; esac; done < $_m; " \
         "grep -q -e ^/dev/block/$_d -e public:179, $_m && { echo BUSY; exit 1; }; " \
         "dd if=/dev/zero of=$1 bs=1048576 count=64 conv=notrunc 2>/dev/null; sync; echo ERASED"
 }
 
-# Only SD_DEV as sd_probe found it, and only while it holds mu300sd: any other ext4 on a card is someone's data.
+# Only SD_DEV as sd_probe found it, and only while it holds openf50sd: any other ext4 on a card is someone's data.
 # uninstall.sh asks no translated questions, so these messages stay English.
 sd_erase() {
     [ -n "$SD_DEV" ] || die "no SD card to erase"
@@ -111,13 +111,13 @@ sd_erase() {
         /dev/block/mmcblk[1-9]|/dev/block/mmcblk[1-9]p[0-9]|/dev/block/mmcblk[1-9]p[0-9][0-9]) ;;
         *) die "refusing $SD_DEV: not an SD card device" ;;
     esac
-    [ "$(sd_existing)" = yes ] || die "the SD card ($SD_DEV) holds no mu300sd filesystem; nothing was erased"
+    [ "$(sd_existing)" = yes ] || die "the SD card ($SD_DEV) holds no openf50sd filesystem; nothing was erased"
     _o=$(su_do "$(sd_erase_cmd "$SD_DEV")")
     case $_o in *ERASED*) ;; *) die "the SD card was not erased: $_o" ;; esac
-    [ "$(sd_existing)" = no ] || die "the SD card still shows a mu300sd filesystem"
+    [ "$(sd_existing)" = no ] || die "the SD card still shows a openf50sd filesystem"
 }
 
-# mu300-install.env, what android-install.sh is told. OFF/SIZE (and their sectors) are always the internal region:
+# openf50-install.env, what android-install.sh is told. OFF/SIZE (and their sectors) are always the internal region:
 # in SD mode SIZE is the card's by now and INT_SIZE keeps the region's, which the root-on-sd marker needs; the card's
 # own size is read on the device.
 write_install_env() {
@@ -144,7 +144,7 @@ region_find_existing() {
     for cand in $OFF 27762098176; do
         m=$(su_do "timeout 8 dd if=/dev/block/mmcblk0 bs=1 skip=$((cand + 1080)) count=2 2>/dev/null | od -An -tx1" | tr -d ' ')
         l=$(su_do "timeout 8 dd if=/dev/block/mmcblk0 bs=1 skip=$((cand + 1144)) count=16 2>/dev/null" | LC_ALL=C tr -d '\000')
-        if [ "$m" = 53ef ] && [ "$l" = mu300root ]; then
+        if [ "$m" = 53ef ] && [ "$l" = openf50root ]; then
             blocks=$(su_do "timeout 8 dd if=/dev/block/mmcblk0 bs=1 skip=$((cand + 1028)) count=4 2>/dev/null | od -An -tu4" | tr -d ' ')
             OFF=$cand; SIZE=$((blocks * 4096)); existing=yes; return 0
         fi

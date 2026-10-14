@@ -1,0 +1,17 @@
+[Unit]
+Description=OPENF50 VPN (VLESS via Xray or sing-box, TUN)
+After=openf50-firewall.service openf50-mobile-data.service
+Wants=openf50-mobile-data.service
+ConditionPathExists=/etc/openf50/vpn.conf
+StartLimitIntervalSec=0
+
+[Service]
+ExecStart=/opt/openf50/bin/openf50-vpn run
+# the engine exits when it starts before the modem has a route to the server (sing-box: "missing default
+# interface"; xray: the server name does not resolve yet), and on a renewed server certificate; keep retrying
+# instead of hitting the start limit and giving up
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

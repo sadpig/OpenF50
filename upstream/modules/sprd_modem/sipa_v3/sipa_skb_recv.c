@@ -641,7 +641,7 @@ static void sipa_receiver_notify_cb(void *priv, enum sipa_hal_evt_type evt,
 	/* Is the accelerator signalling a receive at all? Enable with
 	 * echo 'module sipa_core +p' > /sys/kernel/debug/dynamic_debug/control   (docs/FINDINGS.md 13f)
 	 */
-	pr_debug("mu300-ipa: notify evt=0x%x irq=%d\n", evt, irq);
+	pr_debug("openf50-ipa: notify evt=0x%x irq=%d\n", evt, irq);
 
 	sipa_dummy_recv_trigger(irq - ipa->multi_intr[0]);
 }
@@ -708,7 +708,7 @@ struct sk_buff *sipa_recv_skb(struct sipa_skb_receiver *receiver,
 
 	atomic_inc(&receiver->check_flag);
 
-	/* MU300: no CONFIG_PM_SLEEP, so no wakeup timer to compare with; always report the event */
+	/* OPENF50: no CONFIG_PM_SLEEP, so no wakeup timer to compare with; always report the event */
 	{
 		pm_wakeup_dev_event(ipa->dev, 500, true);
 	}
@@ -789,7 +789,7 @@ static int sipa_fill_recv_thread(void *data)
 
 	sched_setscheduler(current, SCHED_RR, &param);
 
-	/* MU300: started at creation, waits (interruptibly) for the first resume; see sipa_free_thread */
+	/* OPENF50: started at creation, waits (interruptibly) for the first resume; see sipa_free_thread */
 	while (!READ_ONCE(receiver->fill_started) && !kthread_should_stop())
 		wait_event_interruptible(receiver->fill_recv_waitq,
 					 READ_ONCE(receiver->fill_started) || kthread_should_stop());
@@ -848,7 +848,7 @@ int sipa_receiver_prepare_resume(struct sipa_skb_receiver *receiver)
 {
 	atomic_set(&receiver->check_suspend, 0);
 
-	/* MU300: the vendor's wake_up_process(); the thread waits on this queue from its start */
+	/* OPENF50: the vendor's wake_up_process(); the thread waits on this queue from its start */
 	WRITE_ONCE(receiver->fill_started, true);
 	wake_up(&receiver->fill_recv_waitq);
 
@@ -934,7 +934,7 @@ int sipa_create_skb_receiver(struct sipa_plat_drv_cfg *ipa,
 			ep->id);
 		return PTR_ERR(receiver->fill_recv_thread);
 	}
-	wake_up_process(receiver->fill_recv_thread);	/* MU300: it waits for fill_started */
+	wake_up_process(receiver->fill_recv_thread);	/* OPENF50: it waits for fill_started */
 
 	*receiver_pp = receiver;
 	return 0;

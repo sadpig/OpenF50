@@ -26,7 +26,7 @@ class Translate(ShellTest):
         """t KEY A1..A6 for every key, in one shell run; returns the outputs."""
         kf = self.tmp / 'keys'
         kf.write_text(''.join(k + '\n' for k in keys), encoding='utf-8')
-        code = (f'TOP="{TOP}"; . "$TOP/tools/i18n.sh"; MU300_LANG={lang}; '
+        code = (f'TOP="{TOP}"; . "$TOP/tools/i18n.sh"; OPENF50_LANG={lang}; '
                 f'while IFS= read -r k; do t "$k" {" ".join(ARGS)}; printf "\\036"; done < "{kf}"')
         r = self.sh(shell, code)
         self.assertEqual(r.returncode, 0, r.stderr)
@@ -54,7 +54,7 @@ class Translate(ShellTest):
         # arguments come from the device (model names, paths): nothing in them may be expanded or break awk
         tricky = ['$HOME', '\\n', '%s', '"q"', "it's", 'a{1}b']
         for shell in self.each_shell():
-            code = (f'TOP="{TOP}"; . "$TOP/tools/i18n.sh"; MU300_LANG=en; '
+            code = (f'TOP="{TOP}"; . "$TOP/tools/i18n.sh"; OPENF50_LANG=en; '
                     + '; '.join(f"t '<{{1}}>' '{a.replace(chr(39), chr(39) + chr(92) + chr(39) + chr(39))}'; echo"
                                 for a in tricky))
             r = self.sh(shell, code)

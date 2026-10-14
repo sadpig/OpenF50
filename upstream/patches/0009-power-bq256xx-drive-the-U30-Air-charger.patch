@@ -6,7 +6,7 @@ leaves charging off (CHG_CONFIG 0) with a 500 mA input limit, so under mainline 
 in. port/install.py adds the compatible to the OF and I2C tables (bq25601 data); for that node only:
 
 - no register cache: the chip arrives configured, and the reg_defaults cache would write the power-on defaults
-  back in every read-modify-write (also over mu300-usb's OTG bit in REG01);
+  back in every read-modify-write (also over openf50-usb's OTG bit in REG01);
 - ICHG at most 1.98 A (Android's; the battery node says 3 A for the 4050 mAh cell), VREG at most 4.208 V (Android's;
   the node says 4.3 V), EN_TERM on, the watchdog off as before; VINDPM from the vendor "vindpm-value" (mV);
 - the input current, 500 mA until then, at probe and on every VBUS change from the extcon (the extcon-usb-gpio
@@ -97,7 +97,7 @@ in. port/install.py adds the compatible to the OF and I2C tables (bq25601 data);
  
 +/*
 + * "ti,bq2560x_chg": the chip arrives configured by Android, so a cache that starts from the power-on defaults would
-+ * write those back in every read-modify-write; and mu300-usb switches the OTG boost (CHARGER_CONTROL_0) itself.
++ * write those back in every read-modify-write; and openf50-usb switches the OTG boost (CHARGER_CONTROL_0) itself.
 + * No cache: every update reads the register first.
 + */
 +static const struct regmap_config bq2560x_chg_regmap_config = {
@@ -189,7 +189,7 @@ in. port/install.py adds the compatible to the OF and I2C tables (bq25601 data);
 +		ret = regmap_read(bq->regmap, BQ256XX_CHARGER_CONTROL_0, &ctrl0);
 +	if (!ret)
 +		ret = regmap_read(bq->regmap, BQ256XX_CHARGER_STATUS_0, &stat);
-+	/* nothing on VBUS, or the chip's own boost drives it (mu300-usb host) */
++	/* nothing on VBUS, or the chip's own boost drives it (openf50-usb host) */
 +	if (ret || (ctrl0 & BQ256XX_OTG_CONFIG) || !(stat & BQ256XX_PG_STAT_MASK) ||
 +	    (stat & BQ256XX_VBUS_STAT_MASK) == BQ256XX_VBUS_STAT_USB_OTG)
 +		goto out;

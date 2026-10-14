@@ -1,6 +1,6 @@
 #!/bin/sh
 # Pull the Android vendor runtime needed by modem_control from a rooted device (adb + su) and build
-# the chroot subset used by the initramfs (/android) and the rootfs (/opt/mu300/android).
+# the chroot subset used by the initramfs (/android) and the rootfs (/opt/openf50/android).
 # These files are proprietary (ZTE/Unisoc/Google) and are NOT part of this repository.
 set -eu
 OUT=${1:-android-subset}
@@ -9,7 +9,7 @@ TMP=$(mktemp -d)
 # on some devices su gives the command a pty whose ONLCR turns every LF into CRLF, and a tar mangled that way
 # fails with "Skipping to next header" / "A lone zero block" - or, worse, extracts a few entries and looks
 # like it worked (issue #2).
-DEVTAR=/data/local/tmp/mu300-subset.tar
+DEVTAR=/data/local/tmp/openf50-subset.tar
 adb shell "/debug_ramdisk/su -c 'tar -chf $DEVTAR /apex/com.android.runtime /system/lib64 /vendor/bin/modem_control /vendor/bin/cp_diskserver /vendor/bin/refnotify /vendor/lib64/lib_crypto.so /vendor/bin/sh /vendor/bin/toybox_vendor /vendor/bin/getprop /vendor/lib64/libkernelbootcp.trusty.so /vendor/etc /dev/__properties__ 2>/dev/null'" </dev/null >/dev/null
 adb pull "$DEVTAR" "$TMP/subset.tar" >/dev/null 2>&1
 adb shell "/debug_ramdisk/su -c 'rm -f $DEVTAR'" </dev/null >/dev/null

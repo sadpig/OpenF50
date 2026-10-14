@@ -1,4 +1,4 @@
-"""android/magisk/installer/mu300-install.sh: the installer a Magisk zip runs on the device. mu300-install.conf is
+"""android/magisk/installer/openf50-install.sh: the installer a Magisk zip runs on the device. openf50-install.conf is
 read, never run; on a fake device (tests/fakedevice.py) it finds the model, the slots, where Linux goes and what is
 already there, and a refusal or a dry run writes nothing; an installation writes boot_<linux slot>, verifies it
 and arms misc last."""
@@ -20,22 +20,22 @@ from helpers import TOP, ShellTest
 from test_android_boot_image import MAGISKBOOT, cpio_all, fake_android_root, ramdisk_of
 from test_boot_image import HAVE_LZ4, unlz4_legacy
 
-# the zip's mu300/ directory, entry -> source in this repository (None: made per zip). Task 10's zip builder copies
+# the zip's openf50/ directory, entry -> source in this repository (None: made per zip). Task 10's zip builder copies
 # exactly these; its test compares the two lists.
-MU300_FILES = {
-    'mu300/install.sh': 'android/magisk/installer/mu300-install.sh',
-    'mu300/android-boot-image.sh': 'tools/android-boot-image.sh',
-    'mu300/mu300-update': 'rootfs/overlay/opt/mu300/bin/mu300-update',
-    'mu300/android-install.sh': 'tools/android-install.sh',
-    'mu300/android-mount-mu300root.sh': 'tools/android-mount-mu300root.sh',
-    'mu300/storage.sh': 'tools/storage.sh',
-    'mu300/i18n.sh': 'tools/i18n.sh',
-    'mu300/i18n/tr.tsv': 'i18n/tr.tsv',
-    'mu300/i18n/zh.tsv': 'i18n/zh.tsv',
-    'mu300/subset-files.txt': 'android-vendor/subset-files.txt',
-    'mu300/gpu-files.txt': 'android-vendor/gpu-files.txt',
-    'mu300/busybox': None,      # the 5.4 bundle's static busybox; here the fake device's mkpasswd
-    'mu300/manifest': None,     # what the zip carries, written by InstallerCase.zip()
+OPENF50_FILES = {
+    'openf50/install.sh': 'android/magisk/installer/openf50-install.sh',
+    'openf50/android-boot-image.sh': 'tools/android-boot-image.sh',
+    'openf50/openf50-update': 'rootfs/overlay/opt/openf50/bin/openf50-update',
+    'openf50/android-install.sh': 'tools/android-install.sh',
+    'openf50/android-mount-openf50root.sh': 'tools/android-mount-openf50root.sh',
+    'openf50/storage.sh': 'tools/storage.sh',
+    'openf50/i18n.sh': 'tools/i18n.sh',
+    'openf50/i18n/tr.tsv': 'i18n/tr.tsv',
+    'openf50/i18n/zh.tsv': 'i18n/zh.tsv',
+    'openf50/subset-files.txt': 'android-vendor/subset-files.txt',
+    'openf50/gpu-files.txt': 'android-vendor/gpu-files.txt',
+    'openf50/busybox': None,      # the 5.4 bundle's static busybox; here the fake device's mkpasswd
+    'openf50/manifest': None,     # what the zip carries, written by InstallerCase.zip()
 }
 
 BUSYBOX = shutil.which('busybox')
@@ -43,10 +43,10 @@ INSTALLER_DIR = INSTALLER = None
 _staged = None
 
 
-def stage_mu300(dest):
-    """DEST laid out like the zip's mu300/ (without its manifest)"""
-    for entry, src in MU300_FILES.items():
-        out = dest / entry[len('mu300/'):]
+def stage_openf50(dest):
+    """DEST laid out like the zip's openf50/ (without its manifest)"""
+    for entry, src in OPENF50_FILES.items():
+        out = dest / entry[len('openf50/'):]
         out.parent.mkdir(parents=True, exist_ok=True)
         if src:
             shutil.copy(TOP / src, out)
@@ -56,9 +56,9 @@ def stage_mu300(dest):
 
 def setUpModule():
     global INSTALLER_DIR, INSTALLER, _staged
-    _staged = tempfile.mkdtemp(prefix='mu300-magisk-stage-')
-    INSTALLER_DIR = Path(_staged) / 'mu300'
-    stage_mu300(INSTALLER_DIR)
+    _staged = tempfile.mkdtemp(prefix='openf50-magisk-stage-')
+    INSTALLER_DIR = Path(_staged) / 'openf50'
+    stage_openf50(INSTALLER_DIR)
     INSTALLER = INSTALLER_DIR / 'install.sh'
 
 
@@ -102,7 +102,7 @@ _generic = {}
 def generic_ramdisk():
     """the bundle's ramdisk-generic.lz4, built once from fake modules with build-boot-image.py --generic-ramdisk"""
     if 'data' not in _generic:
-        tmp = tempfile.mkdtemp(prefix='mu300-generic-')
+        tmp = tempfile.mkdtemp(prefix='openf50-generic-')
         try:
             t = Path(tmp)
             (t / 'mods').mkdir()
@@ -122,77 +122,77 @@ def generic_ramdisk():
     return _generic['data']
 
 
-ROOTFS_ASSET = {'openwrt': 'mu300-openwrt-rootfs.tar.gz', 'ubuntu-24.04': 'mu300-ubuntu-rootfs.tar.gz',
-                'ubuntu-26.04': 'mu300-ubuntu-26.04-rootfs.tar.gz'}
+ROOTFS_ASSET = {'openwrt': 'openf50-openwrt-rootfs.tar.gz', 'ubuntu-24.04': 'openf50-ubuntu-rootfs.tar.gz',
+                'ubuntu-26.04': 'openf50-ubuntu-26.04-rootfs.tar.gz'}
 
 
 class Conf(ShellTest):
     def lib(self, shell, code, **env):
-        return self.sh(shell, f'MU300_LIB=1 MU300_DIR="{INSTALLER_DIR}" . "{INSTALLER}"; ' + code, **env)
+        return self.sh(shell, f'OPENF50_LIB=1 OPENF50_DIR="{INSTALLER_DIR}" . "{INSTALLER}"; ' + code, **env)
 
     def load(self, shell, text, trust=''):
-        f = self.tmp / 'mu300-install.conf'
+        f = self.tmp / 'openf50-install.conf'
         f.write_bytes(text.encode())
         # the installer sets -u: a key the file does not give stays unset
-        return self.lib(shell, f'conf_load "{f}" {trust}; echo "S=${{MU300_STORAGE:-}} E=${{MU300_SD_ERASE:-}} '
-                               'B=${MU300_BOOT:-} P=${MU300_PASSWORD:-} M=${MU300_MODE:-} D=${MU300_DEVICE:-}"')
+        return self.lib(shell, f'conf_load "{f}" {trust}; echo "S=${{OPENF50_STORAGE:-}} E=${{OPENF50_SD_ERASE:-}} '
+                               'B=${OPENF50_BOOT:-} P=${OPENF50_PASSWORD:-} M=${OPENF50_MODE:-} D=${OPENF50_DEVICE:-}"')
 
     def test_values_quotes_crlf_comments(self):
         for shell in self.each_shell():
-            r = self.load(shell, '# a comment\r\nMU300_STORAGE=sd\r\nMU300_SD_ERASE="yes"\n  MU300_BOOT = android\n'
-                                 "MU300_PASSWORD='p a$s 1'\n", 'trusted')
+            r = self.load(shell, '# a comment\r\nOPENF50_STORAGE=sd\r\nOPENF50_SD_ERASE="yes"\n  OPENF50_BOOT = android\n'
+                                 "OPENF50_PASSWORD='p a$s 1'\n", 'trusted')
             self.assertIn("S=sd E=yes B=android P=p a$s 1", r.stdout)
 
     def test_unknown_keys_are_reported_not_set(self):
         for shell in self.each_shell():
-            r = self.load(shell, 'PATH=/nowhere\nMU300_STORAGE=internal\n')
+            r = self.load(shell, 'PATH=/nowhere\nOPENF50_STORAGE=internal\n')
             self.assertIn('S=internal', r.stdout)
             self.assertIn('PATH', r.stdout + r.stderr)   # reported
             self.assertNotEqual(r.returncode, 127)       # PATH was not replaced
 
     def test_conf_is_never_executed(self):
         for shell in self.each_shell():
-            r = self.load(shell, f'MU300_BOOT=$(touch {self.tmp}/ran)\nMU300_STORAGE=`touch {self.tmp}/ran2`\n')
+            r = self.load(shell, f'OPENF50_BOOT=$(touch {self.tmp}/ran)\nOPENF50_STORAGE=`touch {self.tmp}/ran2`\n')
             self.assertFalse((self.tmp / 'ran').exists())
             self.assertFalse((self.tmp / 'ran2').exists())
 
     def test_check_refuses_bad_values(self):
         for shell in self.each_shell():
-            for bad in ('MU300_STORAGE=usb', 'MU300_BOOT_ATTEMPTS=9', 'MU300_PASSWORD=short', 'MU300_MODE=maybe',
-                        'MU300_PASSWORD_FILE=/etc/shadow'):
+            for bad in ('OPENF50_STORAGE=usb', 'OPENF50_BOOT_ATTEMPTS=9', 'OPENF50_PASSWORD=short', 'OPENF50_MODE=maybe',
+                        'OPENF50_PASSWORD_FILE=/etc/shadow'):
                 f = self.tmp / 'c.conf'; f.write_text(bad + '\n')
                 r = self.lib(shell, f'conf_load "{f}" trusted; conf_check')
                 self.assertNotEqual(r.returncode, 0, bad)
 
     def test_values_are_checked_before_they_are_assigned(self):
-        # MU300_LANG is part of t()'s file name: a later message must not be read from a file it points at
+        # OPENF50_LANG is part of t()'s file name: a later message must not be read from a file it points at
         evil = self.tmp / 'evil.tsv'
-        evil.write_text('mu300-install.conf: {1} is not a setting of this installer; ignored\tPWNED\n')
+        evil.write_text('openf50-install.conf: {1} is not a setting of this installer; ignored\tPWNED\n')
         up = '../' * 12
         for shell in self.each_shell():
-            for line in (f'MU300_LANG={up}{self.tmp}/evil', 'MU300_BOOT_OS=-rf', 'MU300_STORAGE=../sd',
-                         'MU300_LANG=tr x'):
+            for line in (f'OPENF50_LANG={up}{self.tmp}/evil', 'OPENF50_BOOT_OS=-rf', 'OPENF50_STORAGE=../sd',
+                         'OPENF50_LANG=tr x'):
                 r = self.load(shell, line + '\nBOGUS=1\n')
                 self.assertNotEqual(r.returncode, 0, line)
                 self.assertIn('is not valid', r.stdout, line)
                 self.assertNotIn('PWNED', r.stdout + r.stderr, line)
             # from the environment too
-            r = self.lib(shell, 'conf_check', MU300_BOOT_OS='../x')
+            r = self.lib(shell, 'conf_check', OPENF50_BOOT_OS='../x')
             self.assertNotEqual(r.returncode, 0)
 
     def test_untrusted_file_chooses_nothing_destructive(self):
         # any app with storage access can write /sdcard: it may not erase, wipe, set the password or the model
-        text = ('MU300_STORAGE=sd\nMU300_SD_ERASE=yes\nMU300_PASSWORD=hunter22\nMU300_MODE=wipe\nMU300_DEVICE=u30air\n'
-                'MU300_REGION_OVERWRITE=yes\nMU300_PASSWORD_FILE=sdcard\nMU300_PASSWORD_RESET=yes\n')
+        text = ('OPENF50_STORAGE=sd\nOPENF50_SD_ERASE=yes\nOPENF50_PASSWORD=hunter22\nOPENF50_MODE=wipe\nOPENF50_DEVICE=u30air\n'
+                'OPENF50_REGION_OVERWRITE=yes\nOPENF50_PASSWORD_FILE=sdcard\nOPENF50_PASSWORD_RESET=yes\n')
         for shell in self.each_shell():
             r = self.load(shell, text)
             self.assertIn('S=sd E= B= P= M= D=', r.stdout)
-            for k in ('MU300_SD_ERASE', 'MU300_PASSWORD', 'MU300_MODE=wipe', 'MU300_DEVICE', 'MU300_REGION_OVERWRITE',
-                      'MU300_PASSWORD_RESET'):
+            for k in ('OPENF50_SD_ERASE', 'OPENF50_PASSWORD', 'OPENF50_MODE=wipe', 'OPENF50_DEVICE', 'OPENF50_REGION_OVERWRITE',
+                      'OPENF50_PASSWORD_RESET'):
                 self.assertIn(k, r.stdout)
             self.assertNotIn('hunter22', r.stdout)                       # a password's value is never shown
             self.assertIn("su -c 'cp ", r.stdout)                        # the way to make it trusted
-            r = self.load(shell, 'MU300_MODE=update\n')
+            r = self.load(shell, 'OPENF50_MODE=update\n')
             self.assertIn('M=update', r.stdout)
 
     def test_which_file_is_trusted(self):
@@ -203,23 +203,23 @@ class Conf(ShellTest):
             for mode, owner, want in ((0o600, uid, 0), (0o644, uid, 0), (0o664, uid, 1), (0o646, uid, 1),
                                       (0o600, uid + 1, 1)):
                 f.chmod(mode)
-                r = self.lib(shell, f'conf_trusted "{f}"', MU300_TRUSTED_UID=owner)
+                r = self.lib(shell, f'conf_trusted "{f}"', OPENF50_TRUSTED_UID=owner)
                 self.assertEqual(r.returncode, want, (oct(mode), owner))
             f.chmod(0o600)
             link = self.tmp / 'link.conf'
             link.unlink(missing_ok=True); link.symlink_to(f)
-            self.assertNotEqual(self.lib(shell, f'conf_trusted "{link}"', MU300_TRUSTED_UID=uid).returncode, 0)
+            self.assertNotEqual(self.lib(shell, f'conf_trusted "{link}"', OPENF50_TRUSTED_UID=uid).returncode, 0)
 
     def test_trusted_values_win(self):
         sd, adb = self.tmp / 'sdcard', self.tmp / 'adb'
         sd.mkdir(); adb.mkdir()
-        (sd / 'mu300-install.conf').write_text('MU300_STORAGE=internal\nMU300_BOOT=android\n')
-        (adb / 'mu300-install.conf').write_text('MU300_STORAGE=sd\nMU300_SD_ERASE=yes\n')
-        (adb / 'mu300-install.conf').chmod(0o600)
+        (sd / 'openf50-install.conf').write_text('OPENF50_STORAGE=internal\nOPENF50_BOOT=android\n')
+        (adb / 'openf50-install.conf').write_text('OPENF50_STORAGE=sd\nOPENF50_SD_ERASE=yes\n')
+        (adb / 'openf50-install.conf').chmod(0o600)
         for shell in self.each_shell():
             for uid, want in ((os.getuid(), 'S=sd E=yes B=android'), (os.getuid() + 1, 'S=sd E= B=android')):
-                r = self.lib(shell, 'conf_read; echo "S=$MU300_STORAGE E=${MU300_SD_ERASE:-} B=$MU300_BOOT"',
-                             MU300_SDCARD=sd, MU300_TRUSTED_CONF=adb / 'mu300-install.conf', MU300_TRUSTED_UID=uid)
+                r = self.lib(shell, 'conf_read; echo "S=$OPENF50_STORAGE E=${OPENF50_SD_ERASE:-} B=$OPENF50_BOOT"',
+                             OPENF50_SDCARD=sd, OPENF50_TRUSTED_CONF=adb / 'openf50-install.conf', OPENF50_TRUSTED_UID=uid)
                 self.assertIn(want, r.stdout)
 
     def test_every_example_line_loads_once_uncommented(self):
@@ -228,11 +228,11 @@ class Conf(ShellTest):
         sd = self.tmp / 'sd'
         sd.mkdir()
         for shell in self.each_shell():
-            r = self.lib(shell, 'write_example', MU300_SDCARD=sd)
+            r = self.lib(shell, 'write_example', OPENF50_SDCARD=sd)
             self.assertEqual(r.returncode, 0, r.stderr)
-            ex = (sd / 'mu300-install.conf.example').read_text()
+            ex = (sd / 'openf50-install.conf.example').read_text()
             lines = ex.splitlines()
-            keys = [l for l in lines if re.match(r'#MU300_[A-Z_]+=', l)]
+            keys = [l for l in lines if re.match(r'#OPENF50_[A-Z_]+=', l)]
             self.assertEqual(len(keys), 15, ex)
             for line in keys:
                 i = lines.index(line)
@@ -257,7 +257,7 @@ class Conf(ShellTest):
               'garble:*trial*|stuck:*) printf garbage | command dd of="$MISC" bs=1 seek=2048 conv=notrunc 2>/dev/null; '
               'return 0 ;; esac ;; esac; command dd "$@"; }; ')
         r = self.lib(shell, f'W="{w}"; MISC="{misc}"; LINUX_SLOT=b; LIVE_BC=$(hex_at "$MISC" 2048 32); misc_save; '
-                            + dd + f'MODE={mode}; arm_linux; echo ARMED', MU300_WORK_PARENT=adb)
+                            + dd + f'MODE={mode}; arm_linux; echo ARMED', OPENF50_WORK_PARENT=adb)
         return r, misc.read_bytes()[2048:2080]
 
     def test_misc_that_does_not_verify_gets_its_block_back(self):
@@ -276,7 +276,7 @@ class Conf(ShellTest):
             self.assertNotEqual(bc, b'LIVE' * 8)
             self.assertNotIn('Android boots as before', r.stdout)
             self.assertIn('Do not reboot', r.stdout)                           # said plainly, with what to do
-            saved = self.tmp / 'adb/mu300-misc-bc-before.bin'
+            saved = self.tmp / 'adb/openf50-misc-bc-before.bin'
             self.assertEqual(saved.read_bytes(), b'LIVE' * 8)
             self.assertIn(f'if={saved} of={self.tmp}/misc', r.stdout)
 
@@ -290,19 +290,19 @@ class Conf(ShellTest):
             (w / 'mnt/home').write_text('precious')
             mounts = self.tmp / 'mounts'
             mounts.write_text(f'/dev/block/loop7 {w}/x/root ext4 rw 0 0\n')
-            r = self.lib(shell, f'W="{w}"; SDCARD="{self.tmp}/none"; cleanup', MU300_MOUNTS=mounts)
+            r = self.lib(shell, f'W="{w}"; SDCARD="{self.tmp}/none"; cleanup', OPENF50_MOUNTS=mounts)
             self.assertFalse((w / 'kernel').exists())
             self.assertEqual((w / 'x/root/home').read_text(), 'precious')
             self.assertEqual((w / 'mnt/home').read_text(), 'precious')    # a mount point is only ever rmdir'd
             self.assertIn('still mounted', r.stdout)
             # no mount table to read: nothing is removed at all
             (w / 'kernel').mkdir()
-            r = self.lib(shell, f'W="{w}"; SDCARD="{self.tmp}/none"; cleanup', MU300_MOUNTS=self.tmp / 'missing')
+            r = self.lib(shell, f'W="{w}"; SDCARD="{self.tmp}/none"; cleanup', OPENF50_MOUNTS=self.tmp / 'missing')
             self.assertTrue((w / 'kernel').exists())
             # unmounted (the mount point empty again): all of it goes
             (w / 'mnt/home').unlink()
             mounts.write_text('')
-            r = self.lib(shell, f'W="{w}"; SDCARD="{self.tmp}/none"; cleanup', MU300_MOUNTS=mounts)
+            r = self.lib(shell, f'W="{w}"; SDCARD="{self.tmp}/none"; cleanup', OPENF50_MOUNTS=mounts)
             self.assertFalse(w.exists())
             self.assertNotIn('still mounted', r.stdout)
 
@@ -310,25 +310,25 @@ class Conf(ShellTest):
 class AndroidSide(ShellTest):
     def test_mount_helper_read_only_on_request(self):
         card = self.tmp / 'card'
-        card.write_bytes(fake_ext4_bytes('mu300sd'))
+        card.write_bytes(fake_ext4_bytes('openf50sd'))
         self.stub('mount', 'echo "mount $*" >> "$STUBLOG/calls"')
         for shell in self.each_shell():
             for ro, opts in (('1', '-o ro,noload'), ('', '-o noatime')):
                 (self.tmp / 'calls').unlink(missing_ok=True)
-                r = self.script(shell, TOP / 'tools/android-mount-mu300root.sh', self.tmp / 'mp',
-                                MU300_SD_DEV=card, MU300_RO=ro)
+                r = self.script(shell, TOP / 'tools/android-mount-openf50root.sh', self.tmp / 'mp',
+                                OPENF50_SD_DEV=card, OPENF50_RO=ro)
                 self.assertIn('MOUNTED', r.stdout, r.stderr)
                 self.assertIn(f'mount -t ext4 {opts} {card}', (self.tmp / 'calls').read_text())
 
     def test_android_install_takes_its_directory_from_the_installer(self):
         # the Magisk installer's work directory, only root can write it; /data/local/tmp for install.sh
-        self.assertIn('\nT=${MU300_DEVICE_WORK:-/data/local/tmp}\n', (TOP / 'tools/android-install.sh').read_text())
+        self.assertIn('\nT=${OPENF50_DEVICE_WORK:-/data/local/tmp}\n', (TOP / 'tools/android-install.sh').read_text())
 
 
 @unittest.skipIf(not BUSYBOX, 'no busybox (the installer runs under Magisk\'s busybox)')
 @unittest.skipIf(not HAVE_LZ4, 'neither the lz4 command nor the lz4 Python module is installed')
 class InstallerCase(ShellTest):
-    """a zip (mu300/ beside a real zip of payload/) and a FakeDevice; run_installer() runs install.sh as Magisk's
+    """a zip (openf50/ beside a real zip of payload/) and a FakeDevice; run_installer() runs install.sh as Magisk's
     busybox would"""
 
     def setUp(self):
@@ -345,7 +345,7 @@ class InstallerCase(ShellTest):
         self.magiskboot = self.tmp / 'no-magiskboot'
 
     def fake_install_hook(self, line):
-        """LINE runs inside the fake android-install.sh, before it says MU300-INSTALL-OK"""
+        """LINE runs inside the fake android-install.sh, before it says OPENF50-INSTALL-OK"""
         (self.fake.root / 'install-hook').write_text(line + '\n')
 
     def device(self, **kw):
@@ -358,27 +358,27 @@ class InstallerCase(ShellTest):
 
     def zip(self, system='openwrt', kernel='6.18', features=('sdcard',), devices='f50 u30air', corrupt=False,
             image_shadow=True):
-        """mu300/ with its manifest, and the zip with the payload of SYSTEM and KERNEL"""
-        self.mu300 = self.tmp / 'zip' / 'mu300'
+        """openf50/ with its manifest, and the zip with the payload of SYSTEM and KERNEL"""
+        self.openf50 = self.tmp / 'zip' / 'openf50'
         shutil.rmtree(self.tmp / 'zip', ignore_errors=True)
-        shutil.copytree(INSTALLER_DIR, self.mu300, symlinks=True)
+        shutil.copytree(INSTALLER_DIR, self.openf50, symlinks=True)
         self.zip_args = dict(system=system, kernel=kernel, features=features, devices=devices, image_shadow=image_shadow)
-        self.kernel_release = f'{kernel}.0-mu300' if kernel != '5.4' else '5.4.254-mu300'
-        kasset = 'mu300-kernel.tar.gz' if kernel == '5.4' else f'mu300-kernel-{kernel}.tar.gz'
+        self.kernel_release = f'{kernel}.0-openf50' if kernel != '5.4' else '5.4.254-openf50'
+        kasset = 'openf50-kernel.tar.gz' if kernel == '5.4' else f'openf50-kernel-{kernel}.tar.gz'
         rasset = ROOTFS_ASSET[system]
         os_, _, ubuntu = system.partition('-')
         kb = tar_gz({'Image': b'\x7fkernel' * 1000, 'ramdisk-generic.lz4': generic_ramdisk(),
-                     'modules/mu300-test.ko': b'\x7fELF test module', 'kernel.release': (self.kernel_release + '\n').encode(),
+                     'modules/openf50-test.ko': b'\x7fELF test module', 'kernel.release': (self.kernel_release + '\n').encode(),
                      'devices': (devices + '\n').encode(), 'features': ''.join(f + '\n' for f in features).encode()})
         files = {'etc/os-release': f'ID={os_}\n'.encode()}
         if image_shadow:
             files['etc/shadow'] = self.IMAGE_SHADOW.encode()
         rootfs = tar_gz(files)
-        (self.mu300 / 'manifest').write_text(
+        (self.openf50 / 'manifest').write_text(
             f'TAG=v2026.10.06\nSYSTEM={system}\nOS={os_}\nUBUNTU={ubuntu}\nKERNEL={kernel}\nKERNEL_ASSET={kasset}\n'
             f'ROOTFS_ASSET={rasset}\nSHA256_KERNEL={hashlib.sha256(kb).hexdigest()}\n'
             f'SHA256_ROOTFS={hashlib.sha256(rootfs).hexdigest()}\n')
-        self.zipfile = self.tmp / 'zip' / 'mu300-magisk.zip'
+        self.zipfile = self.tmp / 'zip' / 'openf50-magisk.zip'
         with zipfile.ZipFile(self.zipfile, 'w') as z:
             z.writestr(f'payload/{kasset}', kb, compress_type=zipfile.ZIP_STORED)
             z.writestr(f'payload/{rasset}', rootfs + (b'x' if corrupt else b''), compress_type=zipfile.ZIP_STORED)
@@ -387,7 +387,7 @@ class InstallerCase(ShellTest):
         self.zip(**self.zip_args, corrupt=True)
 
     def existing_filesystem(self, systems=('ubuntu',), ubuntu=None):
-        """an installed mu300root in the free eMMC region holding SYSTEMS (and Ubuntu's release)"""
+        """an installed openf50root in the free eMMC region holding SYSTEMS (and Ubuntu's release)"""
         last_end = 2048 + (8 << 21)
         start = (last_end // 4096 + 1) * 4096
         end = (((16 << 21) - 34) // 4096 - 1) * 4096
@@ -396,7 +396,7 @@ class InstallerCase(ShellTest):
             f.truncate(16 << 30)
             f.seek(off + 1028); f.write(((end - start) * 512 // 4096).to_bytes(4, 'little'))
             f.seek(off + 1080); f.write(b'\x53\xef')
-            f.seek(off + 1144); f.write(b'mu300root')
+            f.seek(off + 1144); f.write(b'openf50root')
         if ubuntu and 'ubuntu' not in systems:
             systems = tuple(systems) + ('ubuntu',)
         for s in systems:
@@ -410,12 +410,12 @@ class InstallerCase(ShellTest):
 
     def accounts(self, system, marked=False):
         """SYSTEM on the existing filesystem has accounts of its own; MARKED: still the image's
-        (.mu300-accounts-from-image: an older mu300-update installed it and never carried them over)"""
+        (.openf50-accounts-from-image: an older openf50-update installed it and never carried them over)"""
         etc = self.fake.root / 'fs' / system / 'etc'
         etc.mkdir(parents=True, exist_ok=True)
         (etc / 'shadow').write_text('root:$6$theirs$root:19000::::::\nubuntu:$6$theirs$hash:19000::::::\n')
         if marked:
-            (etc / '.mu300-accounts-from-image').write_text('')
+            (etc / '.openf50-accounts-from-image').write_text('')
 
     def snapshot(self):
         """what a run that writes nothing leaves as it was: the partitions, the disks, /data/local/tmp (never used)
@@ -440,84 +440,84 @@ class InstallerCase(ShellTest):
         return now == before
 
     def work_dirs(self):
-        return sorted((self.fake.root / 'data/adb').glob('mu300-magisk.*'))
+        return sorted((self.fake.root / 'data/adb').glob('openf50-magisk.*'))
 
     def run_installer(self, conf=None, trusted=None, extra_env=None):
-        """CONF: /sdcard/mu300-install.conf (any app can write it); TRUSTED: /data/adb/mu300-install.conf, mode 600"""
-        for text, f in ((conf, self.fake.root / 'sdcard/mu300-install.conf'),
-                        (trusted, self.fake.root / 'data/adb/mu300-install.conf')):
+        """CONF: /sdcard/openf50-install.conf (any app can write it); TRUSTED: /data/adb/openf50-install.conf, mode 600"""
+        for text, f in ((conf, self.fake.root / 'sdcard/openf50-install.conf'),
+                        (trusted, self.fake.root / 'data/adb/openf50-install.conf')):
             if text is None:
                 f.unlink(missing_ok=True)
             else:
                 f.write_text(text)
                 f.chmod(0o600)
         self.before = self.snapshot()
-        env = self.fake.env(self.mu300, self.magiskboot)
+        env = self.fake.env(self.openf50, self.magiskboot)
         env['ZIPFILE'] = self.zipfile
         env.update(extra_env or {})
-        return subprocess.run([BUSYBOX, 'sh', str(self.mu300 / 'install.sh')], capture_output=True, text=True,
+        return subprocess.run([BUSYBOX, 'sh', str(self.openf50 / 'install.sh')], capture_output=True, text=True,
                               env=self.env(**env), timeout=120)
 
 
 class Plan(InstallerCase):
     def test_defaults_internal_region(self):
-        r = self.run_installer(conf='MU300_DRY_RUN=1\n')
+        r = self.run_installer(conf='OPENF50_DRY_RUN=1\n')
         self.assertEqual(r.returncode, 3, r.stdout + r.stderr)
         self.assertIn('internal', r.stdout)
         self.assertTrue(self.nothing_written())
 
-    def test_card_with_mu300sd_is_the_default(self):
-        self.device(card=fake_ext4_bytes('mu300sd'))
-        r = self.run_installer(conf='MU300_DRY_RUN=1\n')
+    def test_card_with_openf50sd_is_the_default(self):
+        self.device(card=fake_ext4_bytes('openf50sd'))
+        r = self.run_installer(conf='OPENF50_DRY_RUN=1\n')
         self.assertEqual(r.returncode, 3, r.stdout + r.stderr)
         self.assertIn('/mmcblk1', r.stdout)
         self.assertTrue(self.nothing_written())
 
-    def test_internal_while_a_mu300sd_card_is_in_the_slot_is_refused(self):
+    def test_internal_while_a_openf50sd_card_is_in_the_slot_is_refused(self):
         # boot/init starts the card first: an internal installation would never start, and nobody can type the word
-        self.device(card=fake_ext4_bytes('mu300sd'))
-        r = self.run_installer(conf='MU300_STORAGE=internal\nMU300_DRY_RUN=1\n')
+        self.device(card=fake_ext4_bytes('openf50sd'))
+        r = self.run_installer(conf='OPENF50_STORAGE=internal\nOPENF50_DRY_RUN=1\n')
         self.assertEqual(r.returncode, 1, r.stdout + r.stderr)
-        self.assertIn('mu300sd', r.stdout)
-        self.assertIn('MU300_STORAGE=sd', r.stdout)      # the way out is named
+        self.assertIn('openf50sd', r.stdout)
+        self.assertIn('OPENF50_STORAGE=sd', r.stdout)      # the way out is named
         self.assertTrue(self.nothing_written())
 
     def test_card_is_never_erased_without_consent(self):
         self.device(card=bytes(1 << 20), region=False)
-        r = self.run_installer(conf='MU300_STORAGE=sd\n')
+        r = self.run_installer(conf='OPENF50_STORAGE=sd\n')
         self.assertEqual(r.returncode, 1)
-        self.assertIn('MU300_SD_ERASE=yes', r.stdout)
+        self.assertIn('OPENF50_SD_ERASE=yes', r.stdout)
         self.assertTrue(self.nothing_written())
 
     def test_hostile_sdcard_conf_erases_nothing(self):
         # any app with storage access can write /sdcard: an erase, a wipe or a password there is not taken
         self.device(card=bytes(1 << 20), region=False)
-        r = self.run_installer(conf='MU300_STORAGE=sd\nMU300_SD_ERASE=yes\nMU300_PASSWORD=hunter22\nMU300_MODE=wipe\n')
+        r = self.run_installer(conf='OPENF50_STORAGE=sd\nOPENF50_SD_ERASE=yes\nOPENF50_PASSWORD=hunter22\nOPENF50_MODE=wipe\n')
         self.assertEqual(r.returncode, 1, r.stdout + r.stderr)
-        self.assertIn('MU300_SD_ERASE', r.stdout)
+        self.assertIn('OPENF50_SD_ERASE', r.stdout)
         self.assertNotIn('hunter22', r.stdout)
         self.assertTrue(self.nothing_written())
 
     def test_trusted_conf_allows_the_erase(self):
         self.device(card=bytes(1 << 20), region=False)
-        r = self.run_installer(conf='MU300_DRY_RUN=1\n',
-                               trusted='MU300_STORAGE=sd\nMU300_SD_ERASE=yes\nMU300_PASSWORD=hunter22\n')
+        r = self.run_installer(conf='OPENF50_DRY_RUN=1\n',
+                               trusted='OPENF50_STORAGE=sd\nOPENF50_SD_ERASE=yes\nOPENF50_PASSWORD=hunter22\n')
         self.assertEqual(r.returncode, 3, r.stdout + r.stderr)
         self.assertIn('/mmcblk1', r.stdout)
         self.assertIn('CREATE new ext4', r.stdout)
-        self.assertIn('data/adb/mu300-install.conf', r.stdout)      # the plan says where the values came from
-        self.assertIn('data/adb/mu300-linux-password.txt', r.stdout)
+        self.assertIn('data/adb/openf50-install.conf', r.stdout)      # the plan says where the values came from
+        self.assertIn('data/adb/openf50-linux-password.txt', r.stdout)
         self.assertNotIn('hunter22', r.stdout)
         self.assertTrue(self.nothing_written())
 
     def test_untrusted_storage_does_not_aim_a_standing_erase(self):
         # an erase allowed in /data/adb long ago, and a card someone put into the slot: /sdcard cannot pick it
         self.device(card=bytes(1 << 20), region=False)
-        r = self.run_installer(conf='MU300_STORAGE=sd\nMU300_DRY_RUN=1\n', trusted='MU300_SD_ERASE=yes\n')
+        r = self.run_installer(conf='OPENF50_STORAGE=sd\nOPENF50_DRY_RUN=1\n', trusted='OPENF50_SD_ERASE=yes\n')
         self.assertEqual(r.returncode, 1, r.stdout + r.stderr)
-        self.assertIn('MU300_STORAGE=sd and MU300_SD_ERASE=yes', r.stdout)
+        self.assertIn('OPENF50_STORAGE=sd and OPENF50_SD_ERASE=yes', r.stdout)
         self.assertTrue(self.nothing_written())
-        r = self.run_installer(conf='MU300_DRY_RUN=1\n', trusted='MU300_STORAGE=sd\nMU300_SD_ERASE=yes\n')
+        r = self.run_installer(conf='OPENF50_DRY_RUN=1\n', trusted='OPENF50_STORAGE=sd\nOPENF50_SD_ERASE=yes\n')
         self.assertEqual(r.returncode, 3, r.stdout + r.stderr)
         self.assertIn('CREATE new ext4', r.stdout)
 
@@ -527,82 +527,82 @@ class Plan(InstallerCase):
                 f.truncate(16 << 30)
                 start = ((2048 + (8 << 21)) // 4096 + 1) * 4096 * 512
                 f.seek(start + (512 << 10)); f.write(b'data' * 1024)
-        for conf, trusted, rc in (('MU300_STORAGE=internal\nMU300_DRY_RUN=1\n', 'MU300_REGION_OVERWRITE=yes\n', 1),
-                                  ('MU300_DRY_RUN=1\n', 'MU300_REGION_OVERWRITE=yes\n', 3),
-                                  ('MU300_DRY_RUN=1\n', 'MU300_STORAGE=internal\nMU300_REGION_OVERWRITE=yes\n', 3),
-                                  ('MU300_DRY_RUN=1\n', None, 1)):
+        for conf, trusted, rc in (('OPENF50_STORAGE=internal\nOPENF50_DRY_RUN=1\n', 'OPENF50_REGION_OVERWRITE=yes\n', 1),
+                                  ('OPENF50_DRY_RUN=1\n', 'OPENF50_REGION_OVERWRITE=yes\n', 3),
+                                  ('OPENF50_DRY_RUN=1\n', 'OPENF50_STORAGE=internal\nOPENF50_REGION_OVERWRITE=yes\n', 3),
+                                  ('OPENF50_DRY_RUN=1\n', None, 1)):
             self.device(); dirty()
             r = self.run_installer(conf=conf, trusted=trusted)
             self.assertEqual(r.returncode, rc, (conf, trusted, r.stdout + r.stderr))
             if rc == 1:
-                self.assertIn('MU300_STORAGE=internal and MU300_REGION_OVERWRITE=yes', r.stdout)
+                self.assertIn('OPENF50_STORAGE=internal and OPENF50_REGION_OVERWRITE=yes', r.stdout)
             self.assertTrue(self.nothing_written())
 
     def test_manifest_fields_are_checked_before_any_path(self):
-        bad = {'ROOTFS_ASSET': '../../../etc/passwd', 'KERNEL_ASSET': '-mu300-kernel.tar.gz', 'OS': '../openwrt',
+        bad = {'ROOTFS_ASSET': '../../../etc/passwd', 'KERNEL_ASSET': '-openf50-kernel.tar.gz', 'OS': '../openwrt',
                'TAG': 'v2026/../..', 'SYSTEM': 'openwrt x', 'KERNEL': '6.18/..', 'SHA256_ROOTFS': 'A' * 64,
                'SHA256_KERNEL': '', 'UBUNTU': '24.04'}
-        good = (self.mu300 / 'manifest').read_text()
+        good = (self.openf50 / 'manifest').read_text()
         for k, v in bad.items():
             lines = [l for l in good.splitlines() if not l.startswith(k + '=')] + [f'{k}={v}']
-            (self.mu300 / 'manifest').write_text('\n'.join(lines) + '\n')
-            r = self.run_installer(conf='MU300_DRY_RUN=1\n')
+            (self.openf50 / 'manifest').write_text('\n'.join(lines) + '\n')
+            r = self.run_installer(conf='OPENF50_DRY_RUN=1\n')
             self.assertEqual(r.returncode, 1, (k, v, r.stdout + r.stderr))
             self.assertIn('manifest', r.stdout, k)
             self.assertNotIn('Unpacking', r.stdout, k)                    # refused before the payload is touched
             self.assertTrue(self.nothing_written(), k)
-        (self.mu300 / 'manifest').write_text(good)
-        self.assertEqual(self.run_installer(conf='MU300_DRY_RUN=1\n').returncode, 3)
+        (self.openf50 / 'manifest').write_text(good)
+        self.assertEqual(self.run_installer(conf='OPENF50_DRY_RUN=1\n').returncode, 3)
 
     def test_conf_others_can_change_is_not_trusted(self):
-        trusted = 'MU300_STORAGE=sd\nMU300_SD_ERASE=yes\nMU300_DRY_RUN=1\n'
-        for setup in (lambda: (self.fake.root / 'data/adb/mu300-install.conf').chmod(0o620),
-                      lambda: (self.fake.root / 'data/adb/mu300-install.conf').chmod(0o606)):
+        trusted = 'OPENF50_STORAGE=sd\nOPENF50_SD_ERASE=yes\nOPENF50_DRY_RUN=1\n'
+        for setup in (lambda: (self.fake.root / 'data/adb/openf50-install.conf').chmod(0o620),
+                      lambda: (self.fake.root / 'data/adb/openf50-install.conf').chmod(0o606)):
             self.device(card=bytes(1 << 20), region=False)
-            (self.fake.root / 'data/adb/mu300-install.conf').write_text(trusted)
+            (self.fake.root / 'data/adb/openf50-install.conf').write_text(trusted)
             setup()
             self.before = self.snapshot()
-            env = self.fake.env(self.mu300, self.stubs / 'magiskboot')
+            env = self.fake.env(self.openf50, self.stubs / 'magiskboot')
             env['ZIPFILE'] = self.zipfile
-            r = subprocess.run([BUSYBOX, 'sh', str(self.mu300 / 'install.sh')], capture_output=True, text=True,
+            r = subprocess.run([BUSYBOX, 'sh', str(self.openf50 / 'install.sh')], capture_output=True, text=True,
                                env=self.env(**env), timeout=120)
             self.assertEqual(r.returncode, 1, r.stdout + r.stderr)
             self.assertIn('not owned by root', r.stdout)
             self.assertTrue(self.nothing_written())
         # owned by someone else
         self.device(card=bytes(1 << 20), region=False)
-        r = self.run_installer(trusted=trusted, extra_env={'MU300_TRUSTED_UID': os.getuid() + 1})
+        r = self.run_installer(trusted=trusted, extra_env={'OPENF50_TRUSTED_UID': os.getuid() + 1})
         self.assertEqual(r.returncode, 1, r.stdout + r.stderr)
         self.assertTrue(self.nothing_written())
 
     def test_conf_inside_the_zip_is_trusted(self):
         self.device(card=bytes(1 << 20), region=False)
-        (self.mu300 / 'mu300-install.conf').write_text('MU300_STORAGE=sd\nMU300_SD_ERASE=yes\nMU300_DRY_RUN=1\n')
+        (self.openf50 / 'openf50-install.conf').write_text('OPENF50_STORAGE=sd\nOPENF50_SD_ERASE=yes\nOPENF50_DRY_RUN=1\n')
         r = self.run_installer()
         self.assertEqual(r.returncode, 3, r.stdout + r.stderr)
         self.assertIn('CREATE new ext4', r.stdout)
 
-    def test_wiping_a_mu300sd_card_needs_the_erase_too(self):
-        self.device(card=fake_ext4_bytes('mu300sd'))
-        r = self.run_installer(conf='MU300_DRY_RUN=1\n', trusted='MU300_MODE=wipe\n')
+    def test_wiping_a_openf50sd_card_needs_the_erase_too(self):
+        self.device(card=fake_ext4_bytes('openf50sd'))
+        r = self.run_installer(conf='OPENF50_DRY_RUN=1\n', trusted='OPENF50_MODE=wipe\n')
         self.assertEqual(r.returncode, 1, r.stdout + r.stderr)
-        self.assertIn('MU300_SD_ERASE=yes', r.stdout)
+        self.assertIn('OPENF50_SD_ERASE=yes', r.stdout)
         self.assertTrue(self.nothing_written())
-        r = self.run_installer(conf='MU300_DRY_RUN=1\n', trusted='MU300_MODE=wipe\nMU300_SD_ERASE=yes\n')
+        r = self.run_installer(conf='OPENF50_DRY_RUN=1\n', trusted='OPENF50_MODE=wipe\nOPENF50_SD_ERASE=yes\n')
         self.assertEqual(r.returncode, 3, r.stdout + r.stderr)
         self.assertIn('CREATE new ext4', r.stdout)
 
     def test_foreign_ext4_card_is_refused_even_with_consent(self):
         self.device(card=fake_ext4_bytes('photos'))
-        r = self.run_installer(trusted='MU300_STORAGE=sd\nMU300_SD_ERASE=yes\n')
+        r = self.run_installer(trusted='OPENF50_STORAGE=sd\nOPENF50_SD_ERASE=yes\n')
         self.assertEqual(r.returncode, 1)
-        self.assertIn('mu300sd', r.stdout)
+        self.assertIn('openf50sd', r.stdout)
         self.assertTrue(self.nothing_written())
 
     def test_card_with_a_kernel_that_cannot_read_it(self):
-        self.device(card=fake_ext4_bytes('mu300sd'))
+        self.device(card=fake_ext4_bytes('openf50sd'))
         self.zip(features=())
-        r = self.run_installer(conf='MU300_DRY_RUN=1\n')
+        r = self.run_installer(conf='OPENF50_DRY_RUN=1\n')
         self.assertEqual(r.returncode, 1)
         self.assertIn('SD card', r.stdout)
         self.assertTrue(self.nothing_written())
@@ -611,7 +611,7 @@ class Plan(InstallerCase):
         self.device(region=False)
         r = self.run_installer()
         self.assertEqual(r.returncode, 1)
-        self.assertIn('MU300_STORAGE=sd', r.stdout)      # the way out is named
+        self.assertIn('OPENF50_STORAGE=sd', r.stdout)      # the way out is named
         self.assertIn('no SD card', r.stdout)
         self.assertTrue(self.nothing_written())
 
@@ -621,10 +621,10 @@ class Plan(InstallerCase):
         r = self.run_installer()
         self.assertEqual(r.returncode, 1)
         self.assertIn('never formats', r.stdout)
-        self.assertNotIn('MU300_SD_ERASE', r.stdout)
+        self.assertNotIn('OPENF50_SD_ERASE', r.stdout)
         # internal chosen, too little room, a card there: the card is named, not "no SD card"
         self.device(region=False, card=bytes(1 << 20))
-        r = self.run_installer(conf='MU300_STORAGE=internal\n')
+        r = self.run_installer(conf='OPENF50_STORAGE=internal\n')
         self.assertEqual(r.returncode, 1)
         self.assertIn('/mmcblk1', r.stdout)
         self.assertNotIn('no SD card', r.stdout)
@@ -634,15 +634,15 @@ class Plan(InstallerCase):
         self.device(model='Pixel 7')
         r = self.run_installer()
         self.assertEqual(r.returncode, 1)
-        self.assertIn('MU300_DEVICE=f50', r.stdout)
+        self.assertIn('OPENF50_DEVICE=f50', r.stdout)
         self.assertTrue(self.nothing_written())
         # from /sdcard it is not taken; from the trusted file it is
-        self.assertEqual(self.run_installer(conf='MU300_DEVICE=f50\nMU300_DRY_RUN=1\n').returncode, 1)
-        self.assertEqual(self.run_installer(conf='MU300_DRY_RUN=1\n', trusted='MU300_DEVICE=f50\n').returncode, 3)
+        self.assertEqual(self.run_installer(conf='OPENF50_DEVICE=f50\nOPENF50_DRY_RUN=1\n').returncode, 1)
+        self.assertEqual(self.run_installer(conf='OPENF50_DRY_RUN=1\n', trusted='OPENF50_DEVICE=f50\n').returncode, 3)
 
     def test_android_on_slot_b_puts_linux_on_a(self):
         self.device(slot='_b')
-        r = self.run_installer(conf='MU300_DRY_RUN=1\n')
+        r = self.run_installer(conf='OPENF50_DRY_RUN=1\n')
         self.assertEqual(r.returncode, 3)
         self.assertIn('boot_a', r.stdout)
 
@@ -660,27 +660,27 @@ class Plan(InstallerCase):
         self.assertTrue(self.nothing_written())
 
     def test_example_conf_written(self):
-        r = self.run_installer(conf='MU300_DRY_RUN=1\n')
+        r = self.run_installer(conf='OPENF50_DRY_RUN=1\n')
         self.assertEqual(r.returncode, 3, r.stdout + r.stderr)
-        ex = (self.fake.root / 'sdcard/mu300-install.conf.example').read_text()
-        for k in ('MU300_STORAGE', 'MU300_SD_ERASE', 'MU300_BOOT', 'MU300_PASSWORD', 'MU300_DRY_RUN'):
+        ex = (self.fake.root / 'sdcard/openf50-install.conf.example').read_text()
+        for k in ('OPENF50_STORAGE', 'OPENF50_SD_ERASE', 'OPENF50_BOOT', 'OPENF50_PASSWORD', 'OPENF50_DRY_RUN'):
             self.assertIn(k, ex)
-        self.assertRegex(ex, r'# \(root\)[^\n]*\n#MU300_SD_ERASE=yes\n')  # which keys need the trusted file
-        self.assertIn('data/adb/mu300-install.conf', ex)
+        self.assertRegex(ex, r'# \(root\)[^\n]*\n#OPENF50_SD_ERASE=yes\n')  # which keys need the trusted file
+        self.assertIn('data/adb/openf50-install.conf', ex)
 
     def test_plan_names_the_source_of_every_value(self):
         self.existing_filesystem(systems=('openwrt',))
-        conf = ('MU300_DRY_RUN=1\nMU300_MODE=update\nMU300_BOOT=linux\nMU300_BOOT_ATTEMPTS=3\nMU300_HOTSPOT=no\n'
-                'MU300_GPU=no\nMU300_BOOT_OS=openwrt\nMU300_STORAGE=internal\n')
+        conf = ('OPENF50_DRY_RUN=1\nOPENF50_MODE=update\nOPENF50_BOOT=linux\nOPENF50_BOOT_ATTEMPTS=3\nOPENF50_HOTSPOT=no\n'
+                'OPENF50_GPU=no\nOPENF50_BOOT_OS=openwrt\nOPENF50_STORAGE=internal\n')
         r = self.run_installer(conf=conf)
         self.assertEqual(r.returncode, 3, r.stdout + r.stderr)
         plan = r.stdout.split('Plan', 1)[1]
         for label in ('storage:', 'filesystem:', 'boots:', 'default boot:', 'boot attempts:', 'hotspot:', 'GPU files:'):
             [line] = [l for l in plan.splitlines() if l.strip().startswith(label)]
-            self.assertIn('sdcard/mu300-install.conf', line, line)
+            self.assertIn('sdcard/openf50-install.conf', line, line)
         self.assertRegex(plan, r'boot attempts: +3 ')
         self.assertRegex(plan, r'hotspot: +not copied')
-        r = self.run_installer(conf='MU300_DRY_RUN=1\n')
+        r = self.run_installer(conf='OPENF50_DRY_RUN=1\n')
         plan = r.stdout.split('Plan', 1)[1]
         for label in ('default boot:', 'boot attempts:', 'hotspot:', 'GPU files:'):
             [line] = [l for l in plan.splitlines() if l.strip().startswith(label)]
@@ -690,31 +690,31 @@ class Plan(InstallerCase):
         # the third system (OpenWrt with the control panel) is one the existing filesystem can hold: it is counted
         # for the space check and named in the plan like the other two
         self.existing_filesystem(systems=('openwrt-luci', 'ubuntu'))
-        r = self.run_installer(conf='MU300_DRY_RUN=1\nMU300_MODE=update\nMU300_STORAGE=internal\n')
+        r = self.run_installer(conf='OPENF50_DRY_RUN=1\nOPENF50_MODE=update\nOPENF50_STORAGE=internal\n')
         self.assertEqual(r.returncode, 3, r.stdout + r.stderr)
         [line] = [l for l in r.stdout.splitlines() if 'already there:' in l]
         self.assertIn('openwrt-luci', line)
         self.assertIn('ubuntu', line)
         # and it may be the one that boots
-        r = self.run_installer(conf='MU300_DRY_RUN=1\nMU300_MODE=update\nMU300_STORAGE=internal\nMU300_BOOT_OS=openwrt-luci\n')
+        r = self.run_installer(conf='OPENF50_DRY_RUN=1\nOPENF50_MODE=update\nOPENF50_STORAGE=internal\nOPENF50_BOOT_OS=openwrt-luci\n')
         self.assertEqual(r.returncode, 3, r.stdout + r.stderr)
         self.assertRegex(r.stdout, r'boots: +openwrt-luci')
 
     def test_example_conf_is_never_written_through_a_link(self):
         victim = self.tmp / 'victim'
         victim.write_text('not yours')
-        ex = self.fake.root / 'sdcard/mu300-install.conf.example'
+        ex = self.fake.root / 'sdcard/openf50-install.conf.example'
         ex.symlink_to(victim)
-        self.assertEqual(self.run_installer(conf='MU300_DRY_RUN=1\n').returncode, 3)
+        self.assertEqual(self.run_installer(conf='OPENF50_DRY_RUN=1\n').returncode, 3)
         self.assertEqual(victim.read_text(), 'not yours')
         self.assertFalse(ex.is_symlink())
-        self.assertIn('MU300_STORAGE', ex.read_text())
-        self.assertEqual(sorted(p.name for p in ex.parent.iterdir()), ['mu300-install.conf', 'mu300-install.conf.example'])
+        self.assertIn('OPENF50_STORAGE', ex.read_text())
+        self.assertEqual(sorted(p.name for p in ex.parent.iterdir()), ['openf50-install.conf', 'openf50-install.conf.example'])
 
     def test_example_conf_written_on_refusal(self):
         self.device(model='Pixel 7')
         self.assertEqual(self.run_installer().returncode, 1)
-        self.assertIn('MU300_DEVICE', (self.fake.root / 'sdcard/mu300-install.conf.example').read_text())
+        self.assertIn('OPENF50_DEVICE', (self.fake.root / 'sdcard/openf50-install.conf.example').read_text())
 
 
 class WorkDirectory(InstallerCase):
@@ -724,26 +724,26 @@ class WorkDirectory(InstallerCase):
     def test_local_tmp_is_never_used(self):
         # what the shell user could put into /data/local/tmp for root to run or install
         lt = self.fake.root / 'tmp'
-        for n in ('android-install.sh', 'android-mount-mu300root.sh'):
+        for n in ('android-install.sh', 'android-mount-openf50root.sh'):
             (lt / n).write_text(f'touch "{self.tmp}/ran-{n}"\n')
-        (lt / 'mu300-openwrt.tar.gz').write_bytes(b'not the payload')
-        (lt / 'mu300-install.env').write_text('FORMAT=1\n')
+        (lt / 'openf50-openwrt.tar.gz').write_bytes(b'not the payload')
+        (lt / 'openf50-install.env').write_text('FORMAT=1\n')
         self.existing_filesystem(systems=('openwrt',))
-        r = self.run_installer(conf='MU300_DRY_RUN=1\n')
+        r = self.run_installer(conf='OPENF50_DRY_RUN=1\n')
         self.assertEqual(r.returncode, 3, r.stdout + r.stderr)
         self.assertTrue(self.nothing_written())                        # /data/local/tmp as it was, work dir gone
         self.assertEqual(list(self.tmp.glob('ran-*')), [])
         log = (self.fake.root / 'android-sh.log').read_text().splitlines()
-        mount = [l for l in log if 'android-mount-mu300root.sh' in l and ' -u ' not in l]
+        mount = [l for l in log if 'android-mount-openf50root.sh' in l and ' -u ' not in l]
         self.assertEqual(len(mount), 1, log)
-        work = str(Path(os.path.realpath(self.fake.root / 'data/adb')) / 'mu300-magisk.')
+        work = str(Path(os.path.realpath(self.fake.root / 'data/adb')) / 'openf50-magisk.')
         self.assertIn(f' {work}', mount[0])                           # the helper copied into the work directory
         self.assertTrue(mount[0].endswith(' drwx------'), mount[0])    # which only root can enter
-        self.assertIn('MU300_RO=1', mount[0])                          # inspected read-only
+        self.assertIn('OPENF50_RO=1', mount[0])                          # inspected read-only
 
     def test_failed_unmount_keeps_the_filesystem(self):
         self.existing_filesystem(systems=('openwrt',))
-        r = self.run_installer(conf='MU300_DRY_RUN=1\n', extra_env={'FAKE_UMOUNT_FAILS': '1'})
+        r = self.run_installer(conf='OPENF50_DRY_RUN=1\n', extra_env={'FAKE_UMOUNT_FAILS': '1'})
         self.assertEqual(r.returncode, 1, r.stdout + r.stderr)
         self.assertIn('still mounted', r.stdout)
         [w] = self.work_dirs()
@@ -752,13 +752,13 @@ class WorkDirectory(InstallerCase):
 
     def test_stale_mount_of_an_earlier_run_is_never_touched(self):
         # an earlier run killed while its filesystem was mounted (no EXIT trap ran)
-        old = Path(os.path.realpath(self.fake.root / 'data/adb')) / 'mu300-magisk.EARLY1'
+        old = Path(os.path.realpath(self.fake.root / 'data/adb')) / 'openf50-magisk.EARLY1'
         (old / 'mnt/home').mkdir(parents=True)
         (old / 'mnt/home/precious').write_text('a user file')
         (self.fake.root / 'mounts').write_text(f'/dev/block/loop7 {old}/mnt ext4 rw 0 0\n')
         self.existing_filesystem(systems=('openwrt',))
         for extra, rc in (({'FAKE_MOUNT_FAILS': '1'}, 1), ({}, 3)):     # the helper refuses a second mount, or not
-            r = self.run_installer(conf='MU300_DRY_RUN=1\n', extra_env=extra)
+            r = self.run_installer(conf='OPENF50_DRY_RUN=1\n', extra_env=extra)
             self.assertEqual(r.returncode, rc, r.stdout + r.stderr)
             self.assertEqual((old / 'mnt/home/precious').read_text(), 'a user file')
             self.assertTrue(self.nothing_written())
@@ -786,8 +786,8 @@ class Install(InstallerCase):
         by = self.fake.root / 'dev/block/by-name'
         self.assertEqual(sha(by / 'boot_a'), self.before['boot_a'])            # Android's partition untouched
         files = self.linux_image('b')
-        self.assertEqual(files['etc/mu300-linux-slot'][1], b'b\n')
-        self.assertEqual(files['etc/mu300-device'][1], b'f50\n')
+        self.assertEqual(files['etc/openf50-linux-slot'][1], b'b\n')
+        self.assertEqual(files['etc/openf50-device'][1], b'f50\n')
         self.assertIn('android/vendor/bin/modem_control', files)
         self.assertIn('init', files)                                           # from the bundle's generic segment
         bc = (by / 'misc').read_bytes()[0x800:0x820]
@@ -801,18 +801,18 @@ class Install(InstallerCase):
         # the hash is the password's (the fake mkpasswd's "hash" is its first 10 bytes in hex)
         self.assertIn(pw.encode().hex()[:20] + "'", env)
         # root's file by default, mode 600; nothing on the shared storage
-        f = self.fake.root / 'data/adb/mu300-linux-password.txt'
+        f = self.fake.root / 'data/adb/openf50-linux-password.txt'
         self.assertEqual(f.stat().st_mode & 0o777, 0o600)
         self.assertRegex(f.read_text(), rf'(?m)^password: {pw}$')
-        self.assertFalse((self.fake.root / 'sdcard/mu300-linux-password.txt').exists())
+        self.assertFalse((self.fake.root / 'sdcard/openf50-linux-password.txt').exists())
         self.assertEqual(self.work_dirs(), [])                                 # proprietary staging gone
 
     def test_report_names_the_vpn_extra(self):
-        # the zip carries no VPN engines (they are the vpn extra since mu300-extra): the report says how to add them
+        # the zip carries no VPN engines (they are the vpn extra since openf50-extra): the report says how to add them
         r = self.run_installer()
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
-        self.assertIn('The VPN (mu300-vpn) needs the vpn extra: Xray and sing-box.', r.stdout)
-        self.assertIn('sudo mu300-extra install vpn', r.stdout)
+        self.assertIn('The VPN (openf50-vpn) needs the vpn extra: Xray and sing-box.', r.stdout)
+        self.assertIn('sudo openf50-extra install vpn', r.stdout)
 
     def test_slot_b_android(self):
         self.device(slot='_b')
@@ -821,12 +821,12 @@ class Install(InstallerCase):
         by = self.fake.root / 'dev/block/by-name'
         self.assertEqual(sha(by / 'boot_b'), self.before['boot_b'])            # Android's partition untouched
         files = self.linux_image('a')
-        self.assertEqual(files['etc/mu300-linux-slot'][1], b'a\n')
+        self.assertEqual(files['etc/openf50-linux-slot'][1], b'a\n')
         self.assertEqual((by / 'misc').read_bytes()[0x800:0x820], files['etc/misc-bc-slot-a-trial.bin'][1])
 
     def test_sd_card_install(self):
         self.device(card=bytes(1 << 20))
-        r = self.run_installer(trusted='MU300_STORAGE=sd\nMU300_SD_ERASE=yes\n')
+        r = self.run_installer(trusted='OPENF50_STORAGE=sd\nOPENF50_SD_ERASE=yes\n')
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         by = self.fake.root / 'dev/block/by-name'
         self.assertEqual(sha(by / 'boot_a'), self.before['boot_a'])
@@ -850,7 +850,7 @@ class Install(InstallerCase):
         r = self.run_installer(extra_env={'FAKE_INSTALL_FAILS': '1'})
         self.assertEqual(r.returncode, 1)
         self.assertIn('boot_b and misc were not changed', r.stdout)
-        (self.fake.root / 'data/adb/mu300-linux-password.txt').unlink()      # saved first (the next test)
+        (self.fake.root / 'data/adb/openf50-linux-password.txt').unlink()      # saved first (the next test)
         self.assertTrue(self.nothing_written(except_fs=True))
 
     def test_password_is_saved_before_anything_is_written(self):
@@ -860,13 +860,13 @@ class Install(InstallerCase):
         self.assertEqual(r.returncode, 1, r.stdout + r.stderr)
         pw = self.password_of(r.stdout)
         self.assertLess(r.stdout.index('password for'), r.stdout.index('Installing'))
-        f = self.fake.root / 'data/adb/mu300-linux-password.txt'
+        f = self.fake.root / 'data/adb/openf50-linux-password.txt'
         self.assertRegex(f.read_text(), rf'(?m)^password: {re.escape(pw)}$')
         self.assertEqual(f.stat().st_mode & 0o777, 0o600)
         # a password file that cannot be written stops the run before anything is installed
         self.device()
-        (self.fake.root / 'sdcard/mu300-linux-password.txt').mkdir()
-        r = self.run_installer(trusted='MU300_PASSWORD_FILE=sdcard\n')
+        (self.fake.root / 'sdcard/openf50-linux-password.txt').mkdir()
+        r = self.run_installer(trusted='OPENF50_PASSWORD_FILE=sdcard\n')
         self.assertEqual(r.returncode, 1, r.stdout + r.stderr)
         self.assertIn('could not write', r.stdout)
         self.assertNotIn('Installing', r.stdout)
@@ -876,54 +876,54 @@ class Install(InstallerCase):
     def test_destructive_keys_are_used_once(self):
         # a standing wipe, erase or overwrite in /data/adb would apply to every later flash: once used, each becomes
         # a comment, the way a used password does
-        conf = self.fake.root / 'data/adb/mu300-install.conf'
+        conf = self.fake.root / 'data/adb/openf50-install.conf'
         self.existing_filesystem(systems=('openwrt',))
-        r = self.run_installer(trusted='MU300_MODE=wipe\nMU300_BOOT_ATTEMPTS=3\n')
+        r = self.run_installer(trusted='OPENF50_MODE=wipe\nOPENF50_BOOT_ATTEMPTS=3\n')
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         self.assertIn('FORMAT=1', (self.fake.root / 'install.env').read_text())
         text = conf.read_text()
-        self.assertNotRegex(text, r'(?m)^\s*MU300_MODE')
-        self.assertIn('# MU300_MODE was used by the installer and removed', text)
-        self.assertIn('MU300_BOOT_ATTEMPTS=3\n', text)
+        self.assertNotRegex(text, r'(?m)^\s*OPENF50_MODE')
+        self.assertIn('# OPENF50_MODE was used by the installer and removed', text)
+        self.assertIn('OPENF50_BOOT_ATTEMPTS=3\n', text)
         self.assertEqual(conf.stat().st_mode & 0o777, 0o600)
-        self.assertRegex(r.stdout, r'MU300_MODE.*removed|removed.*MU300_MODE')     # the report says so
+        self.assertRegex(r.stdout, r'OPENF50_MODE.*removed|removed.*OPENF50_MODE')     # the report says so
         r = self.run_installer(trusted=text)                                  # the next flash is an update
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         self.assertIn('FORMAT=0', (self.fake.root / 'install.env').read_text())
         # the card's erase: once
         self.device(card=bytes(1 << 20))
-        r = self.run_installer(trusted='MU300_STORAGE=sd\nMU300_SD_ERASE=yes\n')
+        r = self.run_installer(trusted='OPENF50_STORAGE=sd\nOPENF50_SD_ERASE=yes\n')
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         text = conf.read_text()
-        self.assertIn('MU300_STORAGE=sd\n', text)
-        self.assertNotRegex(text, r'(?m)^\s*MU300_SD_ERASE')
-        self.assertIn('# MU300_SD_ERASE was used by the installer and removed', text)
-        # an erase not used (an update of a mu300sd card) stays
-        self.device(card=fake_ext4_bytes('mu300sd'))
-        r = self.run_installer(trusted='MU300_SD_ERASE=yes\n')
+        self.assertIn('OPENF50_STORAGE=sd\n', text)
+        self.assertNotRegex(text, r'(?m)^\s*OPENF50_SD_ERASE')
+        self.assertIn('# OPENF50_SD_ERASE was used by the installer and removed', text)
+        # an erase not used (an update of a openf50sd card) stays
+        self.device(card=fake_ext4_bytes('openf50sd'))
+        r = self.run_installer(trusted='OPENF50_SD_ERASE=yes\n')
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
-        self.assertEqual(conf.read_text(), 'MU300_SD_ERASE=yes\n')
+        self.assertEqual(conf.read_text(), 'OPENF50_SD_ERASE=yes\n')
         # the region overwrite: once
         self.device()
         with open(self.fake.root / 'dev/block/mmcblk0', 'r+b') as f:
             f.truncate(16 << 30)
             f.seek(((2048 + (8 << 21)) // 4096 + 1) * 4096 * 512 + (512 << 10)); f.write(b'data' * 1024)
-        r = self.run_installer(trusted='MU300_REGION_OVERWRITE=yes\n')
+        r = self.run_installer(trusted='OPENF50_REGION_OVERWRITE=yes\n')
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
-        self.assertIn('# MU300_REGION_OVERWRITE was used by the installer and removed', conf.read_text())
+        self.assertIn('# OPENF50_REGION_OVERWRITE was used by the installer and removed', conf.read_text())
 
     def test_a_wipe_counts_for_one_install_whatever_the_target_held(self):
-        # MU300_MODE=wipe in /data/adb is used by the install that formats, also when the target had no filesystem
+        # OPENF50_MODE=wipe in /data/adb is used by the install that formats, also when the target had no filesystem
         # yet (a blank region, a new card): left standing, the next flash (the second zip, an update) would wipe
         # the system this one installed
-        conf = self.fake.root / 'data/adb/mu300-install.conf'
+        conf = self.fake.root / 'data/adb/openf50-install.conf'
         cases = (  # name, card before, trusted conf, the target as the first install leaves it
-            ('blank region', None, 'MU300_MODE=wipe\n', lambda: self.existing_filesystem(systems=('openwrt',))),
-            ('installed region', 'region', 'MU300_MODE=wipe\n', lambda: None),
-            ('new card', bytes(1 << 20), 'MU300_STORAGE=sd\nMU300_SD_ERASE=yes\nMU300_MODE=wipe\n',
-             lambda: self.device(card=fake_ext4_bytes('mu300sd'))),
-            ('mu300sd card', fake_ext4_bytes('mu300sd'), 'MU300_SD_ERASE=yes\nMU300_MODE=wipe\n',
-             lambda: self.device(card=fake_ext4_bytes('mu300sd'))))
+            ('blank region', None, 'OPENF50_MODE=wipe\n', lambda: self.existing_filesystem(systems=('openwrt',))),
+            ('installed region', 'region', 'OPENF50_MODE=wipe\n', lambda: None),
+            ('new card', bytes(1 << 20), 'OPENF50_STORAGE=sd\nOPENF50_SD_ERASE=yes\nOPENF50_MODE=wipe\n',
+             lambda: self.device(card=fake_ext4_bytes('openf50sd'))),
+            ('openf50sd card', fake_ext4_bytes('openf50sd'), 'OPENF50_SD_ERASE=yes\nOPENF50_MODE=wipe\n',
+             lambda: self.device(card=fake_ext4_bytes('openf50sd'))))
         for name, card, trusted, formatted in cases:
             with self.subTest(name):
                 self.reset()
@@ -935,12 +935,12 @@ class Install(InstallerCase):
                 self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
                 self.assertIn('FORMAT=1', (self.fake.root / 'install.env').read_text())
                 text = conf.read_text()
-                for k in ('MU300_MODE', 'MU300_SD_ERASE'):
+                for k in ('OPENF50_MODE', 'OPENF50_SD_ERASE'):
                     self.assertNotRegex(text, rf'(?m)^\s*{k}\s*=')
-                self.assertIn('# MU300_MODE was used by the installer and removed', text)
+                self.assertIn('# OPENF50_MODE was used by the installer and removed', text)
                 formatted()
                 # the next flash, with the conf as the first one left it: an update, nothing formatted
-                r = self.run_installer(conf='MU300_DRY_RUN=1\n', trusted=text)
+                r = self.run_installer(conf='OPENF50_DRY_RUN=1\n', trusted=text)
                 self.assertEqual(r.returncode, 3, r.stdout + r.stderr)
                 self.assertNotIn('CREATE new ext4', r.stdout)
                 self.assertIn('keep: settings and data', r.stdout)
@@ -962,44 +962,44 @@ class Install(InstallerCase):
             self.assertTrue(self.nothing_written())
 
     def test_password_from_conf_is_used_and_removed(self):
-        conf = self.fake.root / 'data/adb/mu300-install.conf'
-        r = self.run_installer(trusted='MU300_BOOT_ATTEMPTS=3\nMU300_PASSWORD=correct horse\n')
+        conf = self.fake.root / 'data/adb/openf50-install.conf'
+        r = self.run_installer(trusted='OPENF50_BOOT_ATTEMPTS=3\nOPENF50_PASSWORD=correct horse\n')
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         self.assertEqual(self.password_of(r.stdout), 'correct horse')          # shown whole, blank and all
-        self.assertIn('correct horse', (self.fake.root / 'data/adb/mu300-linux-password.txt').read_text())
+        self.assertIn('correct horse', (self.fake.root / 'data/adb/openf50-linux-password.txt').read_text())
         self.assertIn('correct horse'.encode().hex()[:20], (self.fake.root / 'install.env').read_text())
         text = conf.read_text()
         self.assertNotIn('correct horse', text)
-        self.assertIn('MU300_BOOT_ATTEMPTS=3\n', text)                         # the other settings stay
-        self.assertIn('# MU300_PASSWORD was used by the installer and removed', text)
+        self.assertIn('OPENF50_BOOT_ATTEMPTS=3\n', text)                         # the other settings stay
+        self.assertIn('# OPENF50_PASSWORD was used by the installer and removed', text)
         self.assertEqual(conf.stat().st_mode & 0o777, 0o600)
         self.assertFalse(conf.is_symlink())
         self.assertEqual(sorted(p.name for p in conf.parent.iterdir()),
-                         ['mu300-install.conf', 'mu300-linux-password.txt'])
+                         ['openf50-install.conf', 'openf50-linux-password.txt'])
         # a conf inside the zip is never edited
-        (self.mu300 / 'mu300-install.conf').write_text('MU300_PASSWORD=battery staple\n')
+        (self.openf50 / 'openf50-install.conf').write_text('OPENF50_PASSWORD=battery staple\n')
         self.assertEqual(self.run_installer().returncode, 0)
-        self.assertIn('battery staple', (self.mu300 / 'mu300-install.conf').read_text())
+        self.assertIn('battery staple', (self.openf50 / 'openf50-install.conf').read_text())
 
     def test_password_file_on_the_shared_storage_only_when_trusted(self):
-        r = self.run_installer(conf='MU300_PASSWORD_FILE=sdcard\n')
+        r = self.run_installer(conf='OPENF50_PASSWORD_FILE=sdcard\n')
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
-        self.assertFalse((self.fake.root / 'sdcard/mu300-linux-password.txt').exists())
-        self.assertTrue((self.fake.root / 'data/adb/mu300-linux-password.txt').exists())
+        self.assertFalse((self.fake.root / 'sdcard/openf50-linux-password.txt').exists())
+        self.assertTrue((self.fake.root / 'data/adb/openf50-linux-password.txt').exists())
         self.device()
-        r = self.run_installer(trusted='MU300_PASSWORD_FILE=sdcard\n')
+        r = self.run_installer(trusted='OPENF50_PASSWORD_FILE=sdcard\n')
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
-        f = self.fake.root / 'sdcard/mu300-linux-password.txt'
+        f = self.fake.root / 'sdcard/openf50-linux-password.txt'
         self.assertIn(self.password_of(r.stdout), f.read_text())
         self.assertEqual(f.stat().st_mode & 0o777, 0o600)
-        self.assertFalse((self.fake.root / 'data/adb/mu300-linux-password.txt').exists())
+        self.assertFalse((self.fake.root / 'data/adb/openf50-linux-password.txt').exists())
 
     def test_password_file_is_never_written_through_a_link(self):
         victim = self.tmp / 'victim'
         victim.write_text('not yours')
-        f = self.fake.root / 'sdcard/mu300-linux-password.txt'
+        f = self.fake.root / 'sdcard/openf50-linux-password.txt'
         f.symlink_to(victim)
-        r = self.run_installer(trusted='MU300_PASSWORD_FILE=sdcard\n')
+        r = self.run_installer(trusted='OPENF50_PASSWORD_FILE=sdcard\n')
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         self.assertEqual(victim.read_text(), 'not yours')
         self.assertFalse(f.is_symlink())
@@ -1009,7 +1009,7 @@ class Install(InstallerCase):
         # Both systems are two zips. The second one installs beside the first and leaves that system's password as
         # it was, so the file must keep it: the first zip's output may be gone, and the file is the only other place
         # (seen on the F50: the Ubuntu zip's file replaced the OpenWrt root password)
-        f = self.fake.root / 'data/adb/mu300-linux-password.txt'
+        f = self.fake.root / 'data/adb/openf50-linux-password.txt'
         r = self.run_installer()
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         pw_root = self.password_of(r.stdout)
@@ -1021,12 +1021,12 @@ class Install(InstallerCase):
         text = f.read_text()
         self.assertIn(f'user: ubuntu\npassword: {pw_ubuntu}\n', text)
         self.assertIn(f'user: root\npassword: {pw_root}\n', text)
-        self.assertTrue(text.startswith('MU300 Linux '))                       # the newest first
+        self.assertTrue(text.startswith('OPENF50 Linux '))                       # the newest first
         self.assertLess(text.index('user: ubuntu'), text.index('user: root'))
         self.assertEqual(f.stat().st_mode & 0o777, 0o600)
         # the first system again with a new password asked for: it replaces its old one, the other one stays
         self.zip(system='openwrt')
-        r = self.run_installer(trusted='MU300_PASSWORD_RESET=yes\n')
+        r = self.run_installer(trusted='OPENF50_PASSWORD_RESET=yes\n')
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         pw_root2 = self.password_of(r.stdout)
         text = f.read_text()
@@ -1036,7 +1036,7 @@ class Install(InstallerCase):
         self.assertIn(f'user: ubuntu\npassword: {pw_ubuntu}\n', text)
         self.assertNotIn(f'password: {pw_root}\n', text)
         # a wipe leaves one system: no password of the erased one
-        r = self.run_installer(trusted='MU300_MODE=wipe\n')
+        r = self.run_installer(trusted='OPENF50_MODE=wipe\n')
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         text = f.read_text()
         self.assertNotIn('user: ubuntu', text)
@@ -1052,10 +1052,10 @@ class Install(InstallerCase):
         self.assertIn(f'password for {users}: unchanged', r.stdout)
 
     def test_update_keeps_the_password(self):
-        # update (keep) mode: the accounts and their passwords stay as the device has them, as with mu300-update; no
+        # update (keep) mode: the accounts and their passwords stay as the device has them, as with openf50-update; no
         # new password is generated and the password file is left alone (seen on the U30 Air: the Ubuntu zip's
         # update replaced the user's own password with a generated one)
-        f = self.fake.root / 'data/adb/mu300-linux-password.txt'
+        f = self.fake.root / 'data/adb/openf50-linux-password.txt'
         for system, users in (('openwrt', 'root'), ('ubuntu-24.04', 'ubuntu')):
             with self.subTest(system):
                 self.reset()
@@ -1063,12 +1063,12 @@ class Install(InstallerCase):
                 os_ = system.partition('-')[0]
                 self.existing_filesystem(systems=(os_,))
                 self.accounts(os_)
-                f.write_text('MU300 Linux v2026.10.01\nuser: x\npassword: the earlier one\n')
+                f.write_text('OPENF50 Linux v2026.10.01\nuser: x\npassword: the earlier one\n')
                 f.chmod(0o600)
                 r = self.run_installer()
                 self.kept(r, users)
                 self.assertIn('keep: settings and data', r.stdout)
-                self.assertEqual(f.read_text(), 'MU300 Linux v2026.10.01\nuser: x\npassword: the earlier one\n')
+                self.assertEqual(f.read_text(), 'OPENF50 Linux v2026.10.01\nuser: x\npassword: the earlier one\n')
                 # no file at all: none is made either
                 self.reset()
                 self.zip(system=system, kernel='6.18')
@@ -1081,10 +1081,10 @@ class Install(InstallerCase):
         cases = (  # name, the target, trusted conf
             ('blank region', lambda: None, None),
             ('wipe', lambda: (self.existing_filesystem(systems=('openwrt',)), self.accounts('openwrt')),
-             'MU300_MODE=wipe\n'),
+             'OPENF50_MODE=wipe\n'),
             # a system added beside another: the new one has only the image's accounts
             ('second system', lambda: (self.existing_filesystem(systems=('ubuntu',)), self.accounts('ubuntu')), None),
-            # the system there still has the image's accounts (an older mu300-update never carried them over)
+            # the system there still has the image's accounts (an older openf50-update never carried them over)
             ('image accounts', lambda: (self.existing_filesystem(systems=('openwrt',)),
                                         self.accounts('openwrt', marked=True)), None),
             # a system without an /etc/shadow (damaged): nothing to keep
@@ -1114,31 +1114,31 @@ class Install(InstallerCase):
                 self.assertRegex(pw, r'^[a-km-zA-HJ-NP-Z2-9]{12}$')
                 self.assertIn('password:       generated, written to', r.stdout)
                 self.assertIn(pw.encode().hex()[:20] + "'", (self.fake.root / 'install.env').read_text())
-                self.assertIn(f'password: {pw}\n', (self.fake.root / 'data/adb/mu300-linux-password.txt').read_text())
+                self.assertIn(f'password: {pw}\n', (self.fake.root / 'data/adb/openf50-linux-password.txt').read_text())
 
     def test_password_reset_only_when_a_trusted_conf_asks(self):
-        conf = self.fake.root / 'data/adb/mu300-install.conf'
-        f = self.fake.root / 'data/adb/mu300-linux-password.txt'
+        conf = self.fake.root / 'data/adb/openf50-install.conf'
+        f = self.fake.root / 'data/adb/openf50-linux-password.txt'
         # any app could write /sdcard: a reset asked for there is ignored, the password stays
         self.existing_filesystem(systems=('openwrt',)); self.accounts('openwrt')
-        r = self.run_installer(conf='MU300_PASSWORD_RESET=yes\n')
+        r = self.run_installer(conf='OPENF50_PASSWORD_RESET=yes\n')
         self.kept(r, 'root')
-        self.assertIn('MU300_PASSWORD_RESET is taken only from', r.stdout)
+        self.assertIn('OPENF50_PASSWORD_RESET is taken only from', r.stdout)
         self.assertFalse(f.exists())
         # from /data/adb: generated, shown, saved, and the line used once
-        r = self.run_installer(trusted='MU300_PASSWORD_RESET=yes\nMU300_BOOT_ATTEMPTS=3\n')
+        r = self.run_installer(trusted='OPENF50_PASSWORD_RESET=yes\nOPENF50_BOOT_ATTEMPTS=3\n')
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         pw = self.password_of(r.stdout)
         self.assertIn(pw.encode().hex()[:20] + "'", (self.fake.root / 'install.env').read_text())
         self.assertIn(f'password: {pw}\n', f.read_text())
         text = conf.read_text()
-        self.assertIn('# MU300_PASSWORD_RESET was used by the installer and removed', text)
-        self.assertIn('MU300_BOOT_ATTEMPTS=3\n', text)
+        self.assertIn('# OPENF50_PASSWORD_RESET was used by the installer and removed', text)
+        self.assertIn('OPENF50_BOOT_ATTEMPTS=3\n', text)
         # the next flash keeps the new one
         self.kept(self.run_installer(trusted=text), 'root')
         self.assertIn(f'password: {pw}\n', f.read_text())
         # a password of one's own in /data/adb is a reset too
-        r = self.run_installer(trusted='MU300_PASSWORD=correct horse\n')
+        r = self.run_installer(trusted='OPENF50_PASSWORD=correct horse\n')
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         self.assertEqual(self.password_of(r.stdout), 'correct horse')
         self.assertIn('correct horse'.encode().hex()[:20], (self.fake.root / 'install.env').read_text())
@@ -1158,7 +1158,7 @@ class Install(InstallerCase):
         r = self.run_installer()
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         self.assertEqual(sha(self.zipfile), sha(evil))                         # the swap happened
-        want = re.search(r'SHA256_ROOTFS=(\w+)', (self.mu300 / 'manifest').read_text()).group(1)
+        want = re.search(r'SHA256_ROOTFS=(\w+)', (self.openf50 / 'manifest').read_text()).group(1)
         installed = [l.split()[0] for l in (self.fake.root / 'installed.sha256').read_text().splitlines()]
         self.assertEqual(installed, [want])
 
@@ -1167,8 +1167,8 @@ class Install(InstallerCase):
         r = self.run_installer()                                       # an OpenWrt 6.18 zip added to it
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         krel = self.kernel_release
-        self.assertTrue((self.fake.root / f'fs/ubuntu/lib/modules/{krel}/extra/mu300-test.ko').is_file())
-        self.assertTrue((self.fake.root / f'fs/openwrt/lib/modules/{krel}/mu300-test.ko').is_file())
+        self.assertTrue((self.fake.root / f'fs/ubuntu/lib/modules/{krel}/extra/openf50-test.ko').is_file())
+        self.assertTrue((self.fake.root / f'fs/openwrt/lib/modules/{krel}/openf50-test.ko').is_file())
         self.assertEqual((self.fake.root / 'fs/home/precious').read_text(), 'a user file')
         self.assertEqual((self.fake.root / 'mounts').read_text(), '')                 # unmounted again
         self.assertEqual(self.work_dirs(), [])
@@ -1176,7 +1176,7 @@ class Install(InstallerCase):
 
 class Password(ShellTest):
     def lib(self, shell, code):
-        return self.sh(shell, f'MU300_LIB=1 MU300_DIR="{INSTALLER_DIR}" MU300_UBB="busybox" . "{INSTALLER}"; ' + code)
+        return self.sh(shell, f'OPENF50_LIB=1 OPENF50_DIR="{INSTALLER_DIR}" OPENF50_UBB="busybox" . "{INSTALLER}"; ' + code)
 
     @unittest.skipIf(not busybox_has('mkpasswd'), "this busybox has no mkpasswd")
     def test_hash_is_sha512crypt(self):

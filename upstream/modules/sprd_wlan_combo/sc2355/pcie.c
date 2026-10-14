@@ -395,7 +395,7 @@ static int pcie_rx_handle(int chn, struct mbuf_t *head,
 	       __func__, chn, head, tail, num);
 
 	/*
-	 * MU300: an RX interrupt outside the channels' lifetime (post_init publishes hif before it registers
+	 * OPENF50: an RX interrupt outside the channels' lifetime (post_init publishes hif before it registers
 	 * them, post_deinit clears it after it unregistered them, sprd_iface_set_power serialises the two).
 	 * Without hif there is no device to unmap the buffers from and no queue to hand them to, and the
 	 * channel's mbuf pool is already freed (no sprdwcn_bus_list_free): the data buffers of this one list
@@ -2033,10 +2033,10 @@ int pcie_post_init(struct sprd_hif *hif)
 {
 	int ret = -EINVAL, chn = 0;
 
-	/* MU300: published before any channel can interrupt (the RX/TX callbacks read it in hard IRQ) */
+	/* OPENF50: published before any channel can interrupt (the RX/TX callbacks read it in hard IRQ) */
 	smp_store_release(&sc2355_hif.hif, (void *)hif);
 	/*
-	 * MU300 (from kanoqwq/mu300-linux): a failed/aborted earlier power cycle clears this pointer in the
+	 * OPENF50 (from kanoqwq/openf50-linux): a failed/aborted earlier power cycle clears this pointer in the
 	 * error path below.  The vendor driver only restores it in pcie_init(),
 	 * but a later WCN power-on may call post_init directly.  Passing
 	 * &NULL[0] to mchn_init then makes Wi-Fi permanently fail until reboot.
@@ -2064,7 +2064,7 @@ int pcie_post_init(struct sprd_hif *hif)
 err:
 	pr_err("%s: unregister %d ops\n", __func__, sc2355_hif.max_num);
 
-	/* MU300: undo the channels that were set up and the one that failed, chn .. 0 (the vendor loop stopped at
+	/* OPENF50: undo the channels that were set up and the one that failed, chn .. 0 (the vendor loop stopped at
 	 * 1; a failed channel can be registered with half its EDMA state, and deinit skips one never registered) */
 	for (; chn >= 0; chn--)
 		sprdwcn_bus_chn_deinit(&sc2355_hif.mchn_ops[chn]);
@@ -2080,7 +2080,7 @@ void pcie_post_deinit(struct sprd_hif *hif)
 
 	for (chn = 0; chn < sc2355_hif.max_num; chn++)
 		sprdwcn_bus_chn_deinit(&sc2355_hif.mchn_ops[chn]);
-	/* MU300: cleared only after every channel is unregistered (the callbacks check for NULL) */
+	/* OPENF50: cleared only after every channel is unregistered (the callbacks check for NULL) */
 	WRITE_ONCE(sc2355_hif.hif, NULL);
 	sc2355_hif.max_num = 0;
 

@@ -1,7 +1,7 @@
 #!/bin/sh
 # Set a new Linux password without booting Linux. Run on a macOS/Linux host with the device in rooted Android
 # (adb + su); it mounts the Linux filesystem from Android and rewrites the password hash in /etc/shadow. With an
-# installation on the SD card (ext4 labelled mu300sd) that one is changed: it is the one that boots.
+# installation on the SD card (ext4 labelled openf50sd) that one is changed: it is the one that boots.
 #
 #   tools/reset-password.sh [ubuntu|openwrt|openwrt-luci|all]      (default: all; both is an alias of all)
 #
@@ -33,8 +33,8 @@ say "Looking for the Linux filesystem"
 . "$TOP/tools/storage.sh"; sd_probe
 MOUNTENV=
 if [ -n "$SD_DEV" ] && [ "$(sd_existing)" = yes ]; then
-    MOUNTENV="MU300_SD_DEV=$SD_DEV"
-    echo " SD card $SD_DEV (mu300sd), $(gib "$SD_BYTES"): the installation that boots"
+    MOUNTENV="OPENF50_SD_DEV=$SD_DEV"
+    echo " SD card $SD_DEV (openf50sd), $(gib "$SD_BYTES"): the installation that boots"
     echo " (an installation in internal storage, if there is one, is left as it is)"
 fi
 OFF=; SIZE=
@@ -45,29 +45,29 @@ if [ -z "$MOUNTENV" ]; then
     for cand in $(( ($1 / 4096 + 1) * 4096 * 512 )) 27762098176; do
         m=$(su_do "dd if=/dev/block/mmcblk0 bs=1 skip=$((cand + 1080)) count=2 2>/dev/null | od -An -tx1" | tr -d ' ')
         l=$(su_do "dd if=/dev/block/mmcblk0 bs=1 skip=$((cand + 1144)) count=16 2>/dev/null" | tr -d '\000')
-        if [ "$m" = 53ef ] && [ "$l" = mu300root ]; then
+        if [ "$m" = 53ef ] && [ "$l" = openf50root ]; then
             blocks=$(su_do "dd if=/dev/block/mmcblk0 bs=1 skip=$((cand + 1028)) count=4 2>/dev/null | od -An -tu4" | tr -d ' ')
             logbs=$(su_do "dd if=/dev/block/mmcblk0 bs=1 skip=$((cand + 1048)) count=4 2>/dev/null | od -An -tu4" | tr -d ' ')
             OFF=$cand; SIZE=$((blocks * (1024 << logbs))); break
         fi
     done
-    [ -n "$OFF" ] || die "no Linux filesystem found on this device (neither mu300root in internal storage nor mu300sd on an SD card)"
+    [ -n "$OFF" ] || die "no Linux filesystem found on this device (neither openf50root in internal storage nor openf50sd on an SD card)"
     echo " internal storage: offset $OFF, $((SIZE / 1048576)) MiB"
 fi
 
 say "Mounting the Linux filesystem"
-adb push "$TOP/tools/android-mount-mu300root.sh" $T/ >/dev/null
-out=$(su_do "${MOUNTENV:-MU300_OFF=$OFF MU300_SIZE=$SIZE} sh $T/android-mount-mu300root.sh $T/mu300root")
+adb push "$TOP/tools/android-mount-openf50root.sh" $T/ >/dev/null
+out=$(su_do "${MOUNTENV:-OPENF50_OFF=$OFF OPENF50_SIZE=$SIZE} sh $T/android-mount-openf50root.sh $T/openf50root")
 # ALREADY-MOUNTED is a failure too (the card or region is in use elsewhere)
 echo "$out" | grep -q '^MOUNTED' || die "could not mount the Linux filesystem ($out)"
 # always unmount again, also when something below fails
-trap 'su_do "sync; sh '"$T"'/android-mount-mu300root.sh -u '"$T"'/mu300root" >/dev/null 2>&1 || true' EXIT
+trap 'su_do "sync; sh '"$T"'/android-mount-openf50root.sh -u '"$T"'/openf50root" >/dev/null 2>&1 || true' EXIT
 
 systems=$WHICH
 [ "$WHICH" = all ] && systems="ubuntu openwrt openwrt-luci"
 found=
 for os in $systems; do
-    [ "$(su_do "[ -f $T/mu300root/$os/etc/shadow ] && echo y")" = y ] && found="$found $os"
+    [ "$(su_do "[ -f $T/openf50root/$os/etc/shadow ] && echo y")" = y ] && found="$found $os"
 done
 [ -n "$found" ] || die "no installed system found on the Linux filesystem"
 echo " systems:$found"
@@ -82,9 +82,9 @@ for os in $found; do
     case $os in ubuntu) user=ubuntu ;; openwrt|openwrt-*) user=root ;; esac
     # the hash contains $ and /, which the device shell would expand inside su -c: edit the file on this computer
     tmp=$(mktemp)
-    adb shell "/debug_ramdisk/su -c 'cat $T/mu300root/$os/etc/shadow > /data/local/tmp/mu300-pull.bin'" </dev/null >/dev/null
-    adb pull /data/local/tmp/mu300-pull.bin "$tmp" >/dev/null 2>&1
-    adb shell "/debug_ramdisk/su -c 'rm -f /data/local/tmp/mu300-pull.bin'" </dev/null >/dev/null
+    adb shell "/debug_ramdisk/su -c 'cat $T/openf50root/$os/etc/shadow > /data/local/tmp/openf50-pull.bin'" </dev/null >/dev/null
+    adb pull /data/local/tmp/openf50-pull.bin "$tmp" >/dev/null 2>&1
+    adb shell "/debug_ramdisk/su -c 'rm -f /data/local/tmp/openf50-pull.bin'" </dev/null >/dev/null
     [ -s "$tmp" ] || { rm -f "$tmp"; die "$os: could not read /etc/shadow"; }
     HASH=$HASH USER=$user python3 - "$tmp" <<'PY' || { rm -f "$tmp"; die "$os: no line for that account in /etc/shadow"; }
 import os, sys
@@ -104,8 +104,8 @@ PY
     adb push "$tmp" $T/shadow.new >/dev/null
     rm -f "$tmp"
     # write through the existing file so owner and mode stay as they are
-    su_do "cat $T/shadow.new > $T/mu300root/$os/etc/shadow && rm -f $T/shadow.new"
-    ok=$(adb shell "/debug_ramdisk/su -c 'cat $T/mu300root/$os/etc/shadow'" </dev/null | tr -d '\r' | awk -F: -v u="$user" '$1 == u && $2 ~ /^\$6\$/ {n++} END {print n + 0}')
+    su_do "cat $T/shadow.new > $T/openf50root/$os/etc/shadow && rm -f $T/shadow.new"
+    ok=$(adb shell "/debug_ramdisk/su -c 'cat $T/openf50root/$os/etc/shadow'" </dev/null | tr -d '\r' | awk -F: -v u="$user" '$1 == u && $2 ~ /^\$6\$/ {n++} END {print n + 0}')
     [ "$ok" = 1 ] || die "$os: the password line was not rewritten"
     say "$os: password of \"$user\" reset"
 done

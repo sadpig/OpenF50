@@ -3,7 +3,7 @@ name: Magisk installers
 # The Magisk zips of a release (tools/make-magisk-zips.sh): built from the release's own published assets as soon as
 # it is published (a prerelease too, which is how a release is tried first), tested, and attached to it. For an
 # existing release: Actions > Magisk installers > Run workflow, with its tag. The zips are checked out from the tag,
-# so the installer always matches the init and mu300-update of the release it installs.
+# so the installer always matches the init and openf50-update of the release it installs.
 on:
   release:
     types: [published]
@@ -45,11 +45,11 @@ jobs:
         run: |
           mkdir -p "release/$TAG"
           gh release download "$TAG" -R "$GITHUB_REPOSITORY" -D "release/$TAG" \
-            -p SHA256SUMS -p 'mu300-*.tar.gz' -p mu300-update
+            -p SHA256SUMS -p 'openf50-*.tar.gz' -p openf50-update
           (cd "release/$TAG" && sha256sum -c SHA256SUMS)
       - name: Build
         run: sh tools/make-magisk-zips.sh "release/$TAG" out "$TAG"
       - name: Test the zips
-        run: cd tests && MU300_MAGISK_ZIPS="$GITHUB_WORKSPACE/out" python3 -m unittest test_magisk_zip -v
+        run: cd tests && OPENF50_MAGISK_ZIPS="$GITHUB_WORKSPACE/out" python3 -m unittest test_magisk_zip -v
       - name: Attach to the release
         run: gh release upload "$TAG" -R "$GITHUB_REPOSITORY" --clobber out/*.zip out/SHA256SUMS-magisk

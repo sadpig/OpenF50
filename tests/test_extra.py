@@ -1,6 +1,6 @@
 """Extras: optional components (the VPN engines) that are not part of the images and live on the Linux partition
-(MU300_DISK/extra/<name>). mu300-update installs and updates them (sourced with MU300_LIB=1 against a fake partition),
-mu300-extra is the command, and both systems' boot runs `mu300-extra link`."""
+(OPENF50_DISK/extra/<name>). openf50-update installs and updates them (sourced with OPENF50_LIB=1 against a fake partition),
+openf50-extra is the command, and both systems' boot runs `openf50-extra link`."""
 import hashlib
 import io
 import json
@@ -34,40 +34,40 @@ class ExtrasBase(ShellTest):
         super().setUp()
         self.disk = self.tmp / 'disk'
         for os_ in ('ubuntu', 'openwrt'):
-            (self.disk / os_ / 'etc/mu300').mkdir(parents=True)
+            (self.disk / os_ / 'etc/openf50').mkdir(parents=True)
         self.root = self.tmp / 'root'
-        (self.root / 'run/mu300').mkdir(parents=True)
-        (self.root / 'run/mu300/device').write_text('f50\n')
+        (self.root / 'run/openf50').mkdir(parents=True)
+        (self.root / 'run/openf50/device').write_text('f50\n')
         self.links = self.tmp / 'links'
         self.links.mkdir()
         self.stub('id', 'echo 0')
 
     def up(self, shell, code, **env):
-        return self.sh(shell, f'. "{BIN}/mu300-update"; {code}', MU300_LIB=1, MU300_DISK=self.disk, MU300_BIN=BIN,
-                       MU300_SYSROOT=self.root, **env)
+        return self.sh(shell, f'. "{BIN}/openf50-update"; {code}', OPENF50_LIB=1, OPENF50_DISK=self.disk, OPENF50_BIN=BIN,
+                       OPENF50_SYSROOT=self.root, **env)
 
     def ex(self, shell, *args, **env):
-        e = dict(MU300_DISK=self.disk, MU300_BIN=BIN, MU300_SYSROOT=self.root, MU300_LINKDIR=self.links,
-                 MU300_OPT=BIN.parent, MU300_FETCH_DELAY=0)
+        e = dict(OPENF50_DISK=self.disk, OPENF50_BIN=BIN, OPENF50_SYSROOT=self.root, OPENF50_LINKDIR=self.links,
+                 OPENF50_OPT=BIN.parent, OPENF50_FETCH_DELAY=0)
         e.update(env)
-        return self.script(shell, BIN / 'mu300-extra', *args, **e)
+        return self.script(shell, BIN / 'openf50-extra', *args, **e)
 
     def baked(self, os_, enabled):
         """an installed system from before extras: engines in its image, and vpn.conf ENABLE=1 or 0"""
-        b = self.disk / os_ / 'opt/mu300/bin'
+        b = self.disk / os_ / 'opt/openf50/bin'
         b.mkdir(parents=True, exist_ok=True)
         for e in ENGINES:
             (b / e).write_text(f'#!/bin/sh\necho baked {e}\n')
             (b / e).chmod(0o755)
-        (self.disk / os_ / 'etc/mu300/vpn.conf').write_text(f'ENABLE={enabled}\nVLESS_URI="vless://x@y"\n')
-        (self.disk / os_ / 'etc/mu300/image-version').write_text('v2026.10.06\n')
+        (self.disk / os_ / 'etc/openf50/vpn.conf').write_text(f'ENABLE={enabled}\nVLESS_URI="vless://x@y"\n')
+        (self.disk / os_ / 'etc/openf50/image-version').write_text('v2026.10.06\n')
 
     def vpn(self):
         return self.disk / 'extra' / 'vpn'
 
 
 class Extras(ExtrasBase):
-    # ---- mu300-update: the core -----------------------------------------------------------------------------
+    # ---- openf50-update: the core -----------------------------------------------------------------------------
     def test_unpack_installs_and_replaces(self):
         for shell in self.each_shell():
             old = extra_tarball(self.tmp / 'old.tar.gz', release='v2026.10.01')
@@ -123,9 +123,9 @@ class Extras(ExtrasBase):
         ]
         for shell in self.each_shell():
             for inst, enable, todo, want in cases:
-                (self.disk / 'ubuntu/etc/mu300/vpn.conf').unlink(missing_ok=True)
+                (self.disk / 'ubuntu/etc/openf50/vpn.conf').unlink(missing_ok=True)
                 if enable is not None:
-                    (self.disk / 'ubuntu/etc/mu300/vpn.conf').write_text(f'ENABLE={enable}\n')
+                    (self.disk / 'ubuntu/etc/openf50/vpn.conf').write_text(f'ENABLE={enable}\n')
                 self.up(shell, f'rm -rf "{self.disk}/extra"')
                 if inst:
                     self.up(shell, f'extra_unpack vpn "{extra_tarball(self.tmp / "i.tar.gz", release=inst)}"')
@@ -140,35 +140,35 @@ class Extras(ExtrasBase):
                 self.up(shell, f'rm -rf "{self.disk}/extra" "{self.disk}/ubuntu.old"')
                 self.baked('ubuntu', 1)
                 os.rename(self.disk / 'ubuntu', self.disk / 'ubuntu.old')
-                (self.disk / 'ubuntu/etc/mu300').mkdir(parents=True)
-                (self.disk / 'ubuntu/etc/mu300/vpn.conf').write_text('ENABLE=1\n')
-                stage = self.disk / '.mu300-update'
+                (self.disk / 'ubuntu/etc/openf50').mkdir(parents=True)
+                (self.disk / 'ubuntu/etc/openf50/vpn.conf').write_text('ENABLE=1\n')
+                stage = self.disk / '.openf50-update'
                 stage.mkdir(exist_ok=True)
                 if fetched:
-                    extra_tarball(stage / 'mu300-extra-vpn.tar.gz', release='v2026.10.10')
+                    extra_tarball(stage / 'openf50-extra-vpn.tar.gz', release='v2026.10.10')
                 got = 'vpn' if fetched else ''
                 r = self.up(shell, f'extras_install v2026.10.10 "ubuntu" "{got}"; echo "rc=$?"; extra_release vpn')
                 self.assertEqual(r.stdout.split()[-2:], ['rc=0', 'v2026.10.10' if fetched else 'v2026.10.06'],
                                  (fetched, r.stdout, r.stderr))
                 self.assertTrue(os.access(self.vpn() / 'bin/xray', os.X_OK))
-                self.assertFalse((stage / 'mu300-extra-vpn.tar.gz').exists())
+                self.assertFalse((stage / 'openf50-extra-vpn.tar.gz').exists())
 
     def test_fetch_verified_takes_another_server(self):
         self.stub('curl', 'for a; do last=$a; done; echo "$last" >> "$STUBLOG/urls"; '
                           'case $last in */SHA256SUMS) echo "0000  x" ;; esac; exit 0')
         for shell in self.each_shell():
             (self.tmp / 'urls').unlink(missing_ok=True)
-            self.up(shell, 'fetch_verified v1 x >/dev/null 2>&1', MU300_RELEASE_URL='http://10.0.0.2:8000/rel')
+            self.up(shell, 'fetch_verified v1 x >/dev/null 2>&1', OPENF50_RELEASE_URL='http://10.0.0.2:8000/rel')
             urls = (self.tmp / 'urls').read_text().split()
             self.assertEqual(urls[0], 'http://10.0.0.2:8000/rel/SHA256SUMS')
 
-    # ---- mu300-extra ---------------------------------------------------------------------------------------
+    # ---- openf50-extra ---------------------------------------------------------------------------------------
     def serve(self, release='v2026.10.10', assets=None):
         """a release on a 'server': a directory curl (stubbed) reads from, with its SHA256SUMS"""
         d = self.tmp / 'server' / release
         d.mkdir(parents=True, exist_ok=True)
         if assets is None:
-            assets = {'mu300-extra-vpn.tar.gz': extra_tarball(self.tmp / 'payload.tar.gz', release=release)}
+            assets = {'openf50-extra-vpn.tar.gz': extra_tarball(self.tmp / 'payload.tar.gz', release=release)}
         sums = []
         for name, src in assets.items():
             data = src.read_bytes()
@@ -188,29 +188,29 @@ class Extras(ExtrasBase):
         for shell in self.each_shell():
             self.up(shell, f'rm -rf "{self.disk}/extra"')
             for os_ in ('ubuntu', 'openwrt'):
-                (self.disk / os_ / 'etc/mu300/image-version').write_text('v2026.10.10\n')
-            (self.root / 'etc/mu300').mkdir(parents=True, exist_ok=True)
-            (self.root / 'etc/mu300/image-version').write_text('v2026.10.10\n')
+                (self.disk / os_ / 'etc/openf50/image-version').write_text('v2026.10.10\n')
+            (self.root / 'etc/openf50').mkdir(parents=True, exist_ok=True)
+            (self.root / 'etc/openf50/image-version').write_text('v2026.10.10\n')
             r = self.ex(shell, 'install', 'vpn')
             self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
             self.assertEqual((self.vpn() / 'release').read_text().strip(), 'v2026.10.10')
-            self.assertIn('/v2026.10.10/mu300-extra-vpn.tar.gz', (self.tmp / 'urls').read_text())
+            self.assertIn('/v2026.10.10/openf50-extra-vpn.tar.gz', (self.tmp / 'urls').read_text())
             # the commands are on the PATH
             self.assertEqual(os.readlink(self.links / 'xray'), str(self.vpn() / 'bin/xray'))
             st = self.ex(shell, 'status')
             self.assertIn('vpn', st.stdout)
             self.assertIn('v2026.10.10', st.stdout)
             # the download is not left behind
-            self.assertFalse((self.disk / '.mu300-extra').exists())
+            self.assertFalse((self.disk / '.openf50-extra').exists())
 
     def test_install_falls_back_to_the_newest_release(self):
-        # a system from before extras (v2026.10.06 has no mu300-extra-vpn.tar.gz) takes the newest release's
+        # a system from before extras (v2026.10.06 has no openf50-extra-vpn.tar.gz) takes the newest release's
         other = self.tmp / 'other'
         other.write_text('x')
-        self.serve('v2026.10.06', assets={'mu300-update': other})
+        self.serve('v2026.10.06', assets={'openf50-update': other})
         self.serve('v2026.10.10')
-        (self.root / 'etc/mu300').mkdir(parents=True, exist_ok=True)
-        (self.root / 'etc/mu300/image-version').write_text('v2026.10.06\n')
+        (self.root / 'etc/openf50').mkdir(parents=True, exist_ok=True)
+        (self.root / 'etc/openf50/image-version').write_text('v2026.10.06\n')
         for shell in self.each_shell():
             self.up(shell, f'rm -rf "{self.disk}/extra"')
             r = self.ex(shell, 'install', 'vpn')
@@ -219,18 +219,18 @@ class Extras(ExtrasBase):
 
     def test_install_refuses_a_bad_checksum(self):
         d = self.serve('v2026.10.10')
-        (d / 'mu300-extra-vpn.tar.gz').write_bytes(b'tampered')
-        (self.root / 'etc/mu300').mkdir(parents=True, exist_ok=True)
-        (self.root / 'etc/mu300/image-version').write_text('v2026.10.10\n')
+        (d / 'openf50-extra-vpn.tar.gz').write_bytes(b'tampered')
+        (self.root / 'etc/openf50').mkdir(parents=True, exist_ok=True)
+        (self.root / 'etc/openf50/image-version').write_text('v2026.10.10\n')
         for shell in self.each_shell():
-            r = self.ex(shell, 'install', 'vpn', MU300_RELEASE='v2026.10.10')
+            r = self.ex(shell, 'install', 'vpn', OPENF50_RELEASE='v2026.10.10')
             self.assertNotEqual(r.returncode, 0)
             self.assertFalse(self.vpn().exists())
 
     def test_install_from_a_local_file_and_remove(self):
         f = extra_tarball(self.tmp / 'local.tar.gz', release='dev')
         for shell in self.each_shell():
-            r = self.ex(shell, 'install', 'vpn', MU300_EXTRA_FILE=f)
+            r = self.ex(shell, 'install', 'vpn', OPENF50_EXTRA_FILE=f)
             self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
             self.assertTrue(os.path.islink(self.links / 'sing-box'))
             # a file of the user's own with the same name is never replaced
@@ -248,17 +248,17 @@ class Extras(ExtrasBase):
         f = extra_tarball(self.tmp / 'local.tar.gz', release='dev')
         for os_ in ('ubuntu', 'openwrt'):
             shutil.rmtree(self.disk / os_)
-        (self.disk / 'openwrt-luci/etc/mu300').mkdir(parents=True)
+        (self.disk / 'openwrt-luci/etc/openf50').mkdir(parents=True)
         for shell in self.each_shell():
-            r = self.ex(shell, 'install', 'vpn', MU300_EXTRA_FILE=f)
+            r = self.ex(shell, 'install', 'vpn', OPENF50_EXTRA_FILE=f)
             self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
 
     def test_remove_refuses_while_the_vpn_is_on(self):
         f = extra_tarball(self.tmp / 'local.tar.gz', release='dev')
-        (self.root / 'etc/mu300').mkdir(parents=True, exist_ok=True)
-        (self.root / 'etc/mu300/vpn.conf').write_text('ENABLE=1\n')
+        (self.root / 'etc/openf50').mkdir(parents=True, exist_ok=True)
+        (self.root / 'etc/openf50/vpn.conf').write_text('ENABLE=1\n')
         for shell in self.each_shell():
-            r = self.ex(shell, 'install', 'vpn', MU300_EXTRA_FILE=f)
+            r = self.ex(shell, 'install', 'vpn', OPENF50_EXTRA_FILE=f)
             self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
             r = self.ex(shell, 'remove', 'vpn')
             self.assertNotEqual(r.returncode, 0)
@@ -301,8 +301,8 @@ class Extras(ExtrasBase):
             os.symlink('/somewhere/else', self.links / 'mine')
             r = self.ex(shell, 'link')
             self.assertEqual(r.returncode, 0, r.stderr)
-            self.assertEqual(os.readlink(self.links / 'mu300-ussd'), str(BIN / 'mu300-ussd'))
-            self.assertEqual(os.readlink(self.links / 'mu300-extra'), str(BIN / 'mu300-extra'))
+            self.assertEqual(os.readlink(self.links / 'openf50-ussd'), str(BIN / 'openf50-ussd'))
+            self.assertEqual(os.readlink(self.links / 'openf50-extra'), str(BIN / 'openf50-extra'))
             self.assertFalse(os.path.lexists(self.links / 'tool'))
             self.assertTrue(os.path.lexists(self.links / 'mine'))
 
@@ -311,22 +311,22 @@ class Extras(ExtrasBase):
             self.up(shell, f'rm -rf "{self.disk}/extra" "{self.disk}/ubuntu.old"')
             self.baked('ubuntu', 1)
             os.rename(self.disk / 'ubuntu', self.disk / 'ubuntu.old')
-            (self.disk / 'ubuntu/etc/mu300').mkdir(parents=True)
-            r = self.ex(shell, 'adopt', 'vpn', MU300_RUNNING_OS='ubuntu')
+            (self.disk / 'ubuntu/etc/openf50').mkdir(parents=True)
+            r = self.ex(shell, 'adopt', 'vpn', OPENF50_RUNNING_OS='ubuntu')
             self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
             self.assertTrue(os.access(self.vpn() / 'bin/xray', os.X_OK))
-            # nothing to take: fails, quietly enough for mu300-vpn to try the download next
+            # nothing to take: fails, quietly enough for openf50-vpn to try the download next
             self.up(shell, f'rm -rf "{self.disk}/extra" "{self.disk}/ubuntu.old"')
-            r = self.ex(shell, 'adopt', 'vpn', MU300_RUNNING_OS='ubuntu')
+            r = self.ex(shell, 'adopt', 'vpn', OPENF50_RUNNING_OS='ubuntu')
             self.assertNotEqual(r.returncode, 0)
             import shutil
             shutil.rmtree(self.disk / 'ubuntu')
-            (self.disk / 'ubuntu/etc/mu300').mkdir(parents=True)
+            (self.disk / 'ubuntu/etc/openf50').mkdir(parents=True)
 
 
 
 LANGS = {'de': 'Deutsch (German)', 'pt_br': 'Português do Brasil (Brazilian Portuguese)', 'ja': '日本語 (Japanese)'}
-LMOS = ('base.de.lmo', 'firewall.de.lmo', 'mu300.de.lmo', 'base.pt-br.lmo', 'base.ja.lmo', 'mu300.ja.lmo')
+LMOS = ('base.de.lmo', 'firewall.de.lmo', 'openf50.de.lmo', 'base.pt-br.lmo', 'base.ja.lmo', 'openf50.ja.lmo')
 
 
 def lang_tarball(path, release='v2026.10.10', langs=None, lmos=LMOS, extra=(), lines=None, manifest=True,
@@ -360,7 +360,7 @@ def lang_tarball(path, release='v2026.10.10', langs=None, lmos=LMOS, extra=(), l
     return path
 
 
-# uci as far as mu300-extra uses it, on a JSON file of "config.section[.option]" -> value
+# uci as far as openf50-extra uses it, on a JSON file of "config.section[.option]" -> value
 UCI = r"""
 import json, os, sys
 db = os.environ['UCI_DB']
@@ -394,7 +394,7 @@ json.dump(d, open(db, 'w'))
 
 class LangExtra(ExtrasBase):
     """the lang extra: LuCI's and the panel's catalogs in many languages, linked into LuCI and registered in
-    luci.languages by mu300-extra (install, link at boot, lang enable/disable, remove)"""
+    luci.languages by openf50-extra (install, link at boot, lang enable/disable, remove)"""
 
     def setUp(self):
         super().setUp()
@@ -402,12 +402,12 @@ class LangExtra(ExtrasBase):
         (self.root / 'etc/openwrt_release').write_text("DISTRIB_ID='OpenWrt'\n")
         self.i18n = self.root / 'usr/lib/lua/luci/i18n'
         self.i18n.mkdir(parents=True)
-        for n in ('base.tr.lmo', 'mu300.tr.lmo', 'base.zh-cn.lmo'):
+        for n in ('base.tr.lmo', 'openf50.tr.lmo', 'base.zh-cn.lmo'):
             (self.i18n / n).write_text('image')
         (self.stubs / 'uci.py').write_text(UCI)
         self.stub('uci', f'exec python3 "{self.stubs}/uci.py" "$@"')
         self.reset_uci()
-        self.file = lang_tarball(self.tmp / 'mu300-extra-lang.tar.gz')
+        self.file = lang_tarball(self.tmp / 'openf50-extra-lang.tar.gz')
         self.secret = self.tmp / 'secret'
         self.secret.write_text('root:x:0')
 
@@ -428,7 +428,7 @@ class LangExtra(ExtrasBase):
 
     def clean(self, shell):
         self.up(shell, f'rm -rf "{self.disk}/extra"')
-        (self.root / 'etc/mu300/languages').unlink(missing_ok=True)
+        (self.root / 'etc/openf50/languages').unlink(missing_ok=True)
         for p in self.i18n.iterdir():
             if p.is_symlink():
                 p.unlink()
@@ -457,7 +457,7 @@ class LangExtra(ExtrasBase):
             ('markup as the release', dict(release='<img src=x onerror=alert(1)>')),
             ('a catalog that is a directory', dict(extra=[('./i18n/base.fr.lmo', b'', tarfile.DIRTYPE)])),
             ('a catalog the manifest does not list', dict(extra=[('./i18n/base.fr.lmo', b'x')])),
-            ('a catalog with other bytes than the manifest says', dict(tamper='./i18n/mu300.de.lmo')),
+            ('a catalog with other bytes than the manifest says', dict(tamper='./i18n/openf50.de.lmo')),
             ('no manifest', dict(manifest=False)),
         ]
         for shell in self.each_shell():
@@ -584,7 +584,7 @@ class LangExtra(ExtrasBase):
             self.clean(shell)
             # a catalog of the user's own (an apk-installed luci-i18n-base-ja) is never replaced
             (self.i18n / 'base.ja.lmo').write_text('mine')
-            r = self.ex(shell, 'install', 'lang', MU300_EXTRA_FILE=self.file)
+            r = self.ex(shell, 'install', 'lang', OPENF50_EXTRA_FILE=self.file)
             self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
             for n in LMOS:
                 if n != 'base.ja.lmo':
@@ -603,14 +603,14 @@ class LangExtra(ExtrasBase):
     def test_enable_and_disable(self):
         for shell in self.each_shell():
             self.clean(shell)
-            self.ex(shell, 'install', 'lang', MU300_EXTRA_FILE=self.file)
+            self.ex(shell, 'install', 'lang', OPENF50_EXTRA_FILE=self.file)
             self.reset_uci('de')                                      # LuCI set to German
             self.ex(shell, 'link')
             r = self.ex(shell, 'lang', 'disable', 'de', 'ja')
             self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
-            self.assertEqual((self.root / 'etc/mu300/languages').read_text(), 'pt_br\n')
+            self.assertEqual((self.root / 'etc/openf50/languages').read_text(), 'pt_br\n')
             self.assertFalse(os.path.lexists(self.i18n / 'base.de.lmo'))
-            self.assertFalse(os.path.lexists(self.i18n / 'mu300.ja.lmo'))
+            self.assertFalse(os.path.lexists(self.i18n / 'openf50.ja.lmo'))
             self.assertTrue(os.path.islink(self.i18n / 'base.pt-br.lmo'))
             langs, cur = self.uci()
             self.assertEqual(sorted(langs), ['pt_br', 'tr', 'zh_cn'], shell)
@@ -622,20 +622,20 @@ class LangExtra(ExtrasBase):
             self.assertEqual(sorted(self.uci()[0]), ['tr', 'zh_cn'], shell)
             self.assertEqual([p.name for p in self.i18n.iterdir() if p.is_symlink()], [])
             r = self.ex(shell, 'lang', 'enable', 'all')
-            self.assertFalse((self.root / 'etc/mu300/languages').exists())
+            self.assertFalse((self.root / 'etc/openf50/languages').exists())
             self.assertEqual(sorted(self.uci()[0]), ['de', 'ja', 'pt_br', 'tr', 'zh_cn'], shell)
             # only codes of the extra, one argument each
             for bad in ('fr', 'de;reboot', '../de', '-x', 'all de'):
                 r = self.ex(shell, 'lang', 'enable', *bad.split(' '))
                 self.assertNotEqual(r.returncode, 0, (shell, bad))
-            self.assertFalse((self.root / 'etc/mu300/languages').exists())
+            self.assertFalse((self.root / 'etc/openf50/languages').exists())
 
     def test_link_at_boot_after_an_update(self):
-        # a new system image has none of the links; its first boot (mu300-post: mu300-extra link) brings back the
-        # languages this system offered, from the kept /etc/mu300/languages
+        # a new system image has none of the links; its first boot (openf50-post: openf50-extra link) brings back the
+        # languages this system offered, from the kept /etc/openf50/languages
         for shell in self.each_shell():
             self.clean(shell)
-            self.ex(shell, 'install', 'lang', MU300_EXTRA_FILE=self.file)
+            self.ex(shell, 'install', 'lang', OPENF50_EXTRA_FILE=self.file)
             self.ex(shell, 'lang', 'disable', 'pt_br')
             for p in self.i18n.iterdir():
                 if p.is_symlink():
@@ -644,7 +644,7 @@ class LangExtra(ExtrasBase):
             r = self.ex(shell, 'link')
             self.assertEqual(r.returncode, 0, r.stderr)
             self.assertEqual(sorted(self.uci()[0]), ['de', 'ja', 'tr', 'zh_cn'], shell)
-            self.assertTrue(os.path.islink(self.i18n / 'mu300.de.lmo'))
+            self.assertTrue(os.path.islink(self.i18n / 'openf50.de.lmo'))
             self.assertFalse(os.path.lexists(self.i18n / 'base.pt-br.lmo'))
             # nothing changed: nothing committed
             (self.tmp / 'commits').unlink()
@@ -655,12 +655,12 @@ class LangExtra(ExtrasBase):
         for shell in self.each_shell():
             self.clean(shell)
             (self.i18n / 'base.de.lmo').write_text('mine')            # German stays: a catalog of its own
-            self.ex(shell, 'install', 'lang', MU300_EXTRA_FILE=self.file)
+            self.ex(shell, 'install', 'lang', OPENF50_EXTRA_FILE=self.file)
             self.ex(shell, 'lang', 'disable', 'ja')
             r = self.ex(shell, 'remove', 'lang')
             self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
             self.assertFalse(self.lang().exists())
-            self.assertFalse((self.root / 'etc/mu300/languages').exists())
+            self.assertFalse((self.root / 'etc/openf50/languages').exists())
             self.assertEqual([p.name for p in self.i18n.iterdir() if p.is_symlink()], [], shell)
             self.assertEqual(sorted(self.uci()[0]), ['de', 'tr', 'zh_cn'], shell)
             (self.i18n / 'base.de.lmo').unlink()
@@ -672,7 +672,7 @@ class LangExtra(ExtrasBase):
         (self.root / 'etc/openwrt_release').unlink()
         for shell in self.each_shell():
             self.clean(shell)
-            r = self.ex(shell, 'install', 'lang', MU300_EXTRA_FILE=self.file)
+            r = self.ex(shell, 'install', 'lang', OPENF50_EXTRA_FILE=self.file)
             self.assertNotEqual(r.returncode, 0)
             self.assertIn('OpenWrt only', r.stderr)
             self.assertFalse(self.lang().exists())

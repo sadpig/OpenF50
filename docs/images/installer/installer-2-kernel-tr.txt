@@ -1,4 +1,4 @@
-$ MU300_LANG=tr ./install.sh
+$ OPENF50_LANG=tr ./install.sh
   ...
 
 ==> Hangi çekirdek?
@@ -7,7 +7,7 @@ $ MU300_LANG=tr ./install.sh
            aynı işlevler (hotspot, mobil veri, SMS, Bluetooth, VPN, GPU); USB-C görüntü çıkışı henüz yok
   3) 7.2   en yeni kararlı ana hat (mainline) Linux (şimdilik 7.2): en yeni sürücüler, 6.18 ile aynı
            işlevler; 6.18'den daha az test edildi
-  Bu seçim sonradan cihazda değiştirilebilir: sudo mu300-update kernel 5.4|6.18|7.2
+  Bu seçim sonradan cihazda değiştirilebilir: sudo openf50-update kernel 5.4|6.18|7.2
 Çekirdek [1]: 2
 
   çekirdek:       6.18 (mainline, 6.18.54)

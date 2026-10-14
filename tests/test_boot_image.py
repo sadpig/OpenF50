@@ -1,4 +1,4 @@
-"""boot/build-boot-image.py: the generic ramdisk segment (what every release and mu300-update ship) holds init,
+"""boot/build-boot-image.py: the generic ramdisk segment (what every release and openf50-update ship) holds init,
 the modules of boot/module-order.txt and, for another device, its own modules, order and kernel release."""
 import shutil
 import struct
@@ -57,7 +57,7 @@ def cpio_files(data):
 
 class Fixtures(unittest.TestCase):
     def setUp(self):
-        self.tmp = Path(tempfile.mkdtemp(prefix='mu300-bootimg-'))
+        self.tmp = Path(tempfile.mkdtemp(prefix='openf50-bootimg-'))
         self.mods = self.tmp / 'modules'
         self.u30 = self.tmp / 'modules-u30air'
         for d in (self.mods, self.u30):
@@ -97,9 +97,9 @@ class GenericRamdisk(Fixtures):
         self.assertEqual(files['etc/module-order'][1], (BOOT / 'module-order.txt').read_bytes())
         for n in (BOOT / 'module-order.txt').read_text().split():
             self.assertIn('linux-modules/' + n, files)
-        self.assertNotIn('etc/mu300-device', files)
-        # an empty trial guard: disarms one an experiment left in the device segment that mu300-update keeps
-        self.assertEqual(files['etc/mu300-trial-guard'][1], b'')
+        self.assertNotIn('etc/openf50-device', files)
+        # an empty trial guard: disarms one an experiment left in the device segment that openf50-update keeps
+        self.assertEqual(files['etc/openf50-trial-guard'][1], b'')
         self.assertFalse([f for f in files if f.startswith('linux-modules/u30air/')])
 
     def test_device_modules(self):
@@ -144,7 +144,7 @@ class GenericRamdisk(Fixtures):
 
 
 def fake_stock(path, size=4 << 20, vbmeta_offset=1 << 20, vbmeta=b'V' * 2304):
-    """An Android boot image header v4 with an AVB footer, as far as build-boot-image.py and mu300-update read it."""
+    """An Android boot image header v4 with an AVB footer, as far as build-boot-image.py and openf50-update read it."""
     img = bytearray(size)
     img[0:8] = b'ANDROID!'
     struct.pack_into('<I', img, 40, 4)
@@ -203,12 +203,12 @@ class SlotBlocks(Fixtures):
             self.assertEqual(files[name][1], data, name)
 
     def test_slot_default_and_choice(self):
-        self.assertEqual(self.image()['etc/mu300-linux-slot'][1], b'b\n')
-        self.assertEqual(self.image('--linux-slot', 'a')['etc/mu300-linux-slot'][1], b'a\n')
+        self.assertEqual(self.image()['etc/openf50-linux-slot'][1], b'b\n')
+        self.assertEqual(self.image('--linux-slot', 'a')['etc/openf50-linux-slot'][1], b'a\n')
 
     def test_header_says_linux(self):
         # loglevel=5 in the header's command line is how the Magisk switch tells our image from another Android
-        # (after an OTA the other slot holds the previous one); mu300-update keeps the header page as it is
+        # (after an OTA the other slot holds the previous one); openf50-update keeps the header page as it is
         for extra in ((), ('--linux-slot', 'a')):
             self.image(*extra)
             hdr = (self.tmp / 'boot.img').read_bytes()[:4096]

@@ -1,5 +1,5 @@
 #!/bin/sh
-# Download the pinned sing-box release (static musl arm64) used by mu300-vpn and verify it.
+# Download the pinned sing-box release (static musl arm64) used by openf50-vpn and verify it.
 #   tools/fetch-sing-box.sh [OUT]   (default: ./sing-box, picked up by the rootfs builds)
 set -eu
 VER=1.14.1

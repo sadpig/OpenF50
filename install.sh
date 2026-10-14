@@ -1,5 +1,5 @@
 #!/bin/sh
-# MU300 / ZTE F50 Linux installer. Run on a macOS/Linux host with the device booted in rooted Android (adb + su).
+# OPENF50 / ZTE F50 Linux installer. Run on a macOS/Linux host with the device booted in rooted Android (adb + su).
 #
 #   ./install.sh --check         only inspect the device: is the free eMMC region there and empty? (writes nothing)
 #
@@ -8,23 +8,23 @@
 # Android, so take a full backup with tools/backup-device.sh first.
 #   ./install.sh                 install Ubuntu, OpenWrt or both from the prebuilt release images
 #   ./install.sh --build         build kernel outputs/root filesystems locally instead (see README "Build and run")
-# It first brings this copy of the project up to date with GitHub (MU300_NO_SELF_UPDATE=1 skips that), and asks for
-# the language (MU300_LANG=en|tr|zh skips that).
+# It first brings this copy of the project up to date with GitHub (OPENF50_NO_SELF_UPDATE=1 skips that), and asks for
+# the language (OPENF50_LANG=en|tr|zh skips that).
 #
-# Prebuilt: needs adb, python3, lz4, curl. Downloads the images of the newest release (or $MU300_RELEASE) and checks
+# Prebuilt: needs adb, python3, lz4, curl. Downloads the images of the newest release (or $OPENF50_RELEASE) and checks
 # their sha256.
-# Build:    needs adb, docker, python3, lz4 and the kernel outputs in $MU300_KERNEL_OUT (default: out/, kernel/build-all.sh).
+# Build:    needs adb, docker, python3, lz4 and the kernel outputs in $OPENF50_KERNEL_OUT (default: out/, kernel/build-all.sh).
 # The published images contain no proprietary files: Wi-Fi/Bluetooth firmware and the Android modem/GPU userspace are
-# pulled from *your* device into $MU300_WORK (default: work/), never leave the host except to your device.
+# pulled from *your* device into $OPENF50_WORK (default: work/), never leave the host except to your device.
 set -eu
 TOP=$(cd "$(dirname "$0")" && pwd)
-KOUT=${MU300_KERNEL_OUT:-$TOP/out}
-WORK=${MU300_WORK:-$TOP/work}
+KOUT=${OPENF50_KERNEL_OUT:-$TOP/out}
+WORK=${OPENF50_WORK:-$TOP/work}
 OWRT_VER=25.12.5
 # empty: the newest published release, looked up when it is needed. It used to be a fixed tag that nobody
 # remembered to move, so new installs kept getting an old release long after fixes were published.
-RELEASE=${MU300_RELEASE:-}
-REPO=${MU300_REPO:-dikeckaan/mu300-linux}
+RELEASE=${OPENF50_RELEASE:-}
+REPO=${OPENF50_REPO:-openf50-f50/OpenF50}
 T=/data/local/tmp
 MODE=prebuilt; CHECK_ONLY=0
 for a in "$@"; do
@@ -51,7 +51,7 @@ self_update "$0" "$@"
 fetch() {
     _u=$1; _o=$2
     _len=$(curl -fsSLI "$_u" | awk 'tolower($1) == "content-length:" {print $2}' | tr -d '\r' | tail -n1)
-    _jobs=${MU300_FETCH_JOBS:-8}
+    _jobs=${OPENF50_FETCH_JOBS:-8}
     if [ -z "$_len" ] || [ "$_len" -lt 8000000 ] 2>/dev/null || [ "$_jobs" -le 1 ] 2>/dev/null; then
         curl -fL --retry 3 --progress-bar -o "$_o" "$_u"
         return
@@ -87,10 +87,10 @@ su_do() { adb shell "/debug_ramdisk/su -c '$1'" </dev/null | tr -d '\r'; }
 # correct whether or not that device's su allocates one. Reported with proof in issue #2, on a device whose
 # su does; the maintainer's does not, which is why this survived so long.
 dev_pull() {  # dev_pull DEVICE_PATH LOCAL_PATH   (DEVICE_PATH may be a block device)
-    su_do "cat $1 > /data/local/tmp/mu300-pull.bin" >/dev/null
+    su_do "cat $1 > /data/local/tmp/openf50-pull.bin" >/dev/null
     # (|| true: under set -e a failed pull ended the installer here, without the message below)
-    adb pull /data/local/tmp/mu300-pull.bin "$2" >/dev/null 2>&1 || true
-    su_do 'rm -f /data/local/tmp/mu300-pull.bin' >/dev/null
+    adb pull /data/local/tmp/openf50-pull.bin "$2" >/dev/null 2>&1 || true
+    su_do 'rm -f /data/local/tmp/openf50-pull.bin' >/dev/null
     [ -s "$2" ] || die "$(t 'could not read {1} from the device' "$1")"
 }
 
@@ -119,7 +119,7 @@ echo "$(t 'device: {1}' "$model")"
 case "$model" in
     *U30Air*|*U30_Air*|*"U30 Air"*) DEVICE=u30air ;;
     *MU300*|*F50*|*mu300*) DEVICE=f50 ;;
-    *) ask go "$(t 'This does not look like a ZTE F50/MU300 or U30 Air. Continue anyway? (yes/no)')" no; [ "$go" = yes ] || exit 1
+    *) ask go "$(t 'This does not look like a ZTE F50/OPENF50 or U30 Air. Continue anyway? (yes/no)')" no; [ "$go" = yes ] || exit 1
        DEVICE=f50 ;;
 esac
 [ "$(su_do 'getprop ro.boot.slot_suffix')" = _a ] || die "$(t 'Android must be running from slot a')"
@@ -251,7 +251,7 @@ if [ $CHECK_ONLY = 1 ]; then
     SD_MODE=0; sd_ex=no
     if [ -n "$SD_DEV" ]; then
         sd_ex=$(sd_existing)
-        echo "$(t 'SD card: {1}, {2}, existing mu300sd filesystem: {3}' "$SD_DEV" "$(gib "$SD_BYTES")" "$(t "$([ $sd_ex = yes ] && echo yes || echo no)")")"
+        echo "$(t 'SD card: {1}, {2}, existing openf50sd filesystem: {3}' "$SD_DEV" "$(gib "$SD_BYTES")" "$(t "$([ $sd_ex = yes ] && echo yes || echo no)")")"
         [ $sd_ex = foreign ] && echo "  $(t 'the SD card holds another Linux (ext4) filesystem; the installer will not format it')"
     fi
 else
@@ -272,12 +272,12 @@ if [ $SD_MODE = 0 ] && [ $SIZE -lt $((700 * 1024 * 1024)) ]; then
     offer_repartition   # exits, either by installing nothing or by rebooting for a second pass
 fi
 region_find_existing
-echo "$(t 'Linux region: offset {1}, {2}, existing mu300root filesystem: {3}' "$OFF" "$(gib $SIZE)" "$(t "$existing")")"
+echo "$(t 'Linux region: offset {1}, {2}, existing openf50root filesystem: {3}' "$OFF" "$(gib $SIZE)" "$(t "$existing")")"
 INTERNAL_EXISTS=0; [ $existing = yes ] && INTERNAL_EXISTS=1; INT_SIZE=
 if [ $SD_MODE = 1 ]; then
     # from here on SIZE and existing describe the card; OFF and INT_SIZE keep the internal region for the marker
     INT_SIZE=$SIZE; SIZE=$SD_BYTES; existing=$(sd_existing); DIRTY=0
-    echo "$(t 'Linux filesystem: SD card {1}, {2}, existing mu300sd filesystem: {3}' "$SD_DEV" "$(gib $SIZE)" "$(t "$existing")")"
+    echo "$(t 'Linux filesystem: SD card {1}, {2}, existing openf50sd filesystem: {3}' "$SD_DEV" "$(gib $SIZE)" "$(t "$existing")")"
 fi
 # unpartitioned space should be unused: sample 16 x 1 MiB across the region and count those with data. Empty is
 # 0x00 or 0xFF: an eMMC reads back what its erase leaves (EXT_CSD ERASED_MEM_CONT), and on some F50s that is 0xFF -
@@ -290,7 +290,7 @@ if [ $SD_MODE = 0 ] && [ $existing = no ]; then
     [ "$DIRTY" -gt 0 ] && echo "  $(t 'start of the region: {1}' "$(su_do "dd if=/dev/block/mmcblk0 bs=1048576 skip=$(( OFF / 1048576 )) count=1 2>/dev/null | od -An -tx1 -N32" | tr -s ' \n' ' ')")"
 fi
 if [ $existing = yes ]; then
-    verdict=$(t 'OK: a MU300 Linux installation is already present (it can be kept or replaced)')
+    verdict=$(t 'OK: a OPENF50 Linux installation is already present (it can be kept or replaced)')
 elif [ $SD_MODE = 1 ]; then
     verdict=$(t 'OK: the SD card will be formatted; everything on it is erased')
 elif [ "$DIRTY" -gt 0 ]; then
@@ -318,24 +318,24 @@ fi
 say "$(t 'What should be installed?')"
 echo "  $(t '1) Ubuntu LTS: 24.04 or 26.04, asked next (full distribution, apt, ~500 MiB RAM in use)')"
 echo "  $(t '2) OpenWrt {1} (router, LuCI web UI, ~140 MiB RAM in use)' "$OWRT_VER")"
-echo "  $(t '3) both (switch later with: mu300-os ubuntu|openwrt)')"
+echo "  $(t '3) both (switch later with: openf50-os ubuntu|openwrt)')"
 [ $SIZE -lt $NEED_BOTH ] && echo "  $(t '(this device has {1}: {2})' "$(gib $SIZE)" "$([ $SIZE -ge $NEED_UBUNTU ] && t 'one system fits, not both' || t 'only OpenWrt fits')")"
 ask choice "$(t 'Choice')" 3
 # --- choose-systems begin
-# choose_systems: OSES from $choice (1 Ubuntu, 2 OpenWrt, 3 both); OpenWrt is asked which one (MU300_OPENWRT=plain|luci
+# choose_systems: OSES from $choice (1 Ubuntu, 2 OpenWrt, 3 both); OpenWrt is asked which one (OPENF50_OPENWRT=plain|luci
 # answers without asking), "openwrt-luci" then stands in OSES instead of "openwrt"; BOOT_OS is the system that boots.
 choose_systems() {
     case $choice in 1) OSES=ubuntu ;; 2) OSES=openwrt ;; 3) OSES="ubuntu openwrt" ;; *) die "$(t 'invalid choice')" ;; esac
     case " $OSES " in *" openwrt "*)
-        case ${MU300_OPENWRT:-} in
+        case ${OPENF50_OPENWRT:-} in
             plain) _w=1 ;;
             luci) _w=2 ;;
             '')
                 say "$(t 'Which OpenWrt?')"
                 echo "  $(t '1) OpenWrt {1}: the standard LuCI web interface' "$OWRT_VER")"
-                echo "  $(t '2) OpenWrt {1} with the MU300 control panel: dashboard, cellular locks, SMS, AT terminal, USB modes (by kanoqwq)' "$OWRT_VER")"
+                echo "  $(t '2) OpenWrt {1} with the OPENF50 control panel: dashboard, cellular locks, SMS, AT terminal, USB modes (by kanoqwq)' "$OWRT_VER")"
                 ask _w "$(t 'Choice')" 1 ;;
-            *) die "$(t 'MU300_OPENWRT must be plain or luci')" ;;
+            *) die "$(t 'OPENF50_OPENWRT must be plain or luci')" ;;
         esac
         case $_w in 1) ;; 2) OSES=$(echo "$OSES" | sed 's/openwrt/openwrt-luci/') ;; *) die "$(t 'invalid choice')" ;; esac ;;
     esac
@@ -360,7 +360,7 @@ case " $OSES " in *" ubuntu "*) if [ $MODE = prebuilt ]; then
     case $uv in 1|24.04) UBUNTU=24.04 ;; 2|26.04) UBUNTU=26.04 ;; *) die "$(t 'invalid choice')" ;; esac
 fi ;; esac
 # the release file of a system: Ubuntu 26.04 has its own, 24.04 keeps the name it always had
-rootfs_file() { if [ "$1" = ubuntu ] && [ "$UBUNTU" = 26.04 ]; then echo mu300-ubuntu-26.04-rootfs.tar.gz; else echo "mu300-$1-rootfs.tar.gz"; fi; }
+rootfs_file() { if [ "$1" = ubuntu ] && [ "$UBUNTU" = 26.04 ]; then echo openf50-ubuntu-26.04-rootfs.tar.gz; else echo "openf50-$1-rootfs.tar.gz"; fi; }
 ask dl "$(t 'Boot Linux by default instead of Android (falls back to Android if Linux fails)? (yes/no)')" yes
 DEFAULT_LINUX=0; [ "$dl" = yes ] && DEFAULT_LINUX=1
 BOOT_ATTEMPTS=5
@@ -378,7 +378,7 @@ if [ $DEFAULT_LINUX = 1 ]; then
     echo "  $(t '  many times in a row.')"
     echo
     echo "  $(t "1 is how this project used to behave (a single interrupted boot returns to Android). 1-6; the device's")"
-    echo "  $(t 'boot counter has no room for more. It can be changed later with: mu300-next-boot attempts N')"
+    echo "  $(t 'boot counter has no room for more. It can be changed later with: openf50-next-boot attempts N')"
     ask BOOT_ATTEMPTS "$(t 'Failed boots before Android (1-6)')" 5
     case $BOOT_ATTEMPTS in [1-6]) ;; *) die "$(t 'enter a number from 1 to 6')" ;; esac
 fi
@@ -386,8 +386,8 @@ ask hs "$(t "Copy Android's hotspot name and password to Linux? (yes/no)")" yes 
 IMPORT_HOTSPOT=0; [ "$hs" = yes ] && IMPORT_HOTSPOT=1
 ask gpu "$(t 'Include the Mali GPU (OpenCL) userspace (~90 MiB)? (yes/no)')" yes
 # the VPN engines are not part of the systems: an extra that goes onto the Linux partition only when wanted
-echo "  $(t 'The VPN (mu300-vpn) needs the vpn extra: Xray and sing-box. It can also be added later on the device:')"
-echo "    sudo mu300-extra install vpn"
+echo "  $(t 'The VPN (openf50-vpn) needs the vpn extra: Xray and sing-box. It can also be added later on the device:')"
+echo "    sudo openf50-extra install vpn"
 ask vx "$(t 'Install the VPN extra (about 40 MB more to download, 120 MB on the device)? (yes/no)')" no
 EXTRA_VPN=
 KERNEL=5.4
@@ -398,7 +398,7 @@ if [ $MODE = prebuilt ]; then
     echo "  $(t '         functions (hotspot, mobile data, SMS, Bluetooth, VPN, GPU); no USB-C video output yet')"
     echo "  $(t '3) 7.2   the newest stable mainline Linux (7.2 for now): the newest drivers, the same functions')"
     echo "  $(t '         as 6.18; tested less than 6.18')"
-    echo "  $(t 'This can be changed later on the device: sudo mu300-update kernel 5.4|6.18|7.2')"
+    echo "  $(t 'This can be changed later on the device: sudo openf50-update kernel 5.4|6.18|7.2')"
     while :; do
         ask kchoice "$(t 'Kernel')" 1
         case $kchoice in
@@ -418,8 +418,8 @@ if [ $existing = no ]; then
     FORMAT=1
 else
     echo
-    echo "  $(t 'A MU300 Linux installation is already on this device.')"
-    echo "    $(t 'update  reinstall the systems and keep settings and data (/etc/mu300, users and home directories,')"
+    echo "  $(t 'A OPENF50 Linux installation is already on this device.')"
+    echo "    $(t 'update  reinstall the systems and keep settings and data (/etc/openf50, users and home directories,')"
     echo "    $(t '        SSH host keys, OpenWrt UCI config; the hotspot settings are kept too)')"
     echo "    $(t 'wipe    erase the Linux filesystem and install from scratch')"
     ask mode "$(t 'update or wipe')" update
@@ -443,9 +443,9 @@ printf '%s: ' "$(t 'Password for the "ubuntu" user (Ubuntu) and "root" (OpenWrt)
 mkdir -p "$WORK/dumps" "$WORK/firmware"
 say "$(t 'Pulling device data into {1} (stays on this computer)' "$WORK")"
 dev_pull /dev/block/by-name/boot_a "$WORK/dumps/boot_a.img"
-su_do 'dd if=/dev/block/by-name/misc bs=4096 count=1 2>/dev/null > /data/local/tmp/mu300-pull.bin' >/dev/null
-adb pull /data/local/tmp/mu300-pull.bin "$WORK/dumps/misc-head.bin" >/dev/null 2>&1 || true
-su_do 'rm -f /data/local/tmp/mu300-pull.bin' >/dev/null
+su_do 'dd if=/dev/block/by-name/misc bs=4096 count=1 2>/dev/null > /data/local/tmp/openf50-pull.bin' >/dev/null
+adb pull /data/local/tmp/openf50-pull.bin "$WORK/dumps/misc-head.bin" >/dev/null 2>&1 || true
+su_do 'rm -f /data/local/tmp/openf50-pull.bin' >/dev/null
 [ -s "$WORK/dumps/misc-head.bin" ] || die "$(t 'could not read the misc header from the device')"
 # what a complete subset must hold, not only the directory: an interrupted run left a partial one behind that the
 # old check then accepted for good (the same guard as install.ps1, issue #6)
@@ -471,33 +471,33 @@ fi
 if [ $MODE = prebuilt ]; then
 # ---------------------------------------------------------------- prebuilt images
 if [ -z "$RELEASE" ]; then
-    if [ -n "${MU300_RELEASE_URL:-}" ]; then RELEASE=custom
+    if [ -n "${OPENF50_RELEASE_URL:-}" ]; then RELEASE=custom
     else
         RELEASE=$(curl -fsSL "https://api.github.com/repos/$REPO/releases/latest" \
             | sed -n 's/.*"tag_name"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -n1)
-        [ -n "$RELEASE" ] || die "$(t 'cannot find the newest release of {1} (set MU300_RELEASE=<tag> to pick one)' "$REPO")"
+        [ -n "$RELEASE" ] || die "$(t 'cannot find the newest release of {1} (set OPENF50_RELEASE=<tag> to pick one)' "$REPO")"
     fi
 fi
 REL=$WORK/release/$RELEASE
 mkdir -p "$REL"
-# MU300_RELEASE_URL: another location with the same files (e.g. a local test server)
-base=${MU300_RELEASE_URL:-https://github.com/$REPO/releases/download/$RELEASE}
+# OPENF50_RELEASE_URL: another location with the same files (e.g. a local test server)
+base=${OPENF50_RELEASE_URL:-https://github.com/$REPO/releases/download/$RELEASE}
 say "$(t 'Downloading release {1}' "$RELEASE")"
 curl -fsSL -o "$REL/SHA256SUMS" "$base/SHA256SUMS" || die "$(t 'cannot download {1}' "$base/SHA256SUMS")"
-files=mu300-kernel.tar.gz
-[ "$KERNEL" = 5.4 ] || files="$files mu300-kernel-$KERNEL.tar.gz"
+files=openf50-kernel.tar.gz
+[ "$KERNEL" = 5.4 ] || files="$files openf50-kernel-$KERNEL.tar.gz"
 for os in $OSES; do files="$files $(rootfs_file $os)"; done
 if [ "$vx" = yes ]; then
     # from the same release and SHA256SUMS; a release from before extras still has the engines in its images
-    if awk '$2 == "mu300-extra-vpn.tar.gz" || $2 == "*mu300-extra-vpn.tar.gz" {f = 1} END {exit !f}' "$REL/SHA256SUMS"; then
-        files="$files mu300-extra-vpn.tar.gz"; EXTRA_VPN=$REL/mu300-extra-vpn.tar.gz
+    if awk '$2 == "openf50-extra-vpn.tar.gz" || $2 == "*openf50-extra-vpn.tar.gz" {f = 1} END {exit !f}' "$REL/SHA256SUMS"; then
+        files="$files openf50-extra-vpn.tar.gz"; EXTRA_VPN=$REL/openf50-extra-vpn.tar.gz
     else
         echo "  $(t 'release {1} has no vpn extra: its systems still carry the VPN engines' "$RELEASE")"
     fi
 fi
 for f in $files; do
     want=$(awk -v f="$f" '$2 == f || $2 == "*" f {print $1}' "$REL/SHA256SUMS")
-    [ -n "$want" ] || die "$(t '{1} is not part of release {2}' "$f" "$RELEASE")$([ "$f" = "mu300-kernel-$KERNEL.tar.gz" ] && [ "$KERNEL" != 5.4 ] && echo " $(t '(choose kernel 5.4, or a newer release)')")"
+    [ -n "$want" ] || die "$(t '{1} is not part of release {2}' "$f" "$RELEASE")$([ "$f" = "openf50-kernel-$KERNEL.tar.gz" ] && [ "$KERNEL" != 5.4 ] && echo " $(t '(choose kernel 5.4, or a newer release)')")"
     have=$( (shasum -a 256 "$REL/$f" 2>/dev/null || sha256sum "$REL/$f" 2>/dev/null) | cut -d' ' -f1)
     if [ "$have" != "$want" ]; then
         echo "  $f"
@@ -507,7 +507,7 @@ for f in $files; do
         mv "$REL/$f.part" "$REL/$f"
     fi
 done
-rm -rf "$REL/kernel" && mkdir -p "$REL/kernel" && tar -xzf "$REL/mu300-kernel.tar.gz" -C "$REL/kernel"
+rm -rf "$REL/kernel" && mkdir -p "$REL/kernel" && tar -xzf "$REL/openf50-kernel.tar.gz" -C "$REL/kernel"
 KOUT=$REL/kernel
 [ $DEVICE = f50 ] || [ -d "$KOUT/modules-$DEVICE" ] || die "$(t 'release {1} does not support this device yet; use a newer one' "$RELEASE")"
 BUSYBOX=$KOUT/busybox; LOGDW=$KOUT/logdw
@@ -515,18 +515,18 @@ BUSYBOX=$KOUT/busybox; LOGDW=$KOUT/logdw
 KMAIN=
 if [ "$KERNEL" != 5.4 ]; then
     KMAIN=$REL/kernel-$KERNEL
-    rm -rf "$KMAIN" && mkdir -p "$KMAIN" && tar -xzf "$REL/mu300-kernel-$KERNEL.tar.gz" -C "$KMAIN"
-    [ -s "$KMAIN/Image" ] && [ -s "$KMAIN/ramdisk-generic.lz4" ] && [ -s "$KMAIN/kernel.release" ] || die "$(t '{1} is incomplete' "mu300-kernel-$KERNEL.tar.gz")"
+    rm -rf "$KMAIN" && mkdir -p "$KMAIN" && tar -xzf "$REL/openf50-kernel-$KERNEL.tar.gz" -C "$KMAIN"
+    [ -s "$KMAIN/Image" ] && [ -s "$KMAIN/ramdisk-generic.lz4" ] && [ -s "$KMAIN/kernel.release" ] || die "$(t '{1} is incomplete' "openf50-kernel-$KERNEL.tar.gz")"
     # a bundle names the devices it runs on; older mainline kernels do not bring up the U30 Air's USB (FINDINGS 33c)
     [ $DEVICE = f50 ] || grep -qw $DEVICE "$KMAIN/devices" 2>/dev/null || die "$(t 'release {1} does not support this device yet; use a newer one' "$RELEASE")"
-    sd_kernel_ok "$KMAIN" || die "$(t 'the {1} kernel of release {2} cannot read the SD card: choose kernel 5.4, a newer release, or internal storage (MU300_STORAGE=internal)' "$KERNEL" "$RELEASE")"
+    sd_kernel_ok "$KMAIN" || die "$(t 'the {1} kernel of release {2} cannot read the SD card: choose kernel 5.4, a newer release, or internal storage (OPENF50_STORAGE=internal)' "$KERNEL" "$RELEASE")"
 fi
 say "$(t 'Adding the vendor files from your device to the images')"
 for os in $OSES; do
     python3 "$TOP/tools/vendor-overlay.py" --os $os --firmware "$WORK/firmware" --android-subset "$WORK/android-subset" \
       $([ -d "$WORK/android-gpu-subset" ] && [ "$gpu" = yes ] && echo --gpu-subset "$WORK/android-gpu-subset") \
       $([ -n "$KMAIN" ] && echo --kernel-bundle "$KMAIN") \
-      --out "$WORK/mu300-vendor-$os.tar.gz"
+      --out "$WORK/openf50-vendor-$os.tar.gz"
 done
 PWHASH=$(printf '%s\n' "$pw1" | python3 "$TOP/tools/sha512crypt.py")
 else
@@ -535,54 +535,54 @@ say "$(t 'Building helper binaries')"
 mkdir -p "$WORK/out" "$WORK/tools/logdw" "$WORK/tools/bt-init" "$WORK/tools/gpu"
 rm -rf "$WORK/out/modules" && cp -R "$KOUT/modules" "$WORK/out/modules"
 cp "$KOUT/modules.builtin" "$KOUT/modules.builtin.modinfo" "$WORK/out/" 2>/dev/null || true
-docker build -q -t mu300-ubuntu:24.04 "$TOP/rootfs" >/dev/null
-docker run --rm mu300-ubuntu:24.04 cat /bin/busybox > "$WORK/busybox"; chmod +x "$WORK/busybox"
-docker run --rm -v "$TOP/tools":/src:ro -v "$WORK/tools":/o mu300-kbuild sh -c '
+docker build -q -t openf50-ubuntu:24.04 "$TOP/rootfs" >/dev/null
+docker run --rm openf50-ubuntu:24.04 cat /bin/busybox > "$WORK/busybox"; chmod +x "$WORK/busybox"
+docker run --rm -v "$TOP/tools":/src:ro -v "$WORK/tools":/o openf50-kbuild sh -c '
   gcc -O2 -static -o /o/logdw/logdw /src/logdw/logdw.c &&
-  gcc -O2 -static -o /o/bt-init/mu300-bt-init /src/bt-init/mu300-bt-init.c &&
-  mkdir -p /o/keys && gcc -O2 -static -o /o/keys/mu300-keys /src/keys/mu300-keys.c'
+  gcc -O2 -static -o /o/bt-init/openf50-bt-init /src/bt-init/openf50-bt-init.c &&
+  mkdir -p /o/keys && gcc -O2 -static -o /o/keys/openf50-keys /src/keys/openf50-keys.c'
 # the VPN engines: the vpn extra, as tools/make-release.sh builds it (not part of the systems)
 if [ "$vx" = yes ]; then
-    [ -s "$WORK/mu300-extra-vpn.tar.gz" ] || sh "$TOP/tools/make-extra.sh" vpn "$WORK/mu300-extra-vpn.tar.gz"
-    EXTRA_VPN=$WORK/mu300-extra-vpn.tar.gz
+    [ -s "$WORK/openf50-extra-vpn.tar.gz" ] || sh "$TOP/tools/make-extra.sh" vpn "$WORK/openf50-extra-vpn.tar.gz"
+    EXTRA_VPN=$WORK/openf50-extra-vpn.tar.gz
 fi
 if [ -d "$WORK/android-gpu-subset" ]; then
     L=$(mktemp -d "$WORK/cllibs.XXXX")
     cp "$WORK/android-gpu-subset/vendor/lib64/libOpenCL.so" "$WORK/android-subset/apex/com.android.runtime/lib64/bionic/libc.so" \
        "$WORK/android-subset/apex/com.android.runtime/lib64/bionic/libdl.so" "$L/"
-    docker run --rm -v "$TOP/tools/gpu":/w -v "$L":/l:ro -v "$WORK/tools/gpu":/o mu300-kbuild sh -c \
+    docker run --rm -v "$TOP/tools/gpu":/w -v "$L":/l:ro -v "$WORK/tools/gpu":/o openf50-kbuild sh -c \
       'ln -sf /usr/bin/clang-12 /usr/local/bin/clang; cp -r /w /tmp/gpu && sh /tmp/gpu/build.sh /l && cp /tmp/gpu/cltest /o/'
     rm -rf "$L"
 fi
 
-# MU300_REUSE_BUILD=1 keeps rootfs tarballs from an earlier run of this script
-reuse() { [ "${MU300_REUSE_BUILD:-0}" = 1 ] && [ -s "$WORK/mu300-$1.tar.gz" ] && echo "reusing $WORK/mu300-$1.tar.gz"; }
+# OPENF50_REUSE_BUILD=1 keeps rootfs tarballs from an earlier run of this script
+reuse() { [ "${OPENF50_REUSE_BUILD:-0}" = 1 ] && [ -s "$WORK/openf50-$1.tar.gz" ] && echo "reusing $WORK/openf50-$1.tar.gz"; }
 case " $OSES " in *" ubuntu "*) reuse ubuntu || {
     say "$(t 'Building the Ubuntu root filesystem')"
     B=$(mktemp -d "$WORK/ubuntu-build.XXXX")
     tar -C "$TOP/rootfs" --exclude ./base.tar --exclude './*.tar.gz' -cf - . | tar -xf - -C "$B"
-    cid=$(docker create mu300-ubuntu:24.04 /bin/true); docker export "$cid" > "$B/base.tar"; docker rm "$cid" >/dev/null
+    cid=$(docker create openf50-ubuntu:24.04 /bin/true); docker export "$cid" > "$B/base.tar"; docker rm "$cid" >/dev/null
     gpuargs=""
     [ -d "$WORK/android-gpu-subset" ] && gpuargs="-v $WORK/android-gpu-subset:/android-gpu-subset:ro -v $WORK/tools/gpu/cltest:/cltest:ro"
     # shellcheck disable=SC2086
     docker run --rm -v "$B":/w -v "$WORK/out/modules":/kmods:ro -v "$WORK/out":/kout:ro -v "$WORK/firmware":/firmware:ro \
       -v "$WORK/android-subset":/android-subset:ro -v "$WORK/tools/logdw/logdw":/logdw:ro \
-      -v "$WORK/tools/bt-init/mu300-bt-init":/bt-init:ro -v "$WORK/tools/keys/mu300-keys":/keys:ro \
-      $gpuargs mu300-ubuntu:24.04 bash /w/assemble.sh >/dev/null
-    mv "$B/mu300-ubuntu-24.04-rootfs.tar.gz" "$WORK/mu300-ubuntu.tar.gz"; rm -rf "$B"; } ;;
+      -v "$WORK/tools/bt-init/openf50-bt-init":/bt-init:ro -v "$WORK/tools/keys/openf50-keys":/keys:ro \
+      $gpuargs openf50-ubuntu:24.04 bash /w/assemble.sh >/dev/null
+    mv "$B/openf50-ubuntu-24.04-rootfs.tar.gz" "$WORK/openf50-ubuntu.tar.gz"; rm -rf "$B"; } ;;
 esac
 for os in $OSES; do case $os in openwrt|openwrt-*) reuse $os || {
     say "$(t 'Building the OpenWrt root filesystem')"
-    MU300_SYSTEM=$os MU300_INPUTS="$WORK" sh "$TOP/openwrt/build-rootfs.sh" mu300-$os-rootfs.tar.gz >/dev/null
-    mv "$TOP/openwrt/mu300-$os-rootfs.tar.gz" "$WORK/mu300-$os.tar.gz"; } ;; esac; done
+    OPENF50_SYSTEM=$os OPENF50_INPUTS="$WORK" sh "$TOP/openwrt/build-rootfs.sh" openf50-$os-rootfs.tar.gz >/dev/null
+    mv "$TOP/openwrt/openf50-$os-rootfs.tar.gz" "$WORK/openf50-$os.tar.gz"; } ;; esac; done
 BUSYBOX=$WORK/busybox; LOGDW=$WORK/tools/logdw/logdw
-PWHASH=$(printf '%s' "$pw1" | docker run --rm -i mu300-ubuntu:24.04 openssl passwd -6 -stdin)
+PWHASH=$(printf '%s' "$pw1" | docker run --rm -i openf50-ubuntu:24.04 openssl passwd -6 -stdin)
 fi
 
 say "$(t 'Building the boot image')"
 sed "s/^ROOT_OFFSET=[0-9]*/ROOT_OFFSET=$OFF/" "$TOP/boot/init" > "$WORK/init"
 # a mainline kernel: its kernel, and its generic ramdisk segment behind this one (its init and modules win) - the
-# image that "mu300-update kernel 6.18" (or 7.2) writes on the device
+# image that "openf50-update kernel 6.18" (or 7.2) writes on the device
 python3 "$TOP/boot/build-boot-image.py" --stock-boot "$WORK/dumps/boot_a.img" --misc-head "$WORK/dumps/misc-head.bin" \
   --kernel "${KMAIN:-$KOUT}/Image" ${KMAIN:+--append-ramdisk "$KMAIN/ramdisk-generic.lz4"} \
   --modules "$KOUT/modules" --init "$WORK/init" --busybox "$BUSYBOX" --device "$DEVICE" \
@@ -609,31 +609,31 @@ ask confirm "$(t 'Type INSTALL to continue')" no
 [ "$confirm" = INSTALL ] || die "$(t 'cancelled')"
 
 say "$(t 'Copying to the device')"
-adb push "$TOP/tools/android-mount-mu300root.sh" "$TOP/tools/android-install.sh" $T/ >/dev/null
+adb push "$TOP/tools/android-mount-openf50root.sh" "$TOP/tools/android-install.sh" $T/ >/dev/null
 for os in $OSES; do
     if [ $MODE = prebuilt ]; then
-        adb push "$REL/$(rootfs_file $os)" $T/mu300-$os.tar.gz >/dev/null
-        adb push "$WORK/mu300-vendor-$os.tar.gz" $T/mu300-vendor-$os.tar.gz >/dev/null
+        adb push "$REL/$(rootfs_file $os)" $T/openf50-$os.tar.gz >/dev/null
+        adb push "$WORK/openf50-vendor-$os.tar.gz" $T/openf50-vendor-$os.tar.gz >/dev/null
     else
-        adb push "$WORK/mu300-$os.tar.gz" $T/mu300-$os.tar.gz >/dev/null
+        adb push "$WORK/openf50-$os.tar.gz" $T/openf50-$os.tar.gz >/dev/null
     fi
 done
-# android-install.sh puts every pushed mu300-extra-<name>.tar.gz onto the Linux partition (extra/<name>)
-[ -z "$EXTRA_VPN" ] || adb push "$EXTRA_VPN" $T/mu300-extra-vpn.tar.gz >/dev/null
+# android-install.sh puts every pushed openf50-extra-<name>.tar.gz onto the Linux partition (extra/<name>)
+[ -z "$EXTRA_VPN" ] || adb push "$EXTRA_VPN" $T/openf50-extra-vpn.tar.gz >/dev/null
 env=$(mktemp)
 write_install_env > "$env"
-adb push "$env" $T/mu300-install.env >/dev/null; rm -f "$env"
+adb push "$env" $T/openf50-install.env >/dev/null; rm -f "$env"
 su_do "sh $T/android-install.sh" | tee "$WORK/device-install.log"
-grep -q MU300-INSTALL-OK "$WORK/device-install.log" || die "$(t 'installation on the device failed; boot_b and misc were not changed')"
+grep -q OPENF50-INSTALL-OK "$WORK/device-install.log" || die "$(t 'installation on the device failed; boot_b and misc were not changed')"
 
 say "$(t 'Writing boot_b and arming slot b')"
 EXP=$(python3 -c "import json,sys;print(json.load(open(sys.argv[1]))['sha256'])" "$WORK/boot-linux-slotb.json")
-adb push "$WORK/boot-linux-slotb.img" $T/mu300-boot.img >/dev/null
-adb push "$WORK/boot-linux-slotb.misc-slot-b-trial.bin" $T/mu300-bc-b.bin >/dev/null
-[ "$(su_do "sha256sum $T/mu300-boot.img" | cut -d' ' -f1)" = "$EXP" ] || die "$(t 'pushed boot image hash mismatch')"
-su_do "dd if=$T/mu300-boot.img of=/dev/block/by-name/boot_b bs=4M && sync"
+adb push "$WORK/boot-linux-slotb.img" $T/openf50-boot.img >/dev/null
+adb push "$WORK/boot-linux-slotb.misc-slot-b-trial.bin" $T/openf50-bc-b.bin >/dev/null
+[ "$(su_do "sha256sum $T/openf50-boot.img" | cut -d' ' -f1)" = "$EXP" ] || die "$(t 'pushed boot image hash mismatch')"
+su_do "dd if=$T/openf50-boot.img of=/dev/block/by-name/boot_b bs=4M && sync"
 [ "$(su_do 'sha256sum /dev/block/by-name/boot_b' | cut -d' ' -f1)" = "$EXP" ] || die "$(t 'boot_b verify failed (slot a still active, Android keeps booting)')"
-su_do "dd if=$T/mu300-bc-b.bin of=/dev/block/by-name/misc bs=1 seek=2048 conv=notrunc && sync && rm $T/mu300-boot.img $T/mu300-bc-b.bin"
+su_do "dd if=$T/openf50-bc-b.bin of=/dev/block/by-name/misc bs=1 seek=2048 conv=notrunc && sync && rm $T/openf50-boot.img $T/openf50-bc-b.bin"
 
 # on-device switch for later: one command in Android instead of plugging into a computer (needs Magisk)
 say "$(t 'Installing the on-device switch (Magisk module)')"
@@ -642,6 +642,6 @@ sh "$TOP/tools/install-magisk-module.sh" || echo "  $(t '(skipped; the installer
 say "$(t 'Done. Rebooting into {1}' "$BOOT_OS")"
 IP=192.168.77.1; [ $DEVICE = u30air ] && IP=192.168.78.1
 echo "  $(t 'USB network: {1}   SSH: {2}' $IP "$([ "$BOOT_OS" = ubuntu ] && echo ubuntu@$IP || echo root@$IP, LuCI http://$IP)")"
-echo "  $(t 'switch systems: mu300-os {1}   back to Android: mu300-next-boot android' "$(echo "$OSES" | tr ' ' '|')")"
-echo "  $(t 'back to Linux from Android (with Magisk): su -c mu300-linux')"
+echo "  $(t 'switch systems: openf50-os {1}   back to Android: openf50-next-boot android' "$(echo "$OSES" | tr ' ' '|')")"
+echo "  $(t 'back to Linux from Android (with Magisk): su -c openf50-linux')"
 adb reboot </dev/null

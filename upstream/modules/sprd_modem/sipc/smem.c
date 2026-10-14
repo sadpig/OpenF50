@@ -155,7 +155,7 @@ static void *soc_modem_ram_vmap(phys_addr_t start, size_t size, E_MMAP_TYPE mtyp
 		prot = PAGE_KERNEL;
 
 	/*
-	 * MU300: the memory type matters here, not just getting a pointer. These regions are shared with the
+	 * OPENF50: the memory type matters here, not just getting a pointer. These regions are shared with the
 	 * modem, which does not snoop the AP's caches: mapped write-back, our writes stay in the cache and the
 	 * modem never sees them - it asks for its NV data, gets answers it cannot read, and never starts (the
 	 * NV server logs "fail SIZE" and modem_control gives up with "wait modem alive timeout").
@@ -574,7 +574,7 @@ int smem_init_debug(void)
 	dev_t dev_no;
 
 	/*
-	 * MU300: sprd_ipc_probe() calls this once per SIPC device (four of them), but there is one class and one
+	 * OPENF50: sprd_ipc_probe() calls this once per SIPC device (four of them), but there is one class and one
 	 * device of this name: every later call failed with "cannot create duplicate filename '/class/smem'" and a
 	 * stack dump, and leaked a chrdev region and a cdev.
 	 */

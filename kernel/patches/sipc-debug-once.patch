@@ -11,7 +11,7 @@ all but the first failed with "cannot create duplicate filename" and a stack dum
  	dev_t dev_no;
 +
 +	/*
-+	 * MU300: sprd_ipc_probe() calls this once per SIPC device, but there is one class and one device of this
++	 * OPENF50: sprd_ipc_probe() calls this once per SIPC device, but there is one class and one device of this
 +	 * name: every later call failed with "cannot create duplicate filename '/class/smem'" and a stack dump, and
 +	 * leaked a chrdev region and a cdev.
 +	 */
@@ -28,7 +28,7 @@ all but the first failed with "cannot create duplicate filename" and a stack dum
  	dev_t dev_no;
 +
 +	/*
-+	 * MU300: sprd_ipc_probe() calls this once per SIPC device, but there is one class and one device of this
++	 * OPENF50: sprd_ipc_probe() calls this once per SIPC device, but there is one class and one device of this
 +	 * name: every later call failed with "cannot create duplicate filename '/class/smsg'" and a stack dump, and
 +	 * leaked a chrdev region and a cdev.
 +	 */
@@ -45,7 +45,7 @@ all but the first failed with "cannot create duplicate filename" and a stack dum
  	dev_t dev_no;
 +
 +	/*
-+	 * MU300: sprd_ipc_probe() calls this once per SIPC device, but there is one class and one device of this
++	 * OPENF50: sprd_ipc_probe() calls this once per SIPC device, but there is one class and one device of this
 +	 * name: every later call failed with "cannot create duplicate filename '/class/sbuf'" and a stack dump, and
 +	 * leaked a chrdev region and a cdev.
 +	 */
@@ -62,7 +62,7 @@ all but the first failed with "cannot create duplicate filename" and a stack dum
  	dev_t dev_no;
 +
 +	/*
-+	 * MU300: sprd_ipc_probe() calls this once per SIPC device, but there is one class and one device of this
++	 * OPENF50: sprd_ipc_probe() calls this once per SIPC device, but there is one class and one device of this
 +	 * name: every later call failed with "cannot create duplicate filename '/class/sblock'" and a stack dump, and
 +	 * leaked a chrdev region and a cdev.
 +	 */

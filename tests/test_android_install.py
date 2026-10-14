@@ -30,7 +30,7 @@ class SdCard(ShellTest):
         fail = 'echo "Error: no volume manager" >&2; exit 3' if sm_fails else 'cat "$STUBLOG/volumes"'
         self.stub('sm', f'case "$1" in list-volumes) {fail} ;; '
                         'unmount) echo "sm unmount $2" >> "$STUBLOG/calls"; cp "$STUBLOG/volumes.after" "$STUBLOG/volumes" ;; esac')
-        code = ('say() { echo "[device] $*"; }\n' + f'MU300_MOUNTS="{self.tmp}/mounts"\nMU300_SYSFS="{self.tmp}/sys"\n'
+        code = ('say() { echo "[device] $*"; }\n' + f'OPENF50_MOUNTS="{self.tmp}/mounts"\nOPENF50_SYSFS="{self.tmp}/sys"\n'
                 + f'T="{self.tmp}"\n' + self.fn + f'\n{pre}\n{call}\necho "rc=$?"')
         r = self.sh(shell, code)
         calls = (self.tmp / 'calls').read_text() if (self.tmp / 'calls').exists() else ''
@@ -43,7 +43,7 @@ class SdCard(ShellTest):
             out, calls = self.run_fn(shell, f'sd_prepare {self.dev} 1')
             self.assertIn('rc=0\n', out)
             # a card whose size cannot be read gets mke2fs's own ratio
-            self.assertIn(f'mke2fs -t ext4 -F -b 4096 -m 0 -i 16384 -L mu300sd {self.dev}', calls)
+            self.assertIn(f'mke2fs -t ext4 -F -b 4096 -m 0 -i 16384 -L openf50sd {self.dev}', calls)
 
     def test_big_card_gets_fewer_inodes(self):
         # one inode per 16 KiB on a 128 GB card is millions of inodes and a slow, failing format: the ratio grows
@@ -56,7 +56,7 @@ class SdCard(ShellTest):
             for shell in self.each_shell():
                 out, calls = self.run_fn(shell, f'sd_prepare {self.dev} 1')
                 self.assertIn('rc=0\n', out)
-                self.assertIn(f'-m 0 -i {ratio} -L mu300sd', calls, (sectors, shell))
+                self.assertIn(f'-m 0 -i {ratio} -L openf50sd', calls, (sectors, shell))
 
     def test_foreign_ext4_is_refused(self):
         fake_ext4(self.dev, 'photos')
@@ -84,7 +84,7 @@ class SdCard(ShellTest):
             self.assertIn('mke2fs', calls)
 
     def test_existing_installation_is_kept_or_replaced(self):
-        fake_ext4(self.dev, 'mu300sd')
+        fake_ext4(self.dev, 'openf50sd')
         for shell in self.each_shell():
             out, calls = self.run_fn(shell, f'sd_prepare {self.dev} 0')
             self.assertIn('rc=0\n', out); self.assertNotIn('mke2fs', calls)
@@ -200,28 +200,28 @@ class SdCard(ShellTest):
     def test_fstab_names_the_card(self):
         r = self.tmp / 'ubuntu'
         (r / 'etc').mkdir(parents=True)
-        (r / 'etc' / 'fstab').write_text('# static\nLABEL=mu300root / ext4 defaults,noatime 0 1\n'
+        (r / 'etc' / 'fstab').write_text('# static\nLABEL=openf50root / ext4 defaults,noatime 0 1\n'
                                          'tmpfs /tmp tmpfs defaults 0 0\n')
         for shell in self.each_shell():
             out, _ = self.run_fn(shell, f'sd_fstab {r}', pre='set -e')
             self.assertIn('rc=0\n', out)
             self.assertEqual((r / 'etc' / 'fstab').read_text(),
-                             '# static\nLABEL=mu300sd / ext4 defaults,noatime 0 1\ntmpfs /tmp tmpfs defaults 0 0\n')
+                             '# static\nLABEL=openf50sd / ext4 defaults,noatime 0 1\ntmpfs /tmp tmpfs defaults 0 0\n')
             out, _ = self.run_fn(shell, f'sd_fstab {self.tmp}/openwrt', pre='set -e')   # no fstab: nothing to do
             self.assertIn('rc=0\n', out)
 
     def fake_mount_helper(self, body):
-        (self.tmp / 'android-mount-mu300root.sh').write_text(
+        (self.tmp / 'android-mount-openf50root.sh').write_text(
             'echo "helper $*" >> "$STUBLOG/calls"\n' + body + '\n')
 
     def test_internal_installation_is_marked(self):
         self.fake_mount_helper('[ "$1" = -u ] || mkdir -p "$1"')
-        mark = self.tmp / 'mu300root-internal' / '.mu300' / 'root-on-sd'
+        mark = self.tmp / 'openf50root-internal' / '.openf50' / 'root-on-sd'
         for shell in self.each_shell():
             out, calls = self.run_fn(shell, 'sd_mark_internal', pre='set -e; SD_MODE=1 OFF=1 SIZE=2 INTERNAL_EXISTS=1')
             self.assertIn('rc=0\n', out)
             self.assertTrue(mark.exists())
-            self.assertIn(f'helper -u {self.tmp}/mu300root-internal', calls)
+            self.assertIn(f'helper -u {self.tmp}/openf50root-internal', calls)
             mark.unlink()
 
     def test_marker_needs_an_internal_installation(self):
@@ -243,37 +243,37 @@ class SdCard(ShellTest):
             out, calls = self.run_fn(shell, 'sd_mark_internal', pre='set -e; SD_MODE=1 OFF=1 SIZE=2 INTERNAL_EXISTS=1')
             self.assertIn('rc=0\n', out)
             self.assertIn('helper -u', calls)
-            (self.tmp / 'mu300root-internal').unlink()
+            (self.tmp / 'openf50root-internal').unlink()
             # the directory is there but the marker is not writable (a directory in its place)
-            self.fake_mount_helper('[ "$1" = -u ] || mkdir -p "$1/.mu300/root-on-sd"')
+            self.fake_mount_helper('[ "$1" = -u ] || mkdir -p "$1/.openf50/root-on-sd"')
             out, calls = self.run_fn(shell, 'sd_mark_internal', pre='set -e; SD_MODE=1 OFF=1 SIZE=2 INTERNAL_EXISTS=1')
             self.assertIn('rc=0\n', out)
             self.assertIn('helper -u', calls)
-            shutil.rmtree(self.tmp / 'mu300root-internal')
+            shutil.rmtree(self.tmp / 'openf50root-internal')
 
     def test_internal_install_removes_a_stale_marker(self):
         # SD_MODE=0 installs into the internal filesystem; a root-on-sd left there from an earlier card
         # installation would make init wait for a card that is no longer what should boot
         m = self.tmp / 'root'
         for shell in self.each_shell():
-            (m / '.mu300').mkdir(parents=True, exist_ok=True)
-            (m / '.mu300' / 'root-on-sd').touch()
+            (m / '.openf50').mkdir(parents=True, exist_ok=True)
+            (m / '.openf50' / 'root-on-sd').touch()
             out, _ = self.run_fn(shell, f'sd_unmark {m}', pre='set -e; SD_MODE=1')
             self.assertIn('rc=0\n', out)
-            self.assertTrue((m / '.mu300' / 'root-on-sd').exists())
+            self.assertTrue((m / '.openf50' / 'root-on-sd').exists())
             out, _ = self.run_fn(shell, f'sd_unmark {m}', pre='set -e; SD_MODE=0')
             self.assertIn('rc=0\n', out)
-            self.assertFalse((m / '.mu300' / 'root-on-sd').exists())
+            self.assertFalse((m / '.openf50' / 'root-on-sd').exists())
             out, _ = self.run_fn(shell, f'sd_unmark {m}', pre='set -e; unset SD_MODE')   # older env files
             self.assertIn('rc=0\n', out)
 
     def test_unmark_runs_on_the_installed_filesystem(self):
         self.assertIn('\nsd_unmark $M\n', SRC)
-        self.assertLess(SRC.index('mkdir -p $M/.mu300\n'), SRC.index('\nsd_unmark $M\n'))
+        self.assertLess(SRC.index('mkdir -p $M/.openf50\n'), SRC.index('\nsd_unmark $M\n'))
 
 
 class Extras(ShellTest):
-    """the extras block: pushed mu300-extra-<name>.tar.gz go onto the Linux partition, and an update of a system that
+    """the extras block: pushed openf50-extra-<name>.tar.gz go onto the Linux partition, and an update of a system that
     uses the VPN with the engines of its (older) image keeps them as the vpn extra"""
 
     def setUp(self):
@@ -281,8 +281,8 @@ class Extras(ShellTest):
         m = re.search(r'# --- extra begin\n(.*?)# --- extra end', SRC, re.S)
         self.assertIsNotNone(m, 'android-install.sh has no extra block')
         self.fn = m.group(1)
-        self.m = self.tmp / 'mu300root'
-        (self.m / 'ubuntu/etc/mu300').mkdir(parents=True)
+        self.m = self.tmp / 'openf50root'
+        (self.m / 'ubuntu/etc/openf50').mkdir(parents=True)
 
     def run_fn(self, shell, call):
         code = 'set -e\nsay() { echo "[device] $*"; }\n' + f'T="{self.tmp}"\nM="{self.m}"\n' + self.fn + f'\n{call}\necho "rc=$?"'
@@ -292,14 +292,14 @@ class Extras(ShellTest):
         from test_extra import extra_tarball
         for shell in self.each_shell():
             shutil.rmtree(self.m / 'extra', ignore_errors=True)
-            extra_tarball(self.tmp / 'mu300-extra-vpn.tar.gz', release='v2026.10.10')
+            extra_tarball(self.tmp / 'openf50-extra-vpn.tar.gz', release='v2026.10.10')
             r = self.run_fn(shell, 'extra_from_push $M')
             self.assertIn('rc=0', r.stdout, r.stderr)
             self.assertEqual((self.m / 'extra/vpn/release').read_text().strip(), 'v2026.10.10')
             self.assertTrue(os.access(self.m / 'extra/vpn/bin/xray', os.X_OK))
-            self.assertFalse((self.tmp / 'mu300-extra-vpn.tar.gz').exists())
+            self.assertFalse((self.tmp / 'openf50-extra-vpn.tar.gz').exists())
             # a broken push is skipped, never the install
-            (self.tmp / 'mu300-extra-vpn.tar.gz').write_bytes(b'junk')
+            (self.tmp / 'openf50-extra-vpn.tar.gz').write_bytes(b'junk')
             r = self.run_fn(shell, 'extra_from_push $M')
             self.assertIn('rc=0', r.stdout, r.stderr)
             self.assertIn('skipped', r.stdout)
@@ -310,16 +310,16 @@ class Extras(ShellTest):
 
     def test_update_keeps_the_engines_of_a_vpn_in_use(self):
         old = self.m / 'ubuntu'
-        b = old / 'opt/mu300/bin'
+        b = old / 'opt/openf50/bin'
         b.mkdir(parents=True, exist_ok=True)
         for e in ('xray', 'hev-socks5-tunnel', 'sing-box'):
             (b / e).write_text('#!/bin/sh\n')
             (b / e).chmod(0o755)
-        (old / 'etc/mu300/image-version').write_text('v2026.10.06\n')
+        (old / 'etc/openf50/image-version').write_text('v2026.10.06\n')
         for shell in self.each_shell():
             for enable, kept in (('0', False), ('1', True)):
                 shutil.rmtree(self.m / 'extra', ignore_errors=True)
-                (old / 'etc/mu300/vpn.conf').write_text(f'ENABLE={enable}\n')
+                (old / 'etc/openf50/vpn.conf').write_text(f'ENABLE={enable}\n')
                 r = self.run_fn(shell, 'extra_keep_vpn $M $M/ubuntu')
                 self.assertIn('rc=0', r.stdout, r.stderr)
                 self.assertEqual((self.m / 'extra/vpn/bin/sing-box').exists(), kept, enable)
@@ -350,8 +350,8 @@ class Systems(ShellTest):
     def setUp(self):
         super().setUp()
         self.T = self.tmp / 'T'
-        self.M = self.T / 'mu300root'
-        (self.M / '.mu300').mkdir(parents=True)
+        self.M = self.T / 'openf50root'
+        (self.M / '.openf50').mkdir(parents=True)
         # Android's sed has -i like GNU's; the Mac's wants an argument
         real = shutil.which('sed')   # resolved before the stubs are on PATH; /usr/bin/sed is not there on Alpine
         self.stub('sed', f'S={real}\nif [ "$1" = -i ]; then shift; if "$S" --version >/dev/null 2>&1; then exec "$S" -i "$@"; '
@@ -367,7 +367,7 @@ class Systems(ShellTest):
     def tarball(self, os, extra=None):
         files = {'etc/shadow': 'root:*:19000:0:99999:7:::\nubuntu:*:19000:0:99999:7:::\n', 'etc/config/network': 'new\n'}
         files.update(extra or {})
-        make_tar(self.T / f'mu300-{os}.tar.gz', files)
+        make_tar(self.T / f'openf50-{os}.tar.gz', files)
 
     def run_install(self, shell, fails=False, **env):
         e = dict(OSES='openwrt-luci', UPDATE='0', PWHASH='', DEFAULT_LINUX='0', BOOT_OS='openwrt-luci', WIPE_LEGACY='0')
@@ -391,8 +391,8 @@ class Systems(ShellTest):
             shadow = (self.M / 'openwrt-luci' / 'etc' / 'shadow').read_text()
             self.assertIn('root:$6$salt$hash:', shadow)
             self.assertIn('ubuntu:*:', shadow)
-            self.assertEqual((self.M / '.mu300' / 'boot-os').read_text().strip(), 'openwrt-luci')
-            self.assertFalse((self.T / 'mu300-openwrt-luci.tar.gz').exists())
+            self.assertEqual((self.M / '.openf50' / 'boot-os').read_text().strip(), 'openwrt-luci')
+            self.assertFalse((self.T / 'openf50-openwrt-luci.tar.gz').exists())
 
     def test_update_keeps_openwrt_luci_config(self):
         for shell in self.each_shell():
@@ -408,7 +408,7 @@ class Systems(ShellTest):
              'etc/group': 'root:x:0:\nsudo:x:27:ubuntu\nubuntu:x:1000:\nnewsvc:x:120:\n',
              'etc/shadow': 'root:*:19000:0:99999:7:::\nubuntu:$6$image$ubuntu:19000:0:99999:7:::\nnewsvc:!:19000::::::\n',
              'etc/gshadow': 'root:*::\nsudo:*::ubuntu\nubuntu:!::\nnewsvc:!::\n',
-             'etc/.mu300-accounts-from-image': ''}
+             'etc/.openf50-accounts-from-image': ''}
     OLD = {'passwd': 'root:x:0:0:root:/root:/bin/bash\nubuntu:x:1000:1000::/home/ubuntu:/bin/bash\n'
                      'kaan:x:1001:1001::/home/kaan:/bin/bash\n',
            'group': 'root:x:0:\nsudo:x:27:ubuntu,kaan\nubuntu:x:1000:\nkaan:x:1001:\n',
@@ -425,7 +425,7 @@ class Systems(ShellTest):
         self.tarball('ubuntu', self.IMAGE)
 
     def test_update_keeps_the_accounts(self):
-        # update (keep) without a new password: the accounts are the device's, as mu300-update carries them over -
+        # update (keep) without a new password: the accounts are the device's, as openf50-update carries them over -
         # the old hashes, the users and group memberships added on the device; the image's new system user stays
         for shell in self.each_shell():
             self.old_ubuntu()
@@ -439,7 +439,7 @@ class Systems(ShellTest):
             self.assertIn('newsvc:x:120:', (etc / 'passwd').read_text())
             self.assertIn('sudo:x:27:ubuntu,kaan\n', (etc / 'group').read_text())
             self.assertIn('kaan:!::\n', (etc / 'gshadow').read_text())
-            self.assertFalse((etc / '.mu300-accounts-from-image').exists())
+            self.assertFalse((etc / '.openf50-accounts-from-image').exists())
 
     def test_update_with_a_new_password_keeps_the_other_accounts(self):
         for shell in self.each_shell():
@@ -448,7 +448,7 @@ class Systems(ShellTest):
             shadow = (self.M / 'ubuntu' / 'etc' / 'shadow').read_text()
             self.assertIn('ubuntu:$6$new$hash:', shadow)
             self.assertIn('kaan:$6$old$kaan:', shadow)
-            self.assertFalse((self.M / 'ubuntu' / 'etc' / '.mu300-accounts-from-image').exists())
+            self.assertFalse((self.M / 'ubuntu' / 'etc' / '.openf50-accounts-from-image').exists())
 
     def test_fresh_install_takes_the_hash(self):
         for shell in self.each_shell():
@@ -496,9 +496,9 @@ class Systems(ShellTest):
             self.run_install(shell, OSES='openwrt', BOOT_OS='openwrt', PWHASH='$6$new$hash')
             self.assertIn('root:$6$new$hash:', (self.M / 'openwrt' / 'etc' / 'shadow').read_text())
 
-    def test_accounts_merge_is_mu300_updates(self):
-        # one merge, two copies: android-install.sh runs on Android and cannot source the system's mu300-update
-        upd = (TOP / 'rootfs/overlay/opt/mu300/bin/mu300-update').read_text()
+    def test_accounts_merge_is_openf50_updates(self):
+        # one merge, two copies: android-install.sh runs on Android and cannot source the system's openf50-update
+        upd = (TOP / 'rootfs/overlay/opt/openf50/bin/openf50-update').read_text()
         fn = re.compile(r'^merge_accounts\(\) \{.*?^\}\n', re.S | re.M)
         self.assertEqual(fn.search(self.install).group(0), fn.search(upd).group(0))
 
@@ -512,7 +512,7 @@ class Systems(ShellTest):
             self.sh(shell, f'say() {{ :; }}; M="{self.M}"; WIPE_LEGACY=1\n' + self.wipe)
             self.assertTrue((self.M / 'openwrt-luci' / 'etc').is_dir())
             self.assertTrue((self.M / 'ubuntu').is_dir())
-            self.assertTrue((self.M / '.mu300').is_dir())
+            self.assertTrue((self.M / '.openf50').is_dir())
             self.assertFalse((self.M / 'lib').exists())
             self.assertFalse((self.M / 'etc').exists())
             (self.M / 'lib' / 'systemd').mkdir(parents=True)

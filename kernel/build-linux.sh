@@ -1,5 +1,5 @@
 #!/bin/bash
-# Build the MU300 Linux kernel: stock F50 config + mu300-linux.fragment, ThinLTO
+# Build the OPENF50 Linux kernel: stock F50 config + openf50-linux.fragment, ThinLTO
 set -e
 cd /src/zte-u30air
 OUT=/src/out-linux
@@ -7,13 +7,13 @@ mkdir -p $OUT
 M="make O=$OUT ARCH=arm64 LLVM=1 LLVM_IAS=1 CC=clang LD=ld.lld -j10"
 cp /work/device.config $OUT/.config
 ./scripts/config --file $OUT/.config --enable THINLTO
-KCONFIG_CONFIG=$OUT/.config ./scripts/kconfig/merge_config.sh -m -O $OUT $OUT/.config /work/mu300-linux.fragment > /work/merge.log 2>&1
+KCONFIG_CONFIG=$OUT/.config ./scripts/kconfig/merge_config.sh -m -O $OUT $OUT/.config /work/openf50-linux.fragment > /work/merge.log 2>&1
 $M olddefconfig
 # report fragment options that Kconfig refused (dependency not met / symbol missing)
 python3 - <<'P'
 import re
 want={}
-for l in open('/work/mu300-linux.fragment'):
+for l in open('/work/openf50-linux.fragment'):
     m=re.match(r'(CONFIG_[A-Z0-9_]+)=(.*)',l) or re.match(r'# (CONFIG_[A-Z0-9_]+) is not set',l)
     if m: want[m.group(1)]=m.group(2) if m.lastindex==2 else 'n'
 got={}

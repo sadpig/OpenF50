@@ -21,11 +21,11 @@
 
 #include "mali_kbase_timeline.h"
 #include <linux/version.h>
-/* MU300: del_timer_sync() was renamed in 6.15 */
+/* OPENF50: del_timer_sync() was renamed in 6.15 */
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 15, 0)
-#define mu300_timer_delete_sync(t) timer_delete_sync(t)
+#define openf50_timer_delete_sync(t) timer_delete_sync(t)
 #else
-#define mu300_timer_delete_sync(t) del_timer_sync(t)
+#define openf50_timer_delete_sync(t) del_timer_sync(t)
 #endif
 
 #include "mali_kbase_timeline_priv.h"
@@ -291,7 +291,7 @@ void kbase_timeline_release(struct kbase_timeline *timeline)
 
 	/* Stop autoflush timer before releasing access to streams. */
 	atomic_set(&timeline->autoflush_timer_active, 0);
-	mu300_timer_delete_sync(&timeline->autoflush_timer);
+	openf50_timer_delete_sync(&timeline->autoflush_timer);
 
 	atomic_set(timeline->timeline_flags, 0);
 }

@@ -1381,12 +1381,12 @@ int kbase_kinstr_prfcnt_init(struct kbase_hwcnt_virtualizer *hvirt,
 	mutex_init(&kinstr_ctx->lock);
 	INIT_LIST_HEAD(&kinstr_ctx->clients);
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 15, 0)
-	/* MU300: hrtimer_init() is gone; the callback is passed to hrtimer_setup() now */
+	/* OPENF50: hrtimer_init() is gone; the callback is passed to hrtimer_setup() now */
 	hrtimer_setup(&kinstr_ctx->dump_timer, kbasep_kinstr_prfcnt_dump_timer, CLOCK_MONOTONIC,
 		      HRTIMER_MODE_REL);
 #else
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 15, 0)
-	hrtimer_setup(&kinstr_ctx->dump_timer, kbasep_kinstr_prfcnt_dump_timer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);	/* MU300: hrtimer_init() is gone */
+	hrtimer_setup(&kinstr_ctx->dump_timer, kbasep_kinstr_prfcnt_dump_timer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);	/* OPENF50: hrtimer_init() is gone */
 #else
 	hrtimer_init(&kinstr_ctx->dump_timer, CLOCK_MONOTONIC,
 		     HRTIMER_MODE_REL);

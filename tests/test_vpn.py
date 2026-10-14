@@ -1,4 +1,4 @@
-"""mu300-vpn, sourced for its functions (MU300_LIB=1): the VLESS URI parser, JSON helpers, which networks stay out of
+"""openf50-vpn, sourced for its functions (OPENF50_LIB=1): the VLESS URI parser, JSON helpers, which networks stay out of
 the tunnel, and the sing-box config it writes. Ubuntu and OpenWrt both run it (dash, bash, busybox ash)."""
 import json
 import os
@@ -18,7 +18,7 @@ class Vpn(ShellTest):
         self.conf = self.tmp / 'vpn.conf'
         self.conf.write_text('')
         self.root = self.tmp / 'root'
-        (self.root / 'run/mu300').mkdir(parents=True)
+        (self.root / 'run/openf50').mkdir(parents=True)
         self.brlan = None
         self.stub('ip', 'if [ "$*" = "-4 -o addr show br-lan" ] && [ -s "$STUBLOG/br-lan" ]; then '
                         'echo "5: br-lan    inet $(cat "$STUBLOG/br-lan") brd x scope global br-lan"; fi; '
@@ -26,11 +26,11 @@ class Vpn(ShellTest):
 
     def vpn(self, shell, code, conf='', device='f50', brlan=None):
         self.conf.write_text(conf)
-        (self.root / 'run/mu300/device').write_text(device + '\n')
+        (self.root / 'run/openf50/device').write_text(device + '\n')
         (self.tmp / 'br-lan').write_text(brlan or '')
-        return self.sh(shell, f'. "{BIN}/mu300-vpn"; {code}', MU300_LIB=1, MU300_VPN_CONF=self.conf,
-                       MU300_VPN_RUN=self.tmp / 'run-vpn', MU300_LAN_CONF=self.tmp / 'no-lan.conf',
-                       MU300_BIN=BIN, MU300_SYSROOT=self.root)
+        return self.sh(shell, f'. "{BIN}/openf50-vpn"; {code}', OPENF50_LIB=1, OPENF50_VPN_CONF=self.conf,
+                       OPENF50_VPN_RUN=self.tmp / 'run-vpn', OPENF50_LAN_CONF=self.tmp / 'no-lan.conf',
+                       OPENF50_BIN=BIN, OPENF50_SYSROOT=self.root)
 
     def test_own_lan_always_local(self):
         cases = [
@@ -126,7 +126,7 @@ class Vpn(ShellTest):
 
 
 class Engines(ShellTest):
-    """where mu300-vpn finds its engines: the vpn extra on the Linux partition first, an older image's own second;
+    """where openf50-vpn finds its engines: the vpn extra on the Linux partition first, an older image's own second;
     and what it does when there are none"""
 
     def setUp(self):
@@ -147,11 +147,11 @@ class Engines(ShellTest):
 
     def vpn(self, shell, code, conf='ENABLE=1\nENGINE=xray\n', **env):
         self.conf.write_text(conf)
-        e = dict(MU300_LIB=1, MU300_VPN_CONF=self.conf, MU300_VPN_RUN=self.tmp / 'run-vpn', MU300_BIN=BIN,
-                 MU300_LAN_CONF=self.tmp / 'no-lan.conf', MU300_OPT=self.opt, MU300_DISK=self.disk,
-                 MU300_EXTRA_CMD=self.stubs / 'extra')
+        e = dict(OPENF50_LIB=1, OPENF50_VPN_CONF=self.conf, OPENF50_VPN_RUN=self.tmp / 'run-vpn', OPENF50_BIN=BIN,
+                 OPENF50_LAN_CONF=self.tmp / 'no-lan.conf', OPENF50_OPT=self.opt, OPENF50_DISK=self.disk,
+                 OPENF50_EXTRA_CMD=self.stubs / 'extra')
         e.update(env)
-        return self.sh(shell, f'. "{BIN}/mu300-vpn"; {code}', **e)
+        return self.sh(shell, f'. "{BIN}/openf50-vpn"; {code}', **e)
 
     def reset(self):
         shutil.rmtree(self.disk, ignore_errors=True)
@@ -176,9 +176,9 @@ class Engines(ShellTest):
         for shell in self.each_shell():
             self.reset()
             r = self.vpn(shell, 'engines_ok && echo OK || echo "$MISSING"')
-            self.assertEqual(r.stdout.strip(), 'the VPN engines are not installed: run mu300-extra install vpn')
+            self.assertEqual(r.stdout.strip(), 'the VPN engines are not installed: run openf50-extra install vpn')
             r = self.vpn(shell, '(gen) && echo rc=0 || echo rc=1')
-            self.assertIn('mu300-extra install vpn', r.stderr)
+            self.assertIn('openf50-extra install vpn', r.stderr)
             self.assertNotIn('rc=0', r.stdout)
 
     def test_a_configured_vpn_gets_its_engines_back(self):
@@ -197,7 +197,7 @@ class Engines(ShellTest):
                     self.assertEqual(r.stdout.split()[-2:], ['rc=0', str(self.extra / 'xray')], r.stderr)
                 else:
                     self.assertIn('rc=1', r.stdout)
-                    self.assertIn('mu300-extra install vpn', r.stderr)
+                    self.assertIn('openf50-extra install vpn', r.stderr)
             # engines that are there: nothing is fetched
             self.put(self.extra, ('xray', 'hev-socks5-tunnel', 'sing-box'))
             (self.tmp / 'calls').unlink(missing_ok=True)
@@ -224,19 +224,19 @@ class Engines(ShellTest):
             self.assertIn('rc=0', r.stdout, r.stderr)
 
     def test_run_puts_the_kill_switch_up_before_anything_else(self):
-        src = (BIN / 'mu300-vpn').read_text()
+        src = (BIN / 'openf50-vpn').read_text()
         run = src[src.index('    run)'):src.index('    off)')]
         self.assertLess(run.index('ENABLE'), run.index('killswitch_on'))
         self.assertLess(run.index('killswitch_on'), run.index('ensure_engines'))
         self.assertLess(run.index('ensure_engines'), run.index('gen'))
 
 class KillSwitch(ShellTest):
-    """KILL_SWITCH=1 fails closed: `mu300-vpn run` puts the full kill switch up first, and nothing that goes wrong
-    after that - engines missing (an update or `mu300-extra remove vpn --force` took them), a failed or corrupt
+    """KILL_SWITCH=1 fails closed: `openf50-vpn run` puts the full kill switch up first, and nothing that goes wrong
+    after that - engines missing (an update or `openf50-extra remove vpn --force` took them), a failed or corrupt
     download, a signal or the deadline in the middle of it, a config the engine rejects, a crashed engine - takes it
     down. The download in between gets a window that lets only the device itself out, only to the release hosts,
     and only with timeouts. The nft stub keeps the ruleset that is in force (nft.state) and a log of every call,
-    in order with the engines' and mu300-extra's own calls (events)."""
+    in order with the engines' and openf50-extra's own calls (events)."""
 
     URI = 'vless://11111111-2222-3333-4444-555555555555@vpn.example.com:443?security=tls&type=tcp'
     ENGINES = ('xray', 'hev-socks5-tunnel', 'sing-box')
@@ -256,7 +256,7 @@ class KillSwitch(ShellTest):
                          '      { echo "nft -f"; printf "%s\\n" "$r" | sed "s/^/  | /"; } >> "$STUBLOG/events" ;;\n'
                          '  list) [ -s "$STUBLOG/nft.state" ] ;;\n'
                          '  *) echo "nft $*" >> "$STUBLOG/events"\n'
-                         '     [ "$*" = "delete table inet mu300_vpn" ] && : > "$STUBLOG/nft.state"; exit 0 ;;\n'
+                         '     [ "$*" = "delete table inet openf50_vpn" ] && : > "$STUBLOG/nft.state"; exit 0 ;;\n'
                          'esac')
         self.stub('getent', 'case $2 in\n'
                             '  github.com) echo "140.82.121.3     STREAM github.com" ;;\n'
@@ -273,11 +273,11 @@ class KillSwitch(ShellTest):
                                          '[ "$1" = check ] && [ -e "$STUBLOG/corrupt" ] && exit 1\nexit 0\n')
 
     def extra_cmd(self, adopt=False, install='ok'):
-        """the mu300-extra stub: adopt works or not; install is ok, fail, or hang (a download that does not end)"""
+        """the openf50-extra stub: adopt works or not; install is ok, fail, or hang (a download that does not end)"""
         body = 'echo "extra $1" >> "$STUBLOG/events"\n'
         body += 'if [ "$1" = adopt ]; then ' + (self.mkengines if adopt else 'exit 1') + '; exit 0; fi\n'
         body += {'ok': self.mkengines,
-                 'fail': 'echo "downloading mu300-extra-vpn.tar.gz failed" >&2; exit 1',
+                 'fail': 'echo "downloading openf50-extra-vpn.tar.gz failed" >&2; exit 1',
                  'hang': 'echo started > "$STUBLOG/started"; sleep 30; exit 1'}[install]
         self.stub('extra', body)
 
@@ -294,15 +294,15 @@ class KillSwitch(ShellTest):
                 (self.extra / n).chmod(0o755)
 
     def envs(self, **extra):
-        e = dict(MU300_VPN_CONF=self.conf, MU300_VPN_RUN=self.tmp / 'run-vpn', MU300_BIN=BIN,
-                 MU300_LAN_CONF=self.tmp / 'no-lan.conf', MU300_OPT=self.opt, MU300_DISK=self.disk,
-                 MU300_EXTRA_CMD=self.stubs / 'extra', FETCH_REFRESH=1, MU300_RESOLV_FILES=self.tmp / 'resolv.conf')
+        e = dict(OPENF50_VPN_CONF=self.conf, OPENF50_VPN_RUN=self.tmp / 'run-vpn', OPENF50_BIN=BIN,
+                 OPENF50_LAN_CONF=self.tmp / 'no-lan.conf', OPENF50_OPT=self.opt, OPENF50_DISK=self.disk,
+                 OPENF50_EXTRA_CMD=self.stubs / 'extra', FETCH_REFRESH=1, OPENF50_RESOLV_FILES=self.tmp / 'resolv.conf')
         e.update(extra)
         return e
 
     def run_vpn(self, shell, conf, **env):
         self.conf.write_text(conf)
-        return self.script(shell, BIN / 'mu300-vpn', 'run', **self.envs(**env))
+        return self.script(shell, BIN / 'openf50-vpn', 'run', **self.envs(**env))
 
     def conf_ks(self, engine='sing-box'):
         return f"ENABLE=1\nENGINE={engine}\nKILL_SWITCH=1\nVLESS_URI='{self.URI}'\n"
@@ -335,7 +335,7 @@ class KillSwitch(ShellTest):
         self.assertTrue(self.state.exists(), msg)
         self.assertFull(self.state.read_text(), msg)
         # never a moment without it: the table is only ever replaced in one transaction, never deleted on its own
-        self.assertNotIn('nft delete table inet mu300_vpn', self.events(), msg)
+        self.assertNotIn('nft delete table inet openf50_vpn', self.events(), msg)
 
     def test_the_kill_switch_is_up_before_anything_can_fail(self):
         for shell in self.each_shell():
@@ -349,13 +349,13 @@ class KillSwitch(ShellTest):
             self.assertLess(ev.index('nft -f'), ev.index('extra adopt'))
 
     def test_a_failed_download_leaves_the_full_kill_switch(self):
-        # also a corrupt download: mu300-extra checks it against SHA256SUMS and installs nothing, which is this
+        # also a corrupt download: openf50-extra checks it against SHA256SUMS and installs nothing, which is this
         for shell in self.each_shell():
             self.fresh()
             self.extra_cmd(install='fail')
             r = self.run_vpn(shell, self.conf_ks())
             self.assertNotEqual(r.returncode, 0, shell)
-            self.assertIn('mu300-extra install vpn', r.stderr)
+            self.assertIn('openf50-extra install vpn', r.stderr)
             self.assertClosed(r.stderr)
             self.assertEqual([('fetch4' in x) for x in self.rulesets()], [False, True, False], self.events())
             self.assertNotIn('engine', self.events())
@@ -365,7 +365,7 @@ class KillSwitch(ShellTest):
             self.fresh()
             self.extra_cmd(install='hang')
             self.conf.write_text(self.conf_ks())
-            p = subprocess.Popen(shell + [str(BIN / 'mu300-vpn'), 'run'], env=self.env(**self.envs(FETCH_TIME=60)),
+            p = subprocess.Popen(shell + [str(BIN / 'openf50-vpn'), 'run'], env=self.env(**self.envs(FETCH_TIME=60)),
                                  stdout=subprocess.PIPE, stderr=subprocess.PIPE, start_new_session=True)
             try:
                 self.wait_for(self.tmp / 'started')
@@ -418,7 +418,7 @@ class KillSwitch(ShellTest):
                     # a shell cannot trap a signal that was ignored when it started (POSIX), and test runners can start
                     # us with SIGINT/SIGHUP ignored (GitHub's macOS runner does): the script gets the defaults, as from
                     # systemd or procd
-                    p = subprocess.Popen(shell + [str(BIN / 'mu300-vpn'), 'run'], env=self.env(**self.envs()),
+                    p = subprocess.Popen(shell + [str(BIN / 'openf50-vpn'), 'run'], env=self.env(**self.envs()),
                                          stdout=subprocess.PIPE, stderr=subprocess.PIPE, start_new_session=True,
                                          preexec_fn=self.default_signals)
                     try:
@@ -446,7 +446,7 @@ class KillSwitch(ShellTest):
             self.fresh()
             self.extra_cmd(install='hang')
             self.conf.write_text(self.conf_ks())
-            p = subprocess.Popen(shell + [str(BIN / 'mu300-vpn'), 'run'], env=self.env(**self.envs(FETCH_TIME=60)),
+            p = subprocess.Popen(shell + [str(BIN / 'openf50-vpn'), 'run'], env=self.env(**self.envs(FETCH_TIME=60)),
                                  stdout=subprocess.PIPE, stderr=subprocess.PIPE, start_new_session=True)
             try:
                 self.wait_for(self.tmp / 'started')
@@ -502,7 +502,7 @@ class KillSwitch(ShellTest):
             self.assertClosed(r.stderr)
 
     def test_engines_removed_from_under_it_fail_closed(self):
-        # mu300-extra remove vpn --force, or an update between its two renames: the next start finds none
+        # openf50-extra remove vpn --force, or an update between its two renames: the next start finds none
         for shell in self.each_shell():
             self.fresh(self.ENGINES)
             self.extra_cmd(install='ok')
@@ -512,7 +512,7 @@ class KillSwitch(ShellTest):
             r = self.run_vpn(shell, self.conf_ks())
             self.assertNotEqual(r.returncode, 0)
             self.assertClosed(r.stderr)
-            r = self.script(shell, BIN / 'mu300-vpn', 'status', **self.envs())
+            r = self.script(shell, BIN / 'openf50-vpn', 'status', **self.envs())
             self.assertIn('kill switch: 1 (active)', r.stdout)
             self.assertIn('not installed', r.stdout)
 
@@ -569,7 +569,7 @@ class KillSwitch(ShellTest):
                              (self.conf_ks().replace('ENABLE=1', 'ENABLE=0'), False), ('', False)):
                 self.fresh()
                 self.conf.write_text(conf)
-                r = self.script(shell, BIN / 'mu300-vpn', 'guard', **self.envs())
+                r = self.script(shell, BIN / 'openf50-vpn', 'guard', **self.envs())
                 self.assertEqual(r.returncode, 0, r.stderr)
                 if up:
                     self.assertClosed()
@@ -578,15 +578,15 @@ class KillSwitch(ShellTest):
         # mobile-data calls it before it attaches
         src = (BIN / 'mobile-data').read_text()
         up = src[src.index('up_locked() {'):]
-        self.assertLess(up.index('mu300-vpn}" guard'), up.index('AT+CGACT'))
+        self.assertLess(up.index('openf50-vpn}" guard'), up.index('AT+CGACT'))
 
     def test_release_url_host_is_checked(self):
         for shell in self.each_shell():
-            r = self.sh(shell, f'. "{BIN}/mu300-vpn"; fetch_hosts', **self.envs(
-                MU300_LIB=1, MU300_RELEASE_URL='https://user@release.example:8443/x/y', FETCH_HOSTS='github.com'))
+            r = self.sh(shell, f'. "{BIN}/openf50-vpn"; fetch_hosts', **self.envs(
+                OPENF50_LIB=1, OPENF50_RELEASE_URL='https://user@release.example:8443/x/y', FETCH_HOSTS='github.com'))
             self.assertEqual(r.stdout.split(), ['github.com', 'release.example'])
-            r = self.sh(shell, f'. "{BIN}/mu300-vpn"; fetch_hosts', **self.envs(
-                MU300_LIB=1, MU300_RELEASE_URL='http://a;b}/x', FETCH_HOSTS='github.com'))
+            r = self.sh(shell, f'. "{BIN}/openf50-vpn"; fetch_hosts', **self.envs(
+                OPENF50_LIB=1, OPENF50_RELEASE_URL='http://a;b}/x', FETCH_HOSTS='github.com'))
             self.assertEqual(r.stdout.split(), ['github.com'])
 
     @staticmethod
@@ -645,9 +645,9 @@ class Tailscale(ShellTest):
             (d / n).chmod(0o755)
 
     def envs(self, **extra):
-        e = dict(MU300_VPN_CONF=self.conf, MU300_VPN_RUN=self.tmp / 'run-vpn', MU300_BIN=BIN,
-                 MU300_LAN_CONF=self.tmp / 'no-lan.conf', MU300_OPT=self.tmp / 'opt', MU300_DISK=self.disk,
-                 MU300_EXTRA_CMD=self.stubs / 'extra')
+        e = dict(OPENF50_VPN_CONF=self.conf, OPENF50_VPN_RUN=self.tmp / 'run-vpn', OPENF50_BIN=BIN,
+                 OPENF50_LAN_CONF=self.tmp / 'no-lan.conf', OPENF50_OPT=self.tmp / 'opt', OPENF50_DISK=self.disk,
+                 OPENF50_EXTRA_CMD=self.stubs / 'extra')
         e.update(extra)
         return e
 
@@ -658,7 +658,7 @@ class Tailscale(ShellTest):
         self.conf.write_text(conf)
         (self.tmp / 'run-vpn').mkdir(exist_ok=True)
         (self.tmp / 'run-vpn' / 'server-ip').write_text('203.0.113.9\n')
-        return self.sh(shell, f'. "{BIN}/mu300-vpn"; {code}', **self.envs(MU300_LIB=1))
+        return self.sh(shell, f'. "{BIN}/openf50-vpn"; {code}', **self.envs(OPENF50_LIB=1))
 
     def shown(self):
         return (self.rules.read_text() if self.rules.exists() else '').splitlines()
@@ -718,14 +718,14 @@ class Tailscale(ShellTest):
                 self.engines()
                 for _ in range(3):
                     self.conf.write_text(self.conf_text('sing-box').replace('KILL_SWITCH=0', f'KILL_SWITCH={ks}'))
-                    r = self.script(shell, BIN / 'mu300-vpn', 'run', **self.envs())
+                    r = self.script(shell, BIN / 'openf50-vpn', 'run', **self.envs())
                     self.assertEqual(r.returncode, 0, r.stderr)
                     # in place when sing-box is exec'd, once, whatever ran before
                     at = (self.tmp / 'at-exec').read_text()
                     self.assertThrough([re.sub(r'^(\d+): ', r'pref \1 ', l) for l in at.splitlines()])
                     self.assertLess(at.index('5200:'), at.index('5210:'))
-                # mu300-vpn off (nothing running, no tun): taken away with sing-box's leftovers
-                r = self.script(shell, BIN / 'mu300-vpn', 'off', **self.envs())
+                # openf50-vpn off (nothing running, no tun): taken away with sing-box's leftovers
+                r = self.script(shell, BIN / 'openf50-vpn', 'off', **self.envs())
                 self.assertEqual(r.returncode, 0, r.stderr)
                 self.assertGone()
 
@@ -756,7 +756,7 @@ class Tailscale(ShellTest):
             self.assertEqual(len(self.ours()), 7)
             self.engines()
             self.conf.write_text(self.conf_text('sing-box', 'TAILSCALE=0\n'))
-            r = self.script(shell, BIN / 'mu300-vpn', 'run', **self.envs())
+            r = self.script(shell, BIN / 'openf50-vpn', 'run', **self.envs())
             self.assertEqual(r.returncode, 0, r.stderr)
             self.assertNotIn('520', (self.tmp / 'at-exec').read_text().replace('5210', '').replace('5250', ''))
             self.assertGone()
@@ -771,7 +771,7 @@ class Tailscale(ShellTest):
             self.tailscaled()
             self.lib(shell, 'tailscale_up', self.conf_text('xray'))
             self.conf.write_text(self.conf_text('xray').replace('ENABLE=1', 'ENABLE=0'))
-            r = self.script(shell, BIN / 'mu300-vpn', 'run', **self.envs())
+            r = self.script(shell, BIN / 'openf50-vpn', 'run', **self.envs())
             self.assertEqual(r.returncode, 0, r.stderr)
             self.assertGone()
 

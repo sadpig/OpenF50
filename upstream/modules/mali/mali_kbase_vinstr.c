@@ -500,11 +500,11 @@ int kbase_vinstr_init(
 	mutex_init(&vctx->lock);
 	INIT_LIST_HEAD(&vctx->clients);
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 15, 0)
-	/* MU300: hrtimer_init() is gone; the callback is passed to hrtimer_setup() now */
+	/* OPENF50: hrtimer_init() is gone; the callback is passed to hrtimer_setup() now */
 	hrtimer_setup(&vctx->dump_timer, kbasep_vinstr_dump_timer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
 #else
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 15, 0)
-	hrtimer_setup(&vctx->dump_timer, kbasep_vinstr_dump_timer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);	/* MU300: hrtimer_init() is gone */
+	hrtimer_setup(&vctx->dump_timer, kbasep_vinstr_dump_timer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);	/* OPENF50: hrtimer_init() is gone */
 #else
 	hrtimer_init(&vctx->dump_timer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
 	vctx->dump_timer.function = kbasep_vinstr_dump_timer;

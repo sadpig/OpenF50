@@ -171,14 +171,14 @@ struct gpu_dvfs_context {
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0)
 
-/* MU300: ioremap_nocache() is gone - plain ioremap() has been non-cached since 5.6 */
+/* OPENF50: ioremap_nocache() is gone - plain ioremap() has been non-cached since 5.6 */
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 6, 0)
-#define mu300_ioremap_nocache(a, s) ioremap((a), (s))
+#define openf50_ioremap_nocache(a, s) ioremap((a), (s))
 #else
-#define mu300_ioremap_nocache(a, s) ioremap_nocache((a), (s))
+#define openf50_ioremap_nocache(a, s) ioremap_nocache((a), (s))
 #endif
 
-DEFINE_SEMAPHORE(gpu_dfs_sem, 1);	/* MU300: the count is explicit now */
+DEFINE_SEMAPHORE(gpu_dfs_sem, 1);	/* OPENF50: the count is explicit now */
 #else
 DEFINE_SEMAPHORE(gpu_dfs_sem);
 #endif
@@ -530,9 +530,9 @@ static inline void mali_freq_init(struct device *dev)
 static void gpu_qos_reg_map(void)
 {
        u32 qos_offset = 0x100;
-       mali_qos_reg_base_mtx_m0 = mu300_ioremap_nocache(nic400_gpu_sys_mtx_m0_qos_list[0].base_addr,qos_offset);
-       mali_qos_reg_base_mtx_m1 = mu300_ioremap_nocache(nic400_gpu_sys_mtx_m1_qos_list[0].base_addr,qos_offset);
-       mali_qos_reg_base_apb_rf = mu300_ioremap_nocache(gpu_apb_rf_qos_list[0].base_addr,qos_offset);
+       mali_qos_reg_base_mtx_m0 = openf50_ioremap_nocache(nic400_gpu_sys_mtx_m0_qos_list[0].base_addr,qos_offset);
+       mali_qos_reg_base_mtx_m1 = openf50_ioremap_nocache(nic400_gpu_sys_mtx_m1_qos_list[0].base_addr,qos_offset);
+       mali_qos_reg_base_apb_rf = openf50_ioremap_nocache(gpu_apb_rf_qos_list[0].base_addr,qos_offset);
 
 }
 /* SPRD:gpu_qos_reg_unmap */
@@ -1448,8 +1448,8 @@ int kbase_platform_set_freq_volt(int freq, int volt)
 #if LINUX_VERSION_CODE < KERNEL_VERSION(6, 0, 0)
 #if LINUX_VERSION_CODE < KERNEL_VERSION(6, 0, 0)
 		trace_clock_set_rate(VENDOR_FTRACE_MODULE_NAME, gpu_dvfs_ctx.freq_cur->freq, raw_smp_processor_id());
-#endif	/* MU300: vendor tracepoint */
-#endif	/* MU300: this vendor tracepoint does not exist in a mainline kernel */
+#endif	/* OPENF50: vendor tracepoint */
+#endif	/* OPENF50: this vendor tracepoint does not exist in a mainline kernel */
 		up(gpu_dvfs_ctx.sem);
 	}
 	return 0;
@@ -1476,7 +1476,7 @@ void kbase_platform_modify_target_freq(struct device *dev, unsigned long *target
 	}
 
 	//limit min freq
-	min_index = freq_search(gpu_dvfs_ctx.freq_list, gpu_dvfs_ctx.freq_list_len, mu300_devfreq_min_freq(kbdev->devfreq)/FREQ_KHZ);
+	min_index = freq_search(gpu_dvfs_ctx.freq_list, gpu_dvfs_ctx.freq_list_len, openf50_devfreq_min_freq(kbdev->devfreq)/FREQ_KHZ);
 	if ((0 <= min_index) &&
 		(freq_min->freq < gpu_dvfs_ctx.freq_list[min_index].freq))
 	{
@@ -1488,7 +1488,7 @@ void kbase_platform_modify_target_freq(struct device *dev, unsigned long *target
 	}
 
 	//limit max freq
-	max_index = freq_search(gpu_dvfs_ctx.freq_list, gpu_dvfs_ctx.freq_list_len, mu300_devfreq_max_freq(kbdev->devfreq)/FREQ_KHZ);
+	max_index = freq_search(gpu_dvfs_ctx.freq_list, gpu_dvfs_ctx.freq_list_len, openf50_devfreq_max_freq(kbdev->devfreq)/FREQ_KHZ);
 	if ((0 <= max_index) &&
 		(freq_max->freq > gpu_dvfs_ctx.freq_list[max_index].freq))
 	{

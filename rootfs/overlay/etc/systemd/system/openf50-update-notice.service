@@ -1,0 +1,7 @@
+[Unit]
+Description=OPENF50 look for a newer release (a note at login and in openf50-toolkit; nothing is installed)
+
+[Service]
+Type=oneshot
+# offline is no failure: the timer asks again
+ExecStart=-/opt/openf50/bin/openf50-update notice

@@ -1,0 +1,18 @@
+[Unit]
+Description=OPENF50 rootfs fixups lost by tar/docker export (file capabilities, resolv.conf)
+DefaultDependencies=no
+After=local-fs.target
+Before=sysinit.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/opt/openf50/bin/rootfs-fixups
+# the power LED (U30 Air): on from here, off when the system goes down
+ExecStartPost=-/opt/openf50/bin/openf50-led power on
+# the U30 Air's charger keeps an OTG boost on across a reboot (openf50-usb)
+ExecStartPost=-/opt/openf50/bin/openf50-usb boot
+ExecStop=-/opt/openf50/bin/openf50-led power off
+
+[Install]
+WantedBy=sysinit.target

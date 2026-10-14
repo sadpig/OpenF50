@@ -53,7 +53,7 @@ struct wa_blob {
 	u32 blob_offset;
 } __packed;
 
-/* MU300: the kernel has its own in_range() macro now, so this local helper gets its own name */
+/* OPENF50: the kernel has its own in_range() macro now, so this local helper gets its own name */
 static bool kbase_wa_in_range(const u8 *base, const u8 *end, off_t off, size_t sz)
 {
 	return !(end - base - off < sz);

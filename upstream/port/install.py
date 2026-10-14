@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Copy the MU300 driver ports (drivers ported from the Unisoc 5.4 tree) into a mainline tree and hook up
+"""Copy the OPENF50 driver ports (drivers ported from the Unisoc 5.4 tree) into a mainline tree and hook up
 Makefile/Kconfig entries. Idempotent. usage: install.py <kernel tree>"""
 import os, shutil, sys
 tree = sys.argv[1]
@@ -69,7 +69,7 @@ else:
     # in no list, so UMP9620 gets no cells and its sub-nodes populated as before.
     once('PMIC_TYPE_UMP9620,', '\tPMIC_TYPE_SC2731,\n', '\tPMIC_TYPE_SC2731,\n\tPMIC_TYPE_UMP9620,\n')
     once('case PMIC_TYPE_UMP9620:', '\tdefault:\n\t\tdev_err(&spi->dev, "Invalid device ID\\n");',
-         '\tcase PMIC_TYPE_UMP9620:\n\t\t/* MU300: no cells; the DT\'s own sub-nodes are populated below */\n'
+         '\tcase PMIC_TYPE_UMP9620:\n\t\t/* OPENF50: no cells; the DT\'s own sub-nodes are populated below */\n'
          '\t\tpdata = &ump9620_data;\n\t\tcells = NULL;\n\t\tnum_cells = 0;\n\t\tbreak;\n'
          '\tdefault:\n\t\tdev_err(&spi->dev, "Invalid device ID\\n");')
     once('if (pmic_type == PMIC_TYPE_UMP9620) {',
@@ -120,9 +120,9 @@ append_once('drivers/watchdog/Makefile', 'ump9620-pmic-wdt.o', 'obj-$(CONFIG_MFD
 # out of a kernel tree that was prepared with it.
 sp = os.path.join(tree, 'drivers/mmc/host/sdhci-sprd.c')
 t = open(sp).read()
-t = t.replace('\t/* MU300: only the non-removable eMMC is used */\n'
+t = t.replace('\t/* OPENF50: only the non-removable eMMC is used */\n'
               '\tif (!of_property_read_bool(pdev->dev.of_node, "non-removable"))\n\t\treturn -ENODEV;\n', '')
-marker = 'MU300: only the eMMC and the card slot'
+marker = 'OPENF50: only the eMMC and the card slot'
 if marker not in t:
     anchor = 'static int sdhci_sprd_probe(struct platform_device *pdev)\n{\n'
     i = t.index(anchor) + len(anchor)
@@ -144,7 +144,7 @@ parse_new = '''\tret = mmc_of_parse(host->mmc);
 \t\tstruct property *cd = of_find_property(pdev->dev.of_node, "cd-gpios", NULL);
 
 \t\tif (cd && !of_remove_property(pdev->dev.of_node, cd)) {
-\t\t\tdev_warn(&pdev->dev, "MU300: CD GPIO deferred, polling the card slot\\n");
+\t\t\tdev_warn(&pdev->dev, "OPENF50: CD GPIO deferred, polling the card slot\\n");
 \t\t\tret = mmc_of_parse(host->mmc);
 \t\t\thost->mmc->caps |= MMC_CAP_NEEDS_POLL;
 \t\t}
@@ -157,7 +157,7 @@ masked = '''\tret = mmc_of_parse(host->mmc);
 \tif (ret == -EPROBE_DEFER &&
 \t    of_property_present(pdev->dev.of_node, "cd-gpios") &&
 \t    of_property_match_string(pdev->dev.of_node, "sprd,name", "sdio_sd") >= 0) {
-\t\tdev_warn(&pdev->dev, "MU300: CD GPIO deferred, polling the card slot\\n");
+\t\tdev_warn(&pdev->dev, "OPENF50: CD GPIO deferred, polling the card slot\\n");
 \t\thost->mmc->caps |= MMC_CAP_NEEDS_POLL;
 \t\tret = 0;
 \t}
@@ -175,7 +175,7 @@ if 'of_remove_property(pdev->dev.of_node, cd)' not in t:
 # for the eMMC - it never found the card and rebooted at 300 s (FINDINGS 31l). The card slot's host now defers until
 # the eMMC's host is added; the deferral is checked before sdhci_pltfm_init(), which allocates the index. If the eMMC's
 # host never binds, the card slot's host stays deferred: there is no root on the card without a working eMMC host.
-emmc_marker = 'MU300: the eMMC is mmc0'
+emmc_marker = 'OPENF50: the eMMC is mmc0'
 if emmc_marker not in t:
     probe = 'static int sdhci_sprd_probe(struct platform_device *pdev)\n{\n'
     t = t.replace(probe, '/* ' + emmc_marker + ''', the card slot mmc1: see sdhci_sprd_probe() */
@@ -204,7 +204,7 @@ static bool sdhci_sprd_emmc_pending(struct device_node *self)
 '''
     if filt not in t:
         sys.exit('port: sdhci-sprd host filter anchor changed')
-    t = t.replace(filt, filt + '''\t/* MU300: the card slot waits for the eMMC's host. If that never binds, the card slot stays deferred:
+    t = t.replace(filt, filt + '''\t/* OPENF50: the card slot waits for the eMMC's host. If that never binds, the card slot stays deferred:
 \t * no SD root without a working eMMC host. */
 \tif (!of_property_read_bool(pdev->dev.of_node, "non-removable") &&
 \t    sdhci_sprd_emmc_pending(pdev->dev.of_node))
@@ -218,7 +218,7 @@ static bool sdhci_sprd_emmc_pending(struct device_node *self)
 ''', 1)
 # UMS9620 has the r11p3 controller: the vendor driver programs DLL phase 0x2 (mainline 0x3,
 # which gives data CRC errors on HS400ES writes while reads work)
-t = t.replace('#define  SDHCI_SPRD_DLL_PHASE_INTERNAL\t0x3', '#define  SDHCI_SPRD_DLL_PHASE_INTERNAL\t0x2 /* MU300 r11p3 */')
+t = t.replace('#define  SDHCI_SPRD_DLL_PHASE_INTERNAL\t0x3', '#define  SDHCI_SPRD_DLL_PHASE_INTERNAL\t0x2 /* OPENF50 r11p3 */')
 open(sp, 'w').write(t)
 # thermal: UMS9620 on-die sensors (vendor sprd_thermal_r5p0), calibration from eFuse
 append_once('drivers/thermal/Makefile', 'sprd_thermal_r5p0.o', 'obj-$(CONFIG_SPRD_THERMAL_R5P0) += sprd_thermal_r5p0.o\n')
@@ -236,7 +236,7 @@ t = open(ep).read()
 if 'qogirn6pro' not in t:
     t = t.replace('static const struct of_device_id sprd_efuse_of_match[] = {\n',
                   'static const struct sprd_efuse_variant_data qogirn6pro_data = {\n\t.blk_nums = 51,\n\t.blk_offset = 53,\n\t.blk_double = true,\n};\n\nstatic const struct of_device_id sprd_efuse_of_match[] = {\n\t{ .compatible = "sprd,qogirn6pro-efuse", .data = &qogirn6pro_data },\n', 1)
-    t = t.replace('econfig.read_only = false;', 'econfig.read_only = true;\t/* MU300: never blow eFuses */')
+    t = t.replace('econfig.read_only = false;', 'econfig.read_only = true;\t/* OPENF50: never blow eFuses */')
     t = t.replace('\teconfig.reg_write = sprd_efuse_write;\n', '')
     t = t.replace('static int sprd_efuse_write(', 'static int __maybe_unused sprd_efuse_write(')
     open(ep, 'w').write(t)
@@ -294,8 +294,8 @@ expect = [
     ('drivers/mfd/sprd-sc27xx-spi.c', ['ump9620_data = {', '.charger_det = SPRD_UMP9620_CHG_DET,', '"sprd,ump9620"', '.name = "ump9620"']
      + (['case PMIC_TYPE_UMP9620:', 'if (pmic_type == PMIC_TYPE_UMP9620) {', 'linux/of_platform.h']
         if 'enum sprd_pmic_type' in open(os.path.join(tree, 'drivers/mfd/sprd-sc27xx-spi.c')).read() else [])),
-    ('drivers/mmc/host/sdhci-sprd.c', ['MU300: only the eMMC and the card slot', 'MU300: CD GPIO deferred', 'of_remove_property(pdev->dev.of_node, cd)', 'DLL_PHASE_INTERNAL\t0x2 /* MU300 r11p3 */',
-                                     'MU300: the eMMC is mmc0', 'WRITE_ONCE(sdhci_sprd_emmc_added, true);']),
+    ('drivers/mmc/host/sdhci-sprd.c', ['OPENF50: only the eMMC and the card slot', 'OPENF50: CD GPIO deferred', 'of_remove_property(pdev->dev.of_node, cd)', 'DLL_PHASE_INTERNAL\t0x2 /* OPENF50 r11p3 */',
+                                     'OPENF50: the eMMC is mmc0', 'WRITE_ONCE(sdhci_sprd_emmc_added, true);']),
     ('drivers/nvmem/sprd-efuse.c', ['"sprd,qogirn6pro-efuse"', 'econfig.read_only = true;']),
     ('drivers/rtc/rtc-sc27xx.c', ['"sprd,ump96xx-rtc"']),
     ('drivers/usb/dwc3/dwc3-of-simple.c', ['"sprd,qogirn6pro-dwc3"']),

@@ -297,7 +297,7 @@ struct sipa_skb_sender {
 	struct task_struct *send_thread;
 
 	bool init_flag;
-	/* MU300: set at the first resume; the thread runs from creation but waits for this (see send.c) */
+	/* OPENF50: set at the first resume; the thread runs from creation but waits for this (see send.c) */
 	bool free_started;
 
 	atomic_t check_suspend;
@@ -386,7 +386,7 @@ struct sipa_skb_receiver {
 	struct task_struct *fill_recv_thread;
 
 	bool init_flag;
-	/* MU300: set at the first resume; the thread runs from creation but waits for this (see recv.c) */
+	/* OPENF50: set at the first resume; the thread runs from creation but waits for this (see recv.c) */
 	bool fill_started;
 	u32 tx_danger_cnt;
 	u32 rx_danger_cnt;

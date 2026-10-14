@@ -467,7 +467,7 @@ struct kbase_mem_pool {
 	spinlock_t pool_lock;
 	struct list_head page_list;
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 7, 0)
-	struct shrinker *reclaim;	/* MU300: shrinkers are allocated by the core since 6.7 */
+	struct shrinker *reclaim;	/* OPENF50: shrinkers are allocated by the core since 6.7 */
 #else
 	struct shrinker reclaim;
 #endif
@@ -991,13 +991,13 @@ struct kbase_mem_migrate {
  *                          memory handler.
  * @mem_migrate:            Per device object for managing page migration.
  */
-/* MU300: devfreq's user limits are called scaling_min_freq/scaling_max_freq in newer kernels */
+/* OPENF50: devfreq's user limits are called scaling_min_freq/scaling_max_freq in newer kernels */
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 10, 0)
-#define mu300_devfreq_min_freq(df) ((df)->scaling_min_freq)
-#define mu300_devfreq_max_freq(df) ((df)->scaling_max_freq)
+#define openf50_devfreq_min_freq(df) ((df)->scaling_min_freq)
+#define openf50_devfreq_max_freq(df) ((df)->scaling_max_freq)
 #else
-#define mu300_devfreq_min_freq(df) ((df)->min_freq)
-#define mu300_devfreq_max_freq(df) ((df)->max_freq)
+#define openf50_devfreq_min_freq(df) ((df)->min_freq)
+#define openf50_devfreq_max_freq(df) ((df)->max_freq)
 #endif
 
 struct kbase_device {
@@ -1025,7 +1025,7 @@ struct kbase_device {
 	unsigned int nr_regulators;
 #if (KERNEL_VERSION(4, 10, 0) <= LINUX_VERSION_CODE)
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 0, 0)
-	int opp_token;	/* MU300: dev_pm_opp_set_regulators() returns a token, not a table */
+	int opp_token;	/* OPENF50: dev_pm_opp_set_regulators() returns a token, not a table */
 #else
 	struct opp_table *opp_table;
 #endif
@@ -1864,7 +1864,7 @@ struct kbase_context {
 	struct kbase_mem_pool_group mem_pools;
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 7, 0)
-	struct shrinker         *reclaim;	/* MU300: shrinkers are allocated by the core since 6.7 */
+	struct shrinker         *reclaim;	/* OPENF50: shrinkers are allocated by the core since 6.7 */
 #else
 	struct shrinker         reclaim;
 #endif

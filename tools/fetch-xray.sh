@@ -1,5 +1,5 @@
 #!/bin/sh
-# Download the pinned Xray-core and hev-socks5-tunnel releases (static arm64) used by mu300-vpn's xray engine and
+# Download the pinned Xray-core and hev-socks5-tunnel releases (static arm64) used by openf50-vpn's xray engine and
 # verify them. Xray speaks VLESS (it is the reference implementation); hev-socks5-tunnel turns a kernel TUN
 # device into connections on Xray's local SOCKS port.
 #   tools/fetch-xray.sh [OUTDIR]   (default: .; writes OUTDIR/xray and OUTDIR/hev-socks5-tunnel)

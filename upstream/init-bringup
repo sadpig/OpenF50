@@ -5,7 +5,7 @@
 /bin/busybox mount -t sysfs sysfs /sys
 /bin/busybox mount -t devtmpfs devtmpfs /dev 2>/dev/null
 /bin/busybox --install -s /bin
-log() { echo "MU300-MAINLINE: $*" > /dev/kmsg; }
+log() { echo "OPENF50-MAINLINE: $*" > /dev/kmsg; }
 log "userspace up: $(uname -a)"
 log "cpus online: $(cat /sys/devices/system/cpu/online) possible: $(cat /sys/devices/system/cpu/possible)"
 log "mem: $(grep -E 'MemTotal|MemFree' /proc/meminfo | tr -s ' ' | tr '\n' ' ')"

@@ -195,7 +195,7 @@ static int sprd_pmic_wdt_probe(struct platform_device *pdev)
 	int ret, rval;
 	struct device_node *node = pdev->dev.of_node;
 	struct sprd_pmic_wdt *pmic_wdt;
-	/* MU300: sched_set_fifo() picks the priority itself, so the param is gone */
+	/* OPENF50: sched_set_fifo() picks the priority itself, so the param is gone */
 
 	pmic_wdt = devm_kzalloc(&pdev->dev, sizeof(*pmic_wdt), GFP_KERNEL);
 	if (!pmic_wdt)
@@ -230,7 +230,7 @@ static int sprd_pmic_wdt_probe(struct platform_device *pdev)
 		pmic_wdt->wdt_thread = NULL;
 		dev_err(&pdev->dev, "failed to run pmic_wdt_thread:\n");
 	} else {
-		/* MU300: sched_setscheduler() is not exported to modules any more; sched_set_fifo()
+		/* OPENF50: sched_setscheduler() is not exported to modules any more; sched_set_fifo()
 		 * is the replacement the kernel offers for exactly this (a FIFO worker thread).
 		 */
 		sched_set_fifo(pmic_wdt->wdt_thread);
@@ -243,7 +243,7 @@ static int sprd_pmic_wdt_probe(struct platform_device *pdev)
 	return ret;
 }
 
-/* MU300: platform_driver::remove returns void since 6.11, so an early return cannot report an error */
+/* OPENF50: platform_driver::remove returns void since 6.11, so an early return cannot report an error */
 static void sprd_pmic_wdt_remove(struct platform_device *pdev)
 {
 	struct sprd_pmic_wdt *pmic_wdt = dev_get_drvdata(&pdev->dev);

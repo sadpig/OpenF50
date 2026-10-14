@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Wrap a mainline arm64 Image for the Unisoc LK on the MU300.
+"""Wrap a mainline arm64 Image for the Unisoc LK on the OPENF50.
 
 LK always copies the kernel to 0x80080000 (text_offset 0x80000 of pre-5.8 kernels) and jumps there. Kernels since 5.8
 have text_offset 0 and must start on a 2 MiB boundary. This prepends a stub with an arm64 Image header whose first

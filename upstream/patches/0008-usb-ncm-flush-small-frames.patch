@@ -1,8 +1,8 @@
-From: mu300-linux
+From: openf50-linux
 Subject: [PATCH] usb: gadget: ncm: send small latency-sensitive frames immediately
 
 NCM waits 300 us before completing an underfilled NTB, with the flush
-performed by a soft hrtimer callback. On the MU300 USB gadget, this
+performed by a soft hrtimer callback. On the OPENF50 USB gadget, this
 turned single short frames into multi-millisecond ping latency. Keep
 aggregation for larger frames, but submit short frames synchronously.
 

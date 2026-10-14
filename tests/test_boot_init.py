@@ -25,25 +25,25 @@ class SdRoot(ShellTest):
         return e.group(1) + m.group(1)
 
     def run_fn(self, shell, call, glob):
-        code = 'log() { :; }; mdev() { :; }\n' + self.functions() + f'\nMU300_SD_GLOB="{glob}"\n{call}\necho "rc=$?"'
+        code = 'log() { :; }; mdev() { :; }\n' + self.functions() + f'\nOPENF50_SD_GLOB="{glob}"\n{call}\necho "rc=$?"'
         return self.sh(shell, code).stdout
 
     def test_label(self):
-        fake_ext4(self.tmp / 'a', 'mu300sd')
-        fake_ext4(self.tmp / 'b', 'mu300sd', magic=b'\x00\x00')
+        fake_ext4(self.tmp / 'a', 'openf50sd')
+        fake_ext4(self.tmp / 'b', 'openf50sd', magic=b'\x00\x00')
         for shell in self.each_shell():
-            self.assertIn('mu300sd\nrc=0', self.run_fn(shell, f'ext4_label {self.tmp}/a', ''))
+            self.assertIn('openf50sd\nrc=0', self.run_fn(shell, f'ext4_label {self.tmp}/a', ''))
             self.assertEqual('rc=1', self.run_fn(shell, f'ext4_label {self.tmp}/b', '').strip())
 
     def test_partition_before_whole_card(self):
-        fake_ext4(self.tmp / 'mmcblk1', 'mu300sd')
-        fake_ext4(self.tmp / 'mmcblk1p1', 'mu300sd')
+        fake_ext4(self.tmp / 'mmcblk1', 'openf50sd')
+        fake_ext4(self.tmp / 'mmcblk1p1', 'openf50sd')
         for shell in self.each_shell():
             out = self.run_fn(shell, 'find_sd_root', f'{self.tmp}/mmcblk[1-9]p1 {self.tmp}/mmcblk[1-9]')
             self.assertIn(f'{self.tmp}/mmcblk1p1\nrc=0', out)
 
     def test_finds_card_under_another_number(self):
-        fake_ext4(self.tmp / 'mmcblk2p1', 'mu300sd')
+        fake_ext4(self.tmp / 'mmcblk2p1', 'openf50sd')
         for shell in self.each_shell():
             out = self.run_fn(shell, 'find_sd_root', f'{self.tmp}/mmcblk[1-9]p1 {self.tmp}/mmcblk[1-9]')
             self.assertIn('mmcblk2p1\nrc=0', out)
@@ -79,7 +79,7 @@ class SdRoot(ShellTest):
 
     def waited(self, shell, kernel, sys, extra=''):
         call = (f'n_sleep=0; sleep() {{ n_sleep=$((n_sleep + 1)); {extra} }}; uname() {{ echo {kernel}; }}; '
-                f'MU300_SYS={sys}; wait_sd_root 3 6; r=$?; echo "slept=$n_sleep"; (exit $r)')
+                f'OPENF50_SYS={sys}; wait_sd_root 3 6; r=$?; echo "slept=$n_sleep"; (exit $r)')
         return self.run_fn(shell, call, f'{self.tmp}/mmcblk[1-9]p1')
 
     def test_mainline_empty_slot_keeps_the_short_wait(self):
@@ -113,7 +113,7 @@ class SdRoot(ShellTest):
     def test_late_card_found_during_the_long_wait(self):
         sys = self.fake_sys(hosts=('mmc0', 'mmc1', 'mmc2'))
         src = self.tmp / 'card'
-        fake_ext4(src, 'mu300sd')
+        fake_ext4(src, 'openf50sd')
         appear = f'[ $n_sleep = 5 ] && cp {src} {self.tmp}/mmcblk1p1;'
         for shell in self.each_shell():
             (self.tmp / 'mmcblk1p1').unlink(missing_ok=True)
@@ -134,7 +134,7 @@ class SdRoot(ShellTest):
 
     def by_type(self, shell, call, layout):
         s, d = self.fake_disks(layout)
-        return self.run_fn(shell, f'MU300_SYS={s}; MU300_DEV={d}; {call}', '')
+        return self.run_fn(shell, f'OPENF50_SYS={s}; OPENF50_DEV={d}; {call}', '')
 
     def test_emmc_by_type(self):
         for shell in self.each_shell():
@@ -150,8 +150,8 @@ class SdRoot(ShellTest):
         # the card slot took mmc0: the card is mmcblk0, the eMMC mmcblk1
         layout = {'mmcblk0': 'SD', 'mmcblk1': 'MMC', 'mmcblk1boot0': 'MMC'}
         self.fake_disks(layout)
-        fake_ext4(self.tmp / 'dev' / 'mmcblk0p1', 'mu300sd')
-        fake_ext4(self.tmp / 'dev' / 'mmcblk1p1', 'mu300sd')   # never looked at: the eMMC
+        fake_ext4(self.tmp / 'dev' / 'mmcblk0p1', 'openf50sd')
+        fake_ext4(self.tmp / 'dev' / 'mmcblk1p1', 'openf50sd')   # never looked at: the eMMC
         for shell in self.each_shell():
             self.assertIn(f'{self.tmp}/dev/mmcblk0p1\nrc=0', self.by_type(shell, 'find_sd_root', layout))
 
@@ -159,15 +159,15 @@ class SdRoot(ShellTest):
         layout = {'mmcblk0': 'SD', 'mmcblk1': 'MMC'}
         self.fake_disks(layout)
         fake_ext4(self.tmp / 'dev' / 'mmcblk0p1', 'photos')
-        fake_ext4(self.tmp / 'dev' / 'mmcblk1p1', 'mu300sd')
-        fake_ext4(self.tmp / 'dev' / 'mmcblk1', 'mu300sd')
+        fake_ext4(self.tmp / 'dev' / 'mmcblk1p1', 'openf50sd')
+        fake_ext4(self.tmp / 'dev' / 'mmcblk1', 'openf50sd')
         for shell in self.each_shell():
             self.assertEqual('rc=1', self.by_type(shell, 'find_sd_root', layout).strip())
 
     def test_card_on_mmcblk1_still_found(self):
         layout = {'mmcblk0': 'MMC', 'mmcblk1': 'SD'}
         self.fake_disks(layout)
-        fake_ext4(self.tmp / 'dev' / 'mmcblk1', 'mu300sd')   # the whole card, no partition table
+        fake_ext4(self.tmp / 'dev' / 'mmcblk1', 'openf50sd')   # the whole card, no partition table
         for shell in self.each_shell():
             self.assertIn(f'{self.tmp}/dev/mmcblk1\nrc=0', self.by_type(shell, 'find_sd_root', layout))
 
@@ -212,11 +212,11 @@ class Region(ShellTest):
             f.truncate(size)
             if region_at is not None:
                 f.seek(region_at + 1080); f.write(b'\x53\xef')
-                f.seek(region_at + 1144); f.write(b'mu300root')
+                f.seek(region_at + 1144); f.write(b'openf50root')
         return dev
 
     def find(self, shell, emmc, root_offset):
-        code = self.block() + f'\nMU300_SYS={self.tmp}/sys; EMMC={emmc}; ROOT_OFFSET={root_offset}; find_root_offset; echo "rc=$?"'
+        code = self.block() + f'\nOPENF50_SYS={self.tmp}/sys; EMMC={emmc}; ROOT_OFFSET={root_offset}; find_root_offset; echo "rc=$?"'
         return self.sh(shell, code).stdout
 
     def test_region_on_an_emmc_that_is_mmcblk1(self):
@@ -265,8 +265,8 @@ class RootSelect(ShellTest):
         self.assertIsNotNone(m, 'boot/init has no root-select block')
         code = m.group(1)
         # the device paths are only redirected here, never changed in init
-        for path, repl in (('/run/mu300-root-dev', '$T/root-dev'), ('/run/rootmount.err', '$T/err'),
-                           ('/disk/.mu300/root-on-sd', '$T/root-on-sd')):
+        for path, repl in (('/run/openf50-root-dev', '$T/root-dev'), ('/run/rootmount.err', '$T/err'),
+                           ('/disk/.openf50/root-on-sd', '$T/root-on-sd')):
             self.assertIn(path, code)
             code = code.replace(path, repl)
         return code
@@ -382,7 +382,7 @@ class Slot(ShellTest):
         for n in blocks:
             (etc / f'misc-bc-{n}.bin').write_text(n)
         if image:
-            (etc / 'mu300-linux-slot').write_text(image + '\n')
+            (etc / 'openf50-linux-slot').write_text(image + '\n')
         srcs = []
         for name, text in (('cmdline', cmdline), ('bootargs', bootargs)):
             if text is not None:
@@ -392,7 +392,7 @@ class Slot(ShellTest):
                 f'write_misc_bc() {{ echo "write $1" >> "{self.tmp}/log"; }}\n' + self.block() + f'\n{call}\n'
                 'echo "linux=$LINUX_SLOT android=$ANDROID_SLOT"')
         (self.tmp / 'log').write_text('')
-        r = self.sh(shell, code, MU300_CMDLINE_SRC=' '.join(srcs) or f'{self.tmp}/none', MU300_ETC=etc, MU300_RUN=run)
+        r = self.sh(shell, code, OPENF50_CMDLINE_SRC=' '.join(srcs) or f'{self.tmp}/none', OPENF50_ETC=etc, OPENF50_RUN=run)
         self.assertEqual(r.stderr, '')
         return r.stdout.strip(), (self.tmp / 'log').read_text(), run
 
@@ -401,9 +401,9 @@ class Slot(ShellTest):
             out, log, run = self.run_slot(shell, cmdline='console=x androidboot.slot_suffix=_a loglevel=5')
             self.assertEqual(out, 'linux=a android=b')
             self.assertIn('stage=linux-slot slot=a source=', log)
-            self.assertEqual((run / 'mu300' / 'linux-slot').read_text(), 'a\n')
-            self.assertEqual((run / 'mu300' / 'misc-bc-android.bin').read_text(), 'slot-b')
-            self.assertEqual((run / 'mu300' / 'misc-bc-linux-trial.bin').read_text(), 'slot-a-trial')
+            self.assertEqual((run / 'openf50' / 'linux-slot').read_text(), 'a\n')
+            self.assertEqual((run / 'openf50' / 'misc-bc-android.bin').read_text(), 'slot-b')
+            self.assertEqual((run / 'openf50' / 'misc-bc-linux-trial.bin').read_text(), 'slot-a-trial')
 
     def test_bootargs_when_the_kernel_replaced_the_cmdline(self):
         for shell in self.each_shell():
@@ -431,26 +431,26 @@ class Slot(ShellTest):
             self.assertIn(f'write {self.tmp}/etc/misc-bc-slot-a.bin', log)
 
     def test_legacy_names_only_for_slot_b(self):
-        # an older mu300-next-boot writes misc-bc-slot-a.bin for "android": with Linux on a that block would boot
+        # an older openf50-next-boot writes misc-bc-slot-a.bin for "android": with Linux on a that block would boot
         # Linux, marked successful, for ever - so with Linux on a the old names must not exist at all
         for shell in self.each_shell():
             _, _, run = self.run_slot(shell, cmdline='androidboot.slot_suffix=_b')
-            self.assertEqual((run / 'mu300' / 'misc-bc-slot-a.bin').read_text(), 'slot-a')
-            self.assertEqual((run / 'mu300' / 'misc-bc-slot-b-trial.bin').read_text(), 'slot-b-trial')
+            self.assertEqual((run / 'openf50' / 'misc-bc-slot-a.bin').read_text(), 'slot-a')
+            self.assertEqual((run / 'openf50' / 'misc-bc-slot-b-trial.bin').read_text(), 'slot-b-trial')
             _, _, run = self.run_slot(shell, cmdline='androidboot.slot_suffix=_a')
-            self.assertFalse((run / 'mu300' / 'misc-bc-slot-a.bin').exists())
-            self.assertFalse((run / 'mu300' / 'misc-bc-slot-b-trial.bin').exists())
+            self.assertFalse((run / 'openf50' / 'misc-bc-slot-a.bin').exists())
+            self.assertFalse((run / 'openf50' / 'misc-bc-slot-b-trial.bin').exists())
 
     def test_old_device_segment(self):
         # the update every existing installation takes: a new init in the generic segment, the device segment of
-        # an older installer (only the slot-b pair, no etc/mu300-linux-slot), booted from b
+        # an older installer (only the slot-b pair, no etc/openf50-linux-slot), booted from b
         for shell in self.each_shell():
             out, _, run = self.run_slot(shell, cmdline='androidboot.slot_suffix=_b', blocks=('slot-a', 'slot-b-trial'))
             self.assertEqual(out, 'linux=b android=a')
-            self.assertEqual((run / 'mu300' / 'linux-slot').read_text(), 'b\n')
+            self.assertEqual((run / 'openf50' / 'linux-slot').read_text(), 'b\n')
             for n, want in (('misc-bc-android.bin', 'slot-a'), ('misc-bc-linux-trial.bin', 'slot-b-trial'),
                             ('misc-bc-slot-a.bin', 'slot-a'), ('misc-bc-slot-b-trial.bin', 'slot-b-trial')):
-                self.assertEqual((run / 'mu300' / n).read_text(), want, n)
+                self.assertEqual((run / 'openf50' / n).read_text(), want, n)
             _, log, _ = self.run_slot(shell, cmdline='androidboot.slot_suffix=_b', blocks=('slot-a', 'slot-b-trial'),
                                       call='linux_slot_detect; restore_android')
             self.assertIn(f'write {self.tmp}/etc/misc-bc-slot-a.bin', log)
@@ -474,7 +474,7 @@ class UsbId(ShellTest):
             d.mkdir(exist_ok=True)
             (d / 'type').write_text(kind + '\n')
             (d / 'cid').write_text(cid + '\n')
-        code = f'NET={net}; MU300_SYS={s}\n' + self.functions() + f'\nusb_id {self.tmp}/none {b}\necho "$USBID $MAC"'
+        code = f'NET={net}; OPENF50_SYS={s}\n' + self.functions() + f'\nusb_id {self.tmp}/none {b}\necho "$USBID $MAC"'
         return self.sh(shell, code).stdout.strip()
 
     @staticmethod
@@ -518,7 +518,7 @@ class UsbId(ShellTest):
             self.assertEqual(self.ident(shell, 'androidboot.serialno=1234'), '1234 ' + self.mac('1234'))
 
     def test_serial_string_uses_it(self):
-        self.assertIn('echo "MU300LINUX${USBID:+-$USBID}" > "$g/strings/0x409/serialnumber"', INIT)
+        self.assertIn('echo "OPENF50LINUX${USBID:+-$USBID}" > "$g/strings/0x409/serialnumber"', INIT)
         self.assertIn('usb_id /proc/cmdline /proc/device-tree/chosen/bootargs', INIT)
 
 
@@ -543,13 +543,13 @@ class PickRoot(ShellTest):
 
     def test_boot_os_chooses_it(self):
         self.system('ubuntu', 'lib/systemd/systemd'); self.system('openwrt'); self.system('openwrt-luci')
-        (self.tmp / 'disk/.mu300').mkdir(); (self.tmp / 'disk/.mu300/boot-os').write_text('openwrt-luci\n')
+        (self.tmp / 'disk/.openf50').mkdir(); (self.tmp / 'disk/.openf50/boot-os').write_text('openwrt-luci\n')
         for shell in self.each_shell():
             self.assertEqual(self.pick(shell), f'{self.tmp}/disk/openwrt-luci')
 
     def test_never_boots_a_kept_copy(self):
         self.system('openwrt-luci.old')
-        (self.tmp / 'disk/.mu300').mkdir(); (self.tmp / 'disk/.mu300/boot-os').write_text('openwrt-luci.old\n')
+        (self.tmp / 'disk/.openf50').mkdir(); (self.tmp / 'disk/.openf50/boot-os').write_text('openwrt-luci.old\n')
         for shell in self.each_shell():
             self.assertEqual(self.pick(shell), '')
 
@@ -574,7 +574,7 @@ class GadgetHarness(ShellTest):
         return m.group(1)
 
     def build(self, shell, usbnet, then='', no_rndis=False):
-        """setup_usb_gadget with MU300_USBNET=USBNET (None: unset), then the shell code THEN; NO_RNDIS: a kernel
+        """setup_usb_gadget with OPENF50_USBNET=USBNET (None: unset), then the shell code THEN; NO_RNDIS: a kernel
         without f_rndis, whose configfs refuses to make rndis.rn0."""
         body = self.block('usb-gadget') + self.block('usb-net')
         for path, repl in (('/config/usb_gadget', f'{self.tmp}/cfg/usb_gadget'), ('/sys/class/udc', f'{self.tmp}/udc'),
@@ -592,7 +592,7 @@ class GadgetHarness(ShellTest):
                 'rmdir() { for d; do case $d in */functions/*) command rm -rf "$d" ;; *) command rmdir "$d" ;; esac; done; }\n'
                 'mkdir -p "%s/cfg/usb_gadget/linux/os_desc"\n' % self.tmp +
                 'ifconfig() { echo "ifconfig $*" >> "$T/log"; }; ip() { echo "ip $*" >> "$T/log"; }\n'
-                f'MAC=02:00:00:00:00 NET=192.168.77 T={self.tmp} NO_RNDIS={"1" if no_rndis else ""}\n' + (f'MU300_USBNET="{usbnet}"\n' if usbnet is not None else '')
+                f'MAC=02:00:00:00:00 NET=192.168.77 T={self.tmp} NO_RNDIS={"1" if no_rndis else ""}\n' + (f'OPENF50_USBNET="{usbnet}"\n' if usbnet is not None else '')
                 + body + '\nsetup_usb_gadget\n' + then)
         r = self.sh(shell, code)
         self.assertEqual(0, r.returncode, r.stderr)
@@ -641,16 +641,16 @@ class UsbGadget(GadgetHarness):
 
 
 class UsbNetPolicy(ShellTest):
-    """usb_net_policy ROOTDIR: the gadget functions etc/mu300/usb-net of the chosen system asks for (D12, K7)."""
+    """usb_net_policy ROOTDIR: the gadget functions etc/openf50/usb-net of the chosen system asks for (D12, K7)."""
 
     def policy(self, shell, content, usbnet=None):
-        f = self.tmp / 'root' / 'etc' / 'mu300' / 'usb-net'
+        f = self.tmp / 'root' / 'etc' / 'openf50' / 'usb-net'
         f.parent.mkdir(parents=True, exist_ok=True)
         if content is None:
             f.unlink(missing_ok=True)
         else:
             f.write_text(content)
-        env = {} if usbnet is None else {'MU300_USBNET': usbnet}
+        env = {} if usbnet is None else {'OPENF50_USBNET': usbnet}
         r = self.sh(shell, GadgetHarness.block('usb-net') + f'\nusb_net_policy "{self.tmp}/root"; echo "rc=$?"', **env)
         self.assertEqual('', r.stderr)
         return r.stdout
@@ -679,7 +679,7 @@ class UsbNetRebind(GadgetHarness):
 
     def apply(self, shell, value, usbnet=None, no_rndis=False):
         (self.tmp / 'udc' / '25100000.dwc3').mkdir(parents=True, exist_ok=True)
-        f = self.tmp / 'root' / 'etc' / 'mu300' / 'usb-net'
+        f = self.tmp / 'root' / 'etc' / 'openf50' / 'usb-net'
         f.parent.mkdir(parents=True, exist_ok=True)
         if value is not None:
             f.write_text(value + '\n')
@@ -689,7 +689,7 @@ class UsbNetRebind(GadgetHarness):
         return (self.tmp / 'log').read_text().count('stage=usb-bind-start')
 
     def marker(self):
-        m = self.tmp / 'run' / 'mu300' / 'usb-net-applied'
+        m = self.tmp / 'run' / 'openf50' / 'usb-net-applied'
         return m.read_text().strip() if m.exists() else None
 
     def test_rndis_rebuilds_the_single_configuration_gadget(self):
@@ -751,8 +751,8 @@ class UsbNetRebind(GadgetHarness):
 
     def test_no_controller_no_second_wait(self):
         for shell in self.each_shell():
-            (self.tmp / 'root' / 'etc' / 'mu300').mkdir(parents=True)
-            (self.tmp / 'root' / 'etc' / 'mu300' / 'usb-net').write_text('ecm\n')
+            (self.tmp / 'root' / 'etc' / 'openf50').mkdir(parents=True)
+            (self.tmp / 'root' / 'etc' / 'openf50' / 'usb-net').write_text('ecm\n')
             g = self.build(shell, None, f'apply_usb_net "{self.tmp}/root"')
             log = (self.tmp / 'log').read_text()
             self.assertEqual(1, log.count('stage=usb-wait-udc'))
@@ -795,7 +795,7 @@ class EarlyDhcp(GadgetHarness):
             self.assertNotIn('3600', conf)
             self.assertIn('ifconfig usb0 192.168.77.1 netmask 255.255.255.0 up', (self.tmp / 'log').read_text())
             self.assertEqual(['udhcpd -f ' + str(self.tmp / 'run' / 'udhcpd-usb0.conf')], self.starts())
-            self.assertEqual('02:00:00:00:00:02', (self.tmp / 'run' / 'mu300-usb-host-mac').read_text().strip())
+            self.assertEqual('02:00:00:00:00:02', (self.tmp / 'run' / 'openf50-usb-host-mac').read_text().strip())
             self.assertTrue((self.tmp / 'run' / 'udhcpd-usb0.pid').read_text().strip().isdigit())
             self.tearDown(); self.setUp()
 
@@ -805,7 +805,7 @@ class EarlyDhcp(GadgetHarness):
             self.build(shell, 'rndis')
             self.assertIn('interface rndis0\n', self.conf())
             self.assertIn('ifconfig rndis0 192.168.77.1 netmask 255.255.255.0 up', (self.tmp / 'log').read_text())
-            self.assertEqual('02:00:00:00:00:04', (self.tmp / 'run' / 'mu300-usb-host-mac').read_text().strip())
+            self.assertEqual('02:00:00:00:00:04', (self.tmp / 'run' / 'openf50-usb-host-mac').read_text().strip())
             self.tearDown(); self.setUp()
 
     def test_no_netdev_no_server(self):
@@ -820,8 +820,8 @@ class EarlyDhcp(GadgetHarness):
         for shell in self.each_shell():
             self.netdevs('usb0', 'rndis0')
             (self.tmp / 'udc' / '25100000.dwc3').mkdir(parents=True)
-            (self.tmp / 'root' / 'etc' / 'mu300').mkdir(parents=True)
-            (self.tmp / 'root' / 'etc' / 'mu300' / 'usb-net').write_text('rndis\n')
+            (self.tmp / 'root' / 'etc' / 'openf50').mkdir(parents=True)
+            (self.tmp / 'root' / 'etc' / 'openf50' / 'usb-net').write_text('rndis\n')
             self.build(shell, None, f'apply_usb_net "{self.tmp}/root"')
             log = (self.tmp / 'log').read_text().splitlines()
             starts = [i for i, l in enumerate(log) if l.startswith('udhcpd ')]
@@ -831,7 +831,7 @@ class EarlyDhcp(GadgetHarness):
             self.assertLess(starts[0], kills[0])
             self.assertLess(kills[0], starts[1])
             self.assertIn('interface rndis0\n', self.conf())
-            self.assertEqual('02:00:00:00:00:04', (self.tmp / 'run' / 'mu300-usb-host-mac').read_text().strip())
+            self.assertEqual('02:00:00:00:00:04', (self.tmp / 'run' / 'openf50-usb-host-mac').read_text().strip())
             self.tearDown(); self.setUp()
 
     def test_place_in_init(self):
@@ -863,7 +863,7 @@ class UsbNetPlace(unittest.TestCase):
 
 
 class BootTries(ShellTest):
-    """The backstop count of boots that never reached mu300-boot-ok (.mu300/boot-tries), against a misc file."""
+    """The backstop count of boots that never reached openf50-boot-ok (.openf50/boot-tries), against a misc file."""
     def functions(self):
         m = re.search(r'# --- boot-tries begin\n(.*?)# --- boot-tries end', INIT, re.S)
         self.assertIsNotNone(m, 'boot/init has no boot-tries block')
@@ -872,9 +872,9 @@ class BootTries(ShellTest):
     def setUp(self):
         super().setUp()
         self.disk = self.tmp / 'disk'
-        (self.disk / '.mu300').mkdir(parents=True)
-        (self.disk / 'ubuntu/etc/mu300').mkdir(parents=True)
-        (self.disk / 'ubuntu/etc/mu300/default-boot').write_text('linux\n')
+        (self.disk / '.openf50').mkdir(parents=True)
+        (self.disk / 'ubuntu/etc/openf50').mkdir(parents=True)
+        (self.disk / 'ubuntu/etc/openf50/default-boot').write_text('linux\n')
         self.misc = self.tmp / 'misc'
 
     def lk(self, slot, tries, successful=False, magic=b'BCAB'):
@@ -896,13 +896,13 @@ class BootTries(ShellTest):
         return r.stdout.strip(), r.stderr
 
     def count(self):
-        return (self.disk / '.mu300/boot-tries').read_text().strip()
+        return (self.disk / '.openf50/boot-tries').read_text().strip()
 
     def test_counts_and_sends_the_boot_after_the_fifth_to_android(self):
         # LK that does not count (its tries stay where they were): the backstop is what brings Android back
         for shell in self.each_shell():
             for slot in ('a', 'b'):
-                (self.disk / '.mu300/boot-tries').write_text('0\n')
+                (self.disk / '.openf50/boot-tries').write_text('0\n')
                 self.lk(slot, 6)
                 for n in range(1, 6):
                     self.assertEqual(self.boot(shell, slot)[0], 'linux')
@@ -911,11 +911,11 @@ class BootTries(ShellTest):
                 self.assertEqual(self.count(), '0')
 
     def test_a_count_lk_already_acted_on_starts_again(self):
-        # five boots that never reached mu300-boot-ok: LK went to Android by itself, the count stayed at 5. The
-        # slot armed again from Android (su -c mu300-linux: tries 2, LK leaves 1) must boot Linux, not bounce
+        # five boots that never reached openf50-boot-ok: LK went to Android by itself, the count stayed at 5. The
+        # slot armed again from Android (su -c openf50-linux: tries 2, LK leaves 1) must boot Linux, not bounce
         # straight back to Android (seen on F50 #1)
         for shell in self.each_shell():
-            (self.disk / '.mu300/boot-tries').write_text('5\n')
+            (self.disk / '.openf50/boot-tries').write_text('5\n')
             self.lk('b', 1)
             out, err = self.boot(shell)
             self.assertEqual(out, 'linux')
@@ -923,21 +923,21 @@ class BootTries(ShellTest):
             self.assertIn('stage=boot-tries-restart', err)
 
     def test_attempts_setting(self):
-        (self.disk / '.mu300/boot-attempts').write_text('2\n')
+        (self.disk / '.openf50/boot-attempts').write_text('2\n')
         for shell in self.each_shell():
-            (self.disk / '.mu300/boot-tries').write_text('2\n')
+            (self.disk / '.openf50/boot-tries').write_text('2\n')
             self.lk('b', 3)
             self.assertEqual(self.boot(shell)[0], 'android')
 
     def test_unknown_misc_keeps_the_backstop(self):
         for shell in self.each_shell():
-            (self.disk / '.mu300/boot-tries').write_text('5\n')
+            (self.disk / '.openf50/boot-tries').write_text('5\n')
             self.assertEqual(self.boot(shell, misc=False)[0], 'android')
 
     def test_one_shot_mode_never_counts(self):
-        (self.disk / 'ubuntu/etc/mu300/default-boot').unlink()
+        (self.disk / 'ubuntu/etc/openf50/default-boot').unlink()
         for shell in self.each_shell():
-            (self.disk / '.mu300/boot-tries').write_text('9\n')
+            (self.disk / '.openf50/boot-tries').write_text('9\n')
             self.lk('b', 6)
             self.assertEqual(self.boot(shell)[0], 'linux')
             self.assertEqual(self.count(), '9')
@@ -947,7 +947,7 @@ class BootTries(ShellTest):
         # and 0 at boot N+1, where the backstop goes to Android on the same boot LK would have
         for shell in self.each_shell():
             for slot in ('a', 'b'):
-                (self.disk / '.mu300/boot-tries').write_text('0\n')
+                (self.disk / '.openf50/boot-tries').write_text('0\n')
                 for n in range(1, 6):
                     self.lk(slot, 6 - n)
                     out, err = self.boot(shell, slot)
@@ -959,7 +959,7 @@ class BootTries(ShellTest):
 
     def test_a_count_lk_already_acted_on_starts_again_on_slot_a(self):
         for shell in self.each_shell():
-            (self.disk / '.mu300/boot-tries').write_text('5\n')
+            (self.disk / '.openf50/boot-tries').write_text('5\n')
             self.lk('a', 1)
             out, err = self.boot(shell, 'a')
             self.assertEqual(out, 'linux')
@@ -968,14 +968,14 @@ class BootTries(ShellTest):
 
     def test_lk_leaving_0_keeps_the_backstop(self):
         for shell in self.each_shell():
-            (self.disk / '.mu300/boot-tries').write_text('5\n')
+            (self.disk / '.openf50/boot-tries').write_text('5\n')
             self.lk('b', 0)
             self.assertEqual(self.boot(shell)[0], 'android')
 
     def test_no_bootloader_control_keeps_the_backstop(self):
         # a misc without the BCAB magic: its slot bytes are not LK's tries
         for shell in self.each_shell():
-            (self.disk / '.mu300/boot-tries').write_text('5\n')
+            (self.disk / '.openf50/boot-tries').write_text('5\n')
             self.lk('b', 1, magic=bytes(4))
             out, err = self.boot(shell)
             self.assertEqual(out, 'android')
@@ -984,7 +984,7 @@ class BootTries(ShellTest):
     def test_a_successful_slot_keeps_the_backstop(self):
         # 0x9f: tries 1 but marked successful - LK does not count it down, so it says nothing about a fallback
         for shell in self.each_shell():
-            (self.disk / '.mu300/boot-tries').write_text('5\n')
+            (self.disk / '.openf50/boot-tries').write_text('5\n')
             self.lk('b', 1, successful=True)
             out, err = self.boot(shell)
             self.assertEqual(out, 'android')

@@ -36,7 +36,7 @@ static void mm_check_mh_buffer(struct device *dev, void *buffer, dma_addr_t pa,
 		while ((desc->data_write_done != 1) &&
 		       (retry < MAX_RETRY_NUM)) {
 			/*
-			 * MU300: re-read the descriptor from memory. The vendor code called
+			 * OPENF50: re-read the descriptor from memory. The vendor code called
 			 * dma_sync_single_for_device() here, which on arm64 invalidated
 			 * FROM_DEVICE buffers until 5.19 and cleans them since: the CPU kept
 			 * reading the stale line, every retry failed, and the pr_err below
@@ -552,7 +552,7 @@ void *sc2355_mm_phys_to_virt(struct device *dev, unsigned long pcie_addr,
 	pa = pcie_addr & (~(SPRD_MH_ADDRESS_BIT) & SPRD_PHYS_MASK);
 	buffer = phys_to_virt(pa);
 
-	/* MU300: for_cpu, not for_device: the CPU is about to read what the device wrote (see mm_check_mh_buffer) */
+	/* OPENF50: for_cpu, not for_device: the CPU is about to read what the device wrote (see mm_check_mh_buffer) */
 	dma_sync_single_for_cpu(dev, pa, size, direction);
 
 	if (is_mh)

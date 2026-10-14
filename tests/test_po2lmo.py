@@ -11,8 +11,8 @@ import po2lmo  # noqa: E402
 class Po2Lmo(unittest.TestCase):
     def test_byte_for_byte(self):
         for lang in ('tr', 'en'):
-            want = (FIX / f'mu300.{lang}.lmo').read_bytes()
-            self.assertEqual(po2lmo.compile_po((FIX / f'mu300.{lang}.po').read_text(encoding='utf-8')), want, lang)
+            want = (FIX / f'openf50.{lang}.lmo').read_bytes()
+            self.assertEqual(po2lmo.compile_po((FIX / f'openf50.{lang}.po').read_text(encoding='utf-8')), want, lang)
 
     def test_identity_and_empty_are_left_out(self):
         # LuCI's po2lmo writes no file at all when no value is left (offset 0: it unlinks the output).
@@ -46,9 +46,9 @@ class Po2Lmo(unittest.TestCase):
                 po2lmo.compile_po(bad)
 
     def test_cli(self):
-        r = subprocess.run([sys.executable, str(TOP / 'tools/po2lmo.py'), str(FIX / 'mu300.tr.po'), '/dev/stdout'],
+        r = subprocess.run([sys.executable, str(TOP / 'tools/po2lmo.py'), str(FIX / 'openf50.tr.po'), '/dev/stdout'],
                            capture_output=True)
-        self.assertEqual(r.stdout, (FIX / 'mu300.tr.lmo').read_bytes())
+        self.assertEqual(r.stdout, (FIX / 'openf50.tr.lmo').read_bytes())
 
     def test_cli_empty_catalog_writes_nothing(self):
         with tempfile.TemporaryDirectory() as d:
