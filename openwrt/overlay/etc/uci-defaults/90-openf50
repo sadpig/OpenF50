@@ -40,8 +40,8 @@ if [ "$run" = first ]; then
 	# would leave the LAN without IPv6 (openwrt-luci's 91-openf50-luci, run after this, asks for a /60 of the ULA)
 	uci -q batch <<UCI
 set system.@system[0].hostname='OpenF50'
-set system.@system[0].zonename='Europe/Istanbul'
-set system.@system[0].timezone='<+03>-3'
+set system.@system[0].zonename='Asia/Shanghai'
+set system.@system[0].timezone='CST-8'
 set network.lan.ipaddr='$lan_ip'
 set network.lan.netmask='255.255.255.0'
 set network.lan.ip6assign='64'
