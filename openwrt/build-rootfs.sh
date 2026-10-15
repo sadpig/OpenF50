@@ -255,7 +255,7 @@ mkdir -p $R/proc $R/sys $R/dev $R/tmp $R/run $R/opt
 # (no apostrophes in here: this whole block is one single-quoted argument to sh -c)
 ln -sf /tmp/resolv.conf $R/etc/resolv.conf
 printf "127.0.0.1\tlocalhost\n\n::1\tlocalhost ip6-localhost ip6-loopback\nff02::1\tip6-allnodes\nff02::2\tip6-allrouters\n" > $R/etc/hosts
-printf "openf50\n" > $R/etc/hostname   # the real one comes from uci (etc/uci-defaults/90-openf50)
+printf "OpenF50\n" > $R/etc/hostname   # the real one comes from uci (etc/uci-defaults/90-openf50)
 cp -a /in/opt-openf50 $R/opt/openf50
 cp -a /in/overlay/. $R/
 # openf50cell reports sipa_eth0 as l3_device only, so fw4 leaves it out of its software flowtable and the cellular

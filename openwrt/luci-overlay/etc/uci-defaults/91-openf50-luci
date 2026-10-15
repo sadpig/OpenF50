@@ -30,7 +30,7 @@ uci commit dhcp
 # default.
 uci -q batch <<UCI
 set luci.main.mediaurlbase='/luci-static/aurora'
-set luci.main.lang='en'
+set luci.main.lang='zh_cn'
 UCI
 # IPv6 by RA relay with NAT66 (K30, spec D9; kanoqwq/clean-tf-7.2 cd4fb28): openf50cell's ipv6 'relay' on a
 # dual-stack context. Measured in the fork on China Telecom IoT, whose +CGCONTRDP only ever shows a placeholder v6

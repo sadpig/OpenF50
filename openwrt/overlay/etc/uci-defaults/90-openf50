@@ -39,7 +39,7 @@ if [ "$run" = first ]; then
 	# lan ip6assign 64: a carrier hands out one /64 (the wan_6 that openf50cell adds), and the default /60 request
 	# would leave the LAN without IPv6 (openwrt-luci's 91-openf50-luci, run after this, asks for a /60 of the ULA)
 	uci -q batch <<UCI
-set system.@system[0].hostname='openf50'
+set system.@system[0].hostname='OpenF50'
 set system.@system[0].zonename='Europe/Istanbul'
 set system.@system[0].timezone='<+03>-3'
 set network.lan.ipaddr='$lan_ip'

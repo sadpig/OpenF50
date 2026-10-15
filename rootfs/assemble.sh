@@ -45,7 +45,7 @@ depmod -b $R $KREL
 rm -f $R/.dockerenv
 rm -f $R/etc/ssh/ssh_host_* ; : > $R/etc/machine-id; rm -f $R/var/lib/dbus/machine-id
 # docker manages /etc/hostname, so the exported file is empty
-echo openf50 > $R/etc/hostname
+echo OpenF50 > $R/etc/hostname
 # which release this filesystem came from, so openf50-update can tell whether a newer one exists
 mkdir -p $R/etc/openf50 && printf '%s\n' "${OPENF50_VERSION:-dev}" > $R/etc/openf50/image-version
 # the packages the image asks for (apt-mark showmanual): an update installs the others again, the ones added on the
