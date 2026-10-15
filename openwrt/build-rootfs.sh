@@ -89,6 +89,21 @@ if [ "$SYSTEM" = openwrt-luci ]; then
         pem_hash=$(shasum -a 256 "$ISTORE_PEM" 2>/dev/null || sha256sum "$ISTORE_PEM")
         [ "${pem_hash%% *}" = "$ISTORE_PEM_SHA" ] || { echo "iStore key checksum mismatch: $ISTORE_PEM" >&2; exit 1; }
     fi
+    # PassWall (bundled by default on OpenF50; OPENF50_PASSWALL=0 skips it): the passwall-build
+    # repo signing key, hash-pinned like the iStore key. Packages come from its feed at build time,
+    # so every release carries the then-latest PassWall and engines (not pinned one by one).
+    PASSWALL=${OPENF50_PASSWALL:-1}
+    if [ "$PASSWALL" != 0 ]; then
+        PW_PEM=${OPENF50_PASSWALL_PEM:-$TOP/work/openwrt-passwall-build.pem}
+        PW_PEM_SHA=52802b143489214e13b78f96599a147a638205cc22d9dd6d71229504e38ddc00
+        if [ ! -s "$PW_PEM" ]; then
+            [ -z "${OPENF50_PASSWALL_PEM:-}" ] || { echo "passwall-build key missing: $PW_PEM" >&2; exit 1; }
+            curl -fL -o "$PW_PEM.part" https://master.dl.sourceforge.net/project/openwrt-passwall-build/apk.pub
+            mv "$PW_PEM.part" "$PW_PEM"
+        fi
+        pw_hash=$(shasum -a 256 "$PW_PEM" 2>/dev/null || sha256sum "$PW_PEM")
+        [ "${pw_hash%% *}" = "$PW_PEM_SHA" ] || { echo "passwall-build key checksum mismatch: $PW_PEM" >&2; exit 1; }
+    fi
     # The panel's catalogs in the image: Turkish and Simplified Chinese (the others are the lang extra,
     # tools/make-extra.sh). A catalog without translations (English: the msgids are the English text) is no file at
     # all. Named by LuCI's code for the language (openwrt/luci-languages.tsv: zh_Hans is zh-cn), or LuCI does not
@@ -104,6 +119,7 @@ if [ "$SYSTEM" = openwrt-luci ]; then
     set -- -v "$THEME_APK:/in/luci-theme-aurora.apk:ro" -v "$TOP/openwrt/luci-app-openf50:/in/luci-plugin:ro" \
         -v "$TOP/openwrt/luci-overlay:/in/luci-overlay:ro" -v "$CAT:/in/catalogs:ro"
     [ "$ISTORE" = 0 ] || set -- "$@" -v "$ISTORE_PEM:/in/istore-apk.pem:ro"
+    [ "$PASSWALL" = 0 ] || set -- "$@" -v "$PW_PEM:/in/openwrt-passwall-build.pem:ro"
 fi
 TARBALL=$FLAVOUR-$VER-armsr-armv8-rootfs.tar.gz
 if [ -n "${OPENF50_SAE_APK_DIR:-}" ]; then
@@ -214,6 +230,21 @@ if [ -e /in/istore-apk.pem ]; then
     apk update >/dev/null
     apk add luci-app-store luci-lib-taskd luci-lib-xterm taskd >/dev/null
     [ -s /usr/lib/lua/luci/controller/store.lua ] || { echo "iStore install failed" >&2; exit 1; }
+fi
+# PassWall: the passwall-build apk feed (key hash-pinned on the host side). Resolved at build time,
+# so the image carries the latest PassWall and engines of the moment. The feeds stay in the image
+# customfeeds.list for later apk-side updates (they sit behind SourceForge).
+if [ -e /in/openwrt-passwall-build.pem ]; then
+    cp /in/openwrt-passwall-build.pem /etc/apk/keys/openwrt-passwall-build.pem
+    printf "%s\n" "https://master.dl.sourceforge.net/project/openwrt-passwall-build/snapshots/packages/aarch64_generic/passwall_luci/packages.adb" \
+        "https://master.dl.sourceforge.net/project/openwrt-passwall-build/snapshots/packages/aarch64_generic/passwall_packages/packages.adb" \
+        "https://master.dl.sourceforge.net/project/openwrt-passwall-build/snapshots/packages/aarch64_generic/passwall2/packages.adb" \
+        >> /etc/apk/repositories.d/customfeeds.list
+    retry() { i=1; while true; do "$@" && return 0; i=$((i+1)); [ $i -gt 6 ] && return 1; sleep 10; done; }
+    retry apk update >/dev/null
+    retry apk add luci-app-passwall luci-i18n-passwall-zh-cn xray-core sing-box geoview hysteria \
+        ipt2socks naiveproxy v2ray-plugin xray-plugin simple-obfs-client >/dev/null
+    [ -s /usr/lib/lua/luci/controller/passwall.lua ] && [ -s /usr/share/passwall/app.sh ] || { echo "PassWall install failed" >&2; exit 1; }
 fi
 # relay mode (panel system only): ra-deprecate sends its router advertisement through a raw ICMPv6 socket (#87)
 [ -d /in/luci-plugin ] && apk add ucode-mod-socket >/dev/null
