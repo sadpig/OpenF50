@@ -132,7 +132,7 @@ if uci -q get luci.main >/dev/null; then
 	uci commit luci
 fi
 if uci -q get luci.main >/dev/null && [ "$(uci -q get luci.openf50.lang)" != 1 ]; then
-	case $(uci -q get luci.main.lang) in ''|auto) uci -q set luci.main.lang='en' ;; esac
+	case $(uci -q get luci.main.lang) in ''|auto) uci -q set luci.main.lang='zh_cn' ;; esac
 	uci -q batch <<UCI
 set luci.openf50=openf50
 set luci.openf50.lang='1'
