@@ -24,7 +24,7 @@
 #include "txrx.h"
 
 /*
- * MU300: the firmware hands each frame up with a 16-bit sum over the transport header and payload. It is checked
+ * OPENF50: the firmware hands each frame up with a 16-bit sum over the transport header and payload. It is checked
  * here against the pseudo-header of the frame's own IP header (lengths from that header, every header inside the
  * frame): true means the transport checksum is right. Only TCP and UDP (IPv4, IPv6) and ICMPv6 are checked, and only
  * behind a plain IP header (no IPv4 options, no IPv6 extension headers: where the firmware starts its sum is not
@@ -344,7 +344,7 @@ sc2355_rx_mh_addr_process(struct rx_mgmt *rx_mgmt, void *data,
 
 	} else {
 		pr_debug("%s: Add TX complete code here\n", __func__);
-		/* MU300: the vendor printed "out of time" here whenever two TX completions were more than a second
+		/* OPENF50: the vendor printed "out of time" here whenever two TX completions were more than a second
 		 * apart - which is every idle second (hundreds of lines an hour, none of them a problem) */
 		sc2355_tx_free_data_num(hif, (unsigned char *)data);
 		misc_work = sprd_alloc_work(sizeof(void *));
@@ -382,7 +382,7 @@ static void rx_net_work_queue(struct work_struct *work)
 
 
 /*
- * MU300: verify the firmware's sum, never trust it and never drop a frame for it. The vendor code handed every
+ * OPENF50: verify the firmware's sum, never trust it and never drop a frame for it. The vendor code handed every
  * frame but IPv6 up as CHECKSUM_COMPLETE with this sum unchecked - when the firmware had it wrong (seen: the DHCP
  * DISCOVER of a client that was joining) the stack found the frame good and printed "hw csum failure" with a
  * stack dump - and dropped any IPv6 frame whose sum did not match here: IPv6 fragments always, and TCP from Wi-Fi
@@ -414,7 +414,7 @@ void sc2355_queue_rx_buff_work(struct sprd_priv *priv, unsigned char id)
 	struct sprd_vif *tmp_vif;
 	struct rx_mgmt *rx_mgmt = priv->hif.rx_mgmt;
 
-	/* MU300: no refill or flush for an RX ring that is being torn down (see sc2355_rx_deinit) */
+	/* OPENF50: no refill or flush for an RX ring that is being torn down (see sc2355_rx_deinit) */
 	if (!rx_mgmt || READ_ONCE(rx_mgmt->stopping))
 		return;
 
@@ -432,7 +432,7 @@ void sc2355_queue_rx_buff_work(struct sprd_priv *priv, unsigned char id)
 	}
 	spin_unlock_bh(&priv->list_lock);
 	/*
-	 * MU300: sc2355_do_delay_work() dereferences work->vif for both ids, and with no interface open there is no
+	 * OPENF50: sc2355_do_delay_work() dereferences work->vif for both ids, and with no interface open there is no
 	 * RX ring to refill or flush. The vendor queued it anyway; the refill's timed retry can now fire after the
 	 * last interface closed.
 	 */
@@ -467,7 +467,7 @@ void sc2355_rx_process(struct rx_mgmt *rx_mgmt, struct sk_buff *pskb)
 }
 
 /*
- * MU300: back-off for an RX refill that got nowhere. The vendor requeued the refill at once whenever buffers were
+ * OPENF50: back-off for an RX refill that got nowhere. The vendor requeued the refill at once whenever buffers were
  * still owed, so when the chip stopped taking them (issue #94: channel 10's links refused for minutes while the
  * WCN sat in dump status) the shared sprd_work worker retried back to back, printing on every attempt, until a CPU
  * soft-locked in printk and softlockup_panic rebooted the device. An attempt that neither allocates a buffer nor
@@ -495,11 +495,11 @@ int sc2355_mm_fill_buffer(struct sprd_hif *hif)
 	unsigned int num = 0, alloc_num;
 	bool had_trans, progress;
 
-	/* MU300: the ring is being torn down; a refill now would re-arm the timed retry */
+	/* OPENF50: the ring is being torn down; a refill now would re-arm the timed retry */
 	if (READ_ONCE(rx_mgmt->stopping))
 		return 0;
 
-	/* MU300: a retry is already timed; RX events (mm_buffer_unlink) must not bypass the back-off */
+	/* OPENF50: a retry is already timed; RX events (mm_buffer_unlink) must not bypass the back-off */
 	if (delayed_work_pending(&rx_mgmt->refill_retry))
 		return atomic_read(&mm_entry->alloc_num);
 
@@ -565,7 +565,7 @@ void sc2355_rx_flush_buffer(void *hif)
 	}
 
 	sc2355_mm_flush_buffer(mm_entry);
-	/* MU300: the ring is gone, and with it any timed refill (not _sync: this can run in RX context) */
+	/* OPENF50: the ring is gone, and with it any timed refill (not _sync: this can run in RX context) */
 	cancel_delayed_work(&rx_mgmt->refill_retry);
 	rx_mgmt->refill_backoff_ms = 0;
 }
@@ -658,9 +658,9 @@ int sc2355_rx_deinit(struct sprd_hif *hif)
 	struct rx_mgmt *rx_mgmt = (struct rx_mgmt *)hif->rx_mgmt;
 
 	/*
-	 * MU300: before rx_mgmt is freed. sprd_work outlives this (sprd_core_free destroys it later). The RX work
+	 * OPENF50: before rx_mgmt is freed. sprd_work outlives this (sprd_core_free destroys it later). The RX work
 	 * (mm_buffer_unlink) queues refills there and a refill arms the timed retry, so draining them in any one
-	 * order leaves a window for the others: stopping first (from kanoqwq/mu300-linux) makes every producer a
+	 * order leaves a window for the others: stopping first (from kanoqwq/openf50-linux) makes every producer a
 	 * no-op, then the timer, the RX producers and sprd_work are drained, and the timer once more for a refill
 	 * that had passed its stopping check before it was set.
 	 */

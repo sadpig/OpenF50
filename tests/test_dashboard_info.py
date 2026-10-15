@@ -1,4 +1,4 @@
-"""dashboard-info's network readouts (based on kanoqwq/mu300-linux@373e191 and @5c8c2f9, tests/test_dashboard_info.py):
+"""dashboard-info's network readouts (based on kanoqwq/openf50-linux@373e191 and @5c8c2f9, tests/test_dashboard_info.py):
 
 - Wi-Fi clients: every associated station is one row with its bitrates and connected time (iw prints the signal
   before them), a station without metrics still counts, the DHCP name and address come from dnsmasq's lower-case
@@ -18,9 +18,9 @@ import unittest
 
 from helpers import ShellTest, TOP
 
-INFO = TOP / 'openwrt' / 'luci-app-mu300' / 'root' / 'usr' / 'libexec' / 'unisoc-modem' / 'dashboard-info'
-CELL = TOP / 'openwrt' / 'luci-app-mu300' / 'root' / 'usr' / 'libexec' / 'unisoc-modem' / 'cell'
-HOME = TOP / 'openwrt' / 'luci-app-mu300' / 'htdocs' / 'luci-static' / 'resources' / 'view' / 'mu300' / 'home.js'
+INFO = TOP / 'openwrt' / 'luci-app-openf50' / 'root' / 'usr' / 'libexec' / 'unisoc-modem' / 'dashboard-info'
+CELL = TOP / 'openwrt' / 'luci-app-openf50' / 'root' / 'usr' / 'libexec' / 'unisoc-modem' / 'cell'
+HOME = TOP / 'openwrt' / 'luci-app-openf50' / 'htdocs' / 'luci-static' / 'resources' / 'view' / 'openf50' / 'home.js'
 
 STATIONS = '''Station 3C:22:FB:00:00:01 (on wlan0)
 \tinactive time:\t120 ms
@@ -114,9 +114,9 @@ class Info(ShellTest):
         self.leases.write_text(LEASES)
 
     def info(self, shell, **env):
-        base = dict(MU300_DHCP_LEASES=self.leases, MU300_POWER_SUPPLY_DIR=self.tmp / 'psy',
-                    MU300_CONNTRACK_COUNT=self.tmp / 'nf_conntrack_count',
-                    MU300_CONNTRACK_TABLE=self.tmp / 'nf_conntrack')
+        base = dict(OPENF50_DHCP_LEASES=self.leases, OPENF50_POWER_SUPPLY_DIR=self.tmp / 'psy',
+                    OPENF50_CONNTRACK_COUNT=self.tmp / 'nf_conntrack_count',
+                    OPENF50_CONNTRACK_TABLE=self.tmp / 'nf_conntrack')
         base.update(env)
         r = self.script(shell, INFO, **base)
         self.assertEqual(r.returncode, 0, r.stderr)
@@ -202,8 +202,8 @@ esac""")
         """One collector round; returns the cache it wrote (cell.json for full, sig.json for fast)."""
         run = self.tmp / f'run-{tag}'
         ident = self.tmp / f'ident-{tag}'
-        r = self.script(shell, CELL, mode, MU300_AT=self.stubs / 'fake-at', MU300_DASH_DIR=run,
-                        MU300_DASH_IDENT_DIR=ident, MU300_DASH_POOL_DIR=self.tmp / f'pool-{tag}',
+        r = self.script(shell, CELL, mode, OPENF50_AT=self.stubs / 'fake-at', OPENF50_DASH_DIR=run,
+                        OPENF50_DASH_IDENT_DIR=ident, OPENF50_DASH_POOL_DIR=self.tmp / f'pool-{tag}',
                         CNUM_REPLY=cnum, IMS_REPLY=ims)
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertEqual(r.stdout + r.stderr, '')     # a collector prints nothing: the number is not for a log
@@ -278,7 +278,7 @@ esac""")
                 self.assertEqual(f.stat().st_mode & 0o077, 0, f)
                 self.assertIn(f.name, ('cell.json', 'own-number'), f)
             self.assertEqual(self.commands().count('5551234567'), 0)  # the stub logs the commands: none carries it
-        dash = (TOP / 'openwrt' / 'luci-app-mu300' / 'root' / 'usr' / 'libexec' / 'rpcd' / 'mu300dash').read_text()
+        dash = (TOP / 'openwrt' / 'luci-app-openf50' / 'root' / 'usr' / 'libexec' / 'rpcd' / 'openf50dash').read_text()
         self.assertIn('no IMSI or numbers', dash)           # the operations log's rule, unchanged
 
     def test_parsing(self):
@@ -319,8 +319,8 @@ esac""")
 
     def operator(self, shell, tag, cops, named='', cscs='HEX'):
         run = self.tmp / f'run-{tag}'
-        r = self.script(shell, CELL, 'full', MU300_AT=self.stubs / 'fake-at', MU300_DASH_DIR=run,
-                        MU300_DASH_IDENT_DIR=self.tmp / f'ident-{tag}', MU300_DASH_POOL_DIR=self.tmp / f'pool-{tag}',
+        r = self.script(shell, CELL, 'full', OPENF50_AT=self.stubs / 'fake-at', OPENF50_DASH_DIR=run,
+                        OPENF50_DASH_IDENT_DIR=self.tmp / f'ident-{tag}', OPENF50_DASH_POOL_DIR=self.tmp / f'pool-{tag}',
                         COPS_REPLY=cops, NAMED_REPLY=named,
                         CSCS_REPLY='ERROR' if cscs is None else f'+CSCS: "{cscs}"')
         self.assertEqual(r.returncode, 0, r.stderr)

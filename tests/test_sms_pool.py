@@ -1,11 +1,11 @@
-"""The SMS pool of openwrt-luci (K69, D11): mu300-sms keeps every message the SIM holds, and every message the panel
-sends, in /etc/mu300/sms-pool, one file per message; mu300-smsd keeps it in step with the SIM. It is the panel's SMS
-store only - the `sms` command stays the SMS tool of every system, with its own state in /etc/mu300/sms.
+"""The SMS pool of openwrt-luci (K69, D11): openf50-sms keeps every message the SIM holds, and every message the panel
+sends, in /etc/openf50/sms-pool, one file per message; openf50-smsd keeps it in step with the SIM. It is the panel's SMS
+store only - the `sms` command stays the SMS tool of every system, with its own state in /etc/openf50/sms.
 
-mu300-sms talks to the modem only through mu300-at, in PDU mode as `sms` does, and decodes with the same
-/opt/mu300/lib/sms-pdu.awk. Here mu300-at is a stub that answers from a table and records every command, and the AT
-daemon's command fifo is a fifo in the scratch directory. The panel side is mu300dash (luci-app-mu300's rpcd backend)
-run on the real mu300-sms, with the jsonfilter stand-in of test_mu300dash_security."""
+openf50-sms talks to the modem only through openf50-at, in PDU mode as `sms` does, and decodes with the same
+/opt/openf50/lib/sms-pdu.awk. Here openf50-at is a stub that answers from a table and records every command, and the AT
+daemon's command fifo is a fifo in the scratch directory. The panel side is openf50dash (luci-app-openf50's rpcd backend)
+run on the real openf50-sms, with the jsonfilter stand-in of test_openf50dash_security."""
 import json
 import os
 import re
@@ -16,15 +16,15 @@ import time
 import unittest
 
 from helpers import TOP, ShellTest
-from test_mu300dash_security import DASH, JSONFILTER
+from test_openf50dash_security import DASH, JSONFILTER
 
 LUCI = TOP / 'openwrt' / 'luci-overlay'
-SMS = LUCI / 'opt' / 'mu300' / 'bin' / 'mu300-sms'
-SMSD = LUCI / 'opt' / 'mu300' / 'bin' / 'mu300-smsd'
-INITD = LUCI / 'etc' / 'init.d' / 'mu300-smsd'
-AWK = TOP / 'rootfs' / 'overlay' / 'opt' / 'mu300' / 'lib' / 'sms-pdu.awk'
+SMS = LUCI / 'opt' / 'openf50' / 'bin' / 'openf50-sms'
+SMSD = LUCI / 'opt' / 'openf50' / 'bin' / 'openf50-smsd'
+INITD = LUCI / 'etc' / 'init.d' / 'openf50-smsd'
+AWK = TOP / 'rootfs' / 'overlay' / 'opt' / 'openf50' / 'lib' / 'sms-pdu.awk'
 BUILD = TOP / 'openwrt' / 'build-rootfs.sh'
-APP = TOP / 'openwrt' / 'luci-app-mu300'
+APP = TOP / 'openwrt' / 'luci-app-openf50'
 
 # Two SMS-DELIVER PDUs, checked against sms-pdu.awk: the GSM 7-bit textbook example (from +31641600986, unread on the
 # SIM) and a UCS-2 one from an alphanumeric sender (ADANA BLD, the case text mode mangles - FINDINGS 26c), already read
@@ -33,17 +33,17 @@ PDU_UCS2 = ('000410D04162D0190409994400086290517181004024004B006100720067006F006
             '00FC015F')
 CMGL = f'+CMGL: 3,0,,40\n{PDU_GSM}\n+CMGL: 7,1,,56\n{PDU_UCS2}\nOK\n'
 
-# The stub mu300-at: `mu300-at -t SECONDS COMMAND`. Appends the command to $STUBLOG/at.log (one per line, the CR and
+# The stub openf50-at: `openf50-at -t SECONDS COMMAND`. Appends the command to $STUBLOG/at.log (one per line, the CR and
 # Ctrl-Z of a submit shown as ^ and ~), then answers from $STUBLOG/at/<name>: the first file whose name is a prefix
 # of the command with the characters outside [A-Za-z0-9] dropped (CMGL4, CPMS, CMGS ...); OK when there is none.
 # $STUBLOG/at/BUSY makes it the client that gave up on the lock. $STUBLOG/held.log gets, per call, the lock the client
-# was told it holds (MU300_AT_LOCK_HELD) and who holds the lock directory (a send's transaction, FINDINGS 46).
+# was told it holds (OPENF50_AT_LOCK_HELD) and who holds the lock directory (a send's transaction, FINDINGS 46).
 AT_STUB = r'''
 log=$STUBLOG/at.log
 [ "${1:-}" = -t ] && shift 2
 printf '%s\n' "$1" | tr '\r\032' '^~' >> "$log"
-printf '%s %s\n' "${MU300_AT_LOCK_HELD:-none}" "$(cat "$MU300_AT_DIR/lock/pid" 2>/dev/null || echo none)" >> "$STUBLOG/held.log"
-[ -f "$STUBLOG/at/BUSY" ] && { echo "mu300-at: busy" >&2; exit 1; }
+printf '%s %s\n' "${OPENF50_AT_LOCK_HELD:-none}" "$(cat "$OPENF50_AT_DIR/lock/pid" 2>/dev/null || echo none)" >> "$STUBLOG/held.log"
+[ -f "$STUBLOG/at/BUSY" ] && { echo "openf50-at: busy" >&2; exit 1; }
 key=$(printf '%s' "$1" | tr -cd 'A-Za-z0-9')
 for f in $(ls "$STUBLOG/at" 2>/dev/null | sort -r); do
     case $key in AT"$f"*) cat "$STUBLOG/at/$f"; exit 0 ;; esac
@@ -55,7 +55,7 @@ echo OK
 class Pool(ShellTest):
     def setUp(self):
         super().setUp()
-        self.stub('mu300-at', AT_STUB)
+        self.stub('openf50-at', AT_STUB)
         (self.tmp / 'at').mkdir()
         self.answer('CPMS', '+CPMS: 2,50,2,50,2,50\nOK\n')
         self.answer('CMGL4', CMGL)
@@ -94,7 +94,7 @@ class Pool(ShellTest):
         return p.read_text().splitlines() if p.exists() else []
 
     def run_sms(self, shell, *args, stdin=None, **env):
-        e = dict(MU300_SMS_POOL=self.pool, MU300_AT_DIR=self.atdir, MU300_SMS_AWK=AWK, MU300_SMS_RUN=self.run)
+        e = dict(OPENF50_SMS_POOL=self.pool, OPENF50_AT_DIR=self.atdir, OPENF50_SMS_AWK=AWK, OPENF50_SMS_RUN=self.run)
         e.update(env)
         return self.script(shell, SMS, *args, stdin=stdin, **e)
 
@@ -107,7 +107,7 @@ class Pool(ShellTest):
         return out
 
     def put(self, mid, status, direction, peer, scts, body, sim_index=''):
-        """A message written into the pool directly, as mu300-sms writes it."""
+        """A message written into the pool directly, as openf50-sms writes it."""
         d = self.pool / 'msg'
         d.mkdir(parents=True, exist_ok=True)
         who = 'from' if direction == 'mt' else 'to'
@@ -119,19 +119,19 @@ class Pool(ShellTest):
             nid.write_text(f'{mid}\n')
 
     # ------------------------------------------------------------------ the pool path
-    def test_the_pool_is_etc_mu300_sms_pool_everywhere(self):
-        # D11: /etc/mu300/sms is the sms command's state directory, so the pool is never there
+    def test_the_pool_is_etc_openf50_sms_pool_everywhere(self):
+        # D11: /etc/openf50/sms is the sms command's state directory, so the pool is never there
         for p in (SMS, SMSD):
             with self.subTest(p=p.name):
-                self.assertIn('POOL=${MU300_SMS_POOL:-/etc/mu300/sms-pool}\n', p.read_text())
+                self.assertIn('POOL=${OPENF50_SMS_POOL:-/etc/openf50/sms-pool}\n', p.read_text())
         src = INITD.read_text()
-        self.assertIn('local pool=/etc/mu300/sms-pool\n', src)
-        self.assertIn('case $pool in /etc/mu300/sms|/etc/mu300/sms/*) pool=/etc/mu300/sms-pool ;; esac', src)
-        self.assertIn('procd_set_param env MU300_SMS_POOL="$pool"', src)
-        self.assertIn("option sms_pool '/etc/mu300/sms-pool'",
+        self.assertIn('local pool=/etc/openf50/sms-pool\n', src)
+        self.assertIn('case $pool in /etc/openf50/sms|/etc/openf50/sms/*) pool=/etc/openf50/sms-pool ;; esac', src)
+        self.assertIn('procd_set_param env OPENF50_SMS_POOL="$pool"', src)
+        self.assertIn("option sms_pool '/etc/openf50/sms-pool'",
                       (APP / 'root' / 'etc' / 'config' / 'unisoc_modem').read_text())
-        self.assertIn("o.placeholder = '/etc/mu300/sms-pool'",
-                      (APP / 'htdocs/luci-static/resources/view/mu300/settings.js').read_text())
+        self.assertIn("o.placeholder = '/etc/openf50/sms-pool'",
+                      (APP / 'htdocs/luci-static/resources/view/openf50/settings.js').read_text())
 
     def test_programs_are_executable_and_english(self):
         for p in (SMS, SMSD, INITD):
@@ -155,13 +155,13 @@ class Pool(ShellTest):
             self.assertEqual(r.returncode, 0, r.stderr)
             lines = r.stdout.splitlines()
             self.assertEqual(lines[0], 'pool: 3 message(s), 1 unread - page 1/1 (10 per page)')
-            # newest first, the columns mu300dash cuts at (1-7, 9-15, 17-19, 21-38, 40-60, 62-)
+            # newest first, the columns openf50dash cuts at (1-7, 9-15, 17-19, 21-38, 40-60, 62-)
             self.assertEqual([(ln[0:7].strip(), ln[8:15].strip(), ln[16:19].strip(), ln[20:38].strip(),
                                ln[39:60].strip(), ln[61:]) for ln in lines[1:]],
                              [('000003', 'sent', 'mo', '10086', '2026-10-03 11:00:00', 'x' * 44),
                               ('000002', 'unread', 'mt', 'ADANA BLD', '2026-10-02 10:00:00', 'second line one'),
                               ('000001', 'read', 'mt', '+905551112233', '2026-10-01 09:00:00', 'first')])
-            r = self.run_sms(shell, 'list', '2', MU300_SMS_PAGE=2)
+            r = self.run_sms(shell, 'list', '2', OPENF50_SMS_PAGE=2)
             self.assertEqual(r.stdout.splitlines(), [
                 'pool: 3 message(s), 1 unread - page 2/2 (2 per page)',
                 '000001  read    mt  +905551112233      2026-10-01 09:00:00   first'])
@@ -180,10 +180,10 @@ class Pool(ShellTest):
             self.assertIn('from:        ADANA BLD\n', r.stdout)
             self.assertTrue(r.stdout.endswith('\n---\nline one\nline two\n'), r.stdout)
             self.assertEqual(self.msgs()['000002'][0]['status'], 'read')
-            # already read: still exit 0 (mu300dash reads a non-zero exit as a failed read)
+            # already read: still exit 0 (openf50dash reads a non-zero exit as a failed read)
             self.assertEqual(self.run_sms(shell, 'show', '000002').returncode, 0)
             r = self.run_sms(shell, 'show', '9')
-            self.assertEqual((r.returncode, r.stdout, r.stderr), (1, '', 'mu300-sms: no message 9\n'))
+            self.assertEqual((r.returncode, r.stdout, r.stderr), (1, '', 'openf50-sms: no message 9\n'))
             for bad in ('', '-1', '1x', '../1'):
                 self.assertEqual(self.run_sms(shell, 'show', bad).returncode, 1, bad)
 
@@ -326,7 +326,7 @@ class Pool(ShellTest):
         for shell in self.each_shell():
             self.fresh()
             out.unlink(missing_ok=True)
-            r = self.run_sms(shell, 'sync', MU300_SMS_HOOK=hook)
+            r = self.run_sms(shell, 'sync', OPENF50_SMS_HOOK=hook)
             self.assertEqual(r.returncode, 0, r.stderr)
             for _ in range(50):
                 if out.exists() and len(out.read_text().splitlines()) == 2:
@@ -336,7 +336,7 @@ class Pool(ShellTest):
             self.assertEqual([g.split('|', 1)[1] for g in got],
                              ['+31641600986|2002-08-26 19:37:41|How are you?', 'ADANA BLD|2026-09-15 17:18:00|Kargonuz yolda ğüş'])
             # a sync that finds nothing new runs it no more; a hook that is not executable is not run
-            self.run_sms(shell, 'sync', MU300_SMS_HOOK=hook)
+            self.run_sms(shell, 'sync', OPENF50_SMS_HOOK=hook)
             time.sleep(0.3)
             self.assertEqual(len(out.read_text().splitlines()), 2)
 
@@ -404,13 +404,13 @@ class Pool(ShellTest):
             self.assertEqual([c for c in self.at_log() if c.startswith('AT+CMGD')], ['AT+CMGD=9'])
 
     def test_no_at_daemon_no_modem_traffic(self):
-        # without mu300-atd, mu300-at would open the tty itself, which can wedge the channel: refused instead
+        # without openf50-atd, openf50-at would open the tty itself, which can wedge the channel: refused instead
         for shell in self.each_shell():
             os.unlink(self.atdir / 'cmd')
             for args, stdin in ((('sync',), None), (('send', '--stdin', '123'), 'hi')):
                 r = self.run_sms(shell, *args, stdin=stdin)
                 self.assertEqual(r.returncode, 1, args)
-                self.assertIn('mu300-atd is not running', r.stderr)
+                self.assertIn('openf50-atd is not running', r.stderr)
             self.assertEqual(self.at_log(), [])
             os.mkfifo(self.atdir / 'cmd')
 
@@ -499,8 +499,8 @@ class Pool(ShellTest):
             (self.tmp / 'at' / 'CSCA1555').unlink(missing_ok=True)
 
     def test_a_send_is_one_transaction_under_the_at_lock(self):
-        # The SMSC refresh, PDU mode and the submission go out under one acquisition of mu300-at's client lock
-        # ($ATDIR/lock), which the mu300-at calls under it are told they hold (MU300_AT_LOCK_HELD, with the lock's
+        # The SMSC refresh, PDU mode and the submission go out under one acquisition of openf50-at's client lock
+        # ($ATDIR/lock), which the openf50-at calls under it are told they hold (OPENF50_AT_LOCK_HELD, with the lock's
         # own pid file naming the holder); it is released after the submission, taken or refused.
         self.answer('CSCA', f'+CSCA: {self.SMSC_HEX}\nOK\n')
         for shell in self.each_shell():
@@ -518,7 +518,7 @@ class Pool(ShellTest):
                     self.assertFalse((self.atdir / 'lock').exists())
 
     def test_a_held_at_lock_says_busy_before_anything_is_sent(self):
-        # Another client holds mu300-at's lock: busy within the wait (in mu300-at's words, which the panel reads), with
+        # Another client holds openf50-at's lock: busy within the wait (in openf50-at's words, which the panel reads), with
         # not one command sent, and the holder's lock left alone. A holder that is gone is taken over.
         self.answer('CMGS', '+CMGS: 1\nOK\n')
         lock = self.atdir / 'lock'
@@ -526,13 +526,13 @@ class Pool(ShellTest):
             self.fresh()
             self.answer('CMGS', '+CMGS: 1\nOK\n')
             self.answer('CSCA', f'+CSCA: {self.SMSC_HEX}\nOK\n')
-            holder = subprocess.Popen(['sh', '-c', 'sleep 30; true', 'mu300-at'])
+            holder = subprocess.Popen(['sh', '-c', 'sleep 30; true', 'openf50-at'])
             try:
                 lock.mkdir()
                 (lock / 'pid').write_text(f'{holder.pid}\n')
                 t0 = time.monotonic()
-                r = self.run_sms(shell, 'send', '--stdin', '10099', stdin='hi', MU300_AT_LOCK_WAIT='1')
-                self.assertEqual((r.returncode, r.stderr.strip()), (1, 'mu300-at: busy'))
+                r = self.run_sms(shell, 'send', '--stdin', '10099', stdin='hi', OPENF50_AT_LOCK_WAIT='1')
+                self.assertEqual((r.returncode, r.stderr.strip()), (1, 'openf50-at: busy'))
                 self.assertLess(time.monotonic() - t0, 5)
                 self.assertEqual(self.at_log(), [])
                 self.assertEqual((lock / 'pid').read_text().strip(), str(holder.pid))
@@ -540,13 +540,13 @@ class Pool(ShellTest):
                 holder.kill()
                 holder.wait()
             (lock / 'pid').write_text('999999\n')
-            r = self.run_sms(shell, 'send', '--stdin', '10099', stdin='hi', MU300_AT_LOCK_WAIT='1')
+            r = self.run_sms(shell, 'send', '--stdin', '10099', stdin='hi', OPENF50_AT_LOCK_WAIT='1')
             self.assertEqual(r.returncode, 0, r.stderr)
             self.assertEqual(len(self.at_log()), 4)
             self.assertFalse(lock.exists())
 
     def test_send_refusals_never_read_as_success(self):
-        # mu300dash takes any output with "sent" or "OK" in it for success and one with "busy" for a busy channel
+        # openf50dash takes any output with "sent" or "OK" in it for success and one with "busy" for a busy channel
         self.answer('CMGS', '+CMS ERROR: 500\n')
         for shell in self.each_shell():
             for args, stdin in ((('--stdin', '-1'), 'hi'), (('--stdin', '+'), 'hi'), (('--stdin', '12+3'), 'hi'),
@@ -561,12 +561,12 @@ class Pool(ShellTest):
                     self.assertEqual(r.returncode, 1, r.stdout)
                     out = r.stdout + r.stderr
                     self.assertNotRegex(out, 'sent|OK|busy')
-                    self.assertTrue(r.stderr.startswith('mu300-sms: '), r.stderr)
+                    self.assertTrue(r.stderr.startswith('openf50-sms: '), r.stderr)
             self.assertFalse([h for h, _ in self.msgs().values() if h['dir'] == 'mo'])
             # the panel's backend on the same refusal: Sending failed, not Sent
             r = self.dash_send(shell, '123', 'hi')
             self.assertEqual((r['ok'], r['error'], r['done']), (0, 'Sending failed', 1))
-            self.assertEqual(r['detail'], 'mu300-sms: the modem did not take the message: no +CMGS confirmation')
+            self.assertEqual(r['detail'], 'openf50-sms: the modem did not take the message: no +CMGS confirmation')
             # one part's worth goes out: 160 GSM characters, 70 UCS-2 ones
             self.answer('CMGS', '+CMGS: 1\nOK\n')
             for text in ('a' * 160, 'ğ' * 70):
@@ -608,21 +608,21 @@ class Pool(ShellTest):
     @unittest.skipUnless(os.path.isdir('/proc/self'), 'a live lock holder is told by /proc/PID/cmdline')
     def test_delete_waits_for_the_pool_lock(self):
         # tombstone and removal under the pool lock: a tombstone written while a sync rewrote the list was lost
-        # named the way mu300-sms names it: md5sum where there is one (OpenWrt, Linux), else cksum
+        # named the way openf50-sms names it: md5sum where there is one (OpenWrt, Linux), else cksum
         key = subprocess.run(['md5sum' if shutil.which('md5sum') else 'cksum'], input=str(self.pool), capture_output=True,
                              text=True).stdout.split()[0]
         for shell in self.each_shell():
             self.fresh()
             self.run_sms(shell, 'sync')
             mid = sorted(self.msgs())[0]
-            lock = self.run / f'mu300-sms-pool.{key}.lock'
+            lock = self.run / f'openf50-sms-pool.{key}.lock'
             lock.mkdir()
-            # a live holder named mu300-sms ("; true": the shell must not exec sleep and lose its command line)
-            holder = subprocess.Popen(['sh', '-c', 'sleep 2; true', 'mu300-sms'])
+            # a live holder named openf50-sms ("; true": the shell must not exec sleep and lose its command line)
+            holder = subprocess.Popen(['sh', '-c', 'sleep 2; true', 'openf50-sms'])
             (lock / 'pid').write_text(f'{holder.pid}\n')
             try:
                 d = subprocess.Popen(shell + [str(SMS), 'delete', mid], env=self.env(
-                    MU300_SMS_POOL=self.pool, MU300_SMS_RUN=self.run), stdout=subprocess.PIPE, text=True)
+                    OPENF50_SMS_POOL=self.pool, OPENF50_SMS_RUN=self.run), stdout=subprocess.PIPE, text=True)
                 time.sleep(1)
                 self.assertIsNone(d.poll(), 'delete did not wait for the lock')
                 self.assertIn(mid, self.msgs())
@@ -650,9 +650,9 @@ class Pool(ShellTest):
         self.stub('logger', 'exit 0')
         # setsid: the send's job is started detached; here it is run by hand (dash_send), so nothing starts
         self.stub('setsid', 'exit 0')
-        e = self.env(MU300_SMS_BIN=SMS, MU300_SMS_POOL=self.pool, MU300_AT_DIR=self.atdir, MU300_SMS_AWK=AWK,
-                     MU300_SMS_RUN=self.run, MU300_DASH_DIR=self.tmp / 'dash', MU300_DASH_BIN=self.tmp / 'none',
-                     MU300_DASH_OPS_DIR=self.tmp / 'flash')
+        e = self.env(OPENF50_SMS_BIN=SMS, OPENF50_SMS_POOL=self.pool, OPENF50_AT_DIR=self.atdir, OPENF50_SMS_AWK=AWK,
+                     OPENF50_SMS_RUN=self.run, OPENF50_DASH_DIR=self.tmp / 'dash', OPENF50_DASH_BIN=self.tmp / 'none',
+                     OPENF50_DASH_OPS_DIR=self.tmp / 'flash')
         e.update({k: str(v) for k, v in env.items()})
         return {k: v for k, v in e.items() if v != ''}
 
@@ -662,7 +662,7 @@ class Pool(ShellTest):
         return json.loads(r.stdout.decode())
 
     def dash_send(self, shell, num, text, **env):
-        """The panel's send on the real mu300-sms: sms_send starts the job, the job runs here (what setsid would
+        """The panel's send on the real openf50-sms: sms_send starts the job, the job runs here (what setsid would
         have started), and sms_job tells how it went - the reply sms_send used to give, with done:1."""
         r = self.dash(shell, 'sms_send', {'num': num, 'text': text}, **env)
         self.assertEqual((r.get('ok'), r.get('started'), r.get('job')), (1, 1, 1), r)
@@ -703,20 +703,20 @@ class Pool(ShellTest):
             self.assertNotIn('10086', ops)
             self.assertEqual(self.dash(shell, 'sms_delete', {'id': '1'}), {'ok': 1})
             r = self.dash(shell, 'sms_delete', {'id': '1'})
-            self.assertEqual((r['error'], r['detail']), ('Delete failed', 'mu300-sms: no message 1'))
+            self.assertEqual((r['error'], r['detail']), ('Delete failed', 'openf50-sms: no message 1'))
 
     def test_the_panel_never_puts_the_pool_in_the_sms_state_directory(self):
-        # the pool the backend hands mu300-sms: the default, or a uci sms_pool under /etc/mu300 - but never
-        # /etc/mu300/sms, which is the sms command's own state (D11)
-        self.stub('mu300-sms-env', 'printf "%s\\n" "$MU300_SMS_POOL" > "$STUBLOG/pool"; '
+        # the pool the backend hands openf50-sms: the default, or a uci sms_pool under /etc/openf50 - but never
+        # /etc/openf50/sms, which is the sms command's own state (D11)
+        self.stub('openf50-sms-env', 'printf "%s\\n" "$OPENF50_SMS_POOL" > "$STUBLOG/pool"; '
                                    'echo "pool: 0 message(s), 0 unread - page 1/1 (10 per page)"')
         for shell in self.each_shell():
-            for uci, want in (('', '/etc/mu300/sms-pool'), ('/etc/mu300/sms', '/etc/mu300/sms-pool'),
-                              ('/etc/mu300/sms/x', '/etc/mu300/sms-pool'), ('/tmp/x', '/etc/mu300/sms-pool'),
-                              ('/etc/mu300/other', '/etc/mu300/other')):
+            for uci, want in (('', '/etc/openf50/sms-pool'), ('/etc/openf50/sms', '/etc/openf50/sms-pool'),
+                              ('/etc/openf50/sms/x', '/etc/openf50/sms-pool'), ('/tmp/x', '/etc/openf50/sms-pool'),
+                              ('/etc/openf50/other', '/etc/openf50/other')):
                 with self.subTest(uci=uci):
                     (self.tmp / 'pool').unlink(missing_ok=True)
-                    r = self.dash(shell, 'sms_list', {}, MU300_SMS_POOL='', MU300_SMS_BIN=self.stubs / 'mu300-sms-env',
+                    r = self.dash(shell, 'sms_list', {}, OPENF50_SMS_POOL='', OPENF50_SMS_BIN=self.stubs / 'openf50-sms-env',
                                   UCI_POOL=uci)
                     self.assertEqual(r['total'], 0)
                     self.assertEqual((self.tmp / 'pool').read_text(), want + '\n')
@@ -816,7 +816,7 @@ class Pool(ShellTest):
         for shell in self.each_shell():
             self.fresh()
             # pooled incomplete (no wait at all)
-            self.run_sms(shell, 'import-pdu', self.spooled(first, 'cmt-1.a.ready'), MU300_SMS_PARTIAL_WAIT=0)
+            self.run_sms(shell, 'import-pdu', self.spooled(first, 'cmt-1.a.ready'), OPENF50_SMS_PARTIAL_WAIT=0)
             [(h, body)] = self.msgs().values()
             self.assertEqual((h['incomplete'], body), ('1/2', 'the start[...]\n'))
             # the rest of that message, late: at once, as before
@@ -849,7 +849,7 @@ class Pool(ShellTest):
             self.assertEqual(self.parts(), [])
 
     def test_a_part_delivered_again_is_known_as_part_of_a_message_the_pool_has(self):
-        # the acknowledgement of the last part did not reach the network: mu300-smsd imports the file once more, and
+        # the acknowledgement of the last part did not reach the network: openf50-smsd imports the file once more, and
         # the network delivers the part again later
         p1, p2 = self.part(0x47, 2, 1, 'hello'), self.part(0x47, 2, 2, ' world')
         for shell in self.each_shell():
@@ -878,7 +878,7 @@ class Pool(ShellTest):
             self.assertEqual((r.returncode, len(self.msgs()), self.parts()), (0, 0, []), r.stderr)
             # a message pooled incomplete knows its parts too
             self.fresh()
-            self.run_sms(shell, 'import-pdu', self.spooled(p2, 'cmt-5.a.ready'), MU300_SMS_PARTIAL_WAIT=0)
+            self.run_sms(shell, 'import-pdu', self.spooled(p2, 'cmt-5.a.ready'), OPENF50_SMS_PARTIAL_WAIT=0)
             r = self.run_sms(shell, 'import-pdu', self.spooled(p2, 'cmt-6.a.ready'))
             self.assertEqual((r.stdout.strip(), len(self.msgs()), self.parts()), ('import: 0 new, 1 in the pool', 1, []))
 
@@ -978,7 +978,7 @@ class Pool(ShellTest):
         for shell in self.each_shell():
             self.fresh()
             self.answer('CMGL4', f'+CMGL: 9,1,,30\n{half}\nOK\n')
-            r = self.run_sms(shell, 'sync', MU300_SMS_PARTIAL_WAIT=0)
+            r = self.run_sms(shell, 'sync', OPENF50_SMS_PARTIAL_WAIT=0)
             self.assertIn('1 new', r.stdout)
             [(h, body)] = self.msgs().values()
             self.assertEqual((h['incomplete'], h['status'], body), ('1/2', 'read', '[...]only the end\n'))
@@ -990,13 +990,13 @@ class Pool(ShellTest):
         for shell in self.each_shell():
             self.fresh()
             (self.tmp / 'fwd.log').unlink(missing_ok=True)
-            self.run_sms(shell, 'sync', MU300_SMS_FORWARD=fwd)
-            self.run_sms(shell, 'sync', MU300_SMS_FORWARD=fwd)
+            self.run_sms(shell, 'sync', OPENF50_SMS_FORWARD=fwd)
+            self.run_sms(shell, 'sync', OPENF50_SMS_FORWARD=fwd)
             self.assertEqual((self.tmp / 'fwd.log').read_text().splitlines(), ['enqueue 000001 000002', 'kick'])
 
     # ------------------------------------------------------------------ delivered directly (import-pdu)
     def spooled(self, pdu, name='cmt-1.abcdef.ready'):
-        """A PDU in the pool's spool, as mu300-cmt-spool writes it."""
+        """A PDU in the pool's spool, as openf50-cmt-spool writes it."""
         d = self.pool / 'incoming'
         d.mkdir(parents=True, exist_ok=True)
         (d / name).write_text(pdu + '\n')
@@ -1019,7 +1019,7 @@ class Pool(ShellTest):
             out.unlink(missing_ok=True)
             (self.tmp / 'fwd.log').unlink(missing_ok=True)
             f = self.spooled(PDU_GSM)
-            r = self.run_sms(shell, 'import-pdu', f, MU300_SMS_HOOK=hook, MU300_SMS_FORWARD=fwd)
+            r = self.run_sms(shell, 'import-pdu', f, OPENF50_SMS_HOOK=hook, OPENF50_SMS_FORWARD=fwd)
             self.assertEqual(r.returncode, 0, r.stderr)
             self.assertIn('import: 1 new, 1 in the pool', r.stdout)
             self.assertEqual(self.at_log(), [])                     # no AT command at all
@@ -1035,7 +1035,7 @@ class Pool(ShellTest):
             self.assertEqual(out.read_text(), '+31641600986|2002-08-26 19:37:41|How are you?\n')
             self.assertEqual((self.tmp / 'fwd.log').read_text().splitlines(), ['enqueue 000001'])
             # the same PDU again (an acknowledgement that failed, and the file imported once more): nothing new
-            r = self.run_sms(shell, 'import-pdu', f, MU300_SMS_HOOK=hook, MU300_SMS_FORWARD=fwd)
+            r = self.run_sms(shell, 'import-pdu', f, OPENF50_SMS_HOOK=hook, OPENF50_SMS_FORWARD=fwd)
             self.assertEqual((r.returncode, r.stdout.strip()), (0, 'import: 0 new, 1 in the pool'), r.stderr)
             self.assertEqual(len(self.msgs()), 1)
             self.assertEqual(self.parts(), [])
@@ -1092,7 +1092,7 @@ class Pool(ShellTest):
             self.assertFalse([c for c in self.at_log() if c.startswith('AT+CMGD') or c.startswith('AT+CMGR')])
             # with no wait at all, import-pdu pools it at once
             self.fresh()
-            r = self.run_sms(shell, 'import-pdu', self.spooled(half), MU300_SMS_PARTIAL_WAIT=0)
+            r = self.run_sms(shell, 'import-pdu', self.spooled(half), OPENF50_SMS_PARTIAL_WAIT=0)
             self.assertIn('import: 1 new, 1 in the pool', r.stdout)
             self.assertEqual(self.parts(), [])
 
@@ -1119,7 +1119,7 @@ class Pool(ShellTest):
                     f = self.spooled(bad)
                     r = self.run_sms(shell, 'import-pdu', f)
                     self.assertEqual(r.returncode, 1, r.stdout)
-                    self.assertIn('mu300-sms:', r.stderr)
+                    self.assertIn('openf50-sms:', r.stderr)
                     self.assertFalse((self.pool / 'msg').exists(), 'the pool was touched')
                     self.assertFalse((self.pool / 'parts').exists(), 'the PDU was parked')
                     self.assertTrue(f.exists(), 'the spool file is not this command\'s to remove')
@@ -1192,9 +1192,9 @@ class Pool(ShellTest):
 
 
 class Spool(ShellTest):
-    """mu300-cmt-spool (every system): the two lines of a +CMT frame on stdin, the PDU into the pool's spool."""
+    """openf50-cmt-spool (every system): the two lines of a +CMT frame on stdin, the PDU into the pool's spool."""
 
-    SPOOLER = TOP / 'rootfs' / 'overlay' / 'opt' / 'mu300' / 'bin' / 'mu300-cmt-spool'
+    SPOOLER = TOP / 'rootfs' / 'overlay' / 'opt' / 'openf50' / 'bin' / 'openf50-cmt-spool'
 
     def setUp(self):
         super().setUp()
@@ -1205,7 +1205,7 @@ class Spool(ShellTest):
     def spool(self, shell, frame):
         shutil.rmtree(self.pool, ignore_errors=True)
         (self.tmp / 'fs.log').unlink(missing_ok=True)
-        return self.script(shell, self.SPOOLER, stdin=frame, MU300_SMS_POOL=self.pool)
+        return self.script(shell, self.SPOOLER, stdin=frame, OPENF50_SMS_POOL=self.pool)
 
     def files(self):
         d = self.pool / 'incoming'
@@ -1244,19 +1244,19 @@ class Spool(ShellTest):
             shutil.rmtree(self.pool, ignore_errors=True)
             self.pool.mkdir(mode=0o700)
             (self.pool / 'incoming').symlink_to(elsewhere)
-            r = self.script(shell, self.SPOOLER, stdin=f'+CMT: ,40\n{PDU_GSM}\n', MU300_SMS_POOL=self.pool)
+            r = self.script(shell, self.SPOOLER, stdin=f'+CMT: ,40\n{PDU_GSM}\n', OPENF50_SMS_POOL=self.pool)
             self.assertEqual(r.returncode, 1)
             self.assertIn('symbolic link', r.stderr)
             self.assertEqual(sorted(x.name for x in elsewhere.iterdir()), [])
             shutil.rmtree(self.pool)
             self.pool.symlink_to(elsewhere)
-            r = self.script(shell, self.SPOOLER, stdin=f'+CMT: ,40\n{PDU_GSM}\n', MU300_SMS_POOL=self.pool)
+            r = self.script(shell, self.SPOOLER, stdin=f'+CMT: ,40\n{PDU_GSM}\n', OPENF50_SMS_POOL=self.pool)
             self.assertEqual(r.returncode, 1)
             self.assertEqual(sorted(x.name for x in elsewhere.iterdir()), [])
             self.pool.unlink()
             # a pool somebody left mode 755 is made 700, and the spool is written
             self.pool.mkdir(mode=0o755)
-            r = self.script(shell, self.SPOOLER, stdin=f'+CMT: ,40\n{PDU_GSM}\n', MU300_SMS_POOL=self.pool)
+            r = self.script(shell, self.SPOOLER, stdin=f'+CMT: ,40\n{PDU_GSM}\n', OPENF50_SMS_POOL=self.pool)
             self.assertEqual(r.returncode, 0, r.stderr)
             self.assertEqual(self.pool.stat().st_mode & 0o777, 0o700)
             self.assertEqual(len(self.files()), 1)
@@ -1264,7 +1264,7 @@ class Spool(ShellTest):
     def test_two_frames_in_one_second_are_two_files(self):
         for shell in self.each_shell():
             self.spool(shell, f'+CMT: ,40\n{PDU_GSM}\n')
-            self.script(shell, self.SPOOLER, stdin=f'+CMT: ,56\n{PDU_UCS2}\n', MU300_SMS_POOL=self.pool)
+            self.script(shell, self.SPOOLER, stdin=f'+CMT: ,56\n{PDU_UCS2}\n', OPENF50_SMS_POOL=self.pool)
             self.assertEqual(len(self.files()), 2)
 
 
@@ -1349,7 +1349,7 @@ class Listing(ShellTest):
 
     def setUp(self):
         super().setUp()
-        self.stub('mu300-at', AT_STUB)
+        self.stub('openf50-at', AT_STUB)
         (self.tmp / 'at').mkdir()
         (self.tmp / 'at' / 'CPMS').write_text('+CPMS: 4,50,4,50,4,50\nOK\n')
 
@@ -1359,9 +1359,9 @@ class Listing(ShellTest):
                 part(0x42, 2, 2, 'evening', at='2026-10-13 20:00:01'), part(0x42, 2, 1, 'tuesday ', at='2026-10-13 20:00:00'))
         (self.tmp / 'at' / 'CMGL4').write_text(''.join(f'+CMGL: {i + 1},1,,30\n{p}\n' for i, p in enumerate(pdus)) + 'OK\n')
         for shell in self.each_shell():
-            r = subprocess.run(shell + [str(TOP / 'rootfs/overlay/opt/mu300/bin/sms'), 'json'],
+            r = subprocess.run(shell + [str(TOP / 'rootfs/overlay/opt/openf50/bin/sms'), 'json'],
                                capture_output=True, text=True, timeout=30,
-                               env=self.env(MU300_SMS_AWK=AWK, MU300_SMS_STATE=self.tmp / 'state'))
+                               env=self.env(OPENF50_SMS_AWK=AWK, OPENF50_SMS_STATE=self.tmp / 'state'))
             self.assertEqual(r.returncode, 0, r.stderr)
             got = [(m['index'], m['time'], m['parts'], m['have'], m['text']) for m in json.loads(r.stdout)['messages']]
             self.assertEqual(got, [([1, 2], '2026-10-12 08:00:00', 2, 2, 'monday morning'),
@@ -1373,7 +1373,7 @@ class Delete(ShellTest):
 
     def setUp(self):
         super().setUp()
-        self.stub('mu300-at', AT_STUB)
+        self.stub('openf50-at', AT_STUB)
         (self.tmp / 'at').mkdir()
         (self.tmp / 'at' / 'CPMS').write_text('+CPMS: 2,50,2,50,2,50\nOK\n')
 
@@ -1381,28 +1381,28 @@ class Delete(ShellTest):
         for shell in self.each_shell():
             for bad in ('1;AT+CFUN=0', '1,4', '-1', '1 2', 'x', '1\rAT'):
                 (self.tmp / 'at.log').unlink(missing_ok=True)
-                r = subprocess.run(shell + [str(TOP / 'rootfs/overlay/opt/mu300/bin/sms'), 'delete', bad],
+                r = subprocess.run(shell + [str(TOP / 'rootfs/overlay/opt/openf50/bin/sms'), 'delete', bad],
                                    capture_output=True, text=True, timeout=30,
-                                   env=self.env(MU300_SMS_AWK=AWK, MU300_SMS_STATE=self.tmp / 'state'))
+                                   env=self.env(OPENF50_SMS_AWK=AWK, OPENF50_SMS_STATE=self.tmp / 'state'))
                 self.assertEqual(r.returncode, 2, (bad, r.stderr))
                 log = (self.tmp / 'at.log').read_text() if (self.tmp / 'at.log').exists() else ''
                 self.assertNotIn('CMGD', log, bad)
-            r = subprocess.run(shell + [str(TOP / 'rootfs/overlay/opt/mu300/bin/sms'), 'delete', '7'],
+            r = subprocess.run(shell + [str(TOP / 'rootfs/overlay/opt/openf50/bin/sms'), 'delete', '7'],
                                capture_output=True, text=True, timeout=30,
-                               env=self.env(MU300_SMS_AWK=AWK, MU300_SMS_STATE=self.tmp / 'state'))
+                               env=self.env(OPENF50_SMS_AWK=AWK, OPENF50_SMS_STATE=self.tmp / 'state'))
             self.assertEqual(r.returncode, 0, r.stderr)
             self.assertIn('AT+CMGD=7', (self.tmp / 'at.log').read_text())
 
 
 class Send(ShellTest):
-    """`sms send` (every system, its own send path): one transaction under mu300-at's client lock, the modem's SMSC
-    written back unchanged first, and the submission as the one request mu300-sms sends (FINDINGS 46)."""
+    """`sms send` (every system, its own send path): one transaction under openf50-at's client lock, the modem's SMSC
+    written back unchanged first, and the submission as the one request openf50-sms sends (FINDINGS 46)."""
 
-    SMS_CMD = TOP / 'rootfs/overlay/opt/mu300/bin/sms'
+    SMS_CMD = TOP / 'rootfs/overlay/opt/openf50/bin/sms'
 
     def setUp(self):
         super().setUp()
-        self.stub('mu300-at', AT_STUB)
+        self.stub('openf50-at', AT_STUB)
         (self.tmp / 'at').mkdir()
         self.atdir = self.tmp / 'run-at'
         self.atdir.mkdir()
@@ -1425,11 +1425,11 @@ class Send(ShellTest):
         (self.tmp / 'at.log').unlink(missing_ok=True)
         (self.tmp / 'held.log').unlink(missing_ok=True)
         return self.script(shell, self.SMS_CMD, 'send', *args,
-                           MU300_SMS_AWK=AWK, MU300_SMS_STATE=self.tmp / 'state', MU300_AT_DIR=self.atdir, **env)
+                           OPENF50_SMS_AWK=AWK, OPENF50_SMS_STATE=self.tmp / 'state', OPENF50_AT_DIR=self.atdir, **env)
 
     def test_a_send_is_one_transaction_under_the_at_lock(self):
         # the SMSC refresh, PDU mode and the submission (one request: AT+CMGS=N, CR, the PDU, Ctrl-Z), under one
-        # acquisition of $ATDIR/lock that the mu300-at calls are told they hold; released afterwards, sent or refused
+        # acquisition of $ATDIR/lock that the openf50-at calls are told they hold; released afterwards, sent or refused
         for shell in self.each_shell():
             for cmgs, rc in (('+CMGS: 12\nOK\n', 0), ('+CMS ERROR: 500\n', 1), ('OK\n', 1)):
                 with self.subTest(cmgs=cmgs.split('\n')[0]):
@@ -1487,17 +1487,17 @@ class Send(ShellTest):
             self.answer('CSCA', f'+CSCA: {Pool.SMSC_HEX}\nOK\n')
 
     def test_a_held_at_lock_says_busy_before_anything_is_sent(self):
-        # a live holder of mu300-at's lock: busy within the wait, nothing sent, the holder's lock left alone; a
+        # a live holder of openf50-at's lock: busy within the wait, nothing sent, the holder's lock left alone; a
         # holder that is gone is taken over
         lock = self.atdir / 'lock'
         for shell in self.each_shell():
-            holder = subprocess.Popen(['sh', '-c', 'sleep 30; true', 'mu300-at'])
+            holder = subprocess.Popen(['sh', '-c', 'sleep 30; true', 'openf50-at'])
             try:
                 lock.mkdir()
                 (lock / 'pid').write_text(f'{holder.pid}\n')
                 t0 = time.monotonic()
-                r = self.send(shell, '10099', 'hi', MU300_AT_LOCK_WAIT='1')
-                self.assertEqual((r.returncode, r.stderr.strip()), (1, 'mu300-at: busy'))
+                r = self.send(shell, '10099', 'hi', OPENF50_AT_LOCK_WAIT='1')
+                self.assertEqual((r.returncode, r.stderr.strip()), (1, 'openf50-at: busy'))
                 self.assertLess(time.monotonic() - t0, 5)
                 self.assertEqual(self.at_log(), [])
                 self.assertEqual((lock / 'pid').read_text().strip(), str(holder.pid))
@@ -1505,13 +1505,13 @@ class Send(ShellTest):
                 holder.kill()
                 holder.wait()
             (lock / 'pid').write_text('999999\n')
-            r = self.send(shell, '10099', 'hi', MU300_AT_LOCK_WAIT='1')
+            r = self.send(shell, '10099', 'hi', OPENF50_AT_LOCK_WAIT='1')
             self.assertEqual(r.returncode, 0, r.stderr)
             self.assertEqual(len(self.at_log()), 4)
             self.assertFalse(lock.exists())
 
     def test_no_daemon_no_lock(self):
-        # without mu300-atd's fifo mu300-at opens the tty itself and takes no lock: none is taken here either, and the
+        # without openf50-atd's fifo openf50-at opens the tty itself and takes no lock: none is taken here either, and the
         # send still goes the same way
         (self.atdir / 'cmd').unlink()
         for shell in self.each_shell():
@@ -1523,11 +1523,11 @@ class Send(ShellTest):
 
 
 class Watch(ShellTest):
-    """`sms watch` (every system): a long message waits for its other parts, MU300_SMS_PARTIAL_WAIT at most."""
+    """`sms watch` (every system): a long message waits for its other parts, OPENF50_SMS_PARTIAL_WAIT at most."""
 
     def setUp(self):
         super().setUp()
-        self.stub('mu300-at', AT_STUB)
+        self.stub('openf50-at', AT_STUB)
         (self.tmp / 'at').mkdir()
         (self.tmp / 'at' / 'CPMS').write_text('+CPMS: 2,50,2,50,2,50\nOK\n')
         # one round of the loop: the second sleep ends the script
@@ -1541,9 +1541,9 @@ class Watch(ShellTest):
         # A busybox that runs sleep as its own applet never calls the stub, so the loop sleeps for real: one round
         # takes well under the timeout, which then ends it.
         try:
-            return subprocess.run(shell + [str(TOP / 'rootfs/overlay/opt/mu300/bin/sms'), 'watch', hook],
+            return subprocess.run(shell + [str(TOP / 'rootfs/overlay/opt/openf50/bin/sms'), 'watch', hook],
                                   capture_output=True, text=True, timeout=8,
-                                  env=self.env(MU300_SMS_AWK=AWK, MU300_SMS_STATE=self.tmp / 'state', **env))
+                                  env=self.env(OPENF50_SMS_AWK=AWK, OPENF50_SMS_STATE=self.tmp / 'state', **env))
         except subprocess.TimeoutExpired as e:
             return e
 
@@ -1576,17 +1576,17 @@ class Watch(ShellTest):
                              (self.tmp / 'state' / 'partial').read_text())
 
 
-@unittest.skipUnless(os.path.isdir('/proc/self'), 'mu300-smsd tells a live holder by /proc/PID/cmdline')
+@unittest.skipUnless(os.path.isdir('/proc/self'), 'openf50-smsd tells a live holder by /proc/PID/cmdline')
 class Daemon(ShellTest):
     def setUp(self):
         super().setUp()
         self.atdir = self.tmp / 'run-at'
         (self.atdir / 'urc').mkdir(parents=True)
         os.mkfifo(self.atdir / 'cmd')
-        # The stub modem: every command into at.log (and the stub mu300-sms's calls too, as "SMS ...", so the order
+        # The stub modem: every command into at.log (and the stub openf50-sms's calls too, as "SMS ...", so the order
         # between the two is one list); OK to everything but the commands $STUBLOG/refuse names (ERROR), +CPIN: READY,
         # and +CNMI? answered from $STUBLOG/cnmi (what the daemon asked for, by default).
-        self.stub('mu300-at', 'printf "%s\\n" "$*" >> "$STUBLOG/at.log"; cmd=$3\n'
+        self.stub('openf50-at', 'printf "%s\\n" "$*" >> "$STUBLOG/at.log"; cmd=$3\n'
                               'for r in $(cat "$STUBLOG/refuse" 2>/dev/null); do case $cmd in "$r"*) echo ERROR; exit 0 ;; esac; done\n'
                               'case $cmd in\n'
                               '    *CPIN*) printf "+CPIN: READY\\nOK\\n" ;;\n'
@@ -1594,7 +1594,7 @@ class Daemon(ShellTest):
                               '    *) echo OK ;;\n'
                               'esac')
         self.stub('fake-sms', 'echo "$*" >> "$STUBLOG/sms.log"; echo "SMS $*" >> "$STUBLOG/at.log"; '
-                              'echo "${MU300_AT_LOCK_WAIT:-unset}" > "$STUBLOG/lockwait"; '
+                              'echo "${OPENF50_AT_LOCK_WAIT:-unset}" > "$STUBLOG/lockwait"; '
                               '[ -f "$STUBLOG/sms-fail" ] && [ "$1" = import-pdu ] && exit 1; exit 0')
         self.lock = self.tmp / 'smsd.lock'
         self.flag = self.tmp / 'direct'
@@ -1602,9 +1602,9 @@ class Daemon(ShellTest):
         self.spool = self.pool / 'incoming'
 
     def start(self, shell, **env):
-        e = dict(MU300_AT_DIR=self.atdir, MU300_SMS_BIN=self.stubs / 'fake-sms', MU300_SMS_LOCK=self.lock,
-                 MU300_SMS_POLL=1, MU300_SMS_SYNC_INTERVAL=600, MU300_SMS_POOL=self.pool,
-                 MU300_SMS_DIRECT_FLAG=self.flag)
+        e = dict(OPENF50_AT_DIR=self.atdir, OPENF50_SMS_BIN=self.stubs / 'fake-sms', OPENF50_SMS_LOCK=self.lock,
+                 OPENF50_SMS_POLL=1, OPENF50_SMS_SYNC_INTERVAL=600, OPENF50_SMS_POOL=self.pool,
+                 OPENF50_SMS_DIRECT_FLAG=self.flag)
         e.update(env)
         return subprocess.Popen(shell + [str(SMSD)], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
                                 env=self.env(**e))
@@ -1618,7 +1618,7 @@ class Daemon(ShellTest):
         return p.read_text().splitlines() if p.exists() else []
 
     def commands(self):
-        """The AT commands asked so far (the stub mu300-sms's lines left out)."""
+        """The AT commands asked so far (the stub openf50-sms's lines left out)."""
         return [l.split(' ', 2)[2] for l in self.at_log() if l.startswith('-t ')]
 
     def fresh(self):
@@ -1674,7 +1674,7 @@ class Daemon(ShellTest):
                     self.fresh()
                     if refuse:
                         (self.tmp / 'refuse').write_text(refuse + '\n')
-                    d = self.start(shell, **({} if refuse else {'MU300_SMS_DIRECT': '0'}))
+                    d = self.start(shell, **({} if refuse else {'OPENF50_SMS_DIRECT': '0'}))
                     try:
                         self.wait_for(lambda: self.commands().count('AT+CNMI=2,1,0,0,0') == 2, 'storage indications not asked again')
                         c = self.commands()
@@ -1756,7 +1756,7 @@ class Daemon(ShellTest):
         for shell in self.each_shell():
             self.fresh()
             (self.tmp / 'cnmi').write_text('+CNMI: 0,0,0,0,0\n')   # what a modem answers after an acknowledgement never came
-            d = self.start(shell, MU300_SMS_SYNC_INTERVAL=2)
+            d = self.start(shell, OPENF50_SMS_SYNC_INTERVAL=2)
             try:
                 self.wait_for(lambda: self.commands().count('AT+CNMI=3,2,2,0,1') >= 2, 'routing not put back', timeout=15)
                 c = self.commands()
@@ -1829,26 +1829,26 @@ class Daemon(ShellTest):
 
 class Wiring(unittest.TestCase):
     def test_the_spooler_is_on_every_system_and_the_at_daemon_knows_it(self):
-        # mu300-atd runs on Ubuntu too, and a +CMT frame must never end in its log or be lost: the spooler is in the
+        # openf50-atd runs on Ubuntu too, and a +CMT frame must never end in its log or be lost: the spooler is in the
         # shared tree, the pool and spool paths are the pool's everywhere
-        spooler = TOP / 'rootfs' / 'overlay' / 'opt' / 'mu300' / 'bin' / 'mu300-cmt-spool'
+        spooler = TOP / 'rootfs' / 'overlay' / 'opt' / 'openf50' / 'bin' / 'openf50-cmt-spool'
         self.assertTrue(spooler.stat().st_mode & 0o111, 'not executable')
-        self.assertIn('POOL=${MU300_SMS_POOL:-/etc/mu300/sms-pool}\n', spooler.read_text())
+        self.assertIn('POOL=${OPENF50_SMS_POOL:-/etc/openf50/sms-pool}\n', spooler.read_text())
         self.assertIn('SPOOL=$POOL/incoming\n', spooler.read_text())
-        atd = (TOP / 'rootfs' / 'overlay' / 'opt' / 'mu300' / 'bin' / 'mu300-atd').read_text()
-        self.assertIn('CMT_SPOOL=${MU300_CMT_SPOOL_BIN:-/opt/mu300/bin/mu300-cmt-spool}\n', atd)
+        atd = (TOP / 'rootfs' / 'overlay' / 'opt' / 'openf50' / 'bin' / 'openf50-atd').read_text()
+        self.assertIn('CMT_SPOOL=${OPENF50_CMT_SPOOL_BIN:-/opt/openf50/bin/openf50-cmt-spool}\n', atd)
         self.assertIn('SPOOL=$POOL/incoming\n', SMSD.read_text())
         self.assertIn('PARTS=$POOL/parts', SMS.read_text())
         # the message is never an argument: the daemon pipes the frame, the daemon of the pool reads a file
         self.assertNotRegex(atd, r'"\$CMT_SPOOL" +"\$')
         self.assertIn('"$SMS" import-pdu "$f"', SMSD.read_text())
-        self.assertIn('export MU300_AT_LOCK_WAIT=${MU300_AT_LOCK_WAIT:-8}', SMSD.read_text())
+        self.assertIn('export OPENF50_AT_LOCK_WAIT=${OPENF50_AT_LOCK_WAIT:-8}', SMSD.read_text())
 
     def test_init_script(self):
         src = INITD.read_text()
         self.assertTrue(src.startswith('#!/bin/sh /etc/rc.common\n'))
         self.assertIn('USE_PROCD=1', src)
-        self.assertIn('procd_set_param command /opt/mu300/bin/mu300-smsd', src)
+        self.assertIn('procd_set_param command /opt/openf50/bin/openf50-smsd', src)
         self.assertIn('procd_set_param respawn', src)
         self.assertRegex(src, r'(?m)^START=\d+$')
 
@@ -1857,18 +1857,18 @@ class Wiring(unittest.TestCase):
         # inside the same luci-plugin branch that enables the panel's own service, never in the common lists
         block = src[src.index('    ln -sf ../init.d/unisoc-modem-ui'):]
         block = block[:block.index('\nfi\n')]
-        self.assertIn('ln -sf ../init.d/mu300-smsd $R/etc/rc.d/S${n}mu300-smsd', block)
-        self.assertIn('ln -sf /opt/mu300/bin/mu300-sms $R/usr/bin/mu300-sms', block)
-        common = re.search(r'for s in (mu300-accounts[^;]*);', src).group(1)
+        self.assertIn('ln -sf ../init.d/openf50-smsd $R/etc/rc.d/S${n}openf50-smsd', block)
+        self.assertIn('ln -sf /opt/openf50/bin/openf50-sms $R/usr/bin/openf50-sms', block)
+        common = re.search(r'for s in (openf50-accounts[^;]*);', src).group(1)
         self.assertNotIn('smsd', common)
         # the commands every system links come from the shared list
-        self.assertIn('for c in $(cat /in/opt-mu300/lib/path-commands)', src)
-        common = (TOP / 'rootfs' / 'overlay' / 'opt' / 'mu300' / 'lib' / 'path-commands').read_text().split()
-        self.assertNotIn('mu300-sms', common)
+        self.assertIn('for c in $(cat /in/opt-openf50/lib/path-commands)', src)
+        common = (TOP / 'rootfs' / 'overlay' / 'opt' / 'openf50' / 'lib' / 'path-commands').read_text().split()
+        self.assertNotIn('openf50-sms', common)
         # the pool programs come from the luci overlay; the shared tree (every system) has none of them
-        for name in ('mu300-sms', 'mu300-smsd'):
-            self.assertFalse((TOP / 'rootfs' / 'overlay' / 'opt' / 'mu300' / 'bin' / name).exists())
-        self.assertFalse((TOP / 'openwrt' / 'overlay' / 'etc' / 'init.d' / 'mu300-smsd').exists())
+        for name in ('openf50-sms', 'openf50-smsd'):
+            self.assertFalse((TOP / 'rootfs' / 'overlay' / 'opt' / 'openf50' / 'bin' / name).exists())
+        self.assertFalse((TOP / 'openwrt' / 'overlay' / 'etc' / 'init.d' / 'openf50-smsd').exists())
 
 
 if __name__ == '__main__':

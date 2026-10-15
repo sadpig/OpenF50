@@ -21,47 +21,47 @@ The equivalent commands for the tested China Mobile internal card are:
 ```sh
 uci set network.wan.apn_internal='cmnet'
 uci set network.wan.pdptype_internal='IPV4V6'
-mu300-sim select internal
-mu300-sim status
+openf50-sim select internal
+openf50-sim status
 ```
 
-For callers that share the dual-SIM command vocabulary, `mu300-sim default 1`
-selects the external card and `mu300-sim default 2` selects the internal card.
-`mu300-sim status --json` reports physical card numbers (`active` and `default`)
+For callers that share the dual-SIM command vocabulary, `openf50-sim default 1`
+selects the external card and `openf50-sim default 2` selects the internal card.
+`openf50-sim status --json` reports physical card numbers (`active` and `default`)
 and whether the detected device supports slot 1 (`slot1_supported`), along with
 `hot: 0` and `available: 0`; F50 selection is boot-time only. The
 `hot` and `switch` commands fail explicitly instead of attempting a live SIPC
 channel switch.
 
-`mu300-sim select external` restores slot 0 on the next Linux boot. The external
+`openf50-sim select external` restores slot 0 on the next Linux boot. The external
 profile uses the existing `network.wan.apn` and `network.wan.pdptype` options.
 Use that card's carrier APN, not necessarily `cmnet` (`ctnet` was used for the
 China Telecom comparison card). Selection does not change the default boot OS.
 
-The active slot is recorded atomically in `/run/mu300/sim-slot` when modem userspace
+The active slot is recorded atomically in `/run/openf50/sim-slot` when modem userspace
 first starts. All callers use that value until reboot, including teardown after
 the next-boot selection has changed. Do not delete this file or restart TTY owners
 to attempt a live switch: closing and reopening SIPC TTYs can wedge the channels.
 The existing OpenWrt automatic WAN setup uses the selected card after reboot.
 
-On systemd installations, `mu300-sim select` stores the choice in
-`/etc/mu300/sim-slot`; configure the selected carrier in the existing
-`/etc/mu300/mobile-data.conf`. The two-profile LuCI editor is OpenWrt-specific.
+On systemd installations, `openf50-sim select` stores the choice in
+`/etc/openf50/sim-slot`; configure the selected carrier in the existing
+`/etc/openf50/mobile-data.conf`. The two-profile LuCI editor is OpenWrt-specific.
 
 ## Devices without a supported slot-1 backend
 
 The F50 boot path and the U30 Air/OpenWrt native backend are separate implementations. On a device without a
 supported backend (including U30 Air outside OpenWrt),
-`mu300-sim select internal` refuses, `mu300-sim status --json` says `slot1_supported: 0`, and a saved
-`network.wan.sim_slot=1` is ignored for the boot (`mu300-sim: ignoring unsupported slot 1; using external slot 0`),
+`openf50-sim select internal` refuses, `openf50-sim status --json` says `slot1_supported: 0`, and a saved
+`network.wan.sim_slot=1` is ignored for the boot (`openf50-sim: ignoring unsupported slot 1; using external slot 0`),
 so every reader - the WAN, the AT daemons, the dashboard - stays on the external card.
 
 The pages say so (issue #194; they offered the internal SIM on every device, and a U30 Air then showed the external
 card's operator with no hint why):
 
-- `dashboard-info` (the panel's local snapshot, `mu300dash sysinfo`/`status`) carries `"sim": {"slot": 0|1,
-  "wanted": 0|1, "slot1_supported": 0|1}` from `mu300-sim status --json` (`null` without the selector).
-- Network → Interfaces → WAN (`protocol/mu300cell.js`) reads it and does not offer **Internal SIM** where
+- `dashboard-info` (the panel's local snapshot, `openf50dash sysinfo`/`status`) carries `"sim": {"slot": 0|1,
+  "wanted": 0|1, "slot1_supported": 0|1}` from `openf50-sim status --json` (`null` without the selector).
+- Network → Interfaces → WAN (`protocol/openf50cell.js`) reads it and does not offer **Internal SIM** where
   `slot1_supported` is 0. If the configuration already has slot 1, the entry stays as "Internal SIM (slot 1): not
   supported on this device", so the page shows what is saved; choosing the external SIM and saving puts it right.
   Without the panel, or when the call fails, both sources are offered as before.

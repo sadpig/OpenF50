@@ -118,7 +118,7 @@ struct sprd_hif {
 
 	int exit;
 	atomic_t power_cnt;
-	/* MU300: one WCN power transition at a time (sprd_iface_set_power) */
+	/* OPENF50: one WCN power transition at a time (sprd_iface_set_power) */
 	struct mutex power_lock;
 	int flag;
 	int lastflag;
@@ -292,7 +292,7 @@ static inline int sprd_hif_power_on(struct sprd_hif *hif)
 	}
 
 	if (sprd_hif_post_init(hif)) {
-		/* MU300: post_init unwound its channels; the chip was started, stop it as a power-off would */
+		/* OPENF50: post_init unwound its channels; the chip was started, stop it as a power-off would */
 		if (stop_marlin(MARLIN_WIFI))
 			pr_err("stop_marlin failed!!\n");
 		atomic_sub(1, &hif->power_cnt);
@@ -308,7 +308,7 @@ static inline int sprd_hif_power_on(struct sprd_hif *hif)
 
 	if (sprd_sync_version(hif)) {
 		/*
-		 * MU300: undo the power-on as sprd_hif_power_off() does.  The vendor left the channels registered
+		 * OPENF50: undo the power-on as sprd_hif_power_off() does.  The vendor left the channels registered
 		 * and the chip started with the count at 0: the next power-on registered them again over live ones,
 		 * and a probe that failed here freed hif under channels that could still interrupt.
 		 */

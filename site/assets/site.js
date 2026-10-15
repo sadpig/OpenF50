@@ -45,8 +45,8 @@
       if (next === "auto") root.removeAttribute("data-theme");
       else root.setAttribute("data-theme", next);
       try {
-        if (next === "auto") localStorage.removeItem("mu300-theme");
-        else localStorage.setItem("mu300-theme", next);
+        if (next === "auto") localStorage.removeItem("openf50-theme");
+        else localStorage.setItem("openf50-theme", next);
       } catch (e) { /* private window or blocked storage: the choice lasts for this page only */ }
       show();
     });

@@ -55,7 +55,7 @@ CONFIG_WPA_MSG_MIN_PRIORITY=3
 CONFIG
 make defconfig
 make "$TARGET/clean"
-make -j"${MU300_JOBS:-4}" "$TARGET/compile" V=s
+make -j"${OPENF50_JOBS:-4}" "$TARGET/compile" V=s
 
 # Keep hostapd-common and wpad from the same recipe revision. apk resolves normal library dependencies.
 for name in hostapd-common wpad-basic-openssl; do

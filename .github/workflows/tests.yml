@@ -31,13 +31,13 @@ jobs:
       - name: SAE parser and SDK regressions with UBSan (Linux)
         if: runner.os == 'Linux'
         env:
-          MU300_TEST_UBSAN: '1'
+          OPENF50_TEST_UBSAN: '1'
         run: python3 -m unittest discover -s tests -p test_u30_sae.py -v
       - name: tests
         # quick mode on pull requests: the device scripts under busybox sh only (what OpenWrt runs; dash and bash
         # are Ubuntu's) - a third of the time. A push to main runs every shell.
         env:
-          MU300_TEST_SHELLS: ${{ github.event_name == 'pull_request' && 'busybox sh' || 'dash,bash,busybox sh,sh' }}
+          OPENF50_TEST_SHELLS: ${{ github.event_name == 'pull_request' && 'busybox sh' || 'dash,bash,busybox sh,sh' }}
         run: |
           cd tests
           python3 -c 'import helpers; print("shells:", helpers.shells())'

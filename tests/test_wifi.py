@@ -1,10 +1,10 @@
-"""wifi-start loads the WCN modules without modules.dep (K55); mu300-hw restarts the AP once the country is live (K15)."""
+"""wifi-start loads the WCN modules without modules.dep (K55); openf50-hw restarts the AP once the country is live (K15)."""
 import subprocess
 import unittest
 
 from helpers import BIN, TOP, ShellTest
 
-HW = TOP / 'openwrt' / 'overlay' / 'etc' / 'init.d' / 'mu300-hw'
+HW = TOP / 'openwrt' / 'overlay' / 'etc' / 'init.d' / 'openf50-hw'
 
 
 class WifiStart(ShellTest):
@@ -23,7 +23,7 @@ class WifiStart(ShellTest):
         self.stub('modprobe', 'echo "modprobe $*" >> "$STUBLOG/calls"\n'
                   'case " pcie-sprd-misc pcie-sprd %s " in *" $1 "*) exit 0;; esac\nexit 1' % ' '.join(modprobe_ok))
         self.stub('insmod', 'echo "insmod $*" >> "$STUBLOG/calls"')
-        env = {'PATH': '%s:/usr/bin:/bin' % self.stubs, 'STUBLOG': str(self.tmp), 'MU300_KMOD': str(kmod)}
+        env = {'PATH': '%s:/usr/bin:/bin' % self.stubs, 'STUBLOG': str(self.tmp), 'OPENF50_KMOD': str(kmod)}
         r = subprocess.run(shell + [str(BIN / 'wifi-start')], capture_output=True, text=True, env=env)
         return r, log.read_text()
 

@@ -1,7 +1,7 @@
-# adbd for MU300 Linux, static (musl): the daemon of AOSP's adb (platform-tools 34.0.5), from the sources
+# adbd for OPENF50 Linux, static (musl): the daemon of AOSP's adb (platform-tools 34.0.5), from the sources
 # github.com/nmeum/android-tools vendors (ANDROID_TOOLS: its vendor/ directory). tools/adbd/build.sh runs this.
 cmake_minimum_required(VERSION 3.12)
-project(mu300-adbd C CXX)
+project(openf50-adbd C CXX)
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_EXTENSIONS ON)
@@ -109,10 +109,10 @@ add_executable(adbd
 	${V}/core/libcrypto_utils/android_pubkey.cpp
 	${V}/native/libs/adbd_auth/adbd_auth.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/stubs.cpp)
-target_compile_definitions(adbd PRIVATE -DADB_HOST=0 -DADB_VERSION="34.0.5-mu300"
+target_compile_definitions(adbd PRIVATE -DADB_HOST=0 -DADB_VERSION="34.0.5-openf50"
 	-DPLATFORM_TOOLS_VERSION="34.0.5" -DANDROID_BASE_UNIQUE_FD_DISABLE_IMPLICIT_CONVERSION=1
 	-DPAGE_SIZE=4096)
-target_compile_options(adbd PRIVATE -include ${CMAKE_CURRENT_SOURCE_DIR}/include/mu300_compat.h)
+target_compile_options(adbd PRIVATE -include ${CMAKE_CURRENT_SOURCE_DIR}/include/openf50_compat.h)
 target_include_directories(adbd PRIVATE
 	${CMAKE_CURRENT_SOURCE_DIR}/include ${A} ${A}/crypto/include ${A}/tls/include ${A}/libs/libadbd_fs/include ${A}/libs/adbconnection/include
 	${V}/native/libs/adbd_auth/include ${V}/core/diagnose_usb/include ${V}/core/include

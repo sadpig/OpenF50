@@ -11,7 +11,7 @@ The U30 Air ran flat under Linux and came back in Android. Two causes, found on 
   plugged in whenever the load passes 2.5 W. That is fixed separately, by the `bq256xx` port (PR in progress); this
   document assumes a charger that charges and reports.
 * When the flat battery was plugged in, LK booted the Linux slot in `charger` mode. Full Linux on an empty battery
-  behind a 500 mA input died before `mu300-boot-ok`, five times, and LK fell back to Android.
+  behind a 500 mA input died before `openf50-boot-ok`, five times, and LK fell back to Android.
 
 Beyond the bug, nothing in Linux spends the battery with care: the hotspot, the modem and the big cores run the same
 with nobody connected as with ten clients. Android's idle advantage (the AP core sleeps) is out of reach for now - the
@@ -33,27 +33,27 @@ are what is left.
   is pressed; an unplugged device under 5 % powers off cleanly instead of browning out.
 * Charging stops outside 0-45 °C battery temperature and resumes with hysteresis; an optional charge limit (80 %)
   for a device that lives on the charger.
-* The panel (openwrt-luci) gets System → Power: state, profile, knobs. Every system gets `mu300-power` on the
-  command line, including `mu300-power log` for measurements.
+* The panel (openwrt-luci) gets System → Power: state, profile, knobs. Every system gets `openf50-power` on the
+  command line, including `openf50-power log` for measurements.
 
 The user's defaults: `battery` turns the hotspot off after 10 minutes, the modem fully off when idle, LEDs off when
 idle; `plugged` turns nothing off.
 
 ## Pieces
 
-### `mu300-power` (one script, `/opt/mu300/bin`, dash-compatible, Ubuntu and OpenWrt)
+### `openf50-power` (one script, `/opt/openf50/bin`, dash-compatible, Ubuntu and OpenWrt)
 
 ```
-mu300-power status                  state, profile and why, battery, charger, idle timer
-mu300-power profile [NAME|auto]     force a profile, or back to automatic (plugged/battery by supply)
-mu300-power set PROFILE.KNOB VALUE  edit /etc/mu300/power.conf
-mu300-power wake                    leave idle (the keys call it); restarts the idle timer
-mu300-power idle                    enter idle now (testing; the panel's "sleep now")
-mu300-power log [SECONDS] [FILE]    append time, V, I, W, %, temp, state, profile every SECONDS (default 5)
-mu300-power daemon                  the state machine; procd on OpenWrt, systemd on Ubuntu
+openf50-power status                  state, profile and why, battery, charger, idle timer
+openf50-power profile [NAME|auto]     force a profile, or back to automatic (plugged/battery by supply)
+openf50-power set PROFILE.KNOB VALUE  edit /etc/openf50/power.conf
+openf50-power wake                    leave idle (the keys call it); restarts the idle timer
+openf50-power idle                    enter idle now (testing; the panel's "sleep now")
+openf50-power log [SECONDS] [FILE]    append time, V, I, W, %, temp, state, profile every SECONDS (default 5)
+openf50-power daemon                  the state machine; procd on OpenWrt, systemd on Ubuntu
 ```
 
-Configuration `/etc/mu300/power.conf`, kept across updates like the rest of `etc/mu300`, `KEY=VALUE` lines read with
+Configuration `/etc/openf50/power.conf`, kept across updates like the rest of `etc/openf50`, `KEY=VALUE` lines read with
 `sed`, as `led.conf` is:
 
 ```
@@ -86,8 +86,8 @@ again on read (an unknown value counts as the default; the daemon never fails ov
 | charger | the bq256xx node: `status`, `usb_type`, `input_current_limit`; charging enable | names fixed by the driver PR; the daemon reads whatever node has `type=USB`/`Mains` |
 | Wi-Fi clients | `iw dev wlan0 station dump`, count of `Station` | AP interface only; the client interface (`wifi-client`) is not a reason to stay awake |
 | computer on USB | `/sys/class/udc/*/state` = `configured` | a charger does not enumerate: `not attached`/`powered` |
-| keys | `mu300-buttons` calls `mu300-power wake` | no second evdev reader |
-| boot mode | `/run/mu300/boot-mode`, written by init from the DT's `chosen/bootargs` (`androidboot.mode=charger`) | init already reads that file for the slot |
+| keys | `openf50-buttons` calls `openf50-power wake` | no second evdev reader |
+| boot mode | `/run/openf50/boot-mode`, written by init from the DT's `chosen/bootargs` (`androidboot.mode=charger`) | init already reads that file for the slot |
 
 ### State machine (the daemon, one loop every 10 s plus the key events)
 
@@ -109,27 +109,27 @@ again on read (an unknown value counts as the default; the daemon never fails ov
 * Profile selection runs every loop: forced profile, else `saver` when the battery is under `SAVER_BELOW` and
   unplugged, else `plugged`/`battery` by the supply. A profile change while idle re-applies the idle actions of the
   new profile; a change to `plugged` while idle wakes (the charger is a person).
-* **active → idle** applies, in this order and each one logged: LEDs (`mu300-led idle on`, which is `wake`'s
-  opposite and ignores `LED_TIMEOUT`), hotspot off (`wifi down` / `systemctl stop mu300-hotspot`, as
-  `mu300-buttons` does), modem (`mobile-data suspend lte|off`, below), CPU (`eco`: `echo 0 > cpu7/online`,
+* **active → idle** applies, in this order and each one logged: LEDs (`openf50-led idle on`, which is `wake`'s
+  opposite and ignores `LED_TIMEOUT`), hotspot off (`wifi down` / `systemctl stop openf50-hotspot`, as
+  `openf50-buttons` does), modem (`mobile-data suspend lte|off`, below), CPU (`eco`: `echo 0 > cpu7/online`,
   `policy4/scaling_max_freq`). `WIFI_IDLE=0` means the state is never entered.
 * **idle → active** reverses in the opposite order and restarts the idle timer. The timer also restarts on every
   station seen and every `configured` UDC.
 * **charging-boot**: entered only at daemon start when `boot-mode` is `charger`. Hotspot and modem stay down
   (`hotspot-start` and `mobile-data up` are not run by the boot scripts when the file says `charger`; the daemon
-  does not fight them), LEDs show charge (`mu300-led charge`: the battery LED breathes while charging, steady when
+  does not fight them), LEDs show charge (`openf50-led charge`: the battery LED breathes while charging, steady when
   full). The Wi-Fi key → active, which starts both. Unplugged and under 5 % for three loops → `poweroff`
-  (`systemctl poweroff` on Ubuntu). The 300 s rescue timer and `mu300-boot-ok` run as on any boot: a charging boot
+  (`systemctl poweroff` on Ubuntu). The 300 s rescue timer and `openf50-boot-ok` run as on any boot: a charging boot
   is a successful boot.
 * **Temperature guard**: battery `temp` over 450 (0.1 °C) or under 0 writes charging off; back on under 400 /
   over 30. `CHARGE_TO=80`: charging off at 80 %, on again under 75 %. Both through the charger node's enable; when
   the driver has none (5.4, pre-driver mainline) the guard logs once and does nothing.
-* Every transition is one `logger -t mu300-power` line with the reason; `status` prints the last one.
+* Every transition is one `logger -t openf50-power` line with the reason; `status` prints the last one.
 
 ### `mobile-data suspend | resume`
 
 `mobile-data watch` restores the radio and the connection whenever it finds them down; the daemon must be able to
-take them down without a fight. `suspend lte` writes `/run/mu300/mobile-data.suspend=lte` and asks the modem for
+take them down without a fight. `suspend lte` writes `/run/openf50/mobile-data.suspend=lte` and asks the modem for
 LTE only (the vendor AT for the access-technology preference, found on the board; if there is none, `lte` behaves
 as `keep` and says so once); `suspend off` writes `off` and turns the radio off (`AT+CFUN=4`, what the watcher's own
 recovery uses in reverse). The watcher skips its rounds while the file exists. `resume` removes it, turns the radio
@@ -138,24 +138,24 @@ on and brings data up through the existing paths. Both are idempotent.
 ### init
 
 One line in the slot block: `androidboot.mode=charger` in the DT's `chosen/bootargs` → `charger` in
-`/run/mu300/boot-mode` (else `normal`) and a `stage=boot-mode mode=...` log line. The boot scripts of both systems
+`/run/openf50/boot-mode` (else `normal`) and a `stage=boot-mode mode=...` log line. The boot scripts of both systems
 (`hotspot-start`, `mobile-data up` via their units) check the file and leave the radios down in a charging boot.
 
 ### OpenWrt's own button handling
 
 `/etc/rc.button/power` in the OpenWrt images runs `poweroff` on release: a tap powers the device off, beside
-`mu300-buttons`' 3 s hold. The image build replaces it with a no-op (`mu300-buttons` owns the keys), and the
+`openf50-buttons`' 3 s hold. The image build replaces it with a no-op (`openf50-buttons` owns the keys), and the
 `wps`/`rfkill` handlers likewise. Checked on the board: whether procd actually delivers these events (if it does
 not, the replacement is still right, and costs nothing).
 
-### `mu300-buttons`
+### `openf50-buttons`
 
-Every key press calls `mu300-power wake` first (it returns at once when active). The existing meanings stay:
+Every key press calls `openf50-power wake` first (it returns at once when active). The existing meanings stay:
 power short wakes the LEDs, power held 3 s shuts down, Wi-Fi short toggles the band, Wi-Fi held toggles the hotspot.
 In idle or charging-boot the Wi-Fi key's first press only wakes (the hotspot comes back on the band it had); the
 band toggle needs a second press. That is what "the Wi-Fi key turns Wi-Fi on" means on a device that is asleep.
 
-### `mu300-led`
+### `openf50-led`
 
 Two new verbs: `idle on|off` (all LEDs dark regardless of `LED_TIMEOUT`, and back) and `charge` (the battery LED's
 charging pattern for the charging boot; `wake` ends it). Nothing else changes; the Wi-Fi and data LEDs keep their
@@ -163,15 +163,15 @@ meanings when awake.
 
 ### Panel: System → Power (openwrt-luci)
 
-A LuCI view `power.js` and the rpcd methods it needs on `mu300dash` (`power_status`, `power_set`), with the same
+A LuCI view `power.js` and the rpcd methods it needs on `openf50dash` (`power_status`, `power_set`), with the same
 input validation and JSON escaping as the existing methods (FINDINGS 35). Shows: state and reason, profile in use
 and the selector (`auto`/forced), the three profiles' knobs as a table, `SAVER_BELOW`, `CHARGE_TO`, "sleep now"
 and "wake". Strings go through the English source and the tr/zh catalogs (`tools/check-i18n.py`, `luci-i18n.py`);
 the other languages follow the existing translation route. The home tile keeps the battery and watts.
 
-### `mu300-power log` and the measurements
+### `openf50-power log` and the measurements
 
-`log` appends `epoch,V,mA,W,capacity,temp,state,profile` to `/var/log/mu300-power.csv` (or a given file) every 5 s,
+`log` appends `epoch,V,mA,W,capacity,temp,state,profile` to `/var/log/openf50-power.csv` (or a given file) every 5 s,
 from the fgu; the sign of `current_now` is negative while discharging (checked on the board: -5 mA with the charger
 idle). The R&D series on the U30 Air, unplugged, 3 minutes each, hotspot idle unless said: baseline as shipped;
 LEDs off; hotspot off; modem LTE-only; modem off; everything off (the idle floor); `eco` CPU; Android idle for the
@@ -191,12 +191,12 @@ fine print (whether `eco` is worth its latency, whether `lte` is worth having).
 
 ### Amendment after the device-test incident (2026-10-07, FINDINGS 36)
 
-* A key always shows life: `mu300-buttons` runs `mu300-led wake` first on every press, and `mu300-led wake` lights
+* A key always shows life: `openf50-buttons` runs `openf50-led wake` first on every press, and `openf50-led wake` lights
   the LEDs for `LED_TIMEOUT` (60 s when 0) under `idle on` too. The idle flag means "not unasked", not "never".
-* `mu300-power wake` restores by inspection (hotspot, modem mode file, LED idle flag, `cpu7`/eco cap, the VPN it
+* `openf50-power wake` restores by inspection (hotspot, modem mode file, LED idle flag, `cpu7`/eco cap, the VPN it
   stopped) without the daemon, and is what the keys call (in the background); the daemon's wake is the same code.
 * Every external step has a deadline; `mobile-data suspend|resume` end within ~60 s and leave the files consistent.
-* `RADIO_IDLE=off` stops `mu300-vpn` while the modem is off and starts it again on the wake, if it was running.
+* `RADIO_IDLE=off` stops `openf50-vpn` while the modem is off and starts it again on the wake, if it was running.
 * The daemon self-checks each loop: `active` with the modem held down, or (`WIFI_IDLE=0`) with the hotspot down that
   nobody turned off on purpose, is restored.
 
@@ -209,16 +209,16 @@ Unit tests in `tests/` in the existing style (stubs on PATH, fake sysfs tree, ev
   charging-boot entry only at start and only with the file; low-battery poweroff needs three loops and no supply;
   temperature and `CHARGE_TO` hysteresis; `log` line format and sign; the exit trap wakes.
 * `test_static.py`: the OpenWrt images carry no `rc.button/power` that powers off; both systems' hotspot and data
-  units check `boot-mode`; `power.conf` is in `mu300-update`'s kept set; `mu300-power` is on `path-commands`.
+  units check `boot-mode`; `power.conf` is in `openf50-update`'s kept set; `openf50-power` is on `path-commands`.
 * `test_device_scripts.py` / `test_boot_init.py`: init writes `boot-mode` from a `chosen/bootargs` with and
   without `androidboot.mode=charger`.
-* `test_mu300dash_security.py`: `power_set` rejects bad knobs/values and escapes output.
+* `test_openf50dash_security.py`: `power_set` rejects bad knobs/values and escapes output.
 * `tools/check-i18n.py` and the LuCI catalog test pass.
 
 On the U30 Air: the measurement series above; idle → wake by each of the three triggers; the charging boot
 simulated (unplug, `poweroff`, plug: LK's charger-mode boot, LED pattern, Wi-Fi key); the temperature guard forced
-with a fake `temp` through the daemon's test hook (`MU300_SYS=` root override, as other tools use `MU300_*`);
-`mu300-power log` across a profile change. On the F50: the daemon runs with no battery and does nothing wrong.
+with a fake `temp` through the daemon's test hook (`OPENF50_SYS=` root override, as other tools use `OPENF50_*`);
+`openf50-power log` across a profile change. On the F50: the daemon runs with no battery and does nothing wrong.
 
 ## Out of scope
 

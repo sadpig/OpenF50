@@ -1,4 +1,4 @@
-// MU300 Linux adbd: adb/proto/key_type.proto by hand, without protobuf (the one enum the daemon uses).
+// OPENF50 Linux adbd: adb/proto/key_type.proto by hand, without protobuf (the one enum the daemon uses).
 #pragma once
 
 namespace adb {

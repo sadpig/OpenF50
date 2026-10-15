@@ -15,14 +15,14 @@ Set SIM2's APN first (SIM1 keeps `network.wan.apn` / `pdptype`; SIM2 has its own
 uci set network.wan.apn_internal='cmnet'          # your SIM2 carrier's APN
 uci set network.wan.pdptype_internal='IPV4V6'
 uci commit network
-mu300-sim default 2
+openf50-sim default 2
 reboot
 ```
 
 The same from the panel: Network > Interfaces > WAN (**SIM source**, the card's APN), or **Cellular > Dual SIM**
-(**Use SIM2 at next boot**). `mu300-sim default 1` and a reboot go back.
+(**Use SIM2 at next boot**). `openf50-sim default 1` and a reboot go back.
 
-About 25 s into the boot the radio is on SIM2 and netifd dials it on `sipa_eth8`. `mu300-sim status --json` says
+About 25 s into the boot the radio is on SIM2 and netifd dials it on `sipa_eth8`. `openf50-sim status --json` says
 where things are (`active`, `default`, `fallback`, `boot_check`, `wan_up`); the page shows the same.
 
 **The first boot onto SIM2 is a trial.** A SIM2 that has never had mobile data under Linux gets five minutes from
@@ -46,22 +46,22 @@ the page (and in `status --json` as `fallback`) until you choose again.
 |---|---|---|
 | `no-sim` | no card answered in that position, with its SIM power on | on SIM1, in the same boot |
 | `sim-pin` | the card is locked by its PIN (nothing here enters a PIN: unlock it in Android or a phone) | on SIM1, in the same boot |
-| `wrong-card` | `/etc/mu300/sim2-iccid` names another card | on SIM1, in the same boot |
+| `wrong-card` | `/etc/openf50/sim2-iccid` names another card | on SIM1, in the same boot |
 | `brokers-missing` | the second group of modem channels never became ready | on SIM1, in the same boot (about two minutes in) |
 | `no-radio`, `data-route`, `modem-refused` | the modem was told to start SIM2 and did not | restarted into SIM1 |
 | `no-data` | the trial above ran out | restarted into SIM1 |
 | `unconfirmed` | the boot before never finished its start (power lost, a crash) | this boot is SIM1's |
 
-In every case the settings are SIM1 without live switching again. Logs: `/run/mu300/sim2-cold-start.log` (every
-command sent, and why it stopped; no answer of the modem is ever written there), `logread -e mu300-sim`.
+In every case the settings are SIM1 without live switching again. Logs: `/run/openf50/sim2-cold-start.log` (every
+command sent, and why it stopped; no answer of the modem is ever written there), `logread -e openf50-sim`.
 
 ## Live switching
 
 ```sh
-mu300-sim hot 1       # then reboot once: both groups of channels are opened at boot
-mu300-sim switch 2    # now; saved as the boot default once SIM2 has mobile data
-mu300-sim switch 1
-mu300-sim hot 0       # no more live switches
+openf50-sim hot 1       # then reboot once: both groups of channels are opened at boot
+openf50-sim switch 2    # now; saved as the boot default once SIM2 has mobile data
+openf50-sim switch 1
+openf50-sim hot 0       # no more live switches
 ```
 
 Or the checkbox and the two **Switch to** buttons on the Dual SIM page. A switch takes about four seconds of radio
@@ -73,12 +73,12 @@ and then waits up to a minute for the target's data.
 * The target gets no data and the card you came from had data: back to that card, default unchanged (about 70 s
   without data in all).
 * The target gets no data and the card you came from had none either: the device stays on the target, which keeps
-  dialling; the boot default is not changed. `mu300-sim switch <same card>` saves it once it has data, or
-  `mu300-sim default <card>` saves it regardless.
+  dialling; the boot default is not changed. `openf50-sim switch <same card>` saves it once it has data, or
+  `openf50-sim default <card>` saves it regardless.
 * Something breaks half way: one way back is tried. If that cannot be verified, or the switch is killed, the radio
   state is unknown: the device restarts into its saved boot default, which a failed switch never changes.
 
-`mu300-sim default 1|2` only saves the card for the next boot. It needs no live switching, moves no radio and does
+`openf50-sim default 1|2` only saves the card for the next boot. It needs no live switching, moves no radio and does
 not care whether that card has data now.
 
 While a switch runs, SMS, USSD, the AT terminal and the Locks page answer "busy". In a boot with live switching on
@@ -94,23 +94,23 @@ stay in force. Voice, USSD and parts of the IPv6 relay still assume SIM1; use IP
 | SIM2 (slot 1) | nr3 / nr4 / nr5 | sipa_eth8 |
 
 `network.wan.sim_slot` (0/1) is the boot's card and `network.wan.sim_hot` (0/1) live switching; a pre-release's
-`/etc/mu300-sim-slot` and `-hot` are taken over once into options that are not set and kept under
-`/etc/mu300/sim-migration/`. Every reader uses this boot's pin, `/run/mu300/sim-slot`, never the saved choice.
+`/etc/openf50-sim-slot` and `-hot` are taken over once into options that are not set and kept under
+`/etc/openf50/sim-migration/`. Every reader uses this boot's pin, `/run/openf50/sim-slot`, never the saved choice.
 
-With SIM2 chosen or live switching on, `init.d/mu300-atd` starts an owner for each of nr1, nr2, nr4 and nr5. They
+With SIM2 chosen or live switching on, `init.d/openf50-atd` starts an owner for each of nr1, nr2, nr4 and nr5. They
 wait (inside their procd instances, 240 s at most) for `sbuf_5_006, state: 1,` in `/dev/sipc_sbuf`: the second
 group's nodes exist before the modem is ready and an open before that fails. They are never restarted and never
-reopen a channel: a reopened SIPC channel is a wedged one. `/etc/mu300-sim-pending` is left before any of it and
+reopen a channel: a reopened SIPC channel is a wedged one. `/etc/openf50-sim-pending` is left before any of it and
 removed when the radio is up: a boot that never gets there makes the next one a SIM1 boot.
 
-The cold start (`mu300-sim2-start`, under `mobile-data`'s radio lock, once per boot):
+The cold start (`openf50-sim2-start`, under `mobile-data`'s radio lock, once per boot):
 
 ```text
 nr1                 AT+SMMSWAP=0                  the RIL handshake, as every boot
 nr1, nr4            AT+CFUN?                      both must be off
 the card's command  AT+CPIN?                      "+CME ERROR: 10" is also what a position says whose SIM power
                     AT+SPACTCARD=<n>;+SFUN=2      is off: switched on, then asked again
-                    AT+CCID                       compared with /etc/mu300/sim<n>-iccid if there is one; never logged
+                    AT+CCID                       compared with /etc/openf50/sim<n>-iccid if there is one; never logged
 nr1                 AT+SPTESTMODE?                the work modes, read ...
 the card's data     AT+SPTESTMODEM=<m0>,<m1>      ... and written back as they are
                     AT+SPSWDATA                   the packet-data route to this card
@@ -120,7 +120,7 @@ the card's data     AT+SFUN=4                     the radio; +CFUN: 1 is "ready"
 
 Registration and the bearer are netifd's, as for SIM1.
 
-The live switch (`mu300-sim-u30`, one at a time under a kernel lock, 300 s for the whole of it):
+The live switch (`openf50-sim-u30`, one at a time under a kernel lock, 300 s for the whole of it):
 
 ```text
 target's command    AT+SPACTCARD=<t>;+SFUN=2, AT+CPIN?     is a card there? (else SFUN=3 and refused)
@@ -141,10 +141,10 @@ unit this was first written on; on the maintainer's unit the second radio would 
 * Kernel 5.4 was not run. The readiness line comes from the same vendor driver; if it reads differently there, the
   boot ends on SIM1 (`brokers-missing`).
 * A modem crash needs a restart; nothing reloads the modem.
-* SMS (the pool, sending, forwarding) still uses SIM1's channels (`/run/mu300-at`): with SIM2 as the card in use,
+* SMS (the pool, sending, forwarding) still uses SIM1's channels (`/run/openf50-at`): with SIM2 as the card in use,
   messages for SIM2 are not collected and none can be sent. Not adapted yet.
 * A charging-only boot leaves both radios off.
-* `mu300-update` keeps the settings (they are in `/etc/config/network` and `/etc/mu300`).
+* `openf50-update` keeps the settings (they are in `/etc/config/network` and `/etc/openf50`).
 
 ## Records
 

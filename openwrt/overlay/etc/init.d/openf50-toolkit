@@ -1,0 +1,8 @@
+#!/bin/sh /etc/rc.common
+# apply the performance profile and the TTL setting saved by openf50-toolkit (/etc/openf50/toolkit.conf, ttl.conf)
+START=96
+
+start() {
+	[ -r /etc/openf50/toolkit.conf ] || [ -r /etc/openf50/ttl.conf ] || return 0
+	/opt/openf50/bin/openf50-toolkit apply
+}

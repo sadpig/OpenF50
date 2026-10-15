@@ -2,8 +2,8 @@
 
 Android's system user is uid 1000, the first human account on a distribution: ueventd-perms.sh gave that account the
 modem's calibration partitions, and modem_control/refnotify ran as it. Now: the nodes go to the vendor account
-mu300vnd (uid 1000 only where there is no account at all), nothing is writable by everyone, the GPU is the video
-group's, the daemons start as mu300vnd, and the images (and updated systems) have the account.
+openf50vnd (uid 1000 only where there is no account at all), nothing is writable by everyone, the GPU is the video
+group's, the daemons start as openf50vnd, and the images (and updated systems) have the account.
 """
 import fnmatch
 import re
@@ -190,7 +190,7 @@ class Generated(ShellTest):
                 (etc / name).write_text(text)
         text = OUTPUTS[1].read_text()
         header = text[:text.index('\nfor n in ')]
-        r = self.sh(shell, header + '\necho "$V $VG $GPU"', MU300_ETC=etc)
+        r = self.sh(shell, header + '\necho "$V $VG $GPU"', OPENF50_ETC=etc)
         self.assertEqual(r.returncode, 0, r.stderr)
         return r.stdout.strip()
 
@@ -198,15 +198,15 @@ class Generated(ShellTest):
         for shell in self.each_shell():
             # Ubuntu: the vendor account, the video group; ubuntu at 1000 owns nothing
             self.assertEqual(self.ids(shell, 'root:x:0:0::/root:/bin/bash\nubuntu:x:1000:1000::/home/ubuntu:/bin/bash\n'
-                                             'mu300vnd:x:991:988:MU300:/nonexistent:/usr/sbin/nologin\n',
-                                      'root:x:0:\nvideo:x:44:ubuntu\nubuntu:x:1000:\nmu300vnd:x:988:'), '991 988 44')
+                                             'openf50vnd:x:991:988:OPENF50:/nonexistent:/usr/sbin/nologin\n',
+                                      'root:x:0:\nvideo:x:44:ubuntu\nubuntu:x:1000:\nopenf50vnd:x:988:'), '991 988 44')
             # OpenWrt: no such account, no video group: the uid the daemons switch to themselves; the GPU root's
             self.assertEqual(self.ids(shell, 'root:x:0:0:root:/root:/bin/ash\nnetwork:x:101:101::/var:/bin/false\n',
                                       'root:x:0:\nnetwork:x:101:\n'), '1000 1000 0')
             # the initramfs: no /etc/passwd at all
             self.assertEqual(self.ids(shell, None, None), '1000 1000 0')
             # a name that only starts like it is not it
-            self.assertEqual(self.ids(shell, 'mu300vndx:x:5:5::/:/bin/false\n', 'mu300vndx:x:5:\n'), '1000 1000 0')
+            self.assertEqual(self.ids(shell, 'openf50vndx:x:5:5::/:/bin/false\n', 'openf50vndx:x:5:\n'), '1000 1000 0')
 
 
 class DaemonsStartAsTheAccount(ShellTest):
@@ -221,17 +221,17 @@ class DaemonsStartAsTheAccount(ShellTest):
     def run_daemon(self, shell, name):
         calls = self.tmp / 'calls'
         calls.unlink(missing_ok=True)
-        r = self.script(shell, BIN / 'android-run', name, MU300_ETC=self.etc, MU300_ANDROID=self.tmp / 'a')
+        r = self.script(shell, BIN / 'android-run', name, OPENF50_ETC=self.etc, OPENF50_ANDROID=self.tmp / 'a')
         self.assertEqual(r.returncode, 0, r.stderr)
         return calls.read_text().strip()
 
     def test_with_the_account(self):
-        (self.etc / 'passwd').write_text('ubuntu:x:1000:1000::/home/ubuntu:/bin/bash\nmu300vnd:x:991:988::/:/x\n')
+        (self.etc / 'passwd').write_text('ubuntu:x:1000:1000::/home/ubuntu:/bin/bash\nopenf50vnd:x:991:988::/:/x\n')
         a = self.tmp / 'a'
         for shell in self.each_shell():
             c = '-all,+sys_chroot,+chown,+block_suspend'
             self.assertEqual(self.run_daemon(shell, 'modem_control'),
-                             f'setpriv --reuid=mu300vnd --regid=mu300vnd --clear-groups --no-new-privs --inh-caps={c} '
+                             f'setpriv --reuid=openf50vnd --regid=openf50vnd --clear-groups --no-new-privs --inh-caps={c} '
                              f'--ambient-caps={c} --bounding-set={c} chroot {a} /vendor/bin/modem_control')
             c = '-all,+sys_chroot,+sys_time'
             self.assertIn(f'--inh-caps={c} --ambient-caps={c} --bounding-set={c} chroot {a} /vendor/bin/refnotify',
@@ -248,10 +248,10 @@ class DaemonsStartAsTheAccount(ShellTest):
 
     def test_vendor_start_execs_android_run(self):
         text = (BIN / 'android-vendor-start').read_text()
-        self.assertTrue(text.rstrip().endswith('exec /opt/mu300/bin/android-run modem_control'))
+        self.assertTrue(text.rstrip().endswith('exec /opt/openf50/bin/android-run modem_control'))
         self.assertNotIn('exec chroot', text)
         # the account is there before the nodes are handed out
-        self.assertLess(text.index('# --- account end'), text.index('sh /opt/mu300/bin/ueventd-perms.sh'))
+        self.assertLess(text.index('# --- account end'), text.index('sh /opt/openf50/bin/ueventd-perms.sh'))
 
 
 class Account(ShellTest):
@@ -267,16 +267,16 @@ class Account(ShellTest):
         for shell in self.each_shell():
             calls.unlink(missing_ok=True)
             (etc / 'passwd').write_text('ubuntu:x:1000:1000::/home/ubuntu:/bin/bash\n')
-            r = self.sh(shell, 'set -e\n' + self.block(), MU300_ETC=etc)
+            r = self.sh(shell, 'set -e\n' + self.block(), OPENF50_ETC=etc)
             self.assertEqual(r.returncode, 0, r.stderr)
             call = calls.read_text()
-            for opt in ('--system', '--user-group', '--no-create-home', '--home-dir /nonexistent', 'mu300vnd\n'):
+            for opt in ('--system', '--user-group', '--no-create-home', '--home-dir /nonexistent', 'openf50vnd\n'):
                 self.assertIn(opt, call)
             self.assertRegex(call, r'--shell /usr/s?bin/nologin')
             # there already: nothing
             calls.unlink()
-            (etc / 'passwd').write_text('mu300vnd:x:991:988::/nonexistent:/usr/sbin/nologin\n')
-            self.assertEqual(self.sh(shell, 'set -e\n' + self.block(), MU300_ETC=etc).returncode, 0)
+            (etc / 'passwd').write_text('openf50vnd:x:991:988::/nonexistent:/usr/sbin/nologin\n')
+            self.assertEqual(self.sh(shell, 'set -e\n' + self.block(), OPENF50_ETC=etc).returncode, 0)
             self.assertFalse(calls.exists())
 
     def test_a_failed_useradd_does_not_stop_the_modem(self):
@@ -285,30 +285,30 @@ class Account(ShellTest):
         etc.mkdir()
         (etc / 'passwd').write_text('ubuntu:x:1000:1000::/home/ubuntu:/bin/bash\n')
         for shell in self.each_shell():
-            r = self.sh(shell, 'set -e\n' + self.block() + 'echo went-on', MU300_ETC=etc)
+            r = self.sh(shell, 'set -e\n' + self.block() + 'echo went-on', OPENF50_ETC=etc)
             self.assertEqual(r.stdout.strip(), 'went-on', (shell, r.stderr))
             self.assertIn('uid 1000', r.stderr)
 
     def test_the_images_have_it(self):
-        for f, rx in ((TOP / 'rootfs' / 'assemble.sh', r'useradd --root \$R --system --user-group [^\n]*\\\n[^\n]*mu300vnd'),
-                      (TOP / 'arch' / 'build-rootfs.sh', r'useradd --system --user-group [^\n]*\\\n[^\n]*mu300vnd')):
+        for f, rx in ((TOP / 'rootfs' / 'assemble.sh', r'useradd --root \$R --system --user-group [^\n]*\\\n[^\n]*openf50vnd'),
+                      (TOP / 'arch' / 'build-rootfs.sh', r'useradd --system --user-group [^\n]*\\\n[^\n]*openf50vnd')):
             self.assertRegex(f.read_text(), rx, f.name)
         # the account line goes in before the image is packed
         a = (TOP / 'rootfs' / 'assemble.sh').read_text()
-        self.assertLess(a.index('mu300vnd'), a.index('tar --numeric-owner'))
+        self.assertLess(a.index('openf50vnd'), a.index('tar --numeric-owner'))
 
     def test_an_update_brings_it(self):
-        # mu300-update's merge: the new image's passwd with the old system's human accounts - the image's mu300vnd
+        # openf50-update's merge: the new image's passwd with the old system's human accounts - the image's openf50vnd
         # is in the updated system, at the image's uid, next to the device's ubuntu
-        upd = (BIN / 'mu300-update').read_text()
+        upd = (BIN / 'openf50-update').read_text()
         fn = re.search(r'^merge_accounts\(\) \{.*?^\}\n', upd, re.S | re.M).group(0)
         old, new = self.tmp / 'old', self.tmp / 'new'
         for d, pw, gr in ((old, 'root:x:0:0::/root:/bin/bash\nubuntu:x:1000:1000::/home/ubuntu:/bin/bash\n'
                                 'kaan:x:1001:1001::/home/kaan:/bin/bash\n',
                            'root:x:0:\nvideo:x:44:ubuntu,kaan\nubuntu:x:1000:\nkaan:x:1001:\n'),
                           (new, 'root:x:0:0::/root:/bin/bash\nubuntu:x:1000:1000::/home/ubuntu:/bin/bash\n'
-                                'mu300vnd:x:991:988:MU300 Android vendor daemons:/nonexistent:/usr/sbin/nologin\n',
-                           'root:x:0:\nvideo:x:44:ubuntu\nubuntu:x:1000:\nmu300vnd:x:988:\n')):
+                                'openf50vnd:x:991:988:OPENF50 Android vendor daemons:/nonexistent:/usr/sbin/nologin\n',
+                           'root:x:0:\nvideo:x:44:ubuntu\nubuntu:x:1000:\nopenf50vnd:x:988:\n')):
             (d / 'etc').mkdir(parents=True)
             (d / 'etc' / 'passwd').write_text(pw)
             (d / 'etc' / 'group').write_text(gr)
@@ -320,10 +320,10 @@ class Account(ShellTest):
             r = self.sh(shell, f'ACCOUNTS_MARK=/x\n{fn}\nmerge_accounts {old} {new}')
             self.assertEqual(r.returncode, 0, r.stderr)
             pw = (new / 'etc' / 'passwd').read_text()
-            self.assertIn('mu300vnd:x:991:988:', pw)
+            self.assertIn('openf50vnd:x:991:988:', pw)
             self.assertIn('ubuntu:x:1000:1000:', pw)
             self.assertIn('kaan:x:1001:1001:', pw)
-            self.assertIn('mu300vnd:x:988:', (new / 'etc' / 'group').read_text())
-            self.assertIn('mu300vnd:', (new / 'etc' / 'shadow').read_text())
+            self.assertIn('openf50vnd:x:988:', (new / 'etc' / 'group').read_text())
+            self.assertIn('openf50vnd:', (new / 'etc' / 'shadow').read_text())
             for f in ('passwd', 'group', 'shadow', 'gshadow'):
                 (new / 'etc' / f).write_text((self.tmp / f).read_text())

@@ -3,28 +3,28 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<script>try{var t=localStorage.getItem("mu300-theme");if(t==="light"||t==="dark")document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
+<script>try{var t=localStorage.getItem("openf50-theme");if(t==="light"||t==="dark")document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
 <title>Ubuntu or OpenWrt? Choosing a system and kernel for the ZTE F50 / U30 Air</title>
-<meta name="description" content="Ubuntu 24.04 or 26.04, OpenWrt 25.12, or OpenWrt with the MU300 control panel, and the 5.4, 6.18 or 7.2 kernel: what each one is good for on the ZTE F50 / MU300 and U30 Air, explained simply.">
-<link rel="canonical" href="https://kaandikec.com/mu300-linux/choose/">
-<link rel="alternate" hreflang="en" href="https://kaandikec.com/mu300-linux/choose/">
-<link rel="alternate" hreflang="tr" href="https://kaandikec.com/mu300-linux/tr/choose/">
-<link rel="alternate" hreflang="zh-Hans" href="https://kaandikec.com/mu300-linux/zh/choose/">
-<link rel="alternate" hreflang="x-default" href="https://kaandikec.com/mu300-linux/choose/">
+<meta name="description" content="Ubuntu 24.04 or 26.04, OpenWrt 25.12, or OpenWrt with the OPENF50 control panel, and the 5.4, 6.18 or 7.2 kernel: what each one is good for on the ZTE F50 / OPENF50 and U30 Air, explained simply.">
+<link rel="canonical" href="https://kaandikec.com/openf50-linux/choose/">
+<link rel="alternate" hreflang="en" href="https://kaandikec.com/openf50-linux/choose/">
+<link rel="alternate" hreflang="tr" href="https://kaandikec.com/openf50-linux/tr/choose/">
+<link rel="alternate" hreflang="zh-Hans" href="https://kaandikec.com/openf50-linux/zh/choose/">
+<link rel="alternate" hreflang="x-default" href="https://kaandikec.com/openf50-linux/choose/">
 <meta property="og:type" content="website">
-<meta property="og:site_name" content="MU300 Linux">
+<meta property="og:site_name" content="OPENF50 Linux">
 <meta property="og:title" content="Ubuntu or OpenWrt? Choosing a system and kernel for the ZTE F50 / U30 Air">
-<meta property="og:description" content="Ubuntu 24.04 or 26.04, OpenWrt 25.12, or OpenWrt with the MU300 control panel, and the 5.4, 6.18 or 7.2 kernel: what each one is good for on the ZTE F50 / MU300 and U30 Air, explained simply.">
-<meta property="og:url" content="https://kaandikec.com/mu300-linux/choose/">
+<meta property="og:description" content="Ubuntu 24.04 or 26.04, OpenWrt 25.12, or OpenWrt with the OPENF50 control panel, and the 5.4, 6.18 or 7.2 kernel: what each one is good for on the ZTE F50 / OPENF50 and U30 Air, explained simply.">
+<meta property="og:url" content="https://kaandikec.com/openf50-linux/choose/">
 <meta property="og:locale" content="en_US">
-<meta property="og:image" content="https://kaandikec.com/mu300-linux/assets/img/og-image.png">
+<meta property="og:image" content="https://kaandikec.com/openf50-linux/assets/img/og-image.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta property="og:image:alt" content="A 5G pocket hotspot with two rooms, one for Android and one for Linux">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="Ubuntu or OpenWrt? Choosing a system and kernel for the ZTE F50 / U30 Air">
-<meta name="twitter:description" content="Ubuntu 24.04 or 26.04, OpenWrt 25.12, or OpenWrt with the MU300 control panel, and the 5.4, 6.18 or 7.2 kernel: what each one is good for on the ZTE F50 / MU300 and U30 Air, explained simply.">
-<meta name="twitter:image" content="https://kaandikec.com/mu300-linux/assets/img/og-image.png">
+<meta name="twitter:description" content="Ubuntu 24.04 or 26.04, OpenWrt 25.12, or OpenWrt with the OPENF50 control panel, and the 5.4, 6.18 or 7.2 kernel: what each one is good for on the ZTE F50 / OPENF50 and U30 Air, explained simply.">
+<meta name="twitter:image" content="https://kaandikec.com/openf50-linux/assets/img/og-image.png">
 <meta name="theme-color" content="#f3f6fa" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#0d1520" media="(prefers-color-scheme: dark)">
 <link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
@@ -42,13 +42,13 @@
    "@type": "ListItem",
    "position": 1,
    "name": "Home",
-   "item": "https://kaandikec.com/mu300-linux/"
+   "item": "https://kaandikec.com/openf50-linux/"
   },
   {
    "@type": "ListItem",
    "position": 2,
    "name": "Choose a system",
-   "item": "https://kaandikec.com/mu300-linux/choose/"
+   "item": "https://kaandikec.com/openf50-linux/choose/"
   }
  ]
 }
@@ -58,7 +58,7 @@
 <a class="skip" href="#content">Skip to the content</a>
 <header class="site-header">
 <div class="wrap">
-<a class="brand" href="../"><svg viewBox="0 0 64 64" aria-hidden="true"><rect x="6" y="8" width="52" height="50" rx="12" fill="none" stroke="currentColor" stroke-width="4"/><circle cx="22" cy="20" r="3.5" fill="#2259d6"/><circle cx="32" cy="20" r="3.5" fill="currentColor"/><circle cx="42" cy="20" r="3.5" fill="#f2b23a"/><path d="M17 32 l9 7 l-9 7" fill="none" stroke="#f2b23a" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M30 47 h15" stroke="#f2b23a" stroke-width="4.5" stroke-linecap="round"/></svg>MU300 Linux</a>
+<a class="brand" href="../"><svg viewBox="0 0 64 64" aria-hidden="true"><rect x="6" y="8" width="52" height="50" rx="12" fill="none" stroke="currentColor" stroke-width="4"/><circle cx="22" cy="20" r="3.5" fill="#2259d6"/><circle cx="32" cy="20" r="3.5" fill="currentColor"/><circle cx="42" cy="20" r="3.5" fill="#f2b23a"/><path d="M17 32 l9 7 l-9 7" fill="none" stroke="#f2b23a" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M30 47 h15" stroke="#f2b23a" stroke-width="4.5" stroke-linecap="round"/></svg>OPENF50 Linux</a>
 <nav class="site-nav" id="site-nav" aria-label="Main">
 <a href="../install/">Install</a>
 <a href="../web-installer/">Web installer</a>
@@ -66,7 +66,7 @@
 <a href="../features/">Features</a>
 <a href="../updates/">Updates and safety</a>
 <a href="../troubleshooting/">Troubleshooting</a>
-<a href="https://github.com/dikeckaan/mu300-linux">GitHub</a>
+<a href="https://github.com/dikeckaan/openf50-linux">GitHub</a>
 <span class="langs" role="group" aria-label="Language"><a href="../choose/" hreflang="en" lang="en" aria-current="true">English</a><a href="../tr/choose/" hreflang="tr" lang="tr">Türkçe</a><a href="../zh/choose/" hreflang="zh-Hans" lang="zh-Hans">中文</a></span>
 </nav>
 <button class="theme-btn" type="button" hidden data-labels="Theme|Auto|Light|Dark|follows your system|Change the colour theme"><svg class="i-auto" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 3.5a8.5 8.5 0 0 1 0 17z" fill="currentColor"/></svg><svg class="i-light" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1 7 17M17 7l2.1-2.1" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><svg class="i-dark" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg><span class="theme-name"></span></button>
@@ -97,7 +97,7 @@ both later without reinstalling.</p>
 <div class="card linux">
 <h3>Ubuntu</h3>
 <p>A full Linux distribution, like on a server: <code>apt</code> for thousands of programs, systemd, users and home
-directories. No web page: you use it over SSH and the <code>mu300-toolkit</code> menu.</p>
+directories. No web page: you use it over SSH and the <code>openf50-toolkit</code> menu.</p>
 <p class="small muted">About 500 MiB of RAM in use. 24.04 LTS or 26.04 LTS.</p>
 </div>
 <div class="card">
@@ -110,14 +110,14 @@ set up the network, firewall and Wi-Fi in a browser. Light and fast.</p>
 <h3>OpenWrt with the control panel</h3>
 <p>The same OpenWrt plus a control panel written for these devices: live signal, bands and cells, SMS, network locks,
 an AT terminal, USB modes and power settings, in the browser.</p>
-<p class="small muted">Panel by <a href="https://github.com/kanoqwq/mu300-linux">kanoqwq</a>.</p>
+<p class="small muted">Panel by <a href="https://github.com/kanoqwq/openf50-linux">kanoqwq</a>.</p>
 </div>
 </div>
 
 <div class="table-scroll"><table>
 <thead><tr><th scope="col"></th><th scope="col">Ubuntu</th><th scope="col">OpenWrt</th><th scope="col">OpenWrt + control panel</th></tr></thead><tbody>
 <tr><th scope="row">Best for</th><td>a small server, your own programs, learning Linux</td><td>a 5G router you set up in the browser</td><td>a 5G router where you also watch the modem: signal, bands, SMS</td></tr>
-<tr><th scope="row">How you use it</th><td>SSH, <code>mu300-toolkit</code>; optionally Cockpit with an MU300 page (the <code>panel</code> extra, from v2026.10.20)</td><td>web interface (LuCI), SSH</td><td>web interface with the MU300 pages, SSH</td></tr>
+<tr><th scope="row">How you use it</th><td>SSH, <code>openf50-toolkit</code>; optionally Cockpit with an OPENF50 page (the <code>panel</code> extra, from v2026.10.20)</td><td>web interface (LuCI), SSH</td><td>web interface with the OPENF50 pages, SSH</td></tr>
 <tr><th scope="row">Installing programs</th><td><code>apt</code></td><td><code>apk</code></td><td><code>apk</code></td></tr>
 <tr><th scope="row">Log in as</th><td><code>ubuntu</code></td><td><code>root</code></td><td><code>root</code></td></tr>
 <tr><th scope="row">RAM in use (about)</th><td>500 MiB</td><td>140 MiB</td><td>not listed by the installer</td></tr>
@@ -139,14 +139,14 @@ an AT terminal, USB modes and power settings, in the browser.</p>
 <li><strong>System &gt; Packages after an update</strong> (from v2026.10.20): what the update did with the packages you had installed.</li>
 </ul>
 <p>The theme is <a href="https://github.com/eamonxg/luci-theme-aurora">Aurora</a> by eamonxg. The full list is in the
-<a href="https://github.com/dikeckaan/mu300-linux#openwrt-with-the-mu300-control-panel">README</a>.</p>
+<a href="https://github.com/dikeckaan/openf50-linux#openwrt-with-the-openf50-control-panel">README</a>.</p>
 
 <h3 id="both">Or both</h3>
 <p>Answer <strong>3) both</strong> and Ubuntu and OpenWrt are installed side by side on the same Linux filesystem;
 the installer then asks which one starts. Switching is one command and a restart:</p>
-<pre><code>sudo mu300-os ubuntu          <span class="c"># start Ubuntu at the next restart</span>
-sudo mu300-os openwrt         <span class="c"># plain OpenWrt</span>
-sudo mu300-os openwrt-luci    <span class="c"># OpenWrt with the control panel</span></code></pre>
+<pre><code>sudo openf50-os ubuntu          <span class="c"># start Ubuntu at the next restart</span>
+sudo openf50-os openwrt         <span class="c"># plain OpenWrt</span>
+sudo openf50-os openwrt-luci    <span class="c"># OpenWrt with the control panel</span></code></pre>
 <p>How much room each choice needs (the installer checks it for you):</p>
 <div class="table-scroll"><table>
 <thead><tr><th scope="col">Choice</th><th scope="col">Free space needed</th></tr></thead><tbody>
@@ -165,7 +165,7 @@ sudo mu300-os openwrt-luci    <span class="c"># OpenWrt with the control panel</
 </tbody></table></div>
 <p>Ubuntu 26.04 needs a mainline kernel because its programs use system calls that 5.4 does not have. An installed
 Ubuntu can move to the other release later, keeping settings and data:</p>
-<pre><code>sudo MU300_UBUNTU=26.04 mu300-update apply   <span class="c"># or 24.04 to go back</span></code></pre>
+<pre><code>sudo OPENF50_UBUNTU=26.04 openf50-update apply   <span class="c"># or 24.04 to go back</span></code></pre>
 
 <h2 id="kernels">Which kernel?</h2>
 <p>All three run the same systems and the same functions: hotspot, mobile data, SMS, Bluetooth, VPN, GPU, and KVM
@@ -194,7 +194,7 @@ the <a href="https://github.com/dikeckaan/mu300-linux-vpn">VPN module</a>. The o
 <li><strong>Modules:</strong> the mainline kernels carry about 360 extra modules: WireGuard, SQM, tunnels, USB adapters
 and modems, NTFS, exFAT, btrfs, NFS, CIFS, dm-crypt, containers.</li>
 <li><strong>6.18</strong> has a rare hang in its first seconds on some boards (the README measured about one boot in 20
-on one board); the device then falls back to Android, and <code>su -c mu300-linux</code> brings Linux back. See
+on one board); the device then falls back to Android, and <code>su -c openf50-linux</code> brings Linux back. See
 <a href="../troubleshooting/#kernel-618">troubleshooting</a>.</li>
 </ul>
 
@@ -202,18 +202,18 @@ on one board); the device then falls back to Android, and <code>su -c mu300-linu
 <strong>Not sure?</strong>
 <p>Take the installer's default, <strong>5.4</strong>: it is the longest tested. Pick <strong>6.18</strong> for Ubuntu
 26.04, for WireGuard, or for USB host mode on the U30 Air. Changing later takes one command and a restart:</p>
-<pre><code>sudo mu300-update kernel             <span class="c"># shows the kernel you have</span>
-sudo mu300-update kernel 6.18        <span class="c"># or 5.4, or 7.2; then restart</span>
+<pre><code>sudo openf50-update kernel             <span class="c"># shows the kernel you have</span>
+sudo openf50-update kernel 6.18        <span class="c"># or 5.4, or 7.2; then restart</span>
 sudo reboot</code></pre>
 <p>If the new kernel does not start, the device falls back to Android after the usual number of failed starts,
-and <code>sudo mu300-update rollback-boot</code> puts the previous one back.</p>
+and <code>sudo openf50-update rollback-boot</code> puts the previous one back.</p>
 </div>
 
 <h2 id="other">Other distributions</h2>
 <p>The boot path does not care which distribution it starts: a system is a directory with an arm64 root filesystem in
 it. Debian 13, Kali Linux, Arch Linux ARM and ImmortalWrt can be built from this repository and unpacked next to the
 others (Arch Linux ARM is built but not yet booted on hardware); Fedora, Alpine and more are surveyed. That is for people who build things themselves: see
-<a href="https://github.com/dikeckaan/mu300-linux/blob/main/docs/DISTROS.md">docs/DISTROS.md</a>.</p>
+<a href="https://github.com/dikeckaan/openf50-linux/blob/main/docs/DISTROS.md">docs/DISTROS.md</a>.</p>
 </div>
 
 </main>
@@ -222,17 +222,17 @@ others (Arch Linux ARM is built but not yet booted on hardware); Fedora, Alpine 
 <div>
 <h2>The project</h2>
 <ul>
-<li><a href="https://github.com/dikeckaan/mu300-linux">Source code on GitHub</a></li>
-<li><a href="https://github.com/dikeckaan/mu300-linux/releases">Releases (downloads)</a></li>
+<li><a href="https://github.com/dikeckaan/openf50-linux">Source code on GitHub</a></li>
+<li><a href="https://github.com/dikeckaan/openf50-linux/releases">Releases (downloads)</a></li>
 <li><a href="https://github.com/dikeckaan/mu300-linux-vpn">VPN module</a></li>
 </ul>
 </div>
 <div>
 <h2>Help</h2>
 <ul>
-<li><a href="https://github.com/dikeckaan/mu300-linux/wiki">Wiki</a></li>
+<li><a href="https://github.com/dikeckaan/openf50-linux/wiki">Wiki</a></li>
 <li><a href="../troubleshooting/">Troubleshooting</a></li>
-<li><a href="https://github.com/dikeckaan/mu300-linux/issues">Report a problem</a></li>
+<li><a href="https://github.com/dikeckaan/openf50-linux/issues">Report a problem</a></li>
 <li><a href="https://t.me/mu300project">Telegram channel (news and releases)</a></li>
 </ul>
 </div>

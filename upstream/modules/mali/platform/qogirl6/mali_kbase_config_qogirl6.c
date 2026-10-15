@@ -997,7 +997,7 @@ void kbase_platform_modify_target_freq(struct device *dev, unsigned long *target
 	}
 
 	//limit min freq
-	min_index = freq_search(gpu_dvfs_ctx.freq_list, gpu_dvfs_ctx.freq_list_len, mu300_devfreq_min_freq(kbdev->devfreq)/FREQ_KHZ);
+	min_index = freq_search(gpu_dvfs_ctx.freq_list, gpu_dvfs_ctx.freq_list_len, openf50_devfreq_min_freq(kbdev->devfreq)/FREQ_KHZ);
 	if ((0 <= min_index) &&
 		(freq_min->freq < gpu_dvfs_ctx.freq_list[min_index].freq))
 	{
@@ -1009,7 +1009,7 @@ void kbase_platform_modify_target_freq(struct device *dev, unsigned long *target
 	}
 
 	//limit max freq
-	max_index = freq_search(gpu_dvfs_ctx.freq_list, gpu_dvfs_ctx.freq_list_len, mu300_devfreq_max_freq(kbdev->devfreq)/FREQ_KHZ);
+	max_index = freq_search(gpu_dvfs_ctx.freq_list, gpu_dvfs_ctx.freq_list_len, openf50_devfreq_max_freq(kbdev->devfreq)/FREQ_KHZ);
 	if ((0 <= max_index) &&
 		(freq_max->freq > gpu_dvfs_ctx.freq_list[max_index].freq))
 	{

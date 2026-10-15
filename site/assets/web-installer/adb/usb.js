@@ -9,7 +9,7 @@
 //   * a write whose length is a whole number of endpoint packets must be followed by a zero-length packet, or the
 //     device's controller keeps waiting for the rest of the transfer.
 //   * the interface is found by its class (ff/42/01), never by vendor or product id: Android's adbd and the adbd of
-//     MU300 Linux (FINDINGS 43) both announce it that way.
+//     OPENF50 Linux (FINDINGS 43) both announce it that way.
 import { AdbError } from "./errors.js";
 
 export const ADB_INTERFACE = { classCode: 0xff, subclassCode: 0x42, protocolCode: 0x01 };

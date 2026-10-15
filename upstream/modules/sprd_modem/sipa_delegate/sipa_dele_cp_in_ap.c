@@ -169,7 +169,7 @@ int cp_delegator_init(struct sipa_delegator_create_params *params)
 	int ret;
 
 	/*
-	 * MU300: not devm. The connection thread starts inside sipa_delegator_start() and cannot be stopped while it
+	 * OPENF50: not devm. The connection thread starts inside sipa_delegator_start() and cannot be stopped while it
 	 * waits on the channel, so a probe that fails after that point must not free what the thread is using.
 	 */
 	s_cp_delegator = kzalloc(sizeof(*s_cp_delegator), GFP_KERNEL);
@@ -185,9 +185,9 @@ int cp_delegator_init(struct sipa_delegator_create_params *params)
 	s_cp_delegator->delegator.pd_eb_flag = false;
 	s_cp_delegator->delegator.pd_get_flag = false;
 	s_cp_delegator->delegator.smsg_cnt = 0;
-	/* MU300: its result used to be ignored, so a PROD_CP it had deleted again went unnoticed */
+	/* OPENF50: its result used to be ignored, so a PROD_CP it had deleted again went unnoticed */
 	/*
-	 * MU300: runtime PM before the start: the connection thread starts in there and can be handed an ENABLE at
+	 * OPENF50: runtime PM before the start: the connection thread starts in there and can be handed an ENABLE at
 	 * once, which now fails on a device whose runtime PM is still off (-EACCES) instead of spinning until it is on
 	 */
 	pm_runtime_enable(s_cp_delegator->delegator.pdev);
@@ -198,7 +198,7 @@ int cp_delegator_init(struct sipa_delegator_create_params *params)
 	}
 
 	/*
-	 * MU300: the Wi-Fi offload path, which this device does not use (the CONS_WIFI resources stay released): a
+	 * OPENF50: the Wi-Fi offload path, which this device does not use (the CONS_WIFI resources stay released): a
 	 * failure here is reported, not fatal - failing the probe left the running delegate without its device.
 	 */
 	ret = sipa_rm_add_dependency(SIPA_RM_RES_CONS_WIFI_UL,

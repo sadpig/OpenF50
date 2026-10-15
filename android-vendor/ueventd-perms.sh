@@ -7,9 +7,9 @@ id_of() {  # id_of NAME FILE: the id (third field) of NAME in FILE (passwd or gr
     while IFS=: read -r n _ i _ || [ -n "$n" ]; do [ "$n" = "$1" ] && { echo "$i"; return 0; }; done < "$2"
     return 0
 }
-E=${MU300_ETC:-/etc}
-V=$(id_of mu300vnd "$E/passwd"); V=${V:-1000}
-VG=$(id_of mu300vnd "$E/group"); VG=${VG:-1000}
+E=${OPENF50_ETC:-/etc}
+V=$(id_of openf50vnd "$E/passwd"); V=${V:-1000}
+VG=$(id_of openf50vnd "$E/group"); VG=${VG:-1000}
 GPU=$(id_of video "$E/group"); GPU=${GPU:-0}
 for n in /dev/apipe-pcm; do [ -e "$n" ] && chown $V:0 "$n" && chmod 0660 "$n"; done
 for n in /dev/apipe-cmd-in; do [ -e "$n" ] && chown $V:0 "$n" && chmod 0660 "$n"; done

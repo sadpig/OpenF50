@@ -1,16 +1,16 @@
 # Control Panel (LuCI)
 
-**In one sentence:** on OpenWrt you manage the device from a web page; the `openwrt-luci` system adds the **MU300
+**In one sentence:** on OpenWrt you manage the device from a web page; the `openwrt-luci` system adds the **OPENF50
 control panel**, a dashboard for the 5G modem, SIM, SMS and battery.
 
-**The simple version:** LuCI is the router settings page you may know from home routers. The MU300 panel is an extra
+**The simple version:** LuCI is the router settings page you may know from home routers. The OPENF50 panel is an extra
 set of pages made for this device: how strong the signal is, which bands it uses, your text messages, the battery.
 
 ## Open it
 
 In a browser on a computer or phone connected to the device (USB or its Wi-Fi):
 
-* F50 / MU300: **http://192.168.77.1**
+* F50 / OPENF50: **http://192.168.77.1**
 * U30 Air: **http://192.168.78.1**
 
 Log in as `root` with the password you chose at install.
@@ -20,13 +20,13 @@ Log in as `root` with the password you chose at install.
 | | OpenWrt (`openwrt`) | OpenWrt with the panel (`openwrt-luci`) |
 |---|---|---|
 | LuCI (network, wireless, firewall, packages) | yes | yes |
-| MU300 pages (dashboard, Cellular, VPN, Power, CPU, Languages, Packages, Terminal) | - | yes |
+| OPENF50 pages (dashboard, Cellular, VPN, Power, CPU, Languages, Packages, Terminal) | - | yes |
 | Theme | LuCI's default | Aurora (Bootstrap stays installed) |
 | IPv6 from the carrier | prefix extension | relayed (router advertisements and NAT66) |
 | Magisk zip | yes | yes (since v2026.10.18) |
 
-Pick it at install ("Which OpenWrt?" -> 2, or `MU300_OPENWRT=luci`), or switch an installed device with
-`sudo mu300-os openwrt-luci` and reboot (the system must be installed).
+Pick it at install ("Which OpenWrt?" -> 2, or `OPENF50_OPENWRT=luci`), or switch an installed device with
+`sudo openf50-os openwrt-luci` and reboot (the system must be installed).
 
 ## The panel's pages
 
@@ -42,7 +42,7 @@ Pick it at install ("Which OpenWrt?" -> 2, or `MU300_OPENWRT=luci`), or switch a
 * **Cellular > SMS forwarding:** pass incoming messages on to a webhook, a Telegram chat or another phone (see
   [SMS](SMS#sms-forwarding)).
 * **Cellular > Data usage:** mobile data per day and per billing cycle, with a reset day and a monthly cap
-  (`mu300-traffic`, see [Mobile Data and APN](Mobile-Data-and-APN#data-usage)).
+  (`openf50-traffic`, see [Mobile Data and APN](Mobile-Data-and-APN#data-usage)).
 * **Cellular > AT terminal:** guarded AT commands over the same channel the system uses. A command that scans, changes
   the radio, the APN or the SIM, or writes a setting that persists into Android, is explained first and sent only
   after a click; a network scan runs in the background and the page follows it.
@@ -53,14 +53,14 @@ Pick it at install ("Which OpenWrt?" -> 2, or `MU300_OPENWRT=luci`), or switch a
   **Engines** (Xray, sing-box, mihomo, dae: install, update, remove; online or from an uploaded tarball checked against
   the module's release), **Settings** (kill switch, IPv6, LAN ranges that bypass the tunnel, Tailscale, DNS, the
   per-profile options) and **Logs**. Without the module every page offers to install it.
-* **Cellular > TTL:** a fixed TTL for mobile data (`mu300-ttl`).
+* **Cellular > TTL:** a fixed TTL for mobile data (`openf50-ttl`).
 * **Cellular > Device management:** USB role (device or host), the USB network mode (NCM, ECM or RNDIS, applied at the
   next boot), and host-mode adapters that can join the LAN bridge.
 * **Cellular > Adapter settings:** how the panel reaches the modem (AT backend, serial port, custom adapter).
 * **System > Languages:** interface language, and the lang extra.
 * **System > Power:** the active power profile and why (in your language), battery, power source and the charger's
   input current, the idle settings of the three profiles, the saver threshold and the charge limit (0-100 %, U30 Air).
-* **System > CPU:** the CPU profile: saving, balanced (the default) or performance (`mu300-cpu`). It never touches
+* **System > CPU:** the CPU profile: saving, balanced (the default) or performance (`openf50-cpu`). It never touches
   the voltage, and the thermal protection stays in charge in every profile. Below it, read only, the kernel's thermal
   zones: temperatures, trip points and the cooling devices bound to them with their current state (on the mainline
   kernels the stock `soc-thmzone`, 70/85 °C passive and 110 °C critical, throttles the three clusters at 85 °C).
@@ -69,7 +69,7 @@ Pick it at install ("Which OpenWrt?" -> 2, or `MU300_OPENWRT=luci`), or switch a
 * **System > Terminal:** a root shell in the browser ([ttyd](https://github.com/tsl0922/ttyd)). It listens on the LAN
   address only (port 7681; the cellular side never reaches it) and opens a shell only for a one-time token the page
   gets for your logged-in panel session, so there is no second password to guess. It closes after 15 minutes without
-  activity (`uci set ttyd.mu300.idle=<seconds>`; 0 never). A panel opened over https opens it in a tab of its own.
+  activity (`uci set ttyd.openf50.idle=<seconds>`; 0 never). A panel opened over https opens it in a tab of its own.
   **Terminal settings** is ttyd's own page; `enable 0` there removes the terminal.
 
 Since v2026.10.20 one stuck AT command no longer takes the panel down: every modem read has a deadline, the pages
@@ -85,9 +85,9 @@ profiles), the CPU profile and power state, the hotspot's name and password, joi
 Network locks stay a feature of the OpenWrt panel.
 
 ```sh
-sudo mu300-extra install panel                                           # Cockpit from Ubuntu's archive (about 12 MB)
-sudo mu300-extra install panel --from mu300-extra-panel-offline.tar.gz   # offline: the release's file, Cockpit inside
-sudo mu300-extra remove panel
+sudo openf50-extra install panel                                           # Cockpit from Ubuntu's archive (about 12 MB)
+sudo openf50-extra install panel --from openf50-extra-panel-offline.tar.gz   # offline: the release's file, Cockpit inside
+sudo openf50-extra remove panel
 ```
 
 The installer asks about it too (default no). Then open `https://192.168.77.1:9090` (U30 Air: `.78.1`), accept
@@ -104,10 +104,10 @@ keeps your choice.
 The **lang extra** (about 2 MB) adds LuCI in 40 more languages and the panel in 29 of them:
 
 ```sh
-mu300-extra install lang                                               # from the release of this system
-MU300_EXTRA_FILE=/tmp/mu300-extra-lang.tar.gz mu300-extra install lang  # from a file, offline
-mu300-extra lang                                                       # which languages are offered
-mu300-extra remove lang
+openf50-extra install lang                                               # from the release of this system
+OPENF50_EXTRA_FILE=/tmp/openf50-extra-lang.tar.gz openf50-extra install lang  # from a file, offline
+openf50-extra lang                                                       # which languages are offered
+openf50-extra remove lang
 ```
 
 The panel's translations other than Turkish and Chinese are machine (AI) translations; corrections are welcome (see
@@ -115,10 +115,10 @@ The panel's translations other than Turkish and Chinese are machine (AI) transla
 
 ## Credits
 
-The panel is the work of kanoqwq ([kanoqwq/mu300-linux](https://github.com/kanoqwq/mu300-linux), branch
+The panel is the work of kanoqwq ([kanoqwq/openf50-linux](https://github.com/kanoqwq/openf50-linux), branch
 `clean-tf-7.2`), ported here with the translations rewritten as standard LuCI catalogs. The theme is
 [Aurora](https://github.com/eamonxg/luci-theme-aurora) by eamonxg. The app's own notes:
-[openwrt/luci-app-mu300/README.md](https://github.com/dikeckaan/mu300-linux/blob/main/openwrt/luci-app-mu300/README.md).
+[openwrt/luci-app-openf50/README.md](https://github.com/dikeckaan/openf50-linux/blob/main/openwrt/luci-app-openf50/README.md).
 
 ## OpenWrt reminders
 

@@ -1,4 +1,4 @@
-"""Broker-only SIM transactions (mu300-sim-u30, the U30 Air's live switch): the card in use off, then the other one on;
+"""Broker-only SIM transactions (openf50-sim-u30, the U30 Air's live switch): the card in use off, then the other one on;
 a switch is saved as the boot default only once the target has a bearer; a failed switch (or one without data)
 preserves boot policy; a radio left in an unknown state restarts the device. Runs on macOS too: flock(1) and
 /proc/uptime are not needed."""
@@ -21,7 +21,7 @@ except OSError: sys.exit(1)' "$1" "$nb"
 # T_NODATA_SLOT=<slot> (not while that card is the pinned one)
 UBUS = r'''
 case "$*" in *network.interface.wan*)
-    slot=$(cat "$STUBLOG/run/mu300/sim-slot")
+    slot=$(cat "$STUBLOG/run/openf50/sim-slot")
     if [ "${T_WAN:-1}" = 1 ] && [ "${T_NODATA_SLOT:-none}" != "$slot" ]; then printf '{ "up": true, "l3_device": "%s", "ipv4-address": [ { "address": "10.0.0.2" } ] }\n' "${T_BEARER:-sipa_eth$(( slot * 8 ))}"
     else printf '{ "up": false, "ipv4-address": [ ] }\n'; fi ;;
 esac
@@ -35,9 +35,9 @@ esac
 #   T_DELAY=<s>       AT+SFUN=4 takes that long        T_BUSY_FIRST=1  the first radio-off finds the channel busy
 MODEM = r'''
 shift 2
-case "$MU300_AT_DIR" in *at4|*at5) slot=1;; *) slot=0;; esac
+case "$OPENF50_AT_DIR" in *at4|*at5) slot=1;; *) slot=0;; esac
 echo "$slot $1" >> "$STUBLOG/at"
-[ "${MU300_SIM_CONTROL:-}" = 1 ] || echo "$slot $1" >> "$STUBLOG/at-ungated"
+[ "${OPENF50_SIM_CONTROL:-}" = 1 ] || echo "$slot $1" >> "$STUBLOG/at-ungated"
 if [ "${T_SILENT:-}" = 1 ] && [ -e "$STUBLOG/mutated" ]; then exit 1; fi
 case "$1" in
  'AT+CPIN?')
@@ -46,7 +46,7 @@ case "$1" in
  "AT+SPACTCARD=$slot;+SFUN=2") touch "$STUBLOG/power$slot";;
  "AT+SPACTCARD=$slot;+SFUN=3") rm -f "$STUBLOG/power$slot";;
  "AT+SPACTCARD=$slot;+SFUN=5")
-   if [ "${T_BUSY_FIRST:-}" = 1 ] && [ ! -e "$STUBLOG/was-busy" ]; then touch "$STUBLOG/was-busy"; echo 'mu300-at: busy' >&2; exit 1; fi
+   if [ "${T_BUSY_FIRST:-}" = 1 ] && [ ! -e "$STUBLOG/was-busy" ]; then touch "$STUBLOG/was-busy"; echo 'openf50-at: busy' >&2; exit 1; fi
    echo 0 > "$STUBLOG/radio$slot";;
  'AT+SFUN=4') [ -z "${T_DELAY:-}" ] || sleep "$T_DELAY"; touch "$STUBLOG/mutated"; echo 1 > "$STUBLOG/radio$slot";;
  'AT+CFUN?') echo "+CFUN: $(cat "$STUBLOG/radio$slot")";;
@@ -66,12 +66,12 @@ class HotSim(ShellTest):
         self.etc = self.tmp / 'etc'
         self.etc.mkdir()
         (self.etc / 'openwrt_release').write_text('DISTRIB_ID=OpenWrt\n')
-        (self.run / 'mu300').mkdir(parents=True)
-        (self.run / 'mu300/sim-slot').write_text('1\n')
+        (self.run / 'openf50').mkdir(parents=True)
+        (self.run / 'openf50/sim-slot').write_text('1\n')
         (self.etc / 'uci-slot').write_text('1\n')
         (self.etc / 'uci-hot').write_text('1\n')
-        (self.run / 'mu300-radio-freeze').touch()
-        for n in ('mu300-at','mu300-at2','mu300-at4','mu300-at5'):
+        (self.run / 'openf50-radio-freeze').touch()
+        for n in ('openf50-at','openf50-at2','openf50-at4','openf50-at5'):
             d=self.run/n; (d/'owner').mkdir(parents=True)
             (d/'owner/pid').write_text(str(os.getpid())); os.mkfifo(d/'cmd')
         # SIM2 is the card in use: its radio on, its SIM power on, the data route its own; SIM1 is off
@@ -88,7 +88,7 @@ class HotSim(ShellTest):
 esac""")
         self.stub('ifdown' , 'echo down >> "$STUBLOG/net"')
         self.stub('ifup', 'echo up >> \"$STUBLOG/net\"; if [ \"${T_IFUP_FAIL_ONCE:-0}\" = 1 ] && [ ! -e \"$STUBLOG/ifup-failed\" ]; then touch \"$STUBLOG/ifup-failed\"; exit 1; fi')
-        self.stub('mu300-device', 'echo "${T_DEVICE:-u30air}"')
+        self.stub('openf50-device', 'echo "${T_DEVICE:-u30air}"')
         self.stub('setsid', "exec python3 -c 'import os, sys; os.setsid(); os.execvp(sys.argv[1], sys.argv[1:])' \"$@\"")   # macOS has none; the process group is only for the interrupt
         self.stub('flock', FLOCK)
         self.stub('ubus', UBUS)
@@ -96,25 +96,25 @@ esac""")
         # the restart of a device whose radio state is unknown: recorded, never the host's own reboot
         self.stub('reboot', 'echo reboot >> "$STUBLOG/reboot"')
         self.stub('sync', ':')
-        self.stub('mu300-at', MODEM)
+        self.stub('openf50-at', MODEM)
         # radio-locked: the lock is this stub's pid while the command runs; T_RADIO_BUSY=1: somebody else holds it
-        self.stub('mobile-data', '[ "${T_RADIO_BUSY:-}" != 1 ] || exit 75; shift; ln -s "$$" "$T_RUN/mu300-radio-on.owner"; "$@"; r=$?; rm -f "$T_RUN/mu300-radio-on.owner"; exit "$r"')
-        self.controller=self.tmp/'mu300-sim'
-        self.controller.write_text((BIN/'mu300-sim-u30').read_text().replace('/run/',str(self.run)+'/').replace('/etc/',str(self.etc)+'/')
-            .replace('/opt/mu300/bin/mu300-at','mu300-at').replace('/opt/mu300/bin/mobile-data','mobile-data')
-            .replace('/opt/mu300/bin/mu300-device','mu300-device'))
+        self.stub('mobile-data', '[ "${T_RADIO_BUSY:-}" != 1 ] || exit 75; shift; ln -s "$$" "$T_RUN/openf50-radio-on.owner"; "$@"; r=$?; rm -f "$T_RUN/openf50-radio-on.owner"; exit "$r"')
+        self.controller=self.tmp/'openf50-sim'
+        self.controller.write_text((BIN/'openf50-sim-u30').read_text().replace('/run/',str(self.run)+'/').replace('/etc/',str(self.etc)+'/')
+            .replace('/opt/openf50/bin/openf50-at','openf50-at').replace('/opt/openf50/bin/mobile-data','mobile-data')
+            .replace('/opt/openf50/bin/openf50-device','openf50-device'))
         self.controller.chmod(0o755)
 
     def env(self, **extra):
-        extra.setdefault('MU300_SIM_CONFIG_LIB', TOP / 'rootfs/overlay/opt/mu300/lib/sim-config.sh')
-        extra.setdefault('MU300_SIM_ROOT', self.tmp)   # the library's own files (sim-data-seen, the route mark)
-        extra.setdefault('MU300_REBOOT_CMD', self.stubs / 'reboot')
-        extra.setdefault('MU300_SIM_RESTART_DELAY', '0')
+        extra.setdefault('OPENF50_SIM_CONFIG_LIB', TOP / 'rootfs/overlay/opt/openf50/lib/sim-config.sh')
+        extra.setdefault('OPENF50_SIM_ROOT', self.tmp)   # the library's own files (sim-data-seen, the route mark)
+        extra.setdefault('OPENF50_REBOOT_CMD', self.stubs / 'reboot')
+        extra.setdefault('OPENF50_SIM_RESTART_DELAY', '0')
         extra.setdefault('T_RUN', self.run)
         return super().env(**extra)
 
     def ctl(self, *args, **env):
-        env.setdefault('MU300_SIM_WAN_WAIT', '2')
+        env.setdefault('OPENF50_SIM_WAN_WAIT', '2')
         return self.script(['bash'],self.controller,*args,**env)
 
     def status(self, **env):
@@ -136,7 +136,7 @@ esac""")
             r=self.ctl('switch',public)
             self.assertEqual(r.returncode,0,r.stdout+r.stderr)
             self.assertEqual((self.etc/'uci-slot').read_text(),slot+'\n')
-            self.assertEqual((self.run/'mu300/sim-slot').read_text(),slot+'\n')
+            self.assertEqual((self.run/'openf50/sim-slot').read_text(),slot+'\n')
             s=self.status()
             self.assertEqual(s['active'],int(public)); self.assertEqual(s['result'],'switched')
         calls=self.calls()
@@ -145,10 +145,10 @@ esac""")
         self.assertNotIn('SPTESTMODEM',' '.join(calls))
         self.assertEqual((self.tmp/'net').read_text(),'down\nup\ndown\nup\n')
         # both cards have had data: remembered for the boot check, in a file of root's alone
-        seen = self.etc / 'mu300/sim-data-seen'
+        seen = self.etc / 'openf50/sim-data-seen'
         self.assertEqual(sorted(seen.read_text().split()), ['0', '1'])
         self.assertEqual(seen.stat().st_mode & 0o077, 0)
-        self.assertFalse((self.run/'mu300/sim-sequence').exists())
+        self.assertFalse((self.run/'openf50/sim-sequence').exists())
 
     def test_the_card_in_use_goes_off_before_the_other_one_comes_on(self):
         # measured on our U30 Air: with the target's radio switched on first, its AT+SFUN=4 never answered and the
@@ -163,7 +163,7 @@ esac""")
         self.assertFalse([c for c in calls if c.endswith('AT+SPACTCARD=0') or c.endswith('AT+SPACTCARD=1')])
         self.assertEqual((self.tmp/'radio0').read_text().strip(),'1'); self.assertEqual((self.tmp/'radio1').read_text().strip(),'0')
         self.assertTrue((self.tmp/'power0').exists()); self.assertFalse((self.tmp/'power1').exists())
-        # and every one of them went through mu300-at's gate as the switch's own (MU300_SIM_CONTROL)
+        # and every one of them went through openf50-at's gate as the switch's own (OPENF50_SIM_CONTROL)
         self.assertFalse((self.tmp/'at-ungated').exists())
 
     def test_wrong_bearer_is_not_saved_as_success(self):
@@ -171,14 +171,14 @@ esac""")
         self.assertNotEqual(result.returncode, 0)
         self.assertEqual(self.status()['result'], 'no_data')
         self.assertEqual((self.etc / 'uci-slot').read_text(), '1\n')
-        self.assertEqual((self.run / 'mu300/sim-slot').read_text(), '1\n')
+        self.assertEqual((self.run / 'openf50/sim-slot').read_text(), '1\n')
 
     def test_failed_ifup_rolls_back_and_keeps_preference(self):
         result = self.ctl('switch', '1', T_IFUP_FAIL_ONCE=1)
         self.assertNotEqual(result.returncode, 0)
         self.assertEqual(self.status()['result'], 'no_data')
         self.assertEqual((self.etc / 'uci-slot').read_text(), '1\n')
-        self.assertEqual((self.run / 'mu300/sim-slot').read_text(), '1\n')
+        self.assertEqual((self.run / 'openf50/sim-slot').read_text(), '1\n')
 
     def test_same_active_card_without_data_does_not_replace_manual_default(self):
         (self.etc / 'uci-slot').write_text('0\n')
@@ -193,15 +193,15 @@ esac""")
         self.assertNotEqual(r.returncode,0)
         self.assertIn('no data',r.stdout)
         self.assertEqual((self.etc/'uci-slot').read_text(),'1\n')
-        self.assertEqual((self.run/'mu300/sim-slot').read_text(),'1\n')
+        self.assertEqual((self.run/'openf50/sim-slot').read_text(),'1\n')
         s=self.status()
         self.assertEqual(s['active'],2); self.assertEqual(s['default'],2); self.assertEqual(s['result'],'no_data')
         # dialled the target, found nothing, went back and dialled the old card again
         self.assertEqual((self.tmp/'net').read_text(),'down\nup\ndown\nup\n')
         calls=self.calls()
         self.assertEqual(calls.count('0 AT+SFUN=4'),1); self.assertEqual(calls.count('1 AT+SFUN=4'),1)
-        self.assertFalse((self.run/'mu300/sim-switching').exists())
-        self.assertFalse((self.etc/'mu300/sim-data-seen').exists(), 'a card without data is not remembered as one with')
+        self.assertFalse((self.run/'openf50/sim-switching').exists())
+        self.assertFalse((self.etc/'openf50/sim-data-seen').exists(), 'a card without data is not remembered as one with')
         self.assertFalse((self.tmp/'reboot').exists())
 
     def test_no_data_anywhere_keeps_the_users_choice(self):
@@ -211,14 +211,14 @@ esac""")
         r=self.ctl('switch','1',T_WAN='0')
         self.assertNotEqual(r.returncode,0)
         self.assertIn('staying on the target',r.stdout)
-        self.assertEqual((self.run/'mu300/sim-slot').read_text(),'0\n')
+        self.assertEqual((self.run/'openf50/sim-slot').read_text(),'0\n')
         self.assertEqual((self.etc/'uci-slot').read_text(),'1\n')
         s=self.status(T_WAN='0')
         self.assertEqual(s['active'],1); self.assertEqual(s['default'],2); self.assertEqual(s['result'],'no_data_kept')
         self.assertEqual(s['phase'],'idle')
         self.assertEqual((self.tmp/'net').read_text(),'down\nup\n', 'no second teardown: the target keeps dialling')
         self.assertEqual(self.calls().count('1 AT+SFUN=4'),0, 'no way back')
-        self.assertFalse((self.run/'mu300/sim-switching').exists())
+        self.assertFalse((self.run/'openf50/sim-switching').exists())
         self.assertFalse((self.tmp/'reboot').exists())
         # once the target has data, the same command saves it
         r=self.ctl('switch','1')
@@ -287,7 +287,7 @@ esac""")
         self.assertEqual(self.status()['active'],1)
 
     def test_route_mark_follows_the_second_card(self):
-        mark = self.etc/'mu300/sim-data-route-2'
+        mark = self.etc/'openf50/sim-data-route-2'
         self.assertEqual(self.ctl('switch','1').returncode,0)
         self.assertFalse(mark.exists(), 'the modem said the route is SIM1\'s')
         self.assertEqual(self.ctl('switch','2').returncode,0)
@@ -308,7 +308,7 @@ esac""")
 
     def test_busy_radio_lock_changes_nothing(self):
         # a dial's radio-on or the lock helper's SFUN restart holds mobile-data's radio lock (exit 75)
-        r=self.ctl('switch','1',T_RADIO_BUSY='1',MU300_SIM_RADIO_LOCK_WAIT='0')
+        r=self.ctl('switch','1',T_RADIO_BUSY='1',OPENF50_SIM_RADIO_LOCK_WAIT='0')
         self.assertNotEqual(r.returncode,0)
         self.assertIn('nothing was changed',r.stdout)
         self.assertEqual(self.status()['active'],2)
@@ -342,7 +342,7 @@ esac""")
         self.assertFalse((self.tmp/'at').exists())
         # and the next boot's choice needs neither hot switching nor the brokers
         (self.etc/'uci-hot').write_text('0\n')
-        (self.run/'mu300-at4/owner/pid').unlink()
+        (self.run/'openf50-at4/owner/pid').unlink()
         self.assertEqual(self.ctl('default','2').returncode,0)
         self.assertEqual((self.etc/'uci-slot').read_text(),'1\n')
 
@@ -351,22 +351,22 @@ esac""")
         self.assertEqual(s['slot1_supported'], 1)
         self.assertTrue(s['capabilities']['boot_selection'])
         self.assertTrue(s['capabilities']['live_switch'])
-        (self.run / 'mu300/sim-active-unknown').touch()
+        (self.run / 'openf50/sim-active-unknown').touch()
         s = self.status()
         self.assertEqual(s['slot1_supported'], 1)
         self.assertIsNone(s['active'])
 
     def test_fallback_of_the_last_boot_is_reported_until_the_user_chooses(self):
-        (self.etc/'mu300-sim-fallback').write_text('cold-start-failed\n')
+        (self.etc/'openf50-sim-fallback').write_text('cold-start-failed\n')
         self.assertEqual(self.status()['fallback'],'cold-start-failed')
-        (self.etc/'mu300-sim-fallback').write_text('+CCID: 8990; rm -rf /\n')   # never modem output, never shell
+        (self.etc/'openf50-sim-fallback').write_text('+CCID: 8990; rm -rf /\n')   # never modem output, never shell
         self.assertEqual(self.status()['fallback'],'8990rm-rf')
         self.assertEqual(self.ctl('default','2').returncode,0)
-        self.assertFalse((self.etc/'mu300-sim-fallback').exists())
+        self.assertFalse((self.etc/'openf50-sim-fallback').exists())
         self.assertIsNone(self.status()['fallback'])
 
     def test_status_reports_the_boot_check_of_a_second_card(self):
-        check = self.run/'mu300/sim-boot-check'
+        check = self.run/'openf50/sim-boot-check'
         s = self.status()
         self.assertIsNone(s['boot_check']); self.assertIsNone(s['boot_check_left'])
         check.write_text('waiting 99999999\n')
@@ -400,7 +400,7 @@ esac""")
         (self.etc/'uci-hot').write_text('0')
         self.assertNotEqual(self.ctl('switch','1').returncode,0)
         (self.etc/'uci-hot').write_text('1')
-        (self.run/'mu300-at4/owner/pid').unlink()
+        (self.run/'openf50-at4/owner/pid').unlink()
         self.assertNotEqual(self.ctl('switch','1').returncode,0)
         self.assertFalse((self.tmp/'at').exists())
 
@@ -417,7 +417,7 @@ esac""")
         self.assertLessEqual({c.split(' ',1)[1] for c in self.calls()}, allowed)
 
     def test_concurrent_request_cannot_change_default(self):
-        lock=self.run/'mu300/sim-control.lock'
+        lock=self.run/'openf50/sim-control.lock'
         with lock.open('w') as f:
             import fcntl
             fcntl.flock(f,fcntl.LOCK_EX)
@@ -433,7 +433,7 @@ esac""")
         p=subprocess.Popen(['bash',str(self.controller),'switch','1'],env=env,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
         try:
             deadline=time.monotonic()+15
-            while not (self.run/'mu300/sim-sequence').exists():
+            while not (self.run/'openf50/sim-sequence').exists():
                 self.assertLess(time.monotonic(),deadline); time.sleep(.02)
             p.send_signal(signal.SIGTERM)
             p.communicate(timeout=5)
@@ -441,7 +441,7 @@ esac""")
             self.assertIsNone(s['active']); self.assertEqual(s['default'],2)
             self.assertEqual(s['result'],'restarting')
             self.assertTrue(self.rebooted())
-            self.assertFalse((self.run/'mu300/sim-sequence').exists(), 'the AT gate is not left closed')
+            self.assertFalse((self.run/'openf50/sim-sequence').exists(), 'the AT gate is not left closed')
         finally:
             if p.poll() is None: p.kill(); p.communicate()
 
@@ -454,7 +454,7 @@ esac""")
         p=subprocess.Popen(['bash',str(self.controller),'switch','1'],env=env,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
         try:
             deadline=time.monotonic()+15
-            while not (self.run/'mu300/sim-sequence').exists():
+            while not (self.run/'openf50/sim-sequence').exists():
                 self.assertLess(time.monotonic(),deadline); time.sleep(.02)
             p.kill(); p.communicate(timeout=5)
             self.assertTrue(self.rebooted(10))
@@ -466,13 +466,13 @@ esac""")
             while self.status()['busy'] != 0:
                 self.assertLess(time.monotonic(),deadline, 'a stale lock'); time.sleep(.3)
             self.assertEqual((self.etc/'uci-slot').read_text(),'1\n')
-            self.assertFalse((self.run/'mu300/sim-sequence').exists())
-            self.assertFalse((self.run/'mu300/sim-switching').exists())
+            self.assertFalse((self.run/'openf50/sim-sequence').exists())
+            self.assertFalse((self.run/'openf50/sim-switching').exists())
         finally:
             if p.poll() is None: p.kill(); p.communicate()
 
     def test_interrupted_marker_never_allows_another_switch(self):
-        (self.run/'mu300/sim-switching').touch()
+        (self.run/'openf50/sim-switching').touch()
         s=self.status()
         self.assertIsNone(s['active']); self.assertEqual(s['result'],'reboot_required')
         self.assertNotEqual(self.ctl('switch','1').returncode,0)
@@ -481,43 +481,43 @@ esac""")
     def test_state_files_are_roots_alone_and_hold_no_reply(self):
         self.assertEqual(self.ctl('switch','1').returncode,0)
         for name in ('sim-switch.log','sim-result','sim-phase','sim-slot','sim-control.lock'):
-            self.assertEqual((self.run/'mu300'/name).stat().st_mode & 0o077, 0, name)
-        log=(self.run/'mu300/sim-switch.log').read_text()
+            self.assertEqual((self.run/'openf50'/name).stat().st_mode & 0o077, 0, name)
+        log=(self.run/'openf50/sim-switch.log').read_text()
         self.assertIn('AT+SPSWDATA',log)
         for reply in ('+CPIN:','+CFUN:','+SPSWDATA:','READY','OK'):
             self.assertNotIn(reply,log)
 
 
 class AtGate(ShellTest):
-    """mu300-at while a live switch runs: every client but the switch itself is told "busy", and a marker left by a
+    """openf50-at while a live switch runs: every client but the switch itself is told "busy", and a marker left by a
     killed switch closes nothing (it counts only while the switch holds its lock)."""
     def setUp(self):
         super().setUp()
         self.run = self.tmp / 'run'
-        (self.run / 'mu300').mkdir(parents=True)
+        (self.run / 'openf50').mkdir(parents=True)
         self.stub('flock', FLOCK)
-        self.at = self.tmp / 'mu300-at'
-        self.at.write_text((BIN / 'mu300-at').read_text().replace('/run/', str(self.run) + '/')
-                           .replace('/opt/mu300/bin/mu300-sim', str(self.tmp / 'no-selector')))
+        self.at = self.tmp / 'openf50-at'
+        self.at.write_text((BIN / 'openf50-at').read_text().replace('/run/', str(self.run) + '/')
+                           .replace('/opt/openf50/bin/openf50-sim', str(self.tmp / 'no-selector')))
 
     def ask(self, **env):
         # no daemon in the scratch /run: past the gate the client ends with its own "no device" words
-        return self.script(['bash'], self.at, 'AT', MU300_AT_DEV=self.tmp / 'no-device', **env)
+        return self.script(['bash'], self.at, 'AT', OPENF50_AT_DEV=self.tmp / 'no-device', **env)
 
     def test_gate(self):
         import fcntl
         past = self.ask()
         self.assertNotIn('busy', past.stderr)
-        (self.run / 'mu300/sim-sequence').touch()
+        (self.run / 'openf50/sim-sequence').touch()
         r = self.ask()
         self.assertEqual(r.stderr, past.stderr, 'a marker nobody holds the lock for is a killed switch: not believed')
-        with (self.run / 'mu300/sim-control.lock').open('w') as f:
+        with (self.run / 'openf50/sim-control.lock').open('w') as f:
             fcntl.flock(f, fcntl.LOCK_EX)
             r = self.ask()
-            self.assertEqual((r.returncode, r.stderr.strip()), (1, 'mu300-at: busy'))
-            r = self.ask(MU300_SIM_CONTROL='1')
+            self.assertEqual((r.returncode, r.stderr.strip()), (1, 'openf50-at: busy'))
+            r = self.ask(OPENF50_SIM_CONTROL='1')
             self.assertEqual(r.stderr, past.stderr, 'the switch\'s own commands pass')
-        (self.run / 'mu300/sim-sequence').unlink()
+        (self.run / 'openf50/sim-sequence').unlink()
         self.assertEqual(self.ask().stderr, past.stderr)
 
 
@@ -527,8 +527,8 @@ class PanelRadioActions(ShellTest):
     def setUp(self):
         super().setUp()
         self.run = self.tmp / 'run'
-        (self.run / 'mu300').mkdir(parents=True)
-        app = TOP / 'openwrt/luci-app-mu300/root/usr'
+        (self.run / 'openf50').mkdir(parents=True)
+        app = TOP / 'openwrt/luci-app-openf50/root/usr'
         (self.tmp / 'usr/libexec/unisoc-modem').mkdir(parents=True)
         (self.tmp / 'usr/share/unisoc-modem').mkdir(parents=True)
         self.action = self.tmp / 'usr/libexec/unisoc-modem/action'
@@ -540,10 +540,10 @@ class PanelRadioActions(ShellTest):
             self.stub(name, f'echo {name} >> "$STUBLOG/net"')
 
     def act(self, shell, *args):
-        return self.script(shell, self.action, *args, MU300_AT=self.stubs / 'at', MOBILE_DATA=self.tmp / 'none')
+        return self.script(shell, self.action, *args, OPENF50_AT=self.stubs / 'at', MOBILE_DATA=self.tmp / 'none')
 
     def test_refused_in_a_dual_sim_boot(self):
-        for marker in ('mu300-radio-freeze', 'mu300/sim-managed', 'mu300/sim-switching'):
+        for marker in ('openf50-radio-freeze', 'openf50/sim-managed', 'openf50/sim-switching'):
             (self.run / marker).touch()
             for shell in self.each_shell():
                 for args in (('radio', 'off'), ('radio', 'on'), ('modem-reset',)):

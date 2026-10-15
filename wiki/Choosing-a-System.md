@@ -9,14 +9,14 @@ the control-panel OpenWrt is the same router with an extra dashboard for the SIM
 
 ## Side by side
 
-| | Ubuntu | OpenWrt | OpenWrt with the MU300 control panel |
+| | Ubuntu | OpenWrt | OpenWrt with the OPENF50 control panel |
 |---|---|---|---|
 | Installer name | `ubuntu` | `openwrt` | `openwrt-luci` |
 | Version | 24.04 LTS (default) or 26.04 LTS | 25.12 | 25.12 |
 | RAM in use (installer's figure) | ~500 MiB | ~140 MiB | not stated by the installer |
 | Installed size (measured) | ~580 MiB | ~320 MiB | - |
 | Install software with | `apt` | `apk` | `apk` |
-| Web interface | optional: Cockpit with an MU300 page (`mu300-extra install panel`, from v2026.10.20); otherwise SSH and `mu300-toolkit` | LuCI | LuCI + the MU300 panel (with a VPN section and a terminal in the browser) |
+| Web interface | optional: Cockpit with an OPENF50 page (`openf50-extra install panel`, from v2026.10.20); otherwise SSH and `openf50-toolkit` | LuCI | LuCI + the OPENF50 panel (with a VPN section and a terminal in the browser) |
 | Log in as | `ubuntu` (with `sudo`) | `root` | `root` |
 | Good for | servers, containers, scripts, development, learning Linux | a lean router | a router you manage from the browser: signal, band locks, SMS, AT terminal, power |
 | Magisk zip | yes | yes | yes (since v2026.10.18) |
@@ -30,18 +30,18 @@ optional [VPN](VPN) module.
 ==> What should be installed?
   1) Ubuntu LTS: 24.04 or 26.04, asked next (full distribution, apt, ~500 MiB RAM in use)
   2) OpenWrt 25.12.5 (router, LuCI web UI, ~140 MiB RAM in use)
-  3) both (switch later with: mu300-os ubuntu|openwrt)
+  3) both (switch later with: openf50-os ubuntu|openwrt)
 
 ==> Which OpenWrt?
   1) OpenWrt 25.12.5: the standard LuCI web interface
-  2) OpenWrt 25.12.5 with the MU300 control panel: dashboard, cellular locks, SMS, AT terminal, USB modes (by kanoqwq)
+  2) OpenWrt 25.12.5 with the OPENF50 control panel: dashboard, cellular locks, SMS, AT terminal, USB modes (by kanoqwq)
 
 ==> Which Ubuntu?
   1) 24.04 LTS  the longest tested, supported until 2029
   2) 26.04 LTS  the newest (systemd 259, newer packages), supported until 2031; kernel 6.18 or 7.2
 ```
 
-`MU300_OPENWRT=plain|luci` answers the OpenWrt question without asking.
+`OPENF50_OPENWRT=plain|luci` answers the OpenWrt question without asking.
 
 ## Space needed
 
@@ -54,17 +54,17 @@ The installer asks for room for the system plus a spare copy kept by updates: ab
 * **26.04 LTS** is the newest, supported until 2031. Its programs use system calls the 5.4 kernel does not have (`tar`, for one, cannot
   unpack folders there), so it **needs kernel 6.18 or 7.2**. The installer will not let you combine it with 5.4.
 
-An installed Ubuntu moves to the other release with `sudo MU300_UBUNTU=26.04 mu300-update apply` (or `24.04`),
+An installed Ubuntu moves to the other release with `sudo OPENF50_UBUNTU=26.04 openf50-update apply` (or `24.04`),
 keeping settings and data.
 
 ## Two systems, one device
 
-Both systems live side by side on the Linux disk as directories; the one named in `/.mu300/boot-os` starts. Switch:
+Both systems live side by side on the Linux disk as directories; the one named in `/.openf50/boot-os` starts. Switch:
 
 ```sh
-sudo mu300-os ubuntu
-sudo mu300-os openwrt
-sudo mu300-os openwrt-luci   # the one with the control panel
+sudo openf50-os ubuntu
+sudo openf50-os openwrt
+sudo openf50-os openwrt-luci   # the one with the control panel
 ```
 
 Then reboot. Only one runs at a time.
@@ -73,12 +73,12 @@ Then reboot. Only one runs at a time.
 
 Debian, Kali, Arch Linux ARM and ImmortalWrt can be built from this repository, but are not released or offered by
 the installer. What works, what does not (no monitor mode for Kali, for instance) and how to install a system you
-built yourself: [docs/DISTROS.md](https://github.com/dikeckaan/mu300-linux/blob/main/docs/DISTROS.md).
+built yourself: [docs/DISTROS.md](https://github.com/dikeckaan/openf50-linux/blob/main/docs/DISTROS.md).
 
 ## Never on this device
 
 **Never use OpenWrt's `sysupgrade` or flash OpenWrt firmware images.** They are written for ordinary routers and
 would overwrite the device's storage. A normal `apk upgrade` is fine, except the `kernel` and `kmod-*` packages.
-Updates go through [`mu300-update`](Updating).
+Updates go through [`openf50-update`](Updating).
 
 Next: [Kernels](Kernels).

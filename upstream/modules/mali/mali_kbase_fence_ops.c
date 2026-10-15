@@ -85,7 +85,7 @@ const struct dma_fence_ops kbase_fence_ops = {
 	.get_timeline_name = kbase_fence_get_timeline_name,
 	.enable_signaling = kbase_fence_enable_signaling,
 #if LINUX_VERSION_CODE < KERNEL_VERSION(6, 3, 0)
-	/* MU300: dma_fence_ops lost fence_value_str (it was only used for debug prints) */
+	/* OPENF50: dma_fence_ops lost fence_value_str (it was only used for debug prints) */
 	.fence_value_str = kbase_fence_fence_value_str
 #endif
 };

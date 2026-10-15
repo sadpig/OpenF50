@@ -1,5 +1,5 @@
-id=mu300_linux_switch
-name=MU300 Linux
+id=openf50_linux_switch
+name=OPENF50 Linux
 version=@TAG@
 versionCode=@CODE@
 author=dikeckaan

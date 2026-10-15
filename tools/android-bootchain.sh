@@ -4,7 +4,7 @@
 #
 #   android-bootchain.sh check             what would be copied; changes nothing
 #   android-bootchain.sh sync [BACKUP_DIR] back up both slots' copies of every image that differs into BACKUP_DIR
-#                                          (default /data/adb/mu300-bootchain/<date>), then copy Android's to the
+#                                          (default /data/adb/openf50-bootchain/<date>), then copy Android's to the
 #                                          Linux slot and read every one back
 #
 # Why (docs/FINDINGS.md, "The boot chain of the Linux slot"): LK boots the Linux slot with that slot's uboot, sml,
@@ -21,13 +21,13 @@
 #   BOOTCHAIN-FAILED: <reason>             exit 1: the Linux slot holds what it held before (restored and verified);
 #                                          exit 2: it could not be restored - the backup is in BACKUP_DIR
 #
-# MU300_LIB=1 defines the functions and runs nothing (tests/test_bootchain.py, android/magisk/installer). The copy in
-# android/magisk/mu300-linux-switch/bootchain.sh must stay identical (tests/test_bootchain.py).
+# OPENF50_LIB=1 defines the functions and runs nothing (tests/test_bootchain.py, android/magisk/installer). The copy in
+# android/magisk/openf50-linux-switch/bootchain.sh must stay identical (tests/test_bootchain.py).
 
 # the chain LK and the SPL load per slot - and nothing else, whatever a caller passes
 BOOTCHAIN_PARTS='uboot sml teecfg trustos vbmeta'
-BC_BY=${MU300_BY_NAME:-/dev/block/by-name}
-BC_DROP_CACHES=${MU300_DROP_CACHES:-/proc/sys/vm/drop_caches}
+BC_BY=${OPENF50_BY_NAME:-/dev/block/by-name}
+BC_DROP_CACHES=${OPENF50_DROP_CACHES:-/proc/sys/vm/drop_caches}
 BC_LINUX_CMDLINE=6c6f676c6576656c3d3500    # "loglevel=5\0" at offset 44: the header of every Linux boot image
 
 bc_refuse() { echo "BOOTCHAIN-REFUSED: $*"; return 1; }
@@ -47,7 +47,7 @@ bc_is_linux_image() { [ "$(bc_hex "$1" 44 11)" = "$BC_LINUX_CMDLINE" ]; }
 # BC_A (Android's slot), BC_L (the other one), or a refusal
 bc_setup() {
     BC_A=; BC_L=
-    [ -n "${MU300_SKIP_ROOT_CHECK:-}" ] || [ "$(id -u)" = 0 ] || { bc_refuse "this needs root"; return 1; }
+    [ -n "${OPENF50_SKIP_ROOT_CHECK:-}" ] || [ "$(id -u)" = 0 ] || { bc_refuse "this needs root"; return 1; }
     # Linux has no getprop: from there LK's slot is Linux's own, and nothing here may run
     command -v getprop >/dev/null 2>&1 || { bc_refuse "this is not Android: the boot chain is only ever copied from Android"; return 1; }
     _m="$(getprop ro.product.model) / $(getprop ro.product.device)"
@@ -56,7 +56,7 @@ bc_setup() {
         # the ZTE V50 (experimental, FINDINGS 95): exactly V50 / MU3351 on ums9620 (kano read its chain, both slots alike)
         "V50 / MU3351")
             [ "$(getprop ro.board.platform)" = ums9620 ] || { bc_refuse "a V50 that is not on the UMS9620 platform"; return 1; } ;;
-        *) bc_refuse "this is not a ZTE F50/MU300, U30 Air or V50 ($_m)"; return 1 ;;
+        *) bc_refuse "this is not a ZTE F50/OPENF50, U30 Air or V50 ($_m)"; return 1 ;;
     esac
     case $(getprop ro.boot.slot_suffix) in
         _a) BC_A=a; BC_L=b ;;
@@ -144,7 +144,7 @@ bc_put() {
 
 bc_sync() {  # bc_sync [BACKUP_DIR]
     bc_setup && bc_scan || return 1
-    _dir=${1:-/data/adb/mu300-bootchain/$(date +%Y%m%d-%H%M%S)}
+    _dir=${1:-/data/adb/openf50-bootchain/$(date +%Y%m%d-%H%M%S)}
     if [ -z "$BC_DIFF" ]; then
         echo "BOOTCHAIN-OK $BC_A $BC_L"
         echo "boot chain: identical on both slots, nothing written"
@@ -193,7 +193,7 @@ bc_sync() {  # bc_sync [BACKUP_DIR]
     return 0
 }
 
-[ -z "${MU300_LIB:-}" ] || return 0
+[ -z "${OPENF50_LIB:-}" ] || return 0
 case ${1:-} in
     check) bc_check ;;
     sync) shift; bc_sync "$@" ;;

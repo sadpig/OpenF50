@@ -1,9 +1,9 @@
 """The dashboard's battery tile: dashboard-info finds the battery and the charger in a fake /sys/class/power_supply
-(MU300_POWER_SUPPLY_DIR) the way each device and kernel names them, and home.js turns the result into the tile.
+(OPENF50_POWER_SUPPLY_DIR) the way each device and kernel names them, and home.js turns the result into the tile.
 
 - F50: no battery. Under mainline its PMIC's fuel gauge (sc27xx-fgu) still appears, with made-up values: no tile.
 - U30 Air under 5.4: the vendor charger manager's "battery" (capacity, status, voltage_now, current_now) and the
-  charger's "usb"/"ac" online flags (FINDINGS 33, mu300-toolkit). The vendor fuel gauge may be there as well.
+  charger's "usb"/"ac" online flags (FINDINGS 33, openf50-toolkit). The vendor fuel gauge may be there as well.
 - U30 Air under mainline: the UMP9620 fuel gauge "sc27xx-fgu" (FINDINGS 33d), positive current into the battery,
   no charger driver at all.
 - Anything else of type Battery / USB / Mains is found by type, whatever its name."""
@@ -14,9 +14,9 @@ import unittest
 
 from helpers import ShellTest, TOP
 
-APP = TOP / 'openwrt' / 'luci-app-mu300'
+APP = TOP / 'openwrt' / 'luci-app-openf50'
 INFO = APP / 'root' / 'usr' / 'libexec' / 'unisoc-modem' / 'dashboard-info'
-HOME = APP / 'htdocs' / 'luci-static' / 'resources' / 'view' / 'mu300' / 'home.js'
+HOME = APP / 'htdocs' / 'luci-static' / 'resources' / 'view' / 'openf50' / 'home.js'
 
 # FINDINGS 33d's node and the patch's sign: discharging at 470 mA from 3.85 V
 FGU_MAINLINE = {'type': 'Battery', 'present': '1', 'capacity': '64', 'status': 'Discharging',
@@ -43,12 +43,12 @@ class Power(ShellTest):
     def device(self, name):
         if name is None:
             return
-        self.stub('mu300-device', f'echo {name}')
+        self.stub('openf50-device', f'echo {name}')
 
     def power(self):
         out = []
         for shell in self.each_shell():
-            r = self.script(shell, INFO, MU300_POWER_SUPPLY_DIR=self.psy)
+            r = self.script(shell, INFO, OPENF50_POWER_SUPPLY_DIR=self.psy)
             out.append(json.loads(r.stdout)['power'])
         self.assertTrue(out)
         for p in out[1:]:
@@ -103,7 +103,7 @@ class Power(ShellTest):
         self.assertIsNone(p['usb'])                       # no charger driver under mainline
 
     def test_found_by_type_with_charger_input(self):
-        self.device(None)                                 # no mu300-device: any board, found by type
+        self.device(None)                                 # no openf50-device: any board, found by type
         self.supply('bq2560x-charger', type='USB', online='1', voltage_now='5012000', current_now='900000')
         self.supply('gauge', type='Battery', status='Charging', voltage_now='3990000', current_now='660000')
         self.supply('wireless', type='Wireless', online='1')
@@ -192,7 +192,7 @@ process.stdout.write(JSON.stringify({ shown: kpi.style.display !== 'none', value
         self.assertEqual(t['label'], 'Battery · charging 2.6 W')     # the voltage is the value already
 
     def test_unknown_when_full_on_usb(self):
-        # the 5.4 SQC charger says Unknown once full (mu300-toolkit); a few mA either way is noise
+        # the 5.4 SQC charger says Unknown once full (openf50-toolkit); a few mA either way is noise
         t = self.render({'present': 1, 'capacity': 100, 'status': 'Unknown', 'volt': 4.34, 'ua': 3000,
                          'w': 0.01, 'usb': 1})
         self.assertEqual(t['label'], 'Battery · full · 4.34 V · USB')

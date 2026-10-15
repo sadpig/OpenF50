@@ -1,7 +1,7 @@
 # The web installer: how it is built, how it was tested, and what is still open
 
-`site/web-installer/` (https://kaandikec.com/mu300-linux/web-installer/, in en/tr/zh) installs, manages and removes
-MU300 Linux from Chrome or Edge over USB. It was run from start to finish on an F50 on 2026-10-13 (below); the
+`site/web-installer/` (https://kaandikec.com/openf50-linux/web-installer/, in en/tr/zh) installs, manages and removes
+OPENF50 Linux from Chrome or Edge over USB. It was run from start to finish on an F50 on 2026-10-13 (below); the
 measurements behind its design and what that run found are FINDINGS 72. This file says what runs where, how to test
 it without a device and with one, and what the owner has to set up for the one part that is built but switched off
 (the release mirror).
@@ -16,21 +16,21 @@ it without a device and with one, and what the owner has to set up for the one p
  github.js    release list from api.github.com
  mirror.js    a release zip from the mirror (config.js), in parts
  zip.js       reads a picked zip's manifest
- device.js    AndroidDevice / LinuxDevice   --adb--> /data/local/tmp/mu300-web/android-web.sh   (pushed by the page)
+ device.js    AndroidDevice / LinuxDevice   --adb--> /data/local/tmp/openf50-web/android-web.sh   (pushed by the page)
  adb/*        adb over WebUSB: auth, shell v2, sync      |  under su, Magisk's busybox, ASH_STANDALONE=1
  privacy.js   masks every line a device prints           v
-                                                     /data/adb/mu300-web/   (root only, mode 700)
+                                                     /data/adb/openf50-web/   (root only, mode 700)
                                                         dl/<zip>     what the device downloads itself
                                                         zips/<zip>   checked against the release's sha256
-                                                        x/<zip>/mu300/install.sh   the zip's own installer
-                                                        answers.conf   MU300_ANSWERS (root's, mode 600)
+                                                        x/<zip>/openf50/install.sh   the zip's own installer
+                                                        answers.conf   OPENF50_ANSWERS (root's, mode 600)
                                                         out/         the copies of a backup
                                                         job/{log,rc,pid,more}   the run, in a session of its own
 ```
 
-* **Where root writes, and how much.** `/data/local/tmp/mu300-web` is the adb user's: the page pushes its files
+* **Where root writes, and how much.** `/data/local/tmp/openf50-web` is the adb user's: the page pushes its files
   there, and whoever can write there could put a link where a file is expected. Root creates, writes, chmods and
-  deletes nothing in it. A pushed file is moved (a rename follows no link) into `/data/adb/mu300-web` and judged
+  deletes nothing in it. A pushed file is moved (a rename follows no link) into `/data/adb/openf50-web` and judged
   there: a regular file, of a bounded size, with the checksum asked for. A download, the copies of a backup, the
   answers, the logs and the job's state are in root's directory only; the page reads a backup's copies as base64
   from `android-web.sh cat NAME` (the adb user cannot read that directory), and removes what it pushed itself,
@@ -54,17 +54,17 @@ it without a device and with one, and what the owner has to set up for the one p
   3. *The user downloads it* and picks the file: the last way.
 
   The SHA-256 is the `digest` GitHub's API gives for the release's own asset, read by the browser; the device
-  computes it over the file after root has moved it to `/data/adb/mu300-web`. That check carries all three ways:
+  computes it over the file after root has moved it to `/data/adb/openf50-web`. That check carries all three ways:
   a file's integrity is by that pinned digest, never by the transport it came over (the device's downloader cannot
   verify a certificate, FINDINGS 72.2).
 * **A locked bootloader is not an obstacle.** A device with a patched TrustOS starts the Linux boot image with the
   bootloader locked. The page shows "locked" in the warning colour with a question ("Did you patch TrustOS?"),
   beside the device's facts and again beside the plan, and blocks nothing; "unlocked" and "not reported" are as
   before. It never unlocks, patches, or links to a guide for either.
-* **Install** is the Magisk zip's installer (`android/magisk/installer/mu300-install.sh`, in every zip as
-  `mu300/install.sh`), started the way Magisk's `customize.sh` starts it, with `MU300_ANSWERS` (the wizard's choices)
-  and `MU300_PROGRESS=1` (`MU300-STEP n/9 name`, `MU300-PLAN key=value`). The page runs it twice per zip: once with
-  `MU300_DRY_RUN=1` to show the device's own plan, then for real after the user typed INSTALL. Two systems are two
+* **Install** is the Magisk zip's installer (`android/magisk/installer/openf50-install.sh`, in every zip as
+  `openf50/install.sh`), started the way Magisk's `customize.sh` starts it, with `OPENF50_ANSWERS` (the wizard's choices)
+  and `OPENF50_PROGRESS=1` (`OPENF50-STEP n/9 name`, `OPENF50-PLAN key=value`). The page runs it twice per zip: once with
+  `OPENF50_DRY_RUN=1` to show the device's own plan, then for real after the user typed INSTALL. Two systems are two
   zips, one after the other, and only the page can send the second: the first run is started with `more`, so that a
   page that finds the job after the first one was closed says that the second system is missing. Nothing about
   installing is reimplemented in JavaScript.
@@ -72,10 +72,10 @@ it without a device and with one, and what the owner has to set up for the one p
   with `tools/storage.sh` and the bc functions of `tools/android-boot-image.sh`; starting Linux is the Magisk
   module's `switch.sh`).
 * **Managing Linux** is `LinuxDevice` in `device.js`: one adapter around "a command over adb shell, an answer back".
-  It asks `mu300-device --json` first (format 1, `docs/ADB-INTERFACE.md`) and reads what that does not carry with
-  commands every image has. The actions are `mu300-update check|apply|kernel`, `mu300-os`, `mu300-next-boot`,
-  `reboot`. "Restart into Android" is `mu300-next-boot android`, which makes Android the default boot until
-  `mu300-next-boot linux` (the page's "Make Linux the default again").
+  It asks `openf50-device --json` first (format 1, `docs/ADB-INTERFACE.md`) and reads what that does not carry with
+  commands every image has. The actions are `openf50-update check|apply|kernel`, `openf50-os`, `openf50-next-boot`,
+  `reboot`. "Restart into Android" is `openf50-next-boot android`, which makes Android the default boot until
+  `openf50-next-boot linux` (the page's "Make Linux the default again").
 * **Connecting.** The first time, Chrome's chooser (`requestDevice`); afterwards the page offers the devices the
   browser already allowed (`getDevices`) as "Connect to ...", and connects by itself when such a device comes back
   after a restart the page asked for. In Android and in Linux the same unit is two USB devices: each is chosen once.
@@ -94,8 +94,8 @@ of that release in parts of at most 45 MiB and a `manifest.json` (`tools/make-re
 zip together from its parts, checks every part and the whole against the release's own checksum, and pushes it over
 adb. It is on (since 2026-10-13). What it consists of:
 
-1. The public repository `dikeckaan/mu300-linux-mirror`.
-2. In `dikeckaan/mu300-linux`: the **variable** `MIRROR_REPO` (`dikeckaan/mu300-linux-mirror`) and the **secret**
+1. The public repository `dikeckaan/openf50-linux-mirror`.
+2. In `dikeckaan/openf50-linux`: the **variable** `MIRROR_REPO` (`dikeckaan/openf50-linux-mirror`) and the **secret**
    `MIRROR_DEPLOY_KEY`, the private half of a deploy key of the mirror repository with write access (it can push
    there and nowhere else; there is no token). The last step of `.github/workflows/magisk.yml` publishes every
    release there over ssh with that key alone, to a host whose keys are the ones GitHub publishes
@@ -121,8 +121,8 @@ python3 -m unittest discover -s tests -p 'test_android_web.py'      # needs busy
 
 * A real adbd, over TCP (the page's adb client, not its USB transport):
   `docker run --rm -d -p 127.0.0.1:15555:5555 ubuntu:26.04 sh -c 'apt-get update && apt-get install -y adbd && exec adbd'`,
-  then `MU300_ADBD_TCP=127.0.0.1:15555 node --test tests/web/interop.test.mjs`. Never point it at a device.
-* The page itself: `sh site/tools/stage.sh /tmp/mu300-site && python3 -m http.server -d /tmp/mu300-site 8300`, then
+  then `OPENF50_ADBD_TCP=127.0.0.1:15555 node --test tests/web/interop.test.mjs`. Never point it at a device.
+* The page itself: `sh site/tools/stage.sh /tmp/openf50-site && python3 -m http.server -d /tmp/openf50-site 8300`, then
   `http://localhost:8300/web-installer/?demo=android` (also `installed`, `small` - a device without internet -,
   `linux`): the whole wizard with made-up answers and no USB device. `?dev` lets a zip that is not a release's file
   through (its checksum is then the file's own): for zips built with `tools/make-magisk-zips.sh` before a release
@@ -217,18 +217,18 @@ writes to the device's storage.
 | 5 | **Install Linux**, step Storage. | The verdict `./install.sh --check` gives. | - |
 | 6 | Choices: a system, a kernel, defaults. | The release's tag; the beta question only when a newer prerelease exists; "What will be downloaded" with the file's name and size. | - |
 | 7 | Files. | "The device can reach GitHub (mobile data)" and the device's own download chosen; or "no internet connection" and the file picker. Try a wrong zip once in the picker: refused with its system and kernel named. | - |
-| 8 | Backup: choose a folder. | `mu300-backup-<date>/` with `boot_b.img`, `uboot_b.img`, `sml_b.img`, `teecfg_b.img`, `trustos_b.img`, `vbmeta_b.img`, `misc-head.bin`, `gpt-*.bin`, `partitions.txt`, `README.txt`. `shasum -a 256 boot_b.img` equals `adb shell su -c 'sha256sum /dev/block/by-name/boot_b'` (in another terminal: `adb kill-server` again before going on). | - |
+| 8 | Backup: choose a folder. | `openf50-backup-<date>/` with `boot_b.img`, `uboot_b.img`, `sml_b.img`, `teecfg_b.img`, `trustos_b.img`, `vbmeta_b.img`, `misc-head.bin`, `gpt-*.bin`, `partitions.txt`, `README.txt`. `shasum -a 256 boot_b.img` equals `adb shell su -c 'sha256sum /dev/block/by-name/boot_b'` (in another terminal: `adb kill-server` again before going on). | - |
 | 9 | Next (Install step). | The download with its progress and speed (note them), then the device's plan in a table. **Nothing is written yet.** | A failure names its reason and offers "Get the files another way". |
 | 10 | Type INSTALL, click Install, and when the list shows "Collecting the Wi-Fi and modem files", **close the tab**. Open the page again, **Connect to ...**. | The page shows the running (or finished) job with its log from the start. | If the job died with the tab: "interrupted". Nothing is armed: note it, run again. |
-| 11 | Let it finish. | All nine steps done, "Linux is installed". In the log: `MU300-INSTALL-OK`, "Writing and verifying boot_b". | "It did not finish": the device still boots Android unless "Arming" was done. |
+| 11 | Let it finish. | All nine steps done, "Linux is installed". In the log: `OPENF50-INSTALL-OK`, "Writing and verifying boot_b". | "It did not finish": the device still boots Android unless "Arming" was done. |
 | 12 | **Restart into Linux.** | The device restarts; about 40 s later it is there as a new USB device. | Falls back to Android after 5 tries: collect logs (`tools/collect-logs.sh`). |
-| 13 | **Connect** (the chooser once more: in Linux it is another device, "MU300 Linux"). | "Manage MU300 Linux". From then on the page reconnects by itself after a restart. | "Allow this browser": adb there takes authorised keys only; run the command the page shows over SSH. |
-| 14 | Check for updates; Read the logs. | `mu300-update check`'s text; logs with MAC addresses masked. | - |
+| 13 | **Connect** (the chooser once more: in Linux it is another device, "OPENF50 Linux"). | "Manage OPENF50 Linux". From then on the page reconnects by itself after a restart. | "Allow this browser": adb there takes authorised keys only; run the command the page shows over SSH. |
+| 14 | Check for updates; Read the logs. | `openf50-update check`'s text; logs with MAC addresses masked. | - |
 | 15 | **Restart into Android**, **Uninstall Linux**, quick, type UNINSTALL. | Seven steps, "Linux is removed". | - |
 
 How to abort safely at any point: close the tab or click Cancel/Disconnect. Before step 9 nothing is on the device
-but files in `/data/local/tmp/mu300-web` and `/data/adb/mu300-web` (`clean all` removes them; so does
-`adb shell su -c 'rm -rf /data/adb/mu300-web /data/local/tmp/mu300-web'`). After "Install", do not unplug an F50 (it
+but files in `/data/local/tmp/openf50-web` and `/data/adb/openf50-web` (`clean all` removes them; so does
+`adb shell su -c 'rm -rf /data/adb/openf50-web /data/local/tmp/openf50-web'`). After "Install", do not unplug an F50 (it
 has no battery); a closed tab is fine. If the page misbehaves in any way, the device side can always be finished or
-inspected from a terminal: `adb shell su -c 'sh /data/local/tmp/mu300-web/android-web.sh status deep'` and
+inspected from a terminal: `adb shell su -c 'sh /data/local/tmp/openf50-web/android-web.sh status deep'` and
 `... follow`.

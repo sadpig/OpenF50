@@ -1,4 +1,4 @@
-"""mu300-ttl and fw4's software flowtable: while a TTL is set, OpenWrt's flow offloading is off (an offloaded flow
+"""openf50-ttl and fw4's software flowtable: while a TTL is set, OpenWrt's flow offloading is off (an offloaded flow
 skips postrouting, where the TTL rule is); without fw4 (Ubuntu) nothing about the firewall is touched."""
 import unittest
 
@@ -32,8 +32,8 @@ esac''')
         self.stub('fw4', 'echo "$*" >> "$STUBLOG/fw4.log"')
 
     def ttl(self, shell, *args):
-        return self.script(shell, BIN / 'mu300-ttl', *args, MU300_TTL_CONF=self.conf,
-                           MU300_TTL_NET=self.tmp / 'net')
+        return self.script(shell, BIN / 'openf50-ttl', *args, OPENF50_TTL_CONF=self.conf,
+                           OPENF50_TTL_NET=self.tmp / 'net')
 
     def reset(self, offloading='1'):
         for f in ('nft.args', 'nft.in', 'uci.log', 'fw4.log', 'tc.log', 'modprobe.log'):
@@ -75,7 +75,7 @@ class TtlOffload(TtlBase):
             self.assertEqual(r.stderr, '')
 
     def test_boot_apply_keeps_offloading_off_for_a_saved_ttl(self):
-        # after an update uci-defaults (90-mu300) sets flow_offloading=1; mu300-toolkit apply (S96) runs this
+        # after an update uci-defaults (90-openf50) sets flow_offloading=1; openf50-toolkit apply (S96) runs this
         self.openwrt()
         for shell in self.each_shell():
             self.reset('1')
@@ -187,7 +187,7 @@ class TtlTc(TtlBase):
                 self.assertIn(f'filter add dev {i} ' + self.V6.format(64), tc)
             self.assertFalse([c for c in tc if ' lo ' in c + ' ' or 'br-lan' in c], tc)
             self.assertEqual(self.log('nft.in'), '')                   # no nft rule
-            self.assertIn('delete table inet mu300_ttl', self.log('nft.args'))  # an old one goes
+            self.assertIn('delete table inet openf50_ttl', self.log('nft.args'))  # an old one goes
             self.assertEqual(self.offloading(), '1')
             self.assertNotIn('set', self.log('uci.log'))
             self.assertEqual(self.log('fw4.log'), '')
@@ -233,7 +233,7 @@ class TtlTc(TtlBase):
                 for pref in ('10', '11'):
                     self.assertIn(f'filter del dev {i} egress pref {pref}', tc)
             self.assertFalse([c for c in tc if 'filter add' in c], tc)
-            self.assertIn('delete table inet mu300_ttl', self.log('nft.args'))
+            self.assertIn('delete table inet openf50_ttl', self.log('nft.args'))
             self.assertEqual(self.offloading(), '0')
             self.assertEqual(self.log('fw4.log'), '')
 
@@ -252,7 +252,7 @@ class TtlTc(TtlBase):
             self.assertFalse((self.conf.parent / 'ttl.offload-off').exists())
 
     def test_off_after_an_nft_rule_without_the_marker(self):
-        # set by an older mu300-ttl (no ttl.offload-off): its nft table still says offloading was turned off
+        # set by an older openf50-ttl (no ttl.offload-off): its nft table still says offloading was turned off
         self.openwrt('0')
         self.stub('nft', 'echo "$*" >> "$STUBLOG/nft.args"; [ "$1" = list ] && exit 0; exit 0')
         for shell in self.each_shell():
@@ -306,7 +306,7 @@ filter protocol ipv6 pref 11 matchall chain 0 handle 0x1
             (self.tmp / 'tc.show').unlink()
             # the nft table in force
             self.store.write_text('0\n')
-            self.stub('nft', 'echo \'table inet mu300_ttl { chain postrouting {\n'
+            self.stub('nft', 'echo \'table inet openf50_ttl { chain postrouting {\n'
                              'oifname "sipa_eth*" ip ttl set 64 counter packets 5 bytes 9\n} }\'')
             r = self.ttl(shell)
             self.assertIn('nft, flow offload off', r.stdout)

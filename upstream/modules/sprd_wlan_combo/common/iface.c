@@ -117,7 +117,7 @@ static struct miscdevice wlan_misc_device = {
 
 #ifndef DRV_RESET_SELF
 /*
- * MU300: the FW_ERROR uevent from a work item. wcn_reset_notifier_list is an atomic notifier chain (RCU read side),
+ * OPENF50: the FW_ERROR uevent from a work item. wcn_reset_notifier_list is an atomic notifier chain (RCU read side),
  * and kobject_uevent_env() allocates with GFP_KERNEL and may sleep; the vendor sent it from the notifier, and also
  * leaked the path kobject_get_path() allocated for its log line. The uevent is what reopens Wi-Fi after the
  * recovery watchdog's reset (see iface_wd_tick).
@@ -185,7 +185,7 @@ static struct notifier_block iface_host_reset_cb = {
 };
 
 /*
- * MU300: recovery watchdog (issue #94). After a firmware assert our builds leave the WCN in card-dump state for
+ * OPENF50: recovery watchdog (issue #94). After a firmware assert our builds leave the WCN in card-dump state for
  * good (wcn_bsp's reset_dump defaults to "dump"): every mbuf_link_alloc() fails, Wi-Fi is dead, and until the RX
  * refill was given a back-off the printk flood soft-locked a CPU and softlockup_panic rebooted the device - which
  * is what brought Wi-Fi back. Without that, something else has to:
@@ -193,16 +193,16 @@ static struct notifier_block iface_host_reset_cb = {
  * - every second, Wi-Fi counts as stuck while the card-dump flag is set, or while the firmware is marked asserted
  *   (cp_asserted) with an interface open, i.e. the chip was reset but Wi-Fi has not been reopened yet (after our
  *   reset: until a power-on has succeeded, interface open or not);
- * - card dump for 10 s: reset the chip once per boot (wcn_mu300_recover(), what procfs "rebootwcn" does), in a work
+ * - card dump for 10 s: reset the chip once per boot (wcn_openf50_recover(), what procfs "rebootwcn" does), in a work
  *   item of its own so that a reset that hangs cannot stall this one. The reset's FW_ERROR uevent (iface_host_reset)
- *   is userspace's cue to reopen Wi-Fi (OpenWrt: /etc/hotplug.d/misc/10-mu300-wcn), which powers the chip on again;
+ *   is userspace's cue to reopen Wi-Fi (OpenWrt: /etc/hotplug.d/misc/10-openf50-wcn), which powers the chip on again;
  * - still stuck 70 s after it began (the reset hung, or Wi-Fi was not reopened), or card dump again after the one
  *   reset of this boot: orderly_reboot(), unless recovery_reboot=0. Never worse than the panic it replaces.
  * It runs outside every Wi-Fi lock and only reads two flags.
  */
 static bool recovery_reboot = true;
 module_param(recovery_reboot, bool, 0644);
-MODULE_PARM_DESC(recovery_reboot, "MU300: reboot when Wi-Fi stays stuck after the WCN reset (default on)");
+MODULE_PARM_DESC(recovery_reboot, "OPENF50: reboot when Wi-Fi stays stuck after the WCN reset (default on)");
 
 #define IFACE_WD_PERIOD		HZ
 #define IFACE_WD_RESET_AFTER	(10 * HZ)
@@ -221,21 +221,21 @@ static struct {
 
 static void iface_wd_reset(struct work_struct *work)
 {
-	if (wcn_mu300_recover())
-		pr_err("MU300 recovery: WCN reset done, Wi-Fi comes back when it is reopened\n");
+	if (wcn_openf50_recover())
+		pr_err("OPENF50 recovery: WCN reset done, Wi-Fi comes back when it is reopened\n");
 	else
-		pr_err("MU300 recovery: no WCN reset (see wcn_mu300_recover's line above)\n");
+		pr_err("OPENF50 recovery: no WCN reset (see wcn_openf50_recover's line above)\n");
 }
 
 static void iface_wd_give_up(const char *why)
 {
 	iface_wd.gave_up = true;
 	if (recovery_reboot) {
-		pr_emerg("MU300 recovery: Wi-Fi stuck (%s)%s, rebooting\n", why,
+		pr_emerg("OPENF50 recovery: Wi-Fi stuck (%s)%s, rebooting\n", why,
 			 work_busy(&iface_wd.reset) ? ", the WCN reset has not returned" : "");
 		orderly_reboot();
 	} else {
-		pr_emerg("MU300 recovery: Wi-Fi stuck (%s); recovery_reboot=0, so it stays down\n", why);
+		pr_emerg("OPENF50 recovery: Wi-Fi stuck (%s); recovery_reboot=0, so it stays down\n", why);
 	}
 }
 
@@ -251,7 +251,7 @@ static void iface_wd_tick(struct work_struct *work)
 
 	if (!dump && !asserted) {
 		if (iface_wd.stuck)
-			pr_err("MU300 recovery: Wi-Fi is back after %u s\n",
+			pr_err("OPENF50 recovery: Wi-Fi is back after %u s\n",
 			       jiffies_to_msecs(now - iface_wd.stuck_since) / 1000);
 		iface_wd.stuck = false;
 		iface_wd.reset_this_time = false;
@@ -260,7 +260,7 @@ static void iface_wd_tick(struct work_struct *work)
 	if (!iface_wd.stuck) {
 		iface_wd.stuck = true;
 		iface_wd.stuck_since = now;
-		pr_err("MU300 recovery: %s, watching\n", why);
+		pr_err("OPENF50 recovery: %s, watching\n", why);
 	}
 	if (iface_wd.gave_up)
 		goto again;
@@ -269,7 +269,7 @@ static void iface_wd_tick(struct work_struct *work)
 		if (!iface_wd.reset_used) {
 			iface_wd.reset_used = true;
 			iface_wd.reset_this_time = true;
-			pr_err("MU300 recovery: %s for %u s, resetting the WCN (once per boot)\n", why,
+			pr_err("OPENF50 recovery: %s for %u s, resetting the WCN (once per boot)\n", why,
 			       jiffies_to_msecs(now - iface_wd.stuck_since) / 1000);
 			queue_work(system_unbound_wq, &iface_wd.reset);
 		} else if (!iface_wd.reset_this_time) {
@@ -309,7 +309,7 @@ static void iface_stop_net(struct sprd_vif *vif)
 	spin_unlock_bh(&priv->list_lock);
 }
 
-/* MU300: no Android /mnt/vendor/wifimac.txt; LK puts androidboot.wifimac=<12 hex digits> in /chosen/bootargs */
+/* OPENF50: no Android /mnt/vendor/wifimac.txt; LK puts androidboot.wifimac=<12 hex digits> in /chosen/bootargs */
 static bool iface_bootargs_mac(u8 *addr)
 {
 	struct device_node *chosen = of_find_node_by_path("/chosen");
@@ -352,7 +352,7 @@ static void iface_set_mac_addr(struct sprd_vif *vif, u8 *pending_addr,
 				is_valid_ether_addr(priv->default_mac_sta_second)) {
 		ether_addr_copy(addr, priv->default_mac_sta_second);
 	} else if (strncmp(vif->name, "wlan1", 5) != 0 && iface_bootargs_mac(addr)) {
-		/* MU300: factory address that LK passes in /chosen/bootargs */
+		/* OPENF50: factory address that LK passes in /chosen/bootargs */
 	} else {
 		random_ether_addr(addr);
 		netdev_warn(vif->ndev, "%s Warning: use random MAC address\n",
@@ -393,7 +393,7 @@ int sprd_iface_set_power(struct sprd_hif *hif, int val)
 	int ret = 0;
 
 	/*
-	 * MU300: power_cnt is atomic, the transitions behind it are not.  Probe powers the chip off after it
+	 * OPENF50: power_cnt is atomic, the transitions behind it are not.  Probe powers the chip off after it
 	 * registered wlan0, outside RTNL, so userspace (hostapd, netifd) can open the interface meanwhile: the
 	 * open's power-on (1st count) ran start_marlin + post_init while the probe's power-off (last count) was
 	 * still in post_deinit.  post_deinit then cleared the channels and sc2355_hif.hif that post_init had just
@@ -1575,7 +1575,7 @@ static int iface_notify_init(struct sprd_priv *priv)
 	int ret = 0;
 
 	/*
-	 * MU300 (from kanoqwq/mu300-linux): the WCN reset notifier last, and every step undone when a later one
+	 * OPENF50 (from kanoqwq/openf50-linux): the WCN reset notifier last, and every step undone when a later one
 	 * fails. The vendor registered the notifier first and returned on a failure with it (and the misc device,
 	 * and the inetaddr notifier) still registered: the probe then freed priv, and the next WCN reset called
 	 * iface_host_reset() on it. A reset before misc_register() also queued the FW_ERROR uevent for a misc
@@ -1621,7 +1621,7 @@ err_misc:
 
 static void iface_notify_deinit(struct sprd_priv *priv)
 {
-	/* MU300: no notifier call after this, then no uevent work left, before the misc device goes */
+	/* OPENF50: no notifier call after this, then no uevent work left, before the misc device goes */
 	atomic_notifier_chain_unregister(&wcn_reset_notifier_list,
 					 &iface_host_reset_cb);
 #ifndef DRV_RESET_SELF
@@ -1866,7 +1866,7 @@ static int iface_core_init(struct device *dev, struct sprd_priv *priv)
 	sprd_setup_wiphy(wiphy, priv);
 	sprd_vendor_init(priv, wiphy);
 	/*
-	 * MU300: the phy's permanent address (/sys/class/ieee80211/phy0/macaddress) was all zeros. OpenWrt's wifi
+	 * OPENF50: the phy's permanent address (/sys/class/ieee80211/phy0/macaddress) was all zeros. OpenWrt's wifi
 	 * scripts derive the AP's address from it, and an address that differs from the one the firmware uses breaks
 	 * the WPA handshake. The factory address from LK is what wlan0 gets as well (iface_set_mac_addr()); without
 	 * one the phy keeps no address, as before, and wlan0 its random one.
@@ -1884,7 +1884,7 @@ static int iface_core_init(struct device *dev, struct sprd_priv *priv)
 	}
 #ifdef CONFIG_PM
 	/*
-	 * MU300: WoWLAN "any" on by default. Without a WoWLAN configuration cfg80211's wiphy_suspend() closes every
+	 * OPENF50: WoWLAN "any" on by default. Without a WoWLAN configuration cfg80211's wiphy_suspend() closes every
 	 * interface (cfg80211_leave_all), and the WCN PCI function, which suspends asynchronously, has usually taken
 	 * the bus down by then: CMD_CLOSE and CMD_DISCONNECT were dropped ("fail because bus done"), the firmware kept
 	 * them open, and the next close and open of Wi-Fi after the resume hit a firmware assert (mchn.c line 137)
@@ -1981,7 +1981,7 @@ int sprd_iface_probe(struct platform_device *pdev,
 	ret = iface_core_init(&pdev->dev, priv);
 	if (ret) {
 		pr_err("%s core init failed: %d\n", __func__, ret);
-		/* MU300: power off while hif still exists (sprd_core_free frees priv, and hif with it) */
+		/* OPENF50: power off while hif still exists (sprd_core_free frees priv, and hif with it) */
 		sprd_iface_set_power(hif, false);
 		sprd_hif_deinit(hif);
 		sprd_core_free(priv);
@@ -2002,7 +2002,7 @@ int sprd_iface_probe(struct platform_device *pdev,
 	pr_info("Power off WCN (%d time)\n", atomic_read(&hif->power_cnt));
 	sprd_iface_set_power(hif, false);
 
-	/* MU300: the recovery watchdog (see iface_wd_tick) */
+	/* OPENF50: the recovery watchdog (see iface_wd_tick) */
 	iface_wd_start(priv);
 
 	return ret;
@@ -2016,10 +2016,10 @@ int sprd_iface_remove(struct platform_device *pdev)
 	int ret;
 
 	pr_info("%s\n wlan driver remove.", __func__);
-	iface_wd_stop();	/* MU300: before hif goes */
+	iface_wd_stop();	/* OPENF50: before hif goes */
 
 	/*
-	 * MU300 (issue #146): the vendor returned here when the power-on failed, with everything still registered;
+	 * OPENF50 (issue #146): the vendor returned here when the power-on failed, with everything still registered;
 	 * a platform remove cannot refuse (the device is unbound and the module freed either way), so the
 	 * teardown goes on without the chip. The power-on only fails from a count of 0, i.e. with no interface
 	 * open, so the close commands it would have carried are not needed and there is no power-off to balance.
@@ -2031,7 +2031,7 @@ int sprd_iface_remove(struct platform_device *pdev)
 
 	iface_notify_deinit(priv);
 	iface_core_deinit(priv);
-	/* MU300: power off while hif still exists (sprd_core_free frees priv, and hif and its lock with it) */
+	/* OPENF50: power off while hif still exists (sprd_core_free frees priv, and hif and its lock with it) */
 	pr_info("Power off WCN (%d time)\n", atomic_read(&hif->power_cnt));
 	if (!ret)
 		sprd_iface_set_power(hif, false);

@@ -176,7 +176,7 @@ int kbase_ipa_model_add_param_string(struct kbase_ipa_model *model,
 	of_node_put(model_dt_node);
 
 	if (err && dt_required) {
-		strscpy_pad(addr, "", size);	/* MU300: strncpy() is gone in 7.x */
+		strscpy_pad(addr, "", size);	/* OPENF50: strncpy() is gone in 7.x */
 		dev_warn(model->kbdev->dev,
 			 "Error %d, no DT entry: %s.%s = \'%s\'\n",
 			 err, model->ops->name, name, addr);

@@ -2,7 +2,7 @@
 # Stage the website as it is published: site/ without site/tools, plus the device scripts of the web installer.
 #   site/tools/stage.sh OUT
 # .github/workflows/pages.yml publishes OUT; for a look on this computer:
-#   sh site/tools/stage.sh /tmp/mu300-site && python3 -m http.server -d /tmp/mu300-site 8300
+#   sh site/tools/stage.sh /tmp/openf50-site && python3 -m http.server -d /tmp/openf50-site 8300
 #   (WebUSB needs https or localhost: http://localhost:8300/web-installer/)
 #
 # The web installer (site/web-installer) pushes a few scripts to the device and runs them there. They are this
@@ -20,7 +20,7 @@ rm -rf "$OUT/assets" "$OUT/web-installer"
 D=$OUT/assets/web-installer/device
 rm -rf "$D"; mkdir -p "$D"
 cp "$TOP/tools/android-web.sh" "$TOP/tools/storage.sh" "$TOP/tools/android-boot-image.sh" \
-   "$TOP/tools/android-mount-mu300root.sh" "$TOP/android/magisk/mu300-linux-switch/switch.sh" "$D/"
+   "$TOP/tools/android-mount-openf50root.sh" "$TOP/android/magisk/openf50-linux-switch/switch.sh" "$D/"
 (cd "$D" && for f in *.sh; do
     printf '%s  %s\n' "$( (sha256sum "$f" 2>/dev/null || shasum -a 256 "$f") | cut -d' ' -f1)" "$f"
 done > SHA256SUMS)

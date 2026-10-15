@@ -76,7 +76,7 @@ static int __init trusty_pm_init(void)
 
 	register_syscore(&trusty_pm_syscore);
 	/*
-	 * MU300: the ACK PSCI vendor hooks (keep the CPU that Trusty resides on from powering down) do not exist in
+	 * OPENF50: the ACK PSCI vendor hooks (keep the CPU that Trusty resides on from powering down) do not exist in
 	 * mainline; the secure firmware migrates or refuses on its own (PSCI MIGRATE_INFO_TYPE: not supported).
 	 */
 

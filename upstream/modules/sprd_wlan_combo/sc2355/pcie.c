@@ -111,7 +111,7 @@ static int pcie_tx_one(struct sprd_hif *hif, unsigned char *data,
 	ret = sprdwcn_bus_list_alloc(chn, &head, &tail, &num);
 	//ret = 0;
 	if (ret || !head || !tail) {
-		/* MU300: rate-limited, it fails on every command while the WCN is in dump status (issue #94) */
+		/* OPENF50: rate-limited, it fails on every command while the WCN is in dump status (issue #94) */
 		pr_err_ratelimited("%s:%d sprdwcn_bus_list_alloc fail\n",
 				   __func__, __LINE__);
 		return -1;
@@ -365,7 +365,7 @@ static int pcie_rx_common_push(int chn, struct mbuf_t **head,
 
 	ret = sprdwcn_bus_list_alloc(chn, head, tail, num);
 	if (ret || head == NULL || tail == NULL || *head == NULL || *tail == NULL) {
-		/* MU300: rate-limited, as in pcie_tx_one */
+		/* OPENF50: rate-limited, as in pcie_tx_one */
 		pr_err_ratelimited("%s:%d sprdwcn_bus_list_alloc fail\n", __func__,
 				   __LINE__);
 		ret = -ENOMEM;
@@ -396,7 +396,7 @@ static int pcie_rx_handle(int chn, struct mbuf_t *head,
 	       __func__, chn, head, tail, num);
 
 	/*
-	 * MU300: an RX interrupt outside the channels' lifetime (post_init publishes hif before it registers
+	 * OPENF50: an RX interrupt outside the channels' lifetime (post_init publishes hif before it registers
 	 * them, post_deinit clears it after it unregistered them, sprd_iface_set_power serialises the two).
 	 * Without hif there is no device to unmap the buffers from and no queue to hand them to, and the
 	 * channel's mbuf pool is already freed (no sprdwcn_bus_list_free): the data buffers of this one list
@@ -706,7 +706,7 @@ inline int sc2355_tx_addr_trans_pcie(struct sprd_hif *hif,
 					     &head, &tail, &num);
 		if (ret || !head || !tail) {
 			/*
-			 * MU300: rate-limited. The RX refill retries this, and in issue #94 (the WCN in dump status for
+			 * OPENF50: rate-limited. The RX refill retries this, and in issue #94 (the WCN in dump status for
 			 * minutes) it and its siblings flooded the console until a CPU soft-locked in printk.
 			 */
 			pr_err_ratelimited("%s:%d sprdwcn_bus_list_alloc fail, chn: %d\n",
@@ -1087,7 +1087,7 @@ unsigned char sc2355_pcie_find_lut_index(struct sprd_hif *hif, struct sprd_vif *
 	}
 
 out:
-	/* MU300 (#140): a multicast/broadcast frame has no peer entry by design; the per-mode default is the answer, not an error */
+	/* OPENF50 (#140): a multicast/broadcast frame has no peer entry by design; the per-mode default is the answer, not an error */
 	if (vif->mode == SPRD_MODE_STATION ||
 	    vif->mode == SPRD_MODE_P2P_CLIENT) {
 		pr_debug("%s,%d,bssid not found, multicast?\n"
@@ -1578,7 +1578,7 @@ int sc2355_pcie_push_link(struct sprd_hif *hif, int chn,
 	time = jiffies - time;
 
 	if (ret) {
-		/* MU300: rate-limited, the RX refill and every TX retry it */
+		/* OPENF50: rate-limited, the RX refill and every TX retry it */
 		pr_err_ratelimited("%s: push link fail: %d, chn: %d!\n", __func__, ret,
 				   chn);
 	}
@@ -1964,7 +1964,7 @@ int sc2355_pcie_fc_test_send_num(struct sprd_hif *hif,
 
 	if ((free_num + data_num) >= tx_buf_max) {
 		/*
-		 * MU300 (from kanoqwq/mu300-linux): a full TX ring is ordinary flow control - the caller sends what fits
+		 * OPENF50 (from kanoqwq/openf50-linux): a full TX ring is ordinary flow control - the caller sends what fits
 		 * and the rest waits for the next completion - not a firmware error. The vendor printed it with pr_err on
 		 * every scheduling pass, i.e. continuously under load; pr_debug as in sc2355_pcie_fc_get_send_num().
 		 */
@@ -2038,10 +2038,10 @@ int pcie_post_init(struct sprd_hif *hif)
 {
 	int ret = -EINVAL, chn = 0;
 
-	/* MU300: published before any channel can interrupt (the RX/TX callbacks read it in hard IRQ) */
+	/* OPENF50: published before any channel can interrupt (the RX/TX callbacks read it in hard IRQ) */
 	smp_store_release(&sc2355_hif.hif, (void *)hif);
 	/*
-	 * MU300 (from kanoqwq/mu300-linux): a failed/aborted earlier power cycle clears this pointer in the
+	 * OPENF50 (from kanoqwq/openf50-linux): a failed/aborted earlier power cycle clears this pointer in the
 	 * error path below.  The vendor driver only restores it in pcie_init(),
 	 * but a later WCN power-on may call post_init directly.  Passing
 	 * &NULL[0] to mchn_init then makes Wi-Fi permanently fail until reboot.
@@ -2069,7 +2069,7 @@ int pcie_post_init(struct sprd_hif *hif)
 err:
 	pr_err("%s: unregister %d ops\n", __func__, sc2355_hif.max_num);
 
-	/* MU300: undo the channels that were set up and the one that failed, chn .. 0 (the vendor loop stopped at
+	/* OPENF50: undo the channels that were set up and the one that failed, chn .. 0 (the vendor loop stopped at
 	 * 1; a failed channel can be registered with half its EDMA state, and deinit skips one never registered) */
 	for (; chn >= 0; chn--)
 		sprdwcn_bus_chn_deinit(&sc2355_hif.mchn_ops[chn]);
@@ -2085,7 +2085,7 @@ void pcie_post_deinit(struct sprd_hif *hif)
 
 	for (chn = 0; chn < sc2355_hif.max_num; chn++)
 		sprdwcn_bus_chn_deinit(&sc2355_hif.mchn_ops[chn]);
-	/* MU300: cleared only after every channel is unregistered (the callbacks check for NULL) */
+	/* OPENF50: cleared only after every channel is unregistered (the callbacks check for NULL) */
 	WRITE_ONCE(sc2355_hif.hif, NULL);
 	sc2355_hif.max_num = 0;
 

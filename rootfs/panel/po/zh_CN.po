@@ -1,4 +1,4 @@
-# The MU300 page of Cockpit (rootfs/panel), zh_CN. tools/cockpit-i18n.py update / check / build.
+# The OPENF50 page of Cockpit (rootfs/panel), zh_CN. tools/cockpit-i18n.py update / check / build.
 msgid ""
 msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
@@ -65,8 +65,8 @@ msgstr "RSRP"
 msgid "RSRQ"
 msgstr "RSRQ"
 
-msgid "No readings from the modem (mu300-at)."
-msgstr "未能从调制解调器读取数据（mu300-at）。"
+msgid "No readings from the modem (openf50-at)."
+msgstr "未能从调制解调器读取数据（openf50-at）。"
 
 msgid "State"
 msgstr "状态"
@@ -104,8 +104,8 @@ msgstr "CPU 配置"
 msgid "Hotspot"
 msgstr "热点"
 
-msgid "Network, band and cell locks are part of the OpenWrt control panel (openwrt-luci); on Ubuntu, AT commands go through mu300-at in the Terminal."
-msgstr "网络、频段和小区锁定属于 OpenWrt 控制面板（openwrt-luci）；在 Ubuntu 上，请在终端中通过 mu300-at 发送 AT 命令。"
+msgid "Network, band and cell locks are part of the OpenWrt control panel (openwrt-luci); on Ubuntu, AT commands go through openf50-at in the Terminal."
+msgstr "网络、频段和小区锁定属于 OpenWrt 控制面板（openwrt-luci）；在 Ubuntu 上，请在终端中通过 openf50-at 发送 AT 命令。"
 
 msgid "Today"
 msgstr "今天"
@@ -212,8 +212,8 @@ msgstr "已生效"
 msgid "inactive"
 msgstr "未生效"
 
-msgid "The profile needs the engine extra $0: sudo mu300-extra install $0"
-msgstr "该配置需要引擎扩展 $0：sudo mu300-extra install $0"
+msgid "The profile needs the engine extra $0: sudo openf50-extra install $0"
+msgstr "该配置需要引擎扩展 $0：sudo openf50-extra install $0"
 
 msgid "Turn the VPN off"
 msgstr "关闭 VPN"
@@ -221,14 +221,14 @@ msgstr "关闭 VPN"
 msgid "Turn the VPN on"
 msgstr "开启 VPN"
 
-msgid "No profiles: add one with mu300-vpn profile import (Terminal) or mu300-toolkit."
-msgstr "没有配置：请用 mu300-vpn profile import（终端）或 mu300-toolkit 添加。"
+msgid "No profiles: add one with openf50-vpn profile import (Terminal) or openf50-toolkit."
+msgstr "没有配置：请用 openf50-vpn profile import（终端）或 openf50-toolkit 添加。"
 
 msgid "Use"
 msgstr "使用"
 
-msgid "The VPN module is not installed: sudo mu300-extra install vpn"
-msgstr "未安装 VPN 模块：sudo mu300-extra install vpn"
+msgid "The VPN module is not installed: sudo openf50-extra install vpn"
+msgstr "未安装 VPN 模块：sudo openf50-extra install vpn"
 
 msgid "Power"
 msgstr "电源"

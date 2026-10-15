@@ -8,7 +8,7 @@
 # goes out, and the token never reaches a log: curl takes the URL from a file.
 set -eu
 MODE=${1:-}; TAG=${2:-}; ACTION=${3:-published}
-REPO=${GITHUB_REPOSITORY:-dikeckaan/mu300-linux}
+REPO=${GITHUB_REPOSITORY:-sadpig/OpenF50}
 [ -n "$TAG" ] || { echo "usage: $0 release|zips TAG [published|released]" >&2; exit 2; }
 case "$TAG" in v[0-9]*) ;; *) echo "not a release tag: $TAG" >&2; exit 2 ;; esac
 case "$TAG" in *[!0-9A-Za-z._-]*|*..*) echo "not a release tag: $TAG" >&2; exit 2 ;; esac
@@ -29,13 +29,13 @@ release)
         age=$(( $(date +%s) - $(date -d "$(printf '%s' "$rel" | jq -r .publishedAt)" +%s 2>/dev/null || echo 0) ))
         [ "$age" -gt 600 ] || { echo "published just now: the 'published' event announces it"; exit 0; }
         kind="Now the latest release"
-        lead="Tested on the boards and promoted. Devices on an earlier release take it with <code>mu300-update apply</code>; the installer and the Magisk installers ship it from now on."
+        lead="Tested on the boards and promoted. Devices on an earlier release take it with <code>openf50-update apply</code>; the installer and the Magisk installers ship it from now on."
     elif [ "$pre" = true ]; then
         kind="Pre-release"
-        lead="Under test on the boards; it becomes the latest release once it passes. To try it now: <code>MU300_RELEASE=$(printf '%s' "$TAG" | esc) mu300-update apply</code>"
+        lead="Under test on the boards; it becomes the latest release once it passes. To try it now: <code>OPENF50_RELEASE=$(printf '%s' "$TAG" | esc) openf50-update apply</code>"
     else
         kind="New release"
-        lead="Devices update with <code>mu300-update apply</code>. New installations: the installer and images on the release page; the Magisk installers follow shortly."
+        lead="Devices update with <code>openf50-update apply</code>. New installations: the installer and images on the release page; the Magisk installers follow shortly."
     fi
     # the "New in TAG" list of the wiki Home on main (the docs usually land after the tag): one line per bullet
     # (wrapped lines joined, long ones shortened), bold kept, links to the wiki's own pages dropped, other links
@@ -50,7 +50,7 @@ release)
         sed -E 's/ *\[([^]]*)\]\([A-Za-z0-9_-]+\)//g; s/\[([^]]*)\]\([^)]*\)/\1/g; s/`//g; s/ +$//; s/ *\.\.\.$//' |
         awk '{ if (length($0) > 170) { s = substr($0, 1, 170); sub(/ [^ ]*$/, "", s); print s "…" } else print }' | esc |
         sed -E 's/\*\*([^*]+)\*\*/<b>\1<\/b>/g; s/^\* /• /' | head -n 8) || new=
-    text="<b>MU300 Linux $(printf '%s' "$TAG" | esc)</b>
+    text="<b>OPENF50 Linux $(printf '%s' "$TAG" | esc)</b>
 $kind
 
 $lead"
@@ -60,10 +60,10 @@ $lead"
 $new"
     text="$text
 
-<a href=\"$URL\">Release page</a> ($nassets files: images, kernels 5.4 / 6.18 / 7.2, installer) · <a href=\"https://github.com/$REPO/wiki/Home\">Wiki</a> · <a href=\"https://kaandikec.com/mu300-linux/\">Site</a>"
+<a href=\"$URL\">Release page</a> ($nassets files: images, kernels 5.4 / 6.18 / 7.2, installer) · <a href=\"https://github.com/$REPO/wiki/Home\">Wiki</a> · <a href=\"https://kaandikec.com/openf50-linux/\">Site</a>"
     ;;
 zips)
-    text="<b>MU300 Linux $(printf '%s' "$TAG" | esc)</b>
+    text="<b>OPENF50 Linux $(printf '%s' "$TAG" | esc)</b>
 Magisk installers attached
 
 $nzips zips on the release page: Ubuntu 24.04 and 26.04, OpenWrt, OpenWrt with the control panel — each with kernel 5.4, 6.18 or 7.2. Install from Magisk › Modules on the device; no computer needed.
@@ -73,8 +73,8 @@ $nzips zips on the release page: Ubuntu 24.04 and 26.04, OpenWrt, OpenWrt with t
 *) echo "usage: $0 release|zips TAG [published|released]" >&2; exit 2 ;;
 esac
 
-# MU300_TG_DRY=1: print the message instead of sending it (a look at the text, tests)
-[ "${MU300_TG_DRY:-}" != 1 ] || { printf '%s\n' "$text"; exit 0; }
+# OPENF50_TG_DRY=1: print the message instead of sending it (a look at the text, tests)
+[ "${OPENF50_TG_DRY:-}" != 1 ] || { printf '%s\n' "$text"; exit 0; }
 # the token stays out of the command line and the log: curl reads the URL from a config file
 cfg=$(mktemp); trap 'rm -f "$cfg"' EXIT
 printf 'url = "https://api.telegram.org/bot%s/sendMessage"\n' "$TELEGRAM_BOT_TOKEN" > "$cfg"

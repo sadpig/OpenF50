@@ -1,7 +1,7 @@
 # FAQ
 
 ### What is this, in plain words?
-It puts a real Linux system (Ubuntu or OpenWrt) on the ZTE F50 / MU300 or ZTE U30 Air 5G hotspot, next to Android. The
+It puts a real Linux system (Ubuntu or OpenWrt) on the ZTE F50 / OPENF50 or ZTE U30 Air 5G hotspot, next to Android. The
 hotspot becomes a small Linux computer and router with its own 5G modem. See [Home](Home).
 
 ### Will I lose Android?
@@ -10,7 +10,7 @@ modified. Only on the 32 GB variant can you *choose* to shrink Android's data pa
 See [Going Back to Android](Going-Back-to-Android).
 
 ### Which devices work?
-The ZTE F50 / MU300 and the ZTE U30 Air (same board, with a battery). The U30 **Pro** uses a different chip (UMS9632)
+The ZTE F50 / OPENF50 and the ZTE U30 Air (same board, with a battery). The U30 **Pro** uses a different chip (UMS9632)
 and is not supported.
 
 ### Do I need to root the device?
@@ -53,7 +53,7 @@ Yes, with the optional module (WireGuard, OpenVPN, VLESS/VMess/Trojan/Shadowsock
 with a kill switch. See [VPN](VPN).
 
 ### Is there a web page on Ubuntu too?
-Optionally, from v2026.10.20: `sudo mu300-extra install panel` adds Cockpit (Ubuntu's web console) with an MU300 page
+Optionally, from v2026.10.20: `sudo openf50-extra install panel` adds Cockpit (Ubuntu's web console) with an OPENF50 page
 for the modem, SMS, VPN, power, Wi-Fi and updates, at `https://192.168.77.1:9090`, on the LAN only. See
 [Control Panel (LuCI)](Control-Panel-(LuCI)#a-web-panel-on-ubuntu-cockpit).
 
@@ -67,8 +67,8 @@ you set passwords. Only the cable: nothing is reachable over Wi-Fi or the mobile
 these on the device; both stay across reboots and updates:
 
 ```sh
-sudo mu300-usb adb auth keys    # only computers whose key you authorised (sudo mu300-usb adb key adbkey.pub)
-sudo mu300-usb adb off          # no adb at all
+sudo openf50-usb adb auth keys    # only computers whose key you authorised (sudo openf50-usb adb key adbkey.pub)
+sudo openf50-usb adb off          # no adb at all
 ```
 
 A device where you turned adb off, or set it up with a key, before this release stays as it was.
@@ -85,14 +85,14 @@ device. On the F50 an SD card can hold Linux instead.
 
 ### Can I run Docker, VMs, other distributions?
 The kernels include KVM (`/dev/kvm`) and container support. Debian, Kali, Arch Linux ARM and ImmortalWrt can be built
-from this repository; see [docs/DISTROS.md](https://github.com/dikeckaan/mu300-linux/blob/main/docs/DISTROS.md).
+from this repository; see [docs/DISTROS.md](https://github.com/dikeckaan/openf50-linux/blob/main/docs/DISTROS.md).
 
 ### What happens if Linux breaks?
 After a number of failed starts in a row (5 by default, 1-6 at your choice), the device goes back to Android by itself.
-From Android, `su -c mu300-linux` starts Linux again.
+From Android, `su -c openf50-linux` starts Linux again.
 
 ### How do I update?
-`sudo mu300-update check`, then `sudo mu300-update apply`, then reboot. It never updates by itself. From v2026.10.20
+`sudo openf50-update check`, then `sudo openf50-update apply`, then reboot. It never updates by itself. From v2026.10.20
 the packages you installed yourself come back after the update. See [Updating](Updating).
 
 ### How do I remove it?
@@ -104,12 +104,12 @@ No. The images contain no proprietary files; the installer copies the Wi-Fi firm
 userspace from your own device.
 
 ### Can I use OpenWrt's sysupgrade?
-**Never.** It would overwrite the device's storage. Use `mu300-update`.
+**Never.** It would overwrite the device's storage. Use `openf50-update`.
 
 ### Is this safe?
 It is designed to touch as little as possible and to fall back to Android, but it is an experimental hobby project with
 no warranty. A power cut or a mistake can still brick a device. Back up first with `tools/backup-device.sh`.
 
 ### Where can I get help?
-Read [Troubleshooting](Troubleshooting), then open an issue at https://github.com/dikeckaan/mu300-linux/issues with the
+Read [Troubleshooting](Troubleshooting), then open an issue at https://github.com/dikeckaan/openf50-linux/issues with the
 `--check` output or the logs from `tools/collect-logs.sh`. Never post your IMEI.

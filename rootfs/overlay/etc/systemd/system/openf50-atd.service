@@ -1,0 +1,16 @@
+[Unit]
+Description=OPENF50 modem AT channel keeper (see /opt/openf50/bin/openf50-atd)
+# the SIPC tty only exists once the vendor modem stack is up
+ConditionPathExists=|/dev/stty_nr1
+ConditionPathExists=|/dev/stty_nr4
+After=openf50-vendor.service
+Wants=openf50-vendor.service
+StartLimitIntervalSec=0
+
+[Service]
+ExecStart=/opt/openf50/bin/openf50-atd
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

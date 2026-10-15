@@ -1,5 +1,5 @@
 #!/bin/sh
-# Mainline MU300 initramfs: USB gadget (ECM network + ACM serial) with telnet on 192.168.77.1, logs to pstore.
+# Mainline OPENF50 initramfs: USB gadget (ECM network + ACM serial) with telnet on 192.168.77.1, logs to pstore.
 /bin/busybox mkdir -p /proc /sys /dev /tmp /run /config
 /bin/busybox mount -t proc proc /proc
 /bin/busybox mount -t sysfs sysfs /sys
@@ -7,7 +7,7 @@
 /bin/busybox --install -s /bin
 mkdir -p /dev/pts && mount -t devpts devpts /dev/pts
 mount -t debugfs debugfs /sys/kernel/debug 2>/dev/null
-log() { echo "MU300-MAINLINE: $*" > /dev/kmsg; }
+log() { echo "OPENF50-MAINLINE: $*" > /dev/kmsg; }
 log "userspace up: $(uname -a)"
 for n in $(seq 1 20); do [ -n "$(ls /sys/class/udc 2>/dev/null)" ] && break; sleep 1; done
 log "udc: $(ls /sys/class/udc 2>&1 | tr '\n' ' ')"
@@ -17,10 +17,10 @@ log "regulators: $(for r in /sys/class/regulator/regulator.*; do printf "%s=%s "
 udc=$(ls /sys/class/udc 2>/dev/null | head -1)
 if [ -n "$udc" ]; then
     mount -t configfs configfs /config
-    g=/config/usb_gadget/mu300
+    g=/config/usb_gadget/openf50
     mkdir -p $g/strings/0x409 $g/configs/c.1/strings/0x409 $g/functions/ecm.usb0 $g/functions/acm.GS0
     echo 0x1d6b > $g/idVendor; echo 0x0104 > $g/idProduct
-    echo "MU300 mainline" > $g/strings/0x409/product; echo "mu300" > $g/strings/0x409/manufacturer
+    echo "OPENF50 mainline" > $g/strings/0x409/product; echo "openf50" > $g/strings/0x409/manufacturer
     echo 02:50:00:00:77:01 > $g/functions/ecm.usb0/dev_addr; echo 02:50:00:00:77:02 > $g/functions/ecm.usb0/host_addr
     echo "ECM+ACM" > $g/configs/c.1/strings/0x409/configuration
     ln -s $g/functions/ecm.usb0 $g/configs/c.1/; ln -s $g/functions/acm.GS0 $g/configs/c.1/

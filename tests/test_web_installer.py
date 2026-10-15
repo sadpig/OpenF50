@@ -76,8 +76,8 @@ class Strings(unittest.TestCase):
 
     def test_words_to_type_and_commands_are_not_translated(self):
         for lang, table in self.s.items():
-            self.assertIn('sudo mu300-next-boot android && sudo reboot', table['done.back'], lang)
-            self.assertIn('su -c mu300-linux', table['done.back'], lang)
+            self.assertIn('sudo openf50-next-boot android && sudo reboot', table['done.back'], lang)
+            self.assertIn('su -c openf50-linux', table['done.back'], lang)
             self.assertIn('{1}', table['erase.type'], lang)
 
     def test_every_sentence_the_code_asks_for_exists(self):
@@ -131,13 +131,13 @@ class Strings(unittest.TestCase):
             for n in names:
                 self.assertTrue(prefix + n in en, prefix + n)
         # the steps the device scripts name are the ones the page lists
-        installer = (TOP / 'android/magisk/installer/mu300-install.sh').read_text()
+        installer = (TOP / 'android/magisk/installer/openf50-install.sh').read_text()
         self.assertEqual(set(re.search(r"\nSTEPS='(.*?)'", installer).group(1).split()), fam['step.'])
         self.assertEqual(set(re.search(r"\nUNSTEPS='(.*?)'", web).group(1).split()), fam['ustep.'])
 
 
 class Pages(unittest.TestCase):
-    THEME = 'try{var t=localStorage.getItem("mu300-theme");if(t==="light"||t==="dark")document.documentElement.setAttribute("data-theme",t)}catch(e){}'
+    THEME = 'try{var t=localStorage.getItem("openf50-theme");if(t==="light"||t==="dark")document.documentElement.setAttribute("data-theme",t)}catch(e){}'
 
     def test_three_pages_with_the_same_structure(self):
         ids = None
@@ -159,7 +159,7 @@ class Pages(unittest.TestCase):
             ids = ids or found
             self.assertEqual(found, ids, lang)
             for l2 in ('', 'tr/', 'zh/'):
-                self.assertIn(f'href="https://kaandikec.com/mu300-linux/{l2}web-installer/"', s)
+                self.assertIn(f'href="https://kaandikec.com/openf50-linux/{l2}web-installer/"', s)
 
     def test_the_page_loads_nothing_from_elsewhere_and_says_so_in_a_policy(self):
         want = base64.b64encode(hashlib.sha256(self.THEME.encode()).digest()).decode()
@@ -238,18 +238,18 @@ class Pages(unittest.TestCase):
     def test_the_mirror_tool_cuts_a_release_into_parts_the_page_puts_together(self):
         if node_major() < 20:
             self.skipTest('Node.js 20 or newer is needed')
-        tmp = Path(tempfile.mkdtemp(prefix='mu300-mirror-'))
+        tmp = Path(tempfile.mkdtemp(prefix='openf50-mirror-'))
         try:
             import os
             tag = 'v2026.11.01'
             (tmp / 'zips').mkdir()
-            names = [f'mu300-magisk-{tag}-openwrt-k6.18.zip', f'mu300-magisk-{tag}-ubuntu-24.04-k7.2.zip']
+            names = [f'openf50-magisk-{tag}-openwrt-k6.18.zip', f'openf50-magisk-{tag}-ubuntu-24.04-k7.2.zip']
             for n, size in zip(names, (300000, 2 * 1048576 + 17)):
                 (tmp / 'zips' / n).write_bytes(os.urandom(size))
-            (tmp / 'zips' / 'mu300-magisk-v2026.10.01-openwrt-k6.18.zip').write_bytes(b'another release')
+            (tmp / 'zips' / 'openf50-magisk-v2026.10.01-openwrt-k6.18.zip').write_bytes(b'another release')
             tool = TOP / 'tools/make-release-mirror.sh'
             r = subprocess.run(['sh', str(tool), str(tmp / 'zips'), str(tmp / 'out' / tag), tag], capture_output=True, text=True,
-                               env={**os.environ, 'MU300_MIRROR_PART_MIB': '1'})
+                               env={**os.environ, 'OPENF50_MIRROR_PART_MIB': '1'})
             self.assertEqual(r.returncode, 0, r.stderr)
             out = tmp / 'out' / tag
             self.assertEqual(sorted(p.name for p in out.iterdir()),
@@ -275,7 +275,7 @@ console.log("MIRROR-OK " + Object.keys(m.files).length);
             r = subprocess.run([NODE, str(script)], capture_output=True, text=True, timeout=120)
             self.assertIn('MIRROR-OK 2', r.stdout, r.stderr)
             # a tag that is not one, parts larger than a repository may hold, a directory without that release
-            for args, env in ((['zips', 'o2', 'main'], {}), (['zips', 'o2', '../v1'], {}), (['zips', 'o2', tag], {'MU300_MIRROR_PART_MIB': '90'}),
+            for args, env in ((['zips', 'o2', 'main'], {}), (['zips', 'o2', '../v1'], {}), (['zips', 'o2', tag], {'OPENF50_MIRROR_PART_MIB': '90'}),
                               (['zips', 'o2', 'v2030.01.01'], {})):
                 r = subprocess.run(['sh', str(tool)] + args, capture_output=True, text=True, cwd=tmp, env={**os.environ, **env})
                 self.assertNotEqual(r.returncode, 0, args)
@@ -312,7 +312,7 @@ console.log("MIRROR-OK " + Object.keys(m.files).length);
         self.assertEqual((TOP / 'site/sitemap.xml').read_text().count('web-installer/'), 5)
 
     def test_the_staged_site_has_the_device_scripts_with_their_checksums(self):
-        out = Path(tempfile.mkdtemp(prefix='mu300-site-'))
+        out = Path(tempfile.mkdtemp(prefix='openf50-site-'))
         try:
             r = subprocess.run(['sh', str(TOP / 'site/tools/stage.sh'), str(out)], capture_output=True, text=True)
             self.assertEqual(r.returncode, 0, r.stderr)
@@ -335,7 +335,7 @@ console.log("MIRROR-OK " + Object.keys(m.files).length);
     def test_the_pages_workflow_stages_with_that_script(self):
         y = (TOP / '.github/workflows/pages.yml').read_text()
         self.assertIn('sh site/tools/stage.sh _site', y)
-        for path in ("'tools/android-web.sh'", "'tools/storage.sh'", "'android/magisk/mu300-linux-switch/switch.sh'"):
+        for path in ("'tools/android-web.sh'", "'tools/storage.sh'", "'android/magisk/openf50-linux-switch/switch.sh'"):
             self.assertIn(path, y)
 
 

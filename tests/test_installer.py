@@ -16,17 +16,17 @@ U30 = '323960377386           device usb:2 product:U30Air model:U30_Air device:U
 V50 = '9a8b7c6d5e4f           device usb:6 product:MU3351 model:V50 device:MU3351 transport_id:6'
 TABLET = 'd16d93c5               device usb:3 product:nabu_global model:21051182G device:nabu transport_id:3'
 OFFLINE = '192.168.31.1:55555     offline product:MU5358 model:MU5358 device:MU5358 transport_id:4'
-# a device running MU300 Linux: adb is on there by default, and its USB serial number says which system answers
-LINUX = 'MU300LINUX-324950664950-203d8329 device usb:1-1 transport_id:5'
-LINUX_KEYS = 'MU300LINUX-324950664950-203d8329 unauthorized usb:1-1 transport_id:5'
-LINUX_SERIAL = 'MU300LINUX-324950664950-203d8329'
+# a device running OPENF50 Linux: adb is on there by default, and its USB serial number says which system answers
+LINUX = 'OPENF50LINUX-324950664950-203d8329 device usb:1-1 transport_id:5'
+LINUX_KEYS = 'OPENF50LINUX-324950664950-203d8329 unauthorized usb:1-1 transport_id:5'
+LINUX_SERIAL = 'OPENF50LINUX-324950664950-203d8329'
 
 
 class SelectDevice(ShellTest):
     def run_select(self, shell, devices, answer='', mode=''):
         (self.tmp / 'adb.out').write_text('List of devices attached\n' + ''.join(d + '\n' for d in devices) + '\n')
         self.stub('adb', '[ "$1 $2" = "devices -l" ] && cat "$STUBLOG/adb.out"; exit 0')
-        code = (f'TOP="{TOP}"; . "$TOP/tools/i18n.sh"; MU300_LANG=en; '
+        code = (f'TOP="{TOP}"; . "$TOP/tools/i18n.sh"; OPENF50_LANG=en; '
                 'say() { :; }; die() { echo "DIE $*"; exit 1; }; '
                 'ask() { printf "ASKED[%s] " "$3"; read -r _a; [ -n "$_a" ] || _a=$3; eval "$1=\\$_a"; }; '
                 f'. "$TOP/tools/linux-mode.sh"; unset ANDROID_SERIAL; select_device {mode}; '
@@ -80,7 +80,7 @@ class SelectDevice(ShellTest):
 
 
 class LinuxOverAdb(ShellTest):
-    """A device running MU300 Linux shows up in `adb devices` (adb is on by default there), and its shell is root:
+    """A device running OPENF50 Linux shows up in `adb devices` (adb is on by default there), and its shell is root:
     `su -c id -u` says 0 there too. It must never be worked on as a rooted Android."""
 
     def setUp(self):
@@ -95,10 +95,10 @@ case "$1 $2" in
 esac
 [ "$1" = -s ] && { serial=$2; shift 2; } || serial=${ANDROID_SERIAL:-}
 case "$serial $*" in
-    MU300LINUX*"shell test -x /opt/mu300/bin/mu300-next-boot"*) [ -e "$STUBLOG/not-ours" ] || echo mu300 ;;
-    MU300LINUX*"mu300-next-boot android && sync && reboot")
+    OPENF50LINUX*"shell test -x /opt/openf50/bin/openf50-next-boot"*) [ -e "$STUBLOG/not-ours" ] || echo openf50 ;;
+    OPENF50LINUX*"openf50-next-boot android && sync && reboot")
         [ -e "$STUBLOG/reboot-fails" ] || cp "$STUBLOG/adb.after" "$STUBLOG/adb.out" ;;
-    *"shell ls -d /opt/mu300/bin"*) [ -e "$STUBLOG/linux-in-disguise" ] && echo /opt/mu300/bin ;;
+    *"shell ls -d /opt/openf50/bin"*) [ -e "$STUBLOG/linux-in-disguise" ] && echo /opt/openf50/bin ;;
     *"shell getprop sys.boot_completed") echo 1 ;;
     *"shell su -c 'id -u'") echo 0 ;;
 esac
@@ -112,7 +112,7 @@ exit 0''')
 
     def run_sh(self, shell, call, answer='', serial=None):
         (self.tmp / 'adb.log').unlink(missing_ok=True)
-        code = (f'TOP="{TOP}"; . "$TOP/tools/i18n.sh"; MU300_LANG=en; '
+        code = (f'TOP="{TOP}"; . "$TOP/tools/i18n.sh"; OPENF50_LANG=en; '
                 'say() { echo "SAY $*"; }; die() { echo "DIE $*"; exit 1; }; '
                 'ask() { printf "ASKED[%s] " "$3"; read -r _a; [ -n "$_a" ] || _a=$3; eval "$1=\\$_a"; }; '
                 f'. "$TOP/tools/linux-mode.sh"; {"ANDROID_SERIAL=" + serial + "; export ANDROID_SERIAL" if serial else "unset ANDROID_SERIAL"}; '
@@ -140,7 +140,7 @@ exit 0''')
             self.devices('adb.out', [LINUX, TABLET])
             out, _ = self.run_sh(shell, 'select_device')
             self.assertIn('ASKED[1]', out)
-            self.assertNotIn('MU300LINUX', out)
+            self.assertNotIn('OPENF50LINUX', out)
             self.assertIn('serial=d16d93c5', out)
             # named by ANDROID_SERIAL
             out, _ = self.run_sh(shell, 'echo "state=[$(android_state)]"', serial=LINUX_SERIAL)
@@ -168,17 +168,17 @@ exit 0''')
             self.devices('adb.out', [LINUX])
             self.devices('adb.after', [F50])
             out, log = self.run_sh(shell, 'require_android')
-            self.assertIn('SAY The device is running MU300 Linux, not Android', out)
+            self.assertIn('SAY The device is running OPENF50 Linux, not Android', out)
             self.assertIn('ASKED[yes]', out)
             self.assertIn(f'asking it over adb ({LINUX_SERIAL})', out)
-            self.assertIn(f"adb -s {LINUX_SERIAL} shell /opt/mu300/bin/mu300-next-boot android && sync && reboot", log)
+            self.assertIn(f"adb -s {LINUX_SERIAL} shell /opt/openf50/bin/openf50-next-boot android && sync && reboot", log)
             self.assertIn('Android is up', out)
             self.assertIn('rc=0 serial=324950664950', out)
             self.assertNotIn('ssh', log)
             # never su, getprop or anything else of the installer in the Linux shell
             for line in log.splitlines():
-                if 'MU300LINUX' in line:
-                    self.assertRegex(line, r'shell (test -x /opt/mu300/bin/mu300-next-boot|/opt/mu300/bin/mu300-next-boot android)')
+                if 'OPENF50LINUX' in line:
+                    self.assertRegex(line, r'shell (test -x /opt/openf50/bin/openf50-next-boot|/opt/openf50/bin/openf50-next-boot android)')
 
     def test_named_by_android_serial_is_sent_back_too(self):
         for shell in self.each_shell():
@@ -200,8 +200,8 @@ exit 0''')
             self.devices('adb.out', [LINUX_KEYS])
             self.devices('adb.after', [F50])
             out, log = self.run_sh(shell, 'require_android')
-            self.assertIn('SAY The device is running MU300 Linux, not Android', out)
-            self.assertIn('DIE boot Android yourself (on the device: sudo mu300-next-boot android && sudo reboot)', out)
+            self.assertIn('SAY The device is running OPENF50 Linux, not Android', out)
+            self.assertIn('DIE boot Android yourself (on the device: sudo openf50-next-boot android && sudo reboot)', out)
             self.assertNotIn('shell', log)
             self.assertNotIn('waiting for Android', out)
 
@@ -228,7 +228,7 @@ exit 0''')
             (self.tmp / 'reboot-fails').unlink()
 
     def test_only_our_linux_is_told_to_reboot(self):
-        # something else that calls itself MU300LINUX: no mu300-next-boot there, so no reboot command
+        # something else that calls itself OPENF50LINUX: no openf50-next-boot there, so no reboot command
         (self.tmp / 'not-ours').write_text('')
         for shell in self.each_shell():
             self.devices('adb.out', [LINUX])
@@ -242,7 +242,7 @@ exit 0''')
         for shell in self.each_shell():
             self.devices('adb.out', [F50])
             out, log = self.run_sh(shell, 'require_android')
-            self.assertIn('DIE The device is running MU300 Linux, not Android', out)
+            self.assertIn('DIE The device is running OPENF50 Linux, not Android', out)
             self.assertNotIn('getprop', log)
         (self.tmp / 'linux-in-disguise').unlink()
         for shell in self.each_shell():
@@ -261,13 +261,13 @@ class Storage(ShellTest):
             (self.tmp / 'label').write_text(label)
         (self.tmp / 'sd').write_text('' if card is None else '%s %s %s\n' % (
             card[0] + ('p1' if card[2] else ''), card[1], card[3]))
-        code = (f'TOP="{TOP}"; . "$TOP/tools/i18n.sh"; MU300_LANG=en; '
+        code = (f'TOP="{TOP}"; . "$TOP/tools/i18n.sh"; OPENF50_LANG=en; '
                 'say() { :; }; die() { echo "DIE $*"; exit 1; }; '
                 'gib() { echo "$1"; }; '
                 'ask() { printf "ASKED[%s] " "$3"; read -r _a; [ -n "$_a" ] || _a=$3; eval "$1=\\$_a"; }; '
                 f'su_do() {{ case $1 in *skip=1080*) [ -e "{self.tmp}/label" ] && echo " 53 ef" ;; '
                 f'*skip=1144*) cat "{self.tmp}/label" 2>/dev/null ;; *) cat "{self.tmp}/sd" ;; esac; }}; SIZE={internal}; '
-                f'{"MU300_STORAGE=" + forced + "; " if forced else "unset MU300_STORAGE; "}'
+                f'{"OPENF50_STORAGE=" + forced + "; " if forced else "unset OPENF50_STORAGE; "}'
                 '. "$TOP/tools/storage.sh"; sd_probe; ' + (tail or 'choose_storage; ') +
                 'echo "mode=$SD_MODE dev=${SD_DEV:-none}"')
         return self.sh(shell, code, stdin=answer + '\n').stdout
@@ -325,7 +325,7 @@ class Storage(ShellTest):
     def test_sd_existing(self):
         card = ('/dev/block/mmcblk1', 62 * 2 ** 21, True, 'SD')
         for shell in self.each_shell():
-            for label, want in ((None, 'no'), ('mu300sd', 'yes'), ('data', 'foreign'), ('', 'foreign')):
+            for label, want in ((None, 'no'), ('openf50sd', 'yes'), ('data', 'foreign'), ('', 'foreign')):
                 (self.tmp / 'label').unlink(missing_ok=True)
                 out = self.run_choose(shell, card, label=label, tail='echo "existing=$(sd_existing)"; SD_MODE=; ')
                 self.assertIn('existing=%s\n' % want, out)
@@ -350,17 +350,17 @@ class Storage(ShellTest):
             for kw in ({'answer': 'sd'}, {'forced': 'sd'}):
                 out = self.run_choose(shell, card, label='data', **kw)
                 self.assertIn('DIE', out)
-                self.assertIn('MU300_STORAGE=internal', out)
+                self.assertIn('OPENF50_STORAGE=internal', out)
             self.assertIn('mode=0', self.run_choose(shell, card, label='data'))        # internal stays possible
-            self.assertIn('mode=1', self.run_choose(shell, card, label='mu300sd', answer='sd'))
+            self.assertIn('mode=1', self.run_choose(shell, card, label='openf50sd', answer='sd'))
             self.assertIn('DIE', self.run_choose(shell, card, label='', answer='sd'))   # unlabelled ext4 too
 
 
     def test_card_with_an_installation_is_the_default(self):
-        # init starts a mu300sd card before anything internal: internal storage is not the safe answer then
+        # init starts a openf50sd card before anything internal: internal storage is not the safe answer then
         card = ('/dev/block/mmcblk1', 62 * 2 ** 21, True, 'SD')
         for shell in self.each_shell():
-            out = self.run_choose(shell, card, label='mu300sd')
+            out = self.run_choose(shell, card, label='openf50sd')
             self.assertIn('ASKED[sd]', out)
             self.assertIn('mode=1 dev=/dev/block/mmcblk1p1', out)
             self.assertNotIn('starts that one first', out)
@@ -369,13 +369,13 @@ class Storage(ShellTest):
         card = ('/dev/block/mmcblk1', 62 * 2 ** 21, True, 'SD')
         for shell in self.each_shell():
             for kw in ({'answer': 'internal\ninternal'}, {'forced': 'internal', 'answer': 'internal'}):
-                out = self.run_choose(shell, card, label='mu300sd', **kw)
+                out = self.run_choose(shell, card, label='openf50sd', **kw)
                 self.assertIn('starts that one first', out, kw)
                 self.assertIn('uninstall', out, kw)
                 self.assertIn('ASKED[no]', out, kw)
                 self.assertIn('mode=0', out, kw)
             for kw in ({'answer': 'internal\n'}, {'forced': 'internal', 'answer': 'yes'}):
-                out = self.run_choose(shell, card, label='mu300sd', **kw)
+                out = self.run_choose(shell, card, label='openf50sd', **kw)
                 self.assertIn('starts that one first', out, kw)
                 self.assertIn('DIE', out, kw)
                 self.assertNotIn('mode=', out, kw)
@@ -407,14 +407,14 @@ class Storage(ShellTest):
 
     def test_installer_refuses_a_card_install_with_a_kernel_that_cannot_read_it(self):
         src = (TOP / 'install.sh').read_text()
-        unpack = src.index('tar -xzf "$REL/mu300-kernel-$KERNEL.tar.gz" -C "$KMAIN"')
+        unpack = src.index('tar -xzf "$REL/openf50-kernel-$KERNEL.tar.gz" -C "$KMAIN"')
         check = src.index('sd_kernel_ok "$KMAIN" || die')
         self.assertLess(unpack, check)
         self.assertLess(check, src.index("say \"$(t 'Adding the vendor files from your device to the images')\""))
 
 
 class InstallEnv(ShellTest):
-    """mu300-install.env, what android-install.sh is told: tools/storage.sh's write_install_env (install.sh) and
+    """openf50-install.env, what android-install.sh is told: tools/storage.sh's write_install_env (install.sh) and
     install.ps1's InstallEnvText write the same text (tests/installer.Tests.ps1 compares the two)."""
     COMMON = dict(OFF=27762098176, FORMAT=1, OSES='ubuntu openwrt', WIPE_LEGACY=0, UPDATE=0, BOOT_OS='openwrt',
                   DEFAULT_LINUX=1, BOOT_ATTEMPTS=5, IMPORT_HOTSPOT=1, KERNEL='6.18', SYNC_BOOTCHAIN=1,
@@ -504,8 +504,8 @@ class InstallEnv(ShellTest):
 
 
 class ImportHotspot(ShellTest):
-    """tools/android-import-hotspot.sh writes into the installation that boots: the card's when it holds mu300sd
-    (found the way reset-password.sh finds it), the internal one otherwise; MU300_SD_DEV still names one by hand."""
+    """tools/android-import-hotspot.sh writes into the installation that boots: the card's when it holds openf50sd
+    (found the way reset-password.sh finds it), the internal one otherwise; OPENF50_SD_DEV still names one by hand."""
 
     def run_import(self, shell, card, label=None, **env):
         (self.tmp / 'sd').write_text(card)
@@ -525,9 +525,9 @@ class ImportHotspot(ShellTest):
 
     def test_card_installation_is_found_by_itself(self):
         for shell in self.each_shell():
-            r, imp = self.run_import(shell, '/dev/block/mmcblk1p1 62333952 SD\n', label='mu300sd')
+            r, imp = self.run_import(shell, '/dev/block/mmcblk1p1 62333952 SD\n', label='openf50sd')
             self.assertEqual(0, r.returncode, r.stderr)
-            self.assertIn('MU300_SD_DEV=/dev/block/mmcblk1p1 sh /data/local/tmp/android-mount-mu300root.sh', imp)
+            self.assertIn('OPENF50_SD_DEV=/dev/block/mmcblk1p1 sh /data/local/tmp/android-mount-openf50root.sh', imp)
 
     def test_internal_without_an_installed_card(self):
         for shell in self.each_shell():
@@ -535,20 +535,20 @@ class ImportHotspot(ShellTest):
                                 ('/dev/block/mmcblk1p1 62333952 SD\n', 'data')):
                 r, imp = self.run_import(shell, card, label=label)
                 self.assertEqual(0, r.returncode, r.stderr)
-                self.assertIn('android-mount-mu300root.sh', imp)
-                self.assertNotIn('MU300_SD_DEV', imp, (card, label))
+                self.assertIn('android-mount-openf50root.sh', imp)
+                self.assertNotIn('OPENF50_SD_DEV', imp, (card, label))
 
     def test_named_card_still_wins_and_the_emmc_is_refused(self):
         for shell in self.each_shell():
-            r, imp = self.run_import(shell, '', MU300_SD_DEV='/dev/block/mmcblk2p1')
-            self.assertIn('MU300_SD_DEV=/dev/block/mmcblk2p1 sh', imp)
-            r, imp = self.run_import(shell, '/dev/block/mmcblk1p1 62333952 SD\n', label='mu300sd',
-                                     MU300_SD_DEV='/dev/block/mmcblk0p1')
+            r, imp = self.run_import(shell, '', OPENF50_SD_DEV='/dev/block/mmcblk2p1')
+            self.assertIn('OPENF50_SD_DEV=/dev/block/mmcblk2p1 sh', imp)
+            r, imp = self.run_import(shell, '/dev/block/mmcblk1p1 62333952 SD\n', label='openf50sd',
+                                     OPENF50_SD_DEV='/dev/block/mmcblk0p1')
             self.assertNotEqual(0, r.returncode)
             self.assertEqual('', imp)
 
 class SdErase(ShellTest):
-    """tools/storage.sh's sd_erase (uninstall.sh): the card is erased only when it holds mu300sd, never the eMMC.
+    """tools/storage.sh's sd_erase (uninstall.sh): the card is erased only when it holds openf50sd, never the eMMC.
 
     su_do runs the device commands here, with dd, sm and umount as stubs: dd reads the superblock from the files
     label/magic and logs every write, sm lists the volumes in vols, umount drops the line from the mounts file."""
@@ -569,35 +569,35 @@ class SdErase(ShellTest):
         self.stub('sync', 'true')
         (t / 'vols').write_text('private mounted null\npublic:179,1 mounted 1234-ABCD\npublic:8,1 mounted 55AA-1\n')
         (t / 'mounts').write_text('/dev/block/mmcblk0p40 /data f2fs rw 0 0\n'
-                                  '/dev/block/mmcblk1p1 /data/local/tmp/mu300root ext4 rw 0 0\n')
+                                  '/dev/block/mmcblk1p1 /data/local/tmp/openf50root ext4 rw 0 0\n')
         (t / 'log').write_text('')
         for disk in ('mmcblk0', 'mmcblk1'):
             (t / 'sys' / 'block' / disk / 'device').mkdir(parents=True)
         (t / 'sys/block/mmcblk0/device/type').write_text('MMC\n')
         (t / 'sys/block/mmcblk1/device/type').write_text('SD\n')
 
-    def run_erase(self, shell, label='mu300sd', dev='/dev/block/mmcblk1', tail='sd_erase; echo SURVIVED'):
+    def run_erase(self, shell, label='openf50sd', dev='/dev/block/mmcblk1', tail='sd_erase; echo SURVIVED'):
         if label is not None:
             (self.tmp / 'label').write_bytes(label.encode() + b'\0' * (16 - len(label)))
         (self.tmp / 'sd').write_text(f'{dev} {62 * 2 ** 21} SD\n')
         code = (f'TOP="{TOP}"; say() {{ :; }}; die() {{ echo "DIE $*"; exit 1; }}; '
                 'gib() { echo "$1"; }; t() { printf "%s" "$1"; }; '
                 'su_do() { case $1 in "for b in /sys/block/mmcblk"*) cat "$STUBLOG/sd" ;; *) sh -c "$1" ;; esac; }; '
-                f'MU300_SYSFS="{self.tmp}/sys"; MU300_MOUNTS="{self.tmp}/mounts"; '
+                f'OPENF50_SYSFS="{self.tmp}/sys"; OPENF50_MOUNTS="{self.tmp}/mounts"; '
                 '. "$TOP/tools/storage.sh"; sd_probe; ' + tail)
         return self.sh(shell, code).stdout, (self.tmp / 'log').read_text()
 
-    def test_erases_the_mu300sd_card_after_releasing_it(self):
+    def test_erases_the_openf50sd_card_after_releasing_it(self):
         for shell in self.each_shell():
             (self.tmp / 'mounts').write_text('/dev/block/mmcblk0p40 /data f2fs rw 0 0\n'
-                                             '/dev/block/mmcblk1p1 /data/local/tmp/mu300root ext4 rw 0 0\n')
+                                             '/dev/block/mmcblk1p1 /data/local/tmp/openf50root ext4 rw 0 0\n')
             (self.tmp / 'log').write_text('')
             out, log = self.run_erase(shell, dev='/dev/block/mmcblk1p1')
             self.assertIn('SURVIVED', out)
             self.assertNotIn('DIE', out)
             self.assertIn('sm unmount public:179,1\n', log)
             self.assertNotIn('public:8,1', log)                     # a USB stick is not the card
-            self.assertIn('umount /data/local/tmp/mu300root\n', log)
+            self.assertIn('umount /data/local/tmp/openf50root\n', log)
             self.assertNotIn('umount /data\n', log)                 # the eMMC's own mounts stay
             self.assertIn('dd if=/dev/zero of=/dev/block/mmcblk1p1 bs=1048576 count=64 conv=notrunc', log)
             self.assertEqual(log.count('dd '), 1)
@@ -608,9 +608,9 @@ class SdErase(ShellTest):
             self.assertIn('SURVIVED', out)
             self.assertIn('of=/dev/block/mmcblk1 ', log)
 
-    def test_never_a_card_without_mu300sd(self):
+    def test_never_a_card_without_openf50sd(self):
         for shell in self.each_shell():
-            for label in (None, 'data', '', 'mu300root'):
+            for label in (None, 'data', '', 'openf50root'):
                 (self.tmp / 'label').unlink(missing_ok=True)
                 (self.tmp / 'log').write_text('')
                 out, log = self.run_erase(shell, label=label)
@@ -674,7 +674,7 @@ class SdErase(ShellTest):
     def test_still_mounted_is_not_erased(self):
         for shell in self.each_shell():
             (self.tmp / 'stuck-mount').write_text('')
-            (self.tmp / 'mounts').write_text('/dev/block/mmcblk1p1 /data/local/tmp/mu300root ext4 rw 0 0\n')
+            (self.tmp / 'mounts').write_text('/dev/block/mmcblk1p1 /data/local/tmp/openf50root ext4 rw 0 0\n')
             out, log = self.run_erase(shell, dev='/dev/block/mmcblk1p1')
             self.assertIn('DIE', out)
             self.assertNotIn('dd ', log)
@@ -710,7 +710,7 @@ class Region(ShellTest):
             if ext4_at is not None:
                 f.seek(ext4_at + 1024 + 4); f.write(struct.pack('<I', 1000))
                 f.seek(ext4_at + 1080); f.write(b'\x53\xef')
-                f.seek(ext4_at + 1144); f.write(b'mu300root')
+                f.seek(ext4_at + 1144); f.write(b'openf50root')
         return emmc
 
     def run_region(self, shell, call):
@@ -788,7 +788,7 @@ class Model(ShellTest):
     def decide(self, shell, model, platform='ums9620', mode='prebuilt', answer='no'):
         m = re.search(r'# --- model begin\n(.*?)# --- model end', self.SRC, re.S)
         self.assertIsNotNone(m, 'install.sh has no model block')
-        code = (f'TOP="{TOP}"; . "$TOP/tools/i18n.sh"; MU300_LANG=en; MODE={mode}; '
+        code = (f'TOP="{TOP}"; . "$TOP/tools/i18n.sh"; OPENF50_LANG=en; MODE={mode}; '
                 'die() { echo "DIE $*"; exit 1; }; '
                 'ask() { printf "ASKED "; read -r _a; eval "$1=\\$_a"; }; '
                 f'su_do() {{ [ "$1" = "getprop ro.board.platform" ] && echo "{platform}"; }}; '
@@ -797,7 +797,7 @@ class Model(ShellTest):
 
     def test_three_devices(self):
         for shell in self.each_shell():
-            for model, want in (('F50 / MU300', 'f50'), ('ZTE MU300 / mu300', 'f50'), ('U30_Air / U30Air', 'u30air'),
+            for model, want in (('F50 / OPENF50', 'f50'), ('ZTE OPENF50 / openf50', 'f50'), ('U30_Air / U30Air', 'u30air'),
                                 ('V50 / MU3351', 'v50')):
                 out = self.decide(shell, model)
                 self.assertIn(f'DEVICE={want}', out, model)
@@ -865,7 +865,7 @@ class InstallSlot(ShellTest):
     def run_slot(self, shell, tail):
         m = re.search(r'# --- slot begin\n(.*?)# --- slot end', self.SRC, re.S)
         self.assertIsNotNone(m, 'install.sh has no slot block')
-        code = (f'TOP="{TOP}"; . "$TOP/tools/i18n.sh"; MU300_LANG=en; T=/data/local/tmp; '
+        code = (f'TOP="{TOP}"; . "$TOP/tools/i18n.sh"; OPENF50_LANG=en; T=/data/local/tmp; '
                 'say() { echo "SAY $*"; }; die() { echo "DIE $*"; exit 1; }; '
                 'su_do() { printf "%s\\n" "$1" >> "$STUBLOG/su.log"; case $1 in '
                 '"getprop ro.boot.slot_suffix") n=$(( $(cat "$STUBLOG/n" 2>/dev/null || echo 0) + 1 )); '
@@ -1024,11 +1024,11 @@ class ChooseSystems(ShellTest):
     def run_choose(self, shell, choice, answers='', preset='', size=100):
         m = re.search(r'# --- choose-systems begin\n(.*?)# --- choose-systems end', self.SRC, re.S)
         self.assertIsNotNone(m, 'install.sh has no choose-systems block')
-        code = (f'TOP="{TOP}"; . "$TOP/tools/i18n.sh"; MU300_LANG=en; OWRT_VER=25.12.5; '
+        code = (f'TOP="{TOP}"; . "$TOP/tools/i18n.sh"; OPENF50_LANG=en; OWRT_VER=25.12.5; '
                 f'NEED_OPENWRT=1; NEED_UBUNTU=2; NEED_BOTH=3; SIZE={size}; '
                 'say() { :; }; die() { echo "DIE $*"; exit 1; }; '
                 'ask() { printf "ASKED[%s] " "$3"; read -r _a; [ -n "$_a" ] || _a=$3; eval "$1=\\$_a"; }; '
-                f'choice={choice}; ' + (f'MU300_OPENWRT={preset}; ' if preset else 'unset MU300_OPENWRT; ') +
+                f'choice={choice}; ' + (f'OPENF50_OPENWRT={preset}; ' if preset else 'unset OPENF50_OPENWRT; ') +
                 m.group(1) + 'choose_systems; echo "OSES=$OSES BOOT=$BOOT_OS"')
         return self.sh(shell, code, stdin=answers).stdout
 
@@ -1065,7 +1065,7 @@ class ChooseSystems(ShellTest):
 
     def test_bad_preset(self):
         for shell in self.each_shell():
-            self.assertIn('DIE MU300_OPENWRT must be plain or luci', self.run_choose(shell, 2, preset='x'), shell)
+            self.assertIn('DIE OPENF50_OPENWRT must be plain or luci', self.run_choose(shell, 2, preset='x'), shell)
 
     def test_boot_question_offers_the_chosen_names(self):
         for shell in self.each_shell():
@@ -1091,7 +1091,7 @@ if __name__ == '__main__':
 
 class VpnModule(ShellTest):
     """install.sh's fetch_vpn_module: the VPN module's latest release (dikeckaan/mu300-linux-vpn), checked against its
-    SHA256SUMS, or a copy on the computer (MU300_VPN_MODULE)"""
+    SHA256SUMS, or a copy on the computer (OPENF50_VPN_MODULE)"""
 
     def setUp(self):
         super().setUp()
@@ -1101,7 +1101,7 @@ class VpnModule(ShellTest):
         self.fn = m.group(0)
         self.server = self.tmp / 'server'
         self.server.mkdir()
-        (self.server / 'mu300-linux-vpn.tar.gz').write_bytes(b'module v1')
+        (self.server / 'openf50-linux-vpn.tar.gz').write_bytes(b'module v1')
         self.sums()
         # curl [-fsSL] -o OUT URL: from the server directory, by the URL's last part
         self.stub('curl', 'out=; url=; while [ $# -gt 0 ]; do case $1 in -o) out=$2; shift ;; -*) ;; *) url=$1 ;; esac; '
@@ -1110,11 +1110,11 @@ class VpnModule(ShellTest):
 
     def sums(self, data=None):
         import hashlib
-        h = hashlib.sha256(data if data is not None else (self.server / 'mu300-linux-vpn.tar.gz').read_bytes()).hexdigest()
-        (self.server / 'SHA256SUMS').write_text(f'{h}  mu300-linux-vpn.tar.gz\n')
+        h = hashlib.sha256(data if data is not None else (self.server / 'openf50-linux-vpn.tar.gz').read_bytes()).hexdigest()
+        (self.server / 'SHA256SUMS').write_text(f'{h}  openf50-linux-vpn.tar.gz\n')
 
     def run_fetch(self, shell, **env):
-        code = (f'TOP="{TOP}"; . "$TOP/tools/i18n.sh"; MU300_LANG=en; WORK="{self.tmp}/work"; '
+        code = (f'TOP="{TOP}"; . "$TOP/tools/i18n.sh"; OPENF50_LANG=en; WORK="{self.tmp}/work"; '
                 'say() { :; }; die() { echo "DIE $*"; exit 1; }; '
                 'fetch() { curl -fL -o "$2" "$1"; }\n' + self.fn + '\nfetch_vpn_module; echo "rc=$? EXTRA_VPN=$EXTRA_VPN"')
         return self.sh(shell, code, **env)
@@ -1123,11 +1123,11 @@ class VpnModule(ShellTest):
         for shell in self.each_shell():
             (self.tmp / 'urls').unlink(missing_ok=True)
             out = self.run_fetch(shell).stdout
-            self.assertIn(f'EXTRA_VPN={self.tmp}/work/vpn-module/mu300-linux-vpn.tar.gz', out)
-            self.assertEqual((self.tmp / 'work/vpn-module/mu300-linux-vpn.tar.gz').read_bytes(), b'module v1')
+            self.assertIn(f'EXTRA_VPN={self.tmp}/work/vpn-module/openf50-linux-vpn.tar.gz', out)
+            self.assertEqual((self.tmp / 'work/vpn-module/openf50-linux-vpn.tar.gz').read_bytes(), b'module v1')
             self.assertIn('https://github.com/dikeckaan/mu300-linux-vpn/releases/latest/download/SHA256SUMS',
                           (self.tmp / 'urls').read_text())
-            out = self.run_fetch(shell, MU300_VPN_URL='http://10.0.0.2/m').stdout
+            out = self.run_fetch(shell, OPENF50_VPN_URL='http://10.0.0.2/m').stdout
             self.assertIn('rc=0', out)
             self.assertIn('http://10.0.0.2/m/SHA256SUMS', (self.tmp / 'urls').read_text())
 
@@ -1141,17 +1141,17 @@ class VpnModule(ShellTest):
     def test_a_copy_on_the_computer(self):
         copy = self.tmp / 'copy'
         copy.mkdir()
-        (copy / 'mu300-linux-vpn.tar.gz').write_bytes(b'module v1')
+        (copy / 'openf50-linux-vpn.tar.gz').write_bytes(b'module v1')
         for shell in self.each_shell():
             (self.tmp / 'urls').unlink(missing_ok=True)
-            out = self.run_fetch(shell, MU300_VPN_MODULE=copy / 'mu300-linux-vpn.tar.gz').stdout
-            self.assertIn(f'EXTRA_VPN={copy}/mu300-linux-vpn.tar.gz', out)
+            out = self.run_fetch(shell, OPENF50_VPN_MODULE=copy / 'openf50-linux-vpn.tar.gz').stdout
+            self.assertIn(f'EXTRA_VPN={copy}/openf50-linux-vpn.tar.gz', out)
             self.assertFalse((self.tmp / 'urls').exists())
             # checked against a SHA256SUMS next to it
-            (copy / 'SHA256SUMS').write_text('0' * 64 + '  mu300-linux-vpn.tar.gz\n')
-            self.assertIn('DIE', self.run_fetch(shell, MU300_VPN_MODULE=copy / 'mu300-linux-vpn.tar.gz').stdout)
+            (copy / 'SHA256SUMS').write_text('0' * 64 + '  openf50-linux-vpn.tar.gz\n')
+            self.assertIn('DIE', self.run_fetch(shell, OPENF50_VPN_MODULE=copy / 'openf50-linux-vpn.tar.gz').stdout)
             (copy / 'SHA256SUMS').unlink()
-            self.assertIn('DIE', self.run_fetch(shell, MU300_VPN_MODULE=copy / 'nosuch.tar.gz').stdout)
+            self.assertIn('DIE', self.run_fetch(shell, OPENF50_VPN_MODULE=copy / 'nosuch.tar.gz').stdout)
 
 
 class VpnOnInTheReplacedSystem(ShellTest):
@@ -1164,15 +1164,15 @@ class VpnOnInTheReplacedSystem(ShellTest):
         # images' lib/vpn-orphan.sh (pushed to /data/local/tmp/ on the device)
         root = self.tmp / 'probe'
         for o in ('ubuntu', 'openwrt'):
-            (root / o / 'etc/mu300').mkdir(parents=True, exist_ok=True)
-            (root / o / 'etc/mu300/vpn.conf').write_text(f'ENABLE={1 if o in on else 0}\nKILL_SWITCH={1 if o in ks else 0}\n')
-        lib = TOP / 'rootfs/overlay/opt/mu300/lib/vpn-orphan.sh'
+            (root / o / 'etc/openf50').mkdir(parents=True, exist_ok=True)
+            (root / o / 'etc/openf50/vpn.conf').write_text(f'ENABLE={1 if o in on else 0}\nKILL_SWITCH={1 if o in ks else 0}\n')
+        lib = TOP / 'rootfs/overlay/opt/openf50/lib/vpn-orphan.sh'
         self.stub('adb', 'echo "adb $*" >> "$STUBLOG/calls"')
-        code = (f'TOP="{TOP}"; . "$TOP/tools/i18n.sh"; MU300_LANG=en; T=/data/local/tmp; '
+        code = (f'TOP="{TOP}"; . "$TOP/tools/i18n.sh"; OPENF50_LANG=en; T=/data/local/tmp; '
                 'say() { :; }; die() { echo "DIE $*"; exit 1; }; '
                 f'su_do() {{ echo "$1" > "{self.tmp}/su"; '
                 f'eval "$(printf "%s" "$1" | sed "s|^.*&& {{|{{|; s|/data/local/tmp/vpn-orphan.sh|{lib}|; '
-                f's|/data/local/tmp/mu300probe|{root}|g; s|sh /data/local/tmp/android-mount-mu300root.sh -u [^;]*;||")"; }}; '
+                f's|/data/local/tmp/openf50probe|{root}|g; s|sh /data/local/tmp/android-mount-openf50root.sh -u [^;]*;||")"; }}; '
                 f'existing={existing}; OFF=123; SIZE=456; SD_MODE={sd_mode}; SD_DEV=/dev/block/mmcblk1p1; OSES="{oses}"; '
                 '. "$TOP/tools/storage.sh"; echo "probe=[$(vpn_on_systems "$OSES" | tr "\\n" " ")]"')
         return self.sh(shell, code)
@@ -1184,9 +1184,9 @@ class VpnOnInTheReplacedSystem(ShellTest):
                 r = self.run_probe(shell, on=on, ks=ks)
                 self.assertIn(want, r.stdout, (on, ks, r.stderr))
                 su = (self.tmp / 'su').read_text()
-                self.assertIn('MU300_OFF=123 MU300_SIZE=456 MU300_RO=1 sh /data/local/tmp/android-mount-mu300root.sh', su)
+                self.assertIn('OPENF50_OFF=123 OPENF50_SIZE=456 OPENF50_RO=1 sh /data/local/tmp/android-mount-openf50root.sh', su)
                 self.assertIn('. /data/local/tmp/vpn-orphan.sh', su)
-                self.assertIn('android-mount-mu300root.sh -u /data/local/tmp/mu300probe', su)
+                self.assertIn('android-mount-openf50root.sh -u /data/local/tmp/openf50probe', su)
                 self.assertNotIn("'", su)                       # su_do wraps the command in single quotes
             self.assertIn('vpn-orphan.sh', (self.tmp / 'calls').read_text())     # pushed along
             # only the systems being installed count
@@ -1195,7 +1195,7 @@ class VpnOnInTheReplacedSystem(ShellTest):
     def test_the_card_and_no_installation(self):
         for shell in self.each_shell():
             self.run_probe(shell, sd_mode=1)
-            self.assertIn('MU300_SD_DEV=/dev/block/mmcblk1p1 MU300_RO=1', (self.tmp / 'su').read_text())
+            self.assertIn('OPENF50_SD_DEV=/dev/block/mmcblk1p1 OPENF50_RO=1', (self.tmp / 'su').read_text())
             (self.tmp / 'su').unlink()
             self.assertIn('probe=[]', self.run_probe(shell, existing='no').stdout)
             self.assertFalse((self.tmp / 'su').exists())          # nothing to look at: nothing mounted
@@ -1204,7 +1204,7 @@ class VpnOnInTheReplacedSystem(ShellTest):
         src = (TOP / 'install.sh').read_text()
         block = src[src.index('vx_default=no\n'):src.index('\nKERNEL=5.4\n')]
         block = block[:block.index('\nEXTRA_VPN=')]
-        code = (f'TOP="{TOP}"; . "$TOP/tools/i18n.sh"; MU300_LANG=en; OSES="ubuntu openwrt"; '
+        code = (f'TOP="{TOP}"; . "$TOP/tools/i18n.sh"; OPENF50_LANG=en; OSES="ubuntu openwrt"; '
                 'die() { echo "DIE $*"; exit 1; }; '
                 f'vpn_on_systems() {{ printf "%s" "{probe}" | tr " " "\\n"; }}; '
                 'ask() { printf "ASKED[%s] " "$3"; read -r _a; [ -n "$_a" ] || _a=$3; eval "$1=\\$_a"; }\n'

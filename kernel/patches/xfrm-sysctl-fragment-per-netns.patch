@@ -39,7 +39,7 @@ the unpatched 5.4 kernel panics within a few iterations.
  #ifdef CONFIG_XFRM_FRAGMENT
 -static struct ctl_table sprd_net_sys_table[] = {
 +	/*
-+	 * MU300: the vendor registered this entry with a second header kept in a
++	 * OPENF50: the vendor registered this entry with a second header kept in a
 +	 * static pointer, which every namespace's init overwrote and every
 +	 * namespace's exit unregistered and freed (#103). An entry of the
 +	 * per-namespace table is registered and torn down with that namespace's

@@ -82,7 +82,7 @@ out:
 	}
 
 	/*
-	 * MU300 (#140): cfg80211 polls dump_survey until it returns -ENOENT, so every line below is per-poll trace of
+	 * OPENF50 (#140): cfg80211 polls dump_survey until it returns -ENOENT, so every line below is per-poll trace of
 	 * the survey data (or of an empty list), not an error. The vendor printed them all with netdev_err, which
 	 * put two lines in the log every few seconds while anything read the survey; netdev_dbg like the 5.4 build.
 	 */

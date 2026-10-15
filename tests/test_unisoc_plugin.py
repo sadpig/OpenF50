@@ -1,8 +1,8 @@
-"""Portable adapter boundary of luci-app-mu300 (K81).
+"""Portable adapter boundary of luci-app-openf50 (K81).
 
 Ported from kanoqwq/clean-tf-7.2 (tests/test_unisoc_plugin.py) onto our tree. Ours differs on purpose: the adapters
 read their uci options through the shared allow-lists of lib.sh (S1), so a saved-lock directory must be under
-/etc/unisoc-modem or /etc/mu300 and a custom AT program must sit in the platform directory. The tests that need a
+/etc/unisoc-modem or /etc/openf50 and a custom AT program must sit in the platform directory. The tests that need a
 state directory therefore run a copy of the plugin's libexec/share tree whose /etc/unisoc-modem is the scratch
 directory; the allow-list itself is tested on the unmodified lib.sh."""
 import json
@@ -12,7 +12,7 @@ import threading
 from helpers import ShellTest, TOP
 
 
-APP = TOP / 'openwrt' / 'luci-app-mu300' / 'root'
+APP = TOP / 'openwrt' / 'luci-app-openf50' / 'root'
 AT = APP / 'usr' / 'libexec' / 'unisoc-modem' / 'at'
 REPLAY = APP / 'usr' / 'libexec' / 'unisoc-modem' / 'boot-replay'
 LOCK = APP / 'usr' / 'libexec' / 'unisoc-modem' / 'lock'
@@ -56,7 +56,7 @@ unisoc_modem.main.at_command) echo "{program}" ;;
         custom = self.custom_program('platform-at', 'printf "%s\\n" "$*" > "$STUBLOG/adapter.args"\nprintf "AT\\nOK\\n"\n')
         self.custom_uci(custom)
         for shell in self.each_shell():
-            result = self.script(shell, at, '-t', '3', 'AT+CFUN?', MU300_PLATFORM_DIR=custom.parent)
+            result = self.script(shell, at, '-t', '3', 'AT+CFUN?', OPENF50_PLATFORM_DIR=custom.parent)
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertIn('OK', result.stdout)
             self.assertEqual((self.tmp / 'adapter.args').read_text().strip(), '3 AT+CFUN?')
@@ -68,7 +68,7 @@ unisoc_modem.main.at_command) echo "{program}" ;;
         elsewhere.chmod(0o755)
         self.custom_uci(elsewhere)
         for shell in self.each_shell():
-            result = self.script(shell, AT, 'AT', MU300_PLATFORM_DIR=self.tmp / 'platform')
+            result = self.script(shell, AT, 'AT', OPENF50_PLATFORM_DIR=self.tmp / 'platform')
             self.assertNotEqual(result.returncode, 0)
             self.assertFalse((self.tmp / 'was-called').exists())
 
@@ -77,7 +77,7 @@ unisoc_modem.main.at_command) echo "{program}" ;;
         custom = self.custom_program('platform-at', 'touch "$STUBLOG/was-called"\n')
         self.custom_uci(custom)
         for shell in self.each_shell():
-            result = self.script(shell, at, '--available', MU300_PLATFORM_DIR=custom.parent)
+            result = self.script(shell, at, '--available', OPENF50_PLATFORM_DIR=custom.parent)
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertFalse((self.tmp / 'was-called').exists())
 
@@ -182,7 +182,7 @@ esac
         for shell in self.each_shell():
             (self.tmp / 'at.commands').unlink(missing_ok=True)
             marker.unlink(missing_ok=True)
-            result = self.script(shell, lock, 'replay', 'early', MU300_AT=at,
+            result = self.script(shell, lock, 'replay', 'early', OPENF50_AT=at,
                                  UNISOC_APPLY_DIR=apply_dir, UNISOC_REPLAY_MARKER=marker)
             self.assertEqual(result.returncode, 0, result.stderr)
             commands = (self.tmp / 'at.commands').read_text()
@@ -202,12 +202,12 @@ esac
         sent and the replay still finishes (the saved settings were sent; they apply at the radio's next restart)."""
         _, _, lock, state = self.tree()
         at = self.tmp / 'at'
-        at.write_text('#!/bin/sh\necho "$* locked=${MU300_RADIO_LOCKED:-}" >> "$STUBLOG/at.commands"\n'
+        at.write_text('#!/bin/sh\necho "$* locked=${OPENF50_RADIO_LOCKED:-}" >> "$STUBLOG/at.commands"\n'
                       'case "$*" in *"AT+SPTESTMODE?"*) echo "+SPTESTMODE: 134,134,0" ;; *"AT+CFUN?"*) echo "+CFUN: 1" ;; esac\n'
                       'echo OK\n')
         at.chmod(0o755)
         md = self.tmp / 'mobile-data'
-        md.write_text('#!/bin/sh\necho "$* wait=${MU300_RADIO_LOCK_WAIT:-}" >> "$STUBLOG/md"\n'
+        md.write_text('#!/bin/sh\necho "$* wait=${OPENF50_RADIO_LOCK_WAIT:-}" >> "$STUBLOG/md"\n'
                       '[ "$1" = radio-locked ] || exit 0\n'
                       '[ -n "${MD_BUSY:-}" ] && exit 75\nshift; exec "$@"\n')
         md.chmod(0o755)
@@ -223,7 +223,7 @@ esac
                     for f in ('at.commands', 'md'):
                         (self.tmp / f).unlink(missing_ok=True)
                     marker.unlink(missing_ok=True)
-                    r = self.script(shell, lock, 'replay', MU300_AT=at, MU300_MOBILE_DATA=md, MD_BUSY=busy,
+                    r = self.script(shell, lock, 'replay', OPENF50_AT=at, OPENF50_MOBILE_DATA=md, MD_BUSY=busy,
                                     UNISOC_APPLY_DIR=self.tmp / 'apply', UNISOC_REPLAY_MARKER=marker)
                     self.assertEqual(r.returncode, 0, r.stderr)
                     self.assertTrue(marker.exists())
@@ -308,8 +308,8 @@ printf 'OK\n'
         run.mkdir(mode=0o700)
         (run / 'lock.json').write_text('{"ts":1,"mode":{"label":"4g"},"cell":"lte:1650,211",'
                                        '"cells":["lte:1650,211"],"caps":{"nr":"1,5,6,8,28,41,78","lte":"1,3,5,8,34,38,39,40,41"}}\n')
-        r = self.script(shell, lock, *(args or ('reset',)), MU300_AT=at, MU300_MOBILE_DATA=self.tmp / 'mobile-data',
-                        MU300_DASH_DIR=run, UNISOC_APPLY_DIR=self.tmp / 'apply')
+        r = self.script(shell, lock, *(args or ('reset',)), OPENF50_AT=at, OPENF50_MOBILE_DATA=self.tmp / 'mobile-data',
+                        OPENF50_DASH_DIR=run, UNISOC_APPLY_DIR=self.tmp / 'apply')
         return r, self.sent()
 
     def sent(self):
@@ -358,7 +358,7 @@ printf 'OK\n'
             res = self.reset_result(run)
             self.assertEqual(res['state'], 'ok')
             self.assertEqual(json.loads(r.stdout)['state'], 'ok')
-            got = self.script(shell, lock, 'get', 'cached', MU300_DASH_DIR=run)
+            got = self.script(shell, lock, 'get', 'cached', OPENF50_DASH_DIR=run)
             self.assertEqual(json.loads(got.stdout)['reset']['state'], 'ok')
 
     def test_a_refused_write_keeps_the_saved_locks_and_restarts_nothing(self):
@@ -422,11 +422,11 @@ printf 'OK\n'
                              sorted(['reset_pending'] + [k for k, _ in self.SAVED]))
             (self.stubs / 'rm').unlink()
             # the page sees an interrupted reset, not one that is still running
-            got = json.loads(self.script(shell, lock, 'get', 'cached', MU300_DASH_DIR=run).stdout)
+            got = json.loads(self.script(shell, lock, 'get', 'cached', OPENF50_DASH_DIR=run).stdout)
             self.assertEqual((got['reset']['state'], got['reset']['error']), ('interrupted', 'The reset was interrupted'))
             # the next apply finishes the cleanup first, then saves its own setting
-            r = self.script(shell, lock, 'apply', 'endc', 'on', MU300_AT=at, MU300_MOBILE_DATA=self.tmp / 'mobile-data',
-                            MU300_DASH_DIR=run, UNISOC_APPLY_DIR=self.tmp / 'apply')
+            r = self.script(shell, lock, 'apply', 'endc', 'on', OPENF50_AT=at, OPENF50_MOBILE_DATA=self.tmp / 'mobile-data',
+                            OPENF50_DASH_DIR=run, UNISOC_APPLY_DIR=self.tmp / 'apply')
             self.assertEqual(r.returncode, 0, r.stderr)
             self.assertEqual(sorted(p.name for p in state.iterdir()), ['auto_apply', 'endc'])
             self.assertEqual((state / 'endc').read_text(), 'on')
@@ -437,7 +437,7 @@ printf 'OK\n'
             (self.tmp / 'at.commands').unlink(missing_ok=True)
             marker = self.tmp / 'replayed'
             marker.unlink(missing_ok=True)
-            r = self.script(shell, lock, 'replay', 'early', MU300_AT=at, MU300_DASH_DIR=run,
+            r = self.script(shell, lock, 'replay', 'early', OPENF50_AT=at, OPENF50_DASH_DIR=run,
                             UNISOC_APPLY_DIR=self.tmp / 'apply', UNISOC_REPLAY_MARKER=marker)
             self.assertEqual(r.returncode, 0, r.stderr)
             self.assertEqual(sorted(p.name for p in state.iterdir()), ['auto_apply'])
@@ -454,7 +454,7 @@ printf 'OK\n'
         self.stub('uci', 'exit 0')
         marker = self.tmp / 'replayed'
         for shell in self.each_shell():
-            result = self.script(shell, lock, 'replay', 'early', MU300_AT=at,
+            result = self.script(shell, lock, 'replay', 'early', OPENF50_AT=at,
                                  UNISOC_APPLY_DIR=self.tmp / 'apply', UNISOC_REPLAY_MARKER=marker)
             self.assertNotEqual(result.returncode, 0)
             self.assertFalse(marker.exists())

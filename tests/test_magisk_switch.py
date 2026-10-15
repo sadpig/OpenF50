@@ -1,4 +1,4 @@
-"""android/magisk/mu300-linux-switch/switch.sh: the block it arms goes to the slot Android is not on, made from the
+"""android/magisk/openf50-linux-switch/switch.sh: the block it arms goes to the slot Android is not on, made from the
 live one with the CRC the bootloader checks, and it refuses when that slot holds a copy of Android's boot image.
 Run with --dry-run against files standing in for the partitions; awk and md5sum come from busybox, as on the device."""
 import importlib.util
@@ -7,7 +7,7 @@ import shutil
 from helpers import TOP, ShellTest
 from test_boot_image import fake_misc
 
-SWITCH = TOP / 'android' / 'magisk' / 'mu300-linux-switch' / 'switch.sh'
+SWITCH = TOP / 'android' / 'magisk' / 'openf50-linux-switch' / 'switch.sh'
 
 
 class Switch(ShellTest):
@@ -40,8 +40,8 @@ class Switch(ShellTest):
         (self.parts / f'boot_{linux_on}').write_bytes(stock if same else other)
 
     def switch(self, shell, suffix, *args):
-        return self.script(shell, SWITCH, *args, MU300_BY_NAME=self.parts, MU300_BUSYBOX=self.busybox,
-                           MU300_SLOT_SUFFIX=suffix)
+        return self.script(shell, SWITCH, *args, OPENF50_BY_NAME=self.parts, OPENF50_BUSYBOX=self.busybox,
+                           OPENF50_SLOT_SUFFIX=suffix)
 
     def new_block(self, r):
         lines = [l for l in r.stdout.splitlines() if l.startswith('misc  new:')]

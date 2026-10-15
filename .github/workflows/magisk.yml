@@ -3,7 +3,7 @@ name: Magisk installers
 # The Magisk zips of a release (tools/make-magisk-zips.sh): built from the release's own published assets as soon as
 # it is published (a prerelease too, which is how a release is tried first), tested, and attached to it. For an
 # existing release: Actions > Magisk installers > Run workflow, with its tag. The zips are checked out from the tag,
-# so the installer always matches the init and mu300-update of the release it installs.
+# so the installer always matches the init and openf50-update of the release it installs.
 on:
   release:
     types: [published]
@@ -48,12 +48,12 @@ jobs:
         run: |
           mkdir -p "release/$TAG"
           gh release download "$TAG" -R "$GITHUB_REPOSITORY" -D "release/$TAG" \
-            -p SHA256SUMS -p 'mu300-*.tar.gz' -p mu300-update
+            -p SHA256SUMS -p 'openf50-*.tar.gz' -p openf50-update
           (cd "release/$TAG" && sha256sum -c SHA256SUMS)
       - name: Build
         run: sh tools/make-magisk-zips.sh "release/$TAG" out "$TAG"
       - name: Test the zips
-        run: cd tests && MU300_MAGISK_ZIPS="$GITHUB_WORKSPACE/out" python3 -m unittest test_magisk_zip -v
+        run: cd tests && OPENF50_MAGISK_ZIPS="$GITHUB_WORKSPACE/out" python3 -m unittest test_magisk_zip -v
       - name: Attach to the release
         run: gh release upload "$TAG" -R "$GITHUB_REPOSITORY" --clobber out/*.zip out/SHA256SUMS-magisk
       # the channel hears that the zips are there (tools/telegram-announce.sh; the release itself is announced by
@@ -100,7 +100,7 @@ jobs:
           cd /tmp/mirror
           git init -q -b "$TAG"
           git add -A
-          git -c user.name='mu300-linux release' -c user.email='noreply@github.com' commit -q -m "Mirror of $GITHUB_REPOSITORY $TAG"
+          git -c user.name='openf50-linux release' -c user.email='noreply@github.com' commit -q -m "Mirror of $GITHUB_REPOSITORY $TAG"
           git push -q --force "$remote" "HEAD:refs/heads/$TAG"
           echo "pushed: https://raw.githubusercontent.com/$MIRROR_REPO/$TAG/manifest.json"
           keep=$(gh api "repos/$GITHUB_REPOSITORY/releases?per_page=30" --jq '[.[] | select(.draft | not) | select(.tag_name | startswith("v"))] | [(map(select(.prerelease | not)) | .[0].tag_name), (map(select(.prerelease)) | .[0].tag_name)] | .[] | select(. != null)')

@@ -32,7 +32,7 @@ export function modPow(base, exp, mod) {
 
 // A key as it is stored: { n, d, e } as lowercase hex strings (no BigInt in IndexedDB's older structured clones, and
 // plain strings are easy to look at in DevTools), plus the name sent to the device.
-export async function generateKey(name = "mu300-web", cryptoImpl = globalThis.crypto) {
+export async function generateKey(name = "openf50-web", cryptoImpl = globalThis.crypto) {
   const pair = await cryptoImpl.subtle.generateKey(
     { name: "RSASSA-PKCS1-v1_5", modulusLength: KEY_BITS, publicExponent: new Uint8Array([1, 0, 1]), hash: "SHA-1" },
     true, ["sign", "verify"]);
@@ -40,16 +40,16 @@ export async function generateKey(name = "mu300-web", cryptoImpl = globalThis.cr
   return keyFromJwk(jwk, name);
 }
 
-export function keyFromJwk(jwk, name = "mu300-web") {
+export function keyFromJwk(jwk, name = "openf50-web") {
   const n = bytesToBigInt(base64urlToBytes(jwk.n));
   const d = bytesToBigInt(base64urlToBytes(jwk.d));
   const e = bytesToBigInt(base64urlToBytes(jwk.e));
   return { n: n.toString(16), d: d.toString(16), e: e.toString(16), name: cleanName(name), created: Date.now() };
 }
 
-// the name goes into a file on the device (adb_keys, mu300-install.env): the characters storage.sh's adb_pubkey keeps
+// the name goes into a file on the device (adb_keys, openf50-install.env): the characters storage.sh's adb_pubkey keeps
 export function cleanName(name) {
-  return (String(name).replace(/[^A-Za-z0-9@._:-]/g, "").slice(0, 64)) || "mu300-web";
+  return (String(name).replace(/[^A-Za-z0-9@._:-]/g, "").slice(0, 64)) || "openf50-web";
 }
 
 export function validKey(k) {
@@ -90,7 +90,7 @@ export function androidPublicKeyBytes(key) {
     bigIntToBytes(rr, KEY_BYTES, true), u32le(Number(e)));
 }
 
-// "BASE64 name": the line of adbkey.pub, and what /etc/mu300/adb_keys on our Linux holds
+// "BASE64 name": the line of adbkey.pub, and what /etc/openf50/adb_keys on our Linux holds
 export function publicKeyLine(key) {
   return base64(androidPublicKeyBytes(key)) + " " + cleanName(key.name);
 }

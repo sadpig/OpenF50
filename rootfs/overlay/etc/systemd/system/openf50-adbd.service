@@ -1,0 +1,19 @@
+[Unit]
+Description=OPENF50 adb over USB (adbd in the USB gadget; on by default, a root shell for every computer: openf50-usb adb auth keys, openf50-usb adb off)
+# early: adding adb rebinds the gadget, which the computer sees as a replug; before the LAN's DHCP server it costs nothing
+After=openf50-fixups.service
+Before=openf50-lan.service
+ConditionPathExists=/opt/openf50/bin/adbd
+
+[Service]
+ExecStart=/opt/openf50/bin/openf50-adbd run
+ExecStopPost=/opt/openf50/bin/openf50-adbd stop
+# the TERM goes to the loop only, which stops adbd and puts the gadget back together without it
+KillMode=mixed
+TimeoutStopSec=20
+# the loop restarts adbd itself and gives up (status 1) when it keeps exiting: no restart for that
+Restart=on-abnormal
+RestartSec=30
+
+[Install]
+WantedBy=multi-user.target

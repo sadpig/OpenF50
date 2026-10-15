@@ -1,4 +1,4 @@
-# The MU300 page of Cockpit (rootfs/panel), tr. tools/cockpit-i18n.py update / check / build.
+# The OPENF50 page of Cockpit (rootfs/panel), tr. tools/cockpit-i18n.py update / check / build.
 msgid ""
 msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
@@ -65,8 +65,8 @@ msgstr "RSRP"
 msgid "RSRQ"
 msgstr "RSRQ"
 
-msgid "No readings from the modem (mu300-at)."
-msgstr "Modemden okuma yok (mu300-at)."
+msgid "No readings from the modem (openf50-at)."
+msgstr "Modemden okuma yok (openf50-at)."
 
 msgid "State"
 msgstr "Durum"
@@ -104,8 +104,8 @@ msgstr "CPU profili"
 msgid "Hotspot"
 msgstr "Hotspot"
 
-msgid "Network, band and cell locks are part of the OpenWrt control panel (openwrt-luci); on Ubuntu, AT commands go through mu300-at in the Terminal."
-msgstr "Ağ, bant ve hücre kilitleri OpenWrt kontrol panelinin (openwrt-luci) parçasıdır; Ubuntu'da AT komutları Terminal'de mu300-at ile gönderilir."
+msgid "Network, band and cell locks are part of the OpenWrt control panel (openwrt-luci); on Ubuntu, AT commands go through openf50-at in the Terminal."
+msgstr "Ağ, bant ve hücre kilitleri OpenWrt kontrol panelinin (openwrt-luci) parçasıdır; Ubuntu'da AT komutları Terminal'de openf50-at ile gönderilir."
 
 msgid "Today"
 msgstr "Bugün"
@@ -212,8 +212,8 @@ msgstr "etkin"
 msgid "inactive"
 msgstr "etkin değil"
 
-msgid "The profile needs the engine extra $0: sudo mu300-extra install $0"
-msgstr "Profil $0 motor ekini gerektiriyor: sudo mu300-extra install $0"
+msgid "The profile needs the engine extra $0: sudo openf50-extra install $0"
+msgstr "Profil $0 motor ekini gerektiriyor: sudo openf50-extra install $0"
 
 msgid "Turn the VPN off"
 msgstr "VPN'i kapat"
@@ -221,14 +221,14 @@ msgstr "VPN'i kapat"
 msgid "Turn the VPN on"
 msgstr "VPN'i aç"
 
-msgid "No profiles: add one with mu300-vpn profile import (Terminal) or mu300-toolkit."
-msgstr "Profil yok: mu300-vpn profile import (Terminal) veya mu300-toolkit ile ekleyin."
+msgid "No profiles: add one with openf50-vpn profile import (Terminal) or openf50-toolkit."
+msgstr "Profil yok: openf50-vpn profile import (Terminal) veya openf50-toolkit ile ekleyin."
 
 msgid "Use"
 msgstr "Kullan"
 
-msgid "The VPN module is not installed: sudo mu300-extra install vpn"
-msgstr "VPN modülü kurulu değil: sudo mu300-extra install vpn"
+msgid "The VPN module is not installed: sudo openf50-extra install vpn"
+msgstr "VPN modülü kurulu değil: sudo openf50-extra install vpn"
 
 msgid "Power"
 msgstr "Güç"

@@ -20,10 +20,10 @@ from test_boot_image import LIVE_A, fake_misc, with_slots
 from test_magisk_installer import BUSYBOX, InstallerCase, sha
 
 WEB = TOP / 'tools/android-web.sh'
-SWITCH = TOP / 'android/magisk/mu300-linux-switch'
+SWITCH = TOP / 'android/magisk/openf50-linux-switch'
 STAGED = {'android-web.sh': WEB, 'storage.sh': TOP / 'tools/storage.sh',
           'android-boot-image.sh': TOP / 'tools/android-boot-image.sh',
-          'android-mount-mu300root.sh': TOP / 'tools/android-mount-mu300root.sh', 'switch.sh': SWITCH / 'switch.sh'}
+          'android-mount-openf50root.sh': TOP / 'tools/android-mount-openf50root.sh', 'switch.sh': SWITCH / 'switch.sh'}
 # the device's shell for storage.sh: device paths point into the fake device, and what comes back names the device's
 # own paths again (sd_probe's /dev/block/mmcblk1 is checked by its name before it is erased)
 DEVSH = r'''#!/bin/sh
@@ -46,7 +46,7 @@ class NoBusybox(ShellTest):
         for shell in self.each_shell():
             r = self.script(shell, WEB, 'status')
             self.assertEqual(r.returncode, 1)
-            self.assertEqual(r.stdout.strip(), 'MU300-WEB-ERROR no-busybox')
+            self.assertEqual(r.stdout.strip(), 'OPENF50-WEB-ERROR no-busybox')
 
     def test_the_site_stages_what_the_script_sources(self):
         # site/tools/stage.sh copies the device scripts next to the page; what android-web.sh reads from its own
@@ -60,7 +60,7 @@ class NoBusybox(ShellTest):
 
 @unittest.skipIf(not BUSYBOX, 'no busybox (the script runs under Magisk\'s busybox)')
 class WebCase(InstallerCase):
-    """a FakeDevice, the staged scripts as the page pushes them, and a whole zip (mu300/, the switch module, the
+    """a FakeDevice, the staged scripts as the page pushes them, and a whole zip (openf50/, the switch module, the
     payload)"""
 
     def setUp(self):
@@ -84,7 +84,7 @@ class WebCase(InstallerCase):
         (r / 'drop').write_text('')
         self.stage_dir()
 
-    def small_emmc(self, disk_mib=192, parts_mib=32, fs_mib=100, label='mu300root'):
+    def small_emmc(self, disk_mib=192, parts_mib=32, fs_mib=100, label='openf50root'):
         """a small eMMC whose bytes are all there: partitions up to PARTS_MIB, then a Linux filesystem of FS_MIB
         (its superblock only). Returns (offset, size) of the filesystem in bytes."""
         r = self.fake.root
@@ -113,11 +113,11 @@ class WebCase(InstallerCase):
 
     def web_env(self, **extra):
         r = self.fake.root
-        env = self.fake.env(self.mu300, self.magiskboot)
-        env.update({'MU300_WEB_BB': BUSYBOX, 'MU300_INSTALL_BB': BUSYBOX, 'MU300_WEB_ROOT': r / 'data/adb/mu300-web',
-                    'MU300_SYSFS': r / 'sys', 'MU300_EMMC': r / 'dev/block/mmcblk0', 'MU300_MODULES': r / 'data/adb/modules',
-                    'MU300_LOCAL_TMP': r / 'tmp', 'MU300_DROP_CACHES': r / 'drop', 'MU300_WEB_POLL': '0.1'})
-        env.pop('MU300_DIR', None)
+        env = self.fake.env(self.openf50, self.magiskboot)
+        env.update({'OPENF50_WEB_BB': BUSYBOX, 'OPENF50_INSTALL_BB': BUSYBOX, 'OPENF50_WEB_ROOT': r / 'data/adb/openf50-web',
+                    'OPENF50_SYSFS': r / 'sys', 'OPENF50_EMMC': r / 'dev/block/mmcblk0', 'OPENF50_MODULES': r / 'data/adb/modules',
+                    'OPENF50_LOCAL_TMP': r / 'tmp', 'OPENF50_DROP_CACHES': r / 'drop', 'OPENF50_WEB_POLL': '0.1'})
+        env.pop('OPENF50_DIR', None)
         env.update(extra)
         return self.env(**env)
 
@@ -128,22 +128,22 @@ class WebCase(InstallerCase):
     def status(self, *args, **extra):
         r = self.web('status', *args, **extra)
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
-        lines = [l for l in r.stdout.splitlines() if l.startswith('MU300-WEB-STATUS ')]
+        lines = [l for l in r.stdout.splitlines() if l.startswith('OPENF50-WEB-STATUS ')]
         self.assertEqual(len(lines), 1, r.stdout + r.stderr)
-        return json.loads(lines[0][len('MU300-WEB-STATUS '):])
+        return json.loads(lines[0][len('OPENF50-WEB-STATUS '):])
 
-    def full_zip(self, name='mu300-magisk-v2026.10.06-openwrt-k6.18.zip', old=False):
-        """the zip as a release has it: mu300/, the switch module's files and the payload; pushed to in/NAME"""
+    def full_zip(self, name='openf50-magisk-v2026.10.06-openwrt-k6.18.zip', old=False):
+        """the zip as a release has it: openf50/, the switch module's files and the payload; pushed to in/NAME"""
         out = self.stage / 'in' / name
         out.parent.mkdir(exist_ok=True)
         with zipfile.ZipFile(self.zipfile) as payload, zipfile.ZipFile(out, 'w', zipfile.ZIP_DEFLATED) as z:
-            for f in sorted(self.mu300.rglob('*')):
+            for f in sorted(self.openf50.rglob('*')):
                 if f.is_file():
                     data = f.read_bytes()
                     if old and f.name == 'install.sh':
-                        data = data.replace(b'MU300_ANSWERS', b'MU300_NOTHING')
-                    z.writestr(zipfile.ZipInfo('mu300/' + str(f.relative_to(self.mu300))), data)
-            for f in ('module.prop', 'action.sh', 'switch.sh', 'bootchain.sh', 'system/bin/mu300-linux'):
+                        data = data.replace(b'OPENF50_ANSWERS', b'OPENF50_NOTHING')
+                    z.writestr(zipfile.ZipInfo('openf50/' + str(f.relative_to(self.openf50))), data)
+            for f in ('module.prop', 'action.sh', 'switch.sh', 'bootchain.sh', 'system/bin/openf50-linux'):
                 z.writestr(f, (SWITCH / f).read_bytes())
             for n in payload.namelist():
                 z.writestr(n, payload.read(n), compress_type=zipfile.ZIP_STORED)
@@ -164,7 +164,7 @@ class WebCase(InstallerCase):
     def follow(self, **kw):
         r = self.web('follow', **kw)
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
-        last = [l for l in r.stdout.splitlines() if l.startswith('MU300-WEB-EXIT ')]
+        last = [l for l in r.stdout.splitlines() if l.startswith('OPENF50-WEB-EXIT ')]
         self.assertEqual(len(last), 1, r.stdout)
         return last[0].split()[1], r.stdout
 
@@ -173,7 +173,7 @@ class WebCase(InstallerCase):
         return {n: sha(by / n) for n in ('boot_a', 'boot_b', 'misc')}
 
     def root(self):
-        return self.fake.root / 'data/adb/mu300-web'
+        return self.fake.root / 'data/adb/openf50-web'
 
 
 class Status(WebCase):
@@ -207,9 +207,9 @@ class Status(WebCase):
         self.assertGreaterEqual(s['region']['dirty'], 1)
 
     def test_names_that_need_escaping_stay_json(self):
-        self.device(model='ZTE MU300 "quoted" \\ back\tslash')
+        self.device(model='ZTE OPENF50 "quoted" \\ back\tslash')
         s = self.status()
-        self.assertEqual(s['model'], 'ZTE MU300 "quoted" \\ backslash')
+        self.assertEqual(s['model'], 'ZTE OPENF50 "quoted" \\ backslash')
         self.assertEqual(s['device'], 'f50')
 
     def test_v50_exactly(self):
@@ -226,19 +226,19 @@ class Status(WebCase):
         self.device(model='Pixel 9')
         s = self.status()
         self.assertEqual(s['device'], '')
-        (self.fake.root / 'props').write_text('ro.product.model=ZTE MU300\nro.product.device=mu300\n')
+        (self.fake.root / 'props').write_text('ro.product.model=ZTE OPENF50\nro.product.device=openf50\n')
         s = self.status()
         self.assertEqual((s['android_slot'], s['slots_ok'], s['linux_boot']), ('', 0, 'unknown'))
 
     def test_an_installation_is_looked_into_read_only(self):
         self.existing_filesystem(systems=('ubuntu', 'openwrt-luci'), ubuntu='24.04')
         fs = self.fake.root / 'fs'
-        (fs / 'ubuntu/etc/mu300').mkdir(parents=True)
-        (fs / 'ubuntu/etc/mu300/image-version').write_text('v2026.10.20\n')
-        (fs / 'ubuntu/etc/mu300/default-boot').write_text('linux\n')
-        (fs / '.mu300').mkdir()
-        (fs / '.mu300/boot-os').write_text('ubuntu\n')
-        (fs / '.mu300/boot-attempts').write_text('3\n')
+        (fs / 'ubuntu/etc/openf50').mkdir(parents=True)
+        (fs / 'ubuntu/etc/openf50/image-version').write_text('v2026.10.20\n')
+        (fs / 'ubuntu/etc/openf50/default-boot').write_text('linux\n')
+        (fs / '.openf50').mkdir()
+        (fs / '.openf50/boot-os').write_text('ubuntu\n')
+        (fs / '.openf50/boot-attempts').write_text('3\n')
         (fs / 'boot').mkdir()
         (fs / 'boot/kernel').write_text('6.18\n')
         s = self.status()
@@ -249,8 +249,8 @@ class Status(WebCase):
         self.assertEqual(s['linux'], {'where': 'internal', 'mounted': 1, 'systems': {'ubuntu': 'v2026.10.20', 'openwrt-luci': ''},
                                       'boot_os': 'ubuntu', 'kernel': '6.18', 'ubuntu': '24.04', 'default_linux': 1, 'attempts': 3})
         log = (self.fake.root / 'android-sh.log').read_text()
-        self.assertIn('MU300_RO=1', log)
-        self.assertNotIn('MU300_RO= ', log.split('android-mount-mu300root.sh')[1].split('\n')[0])
+        self.assertIn('OPENF50_RO=1', log)
+        self.assertNotIn('OPENF50_RO= ', log.split('android-mount-openf50root.sh')[1].split('\n')[0])
         self.assertEqual((self.fake.root / 'mounts').read_text(), '')
         self.assertEqual((fs / 'home/precious').read_text(), 'a user file')
         self.assertFalse((self.root() / 'mnt').exists())
@@ -268,8 +268,8 @@ class Status(WebCase):
         self.assertEqual(self.status()['linux_boot'], 'none')
 
     def test_a_card_and_a_stalled_run(self):
-        self.device(card=tmi.fake_ext4_bytes('mu300sd'))
-        (self.fake.root / 'data/adb/mu300-install.stalled').write_text('11111111-2222-3333-4444-555555555555\nstage unpack\n')
+        self.device(card=tmi.fake_ext4_bytes('openf50sd'))
+        (self.fake.root / 'data/adb/openf50-install.stalled').write_text('11111111-2222-3333-4444-555555555555\nstage unpack\n')
         s = self.status()
         self.assertEqual(s['sd'], {'dev': '/dev/block/mmcblk1', 'bytes': 32 << 30, 'small': 0, 'existing': 'yes'})
         self.assertEqual(s['stalled'], 1)
@@ -277,11 +277,11 @@ class Status(WebCase):
         self.assertEqual(self.status()['stalled'], 0)
 
     def test_not_root(self):
-        r = self.web('status', MU300_SKIP_ROOT_CHECK='')
+        r = self.web('status', OPENF50_SKIP_ROOT_CHECK='')
         if os.getuid() != 0:
-            self.assertEqual(r.stdout.strip(), 'MU300-WEB-ERROR not-root')
+            self.assertEqual(r.stdout.strip(), 'OPENF50-WEB-ERROR not-root')
         r = self.web('nonsense')
-        self.assertEqual(r.stdout.strip(), 'MU300-WEB-ERROR bad-command')
+        self.assertEqual(r.stdout.strip(), 'OPENF50-WEB-ERROR bad-command')
 
 
 class Take(WebCase):
@@ -289,7 +289,7 @@ class Take(WebCase):
         name, digest = self.full_zip()
         r = self.web('take', name, digest)
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
-        z = json.loads(r.stdout.split('MU300-WEB-ZIP ', 1)[1])
+        z = json.loads(r.stdout.split('OPENF50-WEB-ZIP ', 1)[1])
         self.assertEqual(z, {'name': name, 'web': 1, 'tag': 'v2026.10.06', 'system': 'openwrt', 'os': 'openwrt',
                              'ubuntu': '', 'kernel': '6.18'})
         self.assertFalse((self.stage / 'in' / name).exists())
@@ -298,97 +298,97 @@ class Take(WebCase):
         self.assertEqual(kept.stat().st_mode & 0o777, 0o600)
         self.assertEqual(self.root().stat().st_mode & 0o777, 0o700)
         x = self.root() / 'x' / name[:-4]
-        self.assertTrue((x / 'mu300/install.sh').is_file())
+        self.assertTrue((x / 'openf50/install.sh').is_file())
         self.assertTrue((x / 'switch.sh').is_file())
-        self.assertTrue((x / 'system/bin/mu300-linux').is_file())
+        self.assertTrue((x / 'system/bin/openf50-linux').is_file())
         self.assertFalse((x / 'payload').exists())
 
     def test_a_zip_from_before_the_web_installer(self):
         name, digest = self.full_zip(old=True)
         r = self.web('take', name, digest)
-        self.assertEqual(json.loads(r.stdout.split('MU300-WEB-ZIP ', 1)[1])['web'], 0)
+        self.assertEqual(json.loads(r.stdout.split('OPENF50-WEB-ZIP ', 1)[1])['web'], 0)
 
     def test_refusals_leave_nothing_behind(self):
         name, digest = self.full_zip()
         wrong = '0' * 64
         r = self.web('take', name, wrong)
         self.assertEqual(r.returncode, 1)
-        self.assertEqual(r.stdout.strip(), f'MU300-WEB-ERROR sha-mismatch {digest}')
+        self.assertEqual(r.stdout.strip(), f'OPENF50-WEB-ERROR sha-mismatch {digest}')
         self.assertFalse((self.root() / 'zips' / name).exists())
         self.assertFalse((self.stage / 'in' / name).exists())
-        for bad_name in ('../evil.zip', 'mu300-magisk-x/../y.zip', 'other.zip', 'mu300-magisk-a b.zip', 'mu300-magisk-$(id).zip', ''):
-            self.assertIn('MU300-WEB-ERROR bad-name', self.web('take', bad_name, digest).stdout, bad_name)
+        for bad_name in ('../evil.zip', 'openf50-magisk-x/../y.zip', 'other.zip', 'openf50-magisk-a b.zip', 'openf50-magisk-$(id).zip', ''):
+            self.assertIn('OPENF50-WEB-ERROR bad-name', self.web('take', bad_name, digest).stdout, bad_name)
         for bad_sha in ('', 'abc', 'Z' * 64, digest.upper(), digest + '0'):
-            self.assertIn('MU300-WEB-ERROR bad-sha', self.web('take', name, bad_sha).stdout, bad_sha)
-        self.assertIn('MU300-WEB-ERROR no-file', self.web('take', name, digest).stdout)
+            self.assertIn('OPENF50-WEB-ERROR bad-sha', self.web('take', name, bad_sha).stdout, bad_sha)
+        self.assertIn('OPENF50-WEB-ERROR no-file', self.web('take', name, digest).stdout)
         # a link in the adb user's directory is not followed
         target = self.tmp / 'elsewhere.zip'
         target.write_bytes(b'x')
         (self.stage / 'in' / name).symlink_to(target)
-        self.assertIn('MU300-WEB-ERROR no-file', self.web('take', name, sha(target)).stdout)
+        self.assertIn('OPENF50-WEB-ERROR no-file', self.web('take', name, sha(target)).stdout)
         self.assertTrue(target.exists())
         # not a zip of this project
         (self.stage / 'in' / name).unlink(missing_ok=True)      # (the link went with the move, as a link)
         with zipfile.ZipFile(self.stage / 'in' / name, 'w') as z:
             z.writestr('hello.txt', 'hi')
         r = self.web('take', name, sha(self.stage / 'in' / name))
-        self.assertIn('MU300-WEB-ERROR not-a-zip', r.stdout)
+        self.assertIn('OPENF50-WEB-ERROR not-a-zip', r.stdout)
         self.assertFalse((self.root() / 'x' / name[:-4]).exists())
 
     def test_extras(self):
-        f = self.stage / 'in/mu300-linux-vpn.tar.gz'
+        f = self.stage / 'in/openf50-linux-vpn.tar.gz'
         f.write_bytes(tmi.tar_gz({'VERSION': b'2.0.1\n'}))
         digest = sha(f)
-        self.assertIn('MU300-WEB-ERROR bad-name', self.web('extra', 'lang', f.name, digest).stdout)
-        self.assertIn('MU300-WEB-ERROR bad-name', self.web('extra', 'vpn', '../x', digest).stdout)
-        self.assertIn('MU300-WEB-ERROR sha-mismatch', self.web('extra', 'vpn', f.name, 'f' * 64).stdout)
-        self.assertFalse((self.root() / 'extras/mu300-extra-vpn.tar.gz').exists())
+        self.assertIn('OPENF50-WEB-ERROR bad-name', self.web('extra', 'lang', f.name, digest).stdout)
+        self.assertIn('OPENF50-WEB-ERROR bad-name', self.web('extra', 'vpn', '../x', digest).stdout)
+        self.assertIn('OPENF50-WEB-ERROR sha-mismatch', self.web('extra', 'vpn', f.name, 'f' * 64).stdout)
+        self.assertFalse((self.root() / 'extras/openf50-extra-vpn.tar.gz').exists())
         f.write_bytes(tmi.tar_gz({'VERSION': b'2.0.1\n'}))
         r = self.web('extra', 'vpn', f.name, sha(f))
-        self.assertEqual(r.stdout.strip(), 'MU300-WEB-EXTRA vpn')
-        self.assertEqual((self.root() / 'extras/mu300-extra-vpn.tar.gz').stat().st_mode & 0o777, 0o600)
+        self.assertEqual(r.stdout.strip(), 'OPENF50-WEB-EXTRA vpn')
+        self.assertEqual((self.root() / 'extras/openf50-extra-vpn.tar.gz').stat().st_mode & 0o777, 0o600)
 
 
 class Answers(WebCase):
     def test_answers_become_roots_file_and_the_password_comes_on_stdin(self):
-        (self.stage / 'in/answers.conf').write_text('MU300_BOOT=android\n MU300_PASSWORD = in-a-readable-file\nMU300_LANG=tr\n')
+        (self.stage / 'in/answers.conf').write_text('OPENF50_BOOT=android\n OPENF50_PASSWORD = in-a-readable-file\nOPENF50_LANG=tr\n')
         r = self.web('answers')
-        self.assertEqual(r.stdout.strip(), 'MU300-WEB-ANSWERS ok')
+        self.assertEqual(r.stdout.strip(), 'OPENF50-WEB-ANSWERS ok')
         a = self.root() / 'answers.conf'
-        self.assertEqual(a.read_text(), 'MU300_BOOT=android\nMU300_LANG=tr\n')
+        self.assertEqual(a.read_text(), 'OPENF50_BOOT=android\nOPENF50_LANG=tr\n')
         self.assertEqual(a.stat().st_mode & 0o777, 0o600)
         self.assertFalse((self.stage / 'in/answers.conf').exists())
-        self.assertIn('MU300-WEB-ERROR short-password', self.web('password', stdin='12345\n').stdout)
-        self.assertIn('MU300-WEB-ERROR no-stdin', self.web('password', stdin='').stdout)
+        self.assertIn('OPENF50-WEB-ERROR short-password', self.web('password', stdin='12345\n').stdout)
+        self.assertIn('OPENF50-WEB-ERROR no-stdin', self.web('password', stdin='').stdout)
         r = self.web('password', stdin="pa ss'w\"or$d\\x\r\n")
-        self.assertEqual(r.stdout.strip(), 'MU300-WEB-PASSWORD ok')
-        self.assertEqual(a.read_text(), 'MU300_BOOT=android\nMU300_LANG=tr\nMU300_PASSWORD=pa ss\'w"or$d\\x\n')
+        self.assertEqual(r.stdout.strip(), 'OPENF50-WEB-PASSWORD ok')
+        self.assertEqual(a.read_text(), 'OPENF50_BOOT=android\nOPENF50_LANG=tr\nOPENF50_PASSWORD=pa ss\'w"or$d\\x\n')
         self.assertEqual(a.stat().st_mode & 0o777, 0o600)
         self.assertNotIn('or$d', r.stdout + r.stderr)
 
     def test_no_answers(self):
-        self.assertIn('MU300-WEB-ERROR no-file', self.web('answers').stdout)
-        self.assertIn('MU300-WEB-ERROR no-answers', self.web('password', stdin='long enough\n').stdout)
+        self.assertIn('OPENF50-WEB-ERROR no-file', self.web('answers').stdout)
+        self.assertIn('OPENF50-WEB-ERROR no-answers', self.web('password', stdin='long enough\n').stdout)
         name = self.taken()
-        self.assertIn('MU300-WEB-ERROR no-answers', self.web('run', 'plan', name).stdout)
-        self.assertIn('MU300-WEB-ERROR no-zip', self.web('run', 'plan', 'mu300-magisk-other.zip').stdout)
-        self.assertIn('MU300-WEB-ERROR bad-argument', self.web('run', 'format-everything').stdout)
-        self.assertIn('MU300-WEB-ERROR no-job', self.web('follow').stdout)
-        self.assertIn('MU300-WEB-ERROR no-job', self.web('cancel').stdout)
+        self.assertIn('OPENF50-WEB-ERROR no-answers', self.web('run', 'plan', name).stdout)
+        self.assertIn('OPENF50-WEB-ERROR no-zip', self.web('run', 'plan', 'openf50-magisk-other.zip').stdout)
+        self.assertIn('OPENF50-WEB-ERROR bad-argument', self.web('run', 'format-everything').stdout)
+        self.assertIn('OPENF50-WEB-ERROR no-job', self.web('follow').stdout)
+        self.assertIn('OPENF50-WEB-ERROR no-job', self.web('cancel').stdout)
 
 
 class Jobs(WebCase):
     def test_a_plan_writes_nothing_and_is_read_as_lines(self):
         name = self.taken()
-        self.answers('MU300_BOOT_ATTEMPTS=3\n')
+        self.answers('OPENF50_BOOT_ATTEMPTS=3\n')
         before = self.parts()
         r = self.web('run', 'plan', name)
-        self.assertEqual(r.stdout.strip(), 'MU300-WEB-JOB started plan')
+        self.assertEqual(r.stdout.strip(), 'OPENF50-WEB-JOB started plan')
         rc, out = self.follow()
         self.assertEqual(rc, '3', out)
-        self.assertIn('MU300-STEP 3/9 plan', out)
-        self.assertIn('MU300-PLAN boot_attempts=3', out)
-        self.assertIn('MU300-PLAN dry_run=1', out)
+        self.assertIn('OPENF50-STEP 3/9 plan', out)
+        self.assertIn('OPENF50-PLAN boot_attempts=3', out)
+        self.assertIn('OPENF50-PLAN dry_run=1', out)
         self.assertEqual(self.parts(), before)
         s = self.status()
         self.assertEqual(s['job'], {'state': 'done', 'kind': 'plan', 'arg': name, 'rc': 3, 'step': 3, 'more': 0})
@@ -403,8 +403,8 @@ class Jobs(WebCase):
         # tells the next one that the installation it finds finished is not all that was asked for
         name = self.taken()
         self.answers()
-        self.assertIn('MU300-WEB-ERROR bad-argument', self.web('run', 'plan', name, 'more;id').stdout)
-        self.assertEqual(self.web('run', 'plan', name, 'more').stdout.strip(), 'MU300-WEB-JOB started plan')
+        self.assertIn('OPENF50-WEB-ERROR bad-argument', self.web('run', 'plan', name, 'more;id').stdout)
+        self.assertEqual(self.web('run', 'plan', name, 'more').stdout.strip(), 'OPENF50-WEB-JOB started plan')
         self.follow()
         self.assertEqual(self.status()['job']['more'], 1)
         self.answers()
@@ -414,32 +414,32 @@ class Jobs(WebCase):
 
     def test_an_installation_with_an_extra_and_the_switch_module(self):
         name = self.taken()
-        f = self.stage / 'in/mu300-linux-vpn.tar.gz'
+        f = self.stage / 'in/openf50-linux-vpn.tar.gz'
         f.write_bytes(tmi.tar_gz({'VERSION': b'2.0.1\n'}))
         self.web('extra', 'vpn', f.name, sha(f))
-        self.answers('MU300_LANG=en\n')
-        self.assertEqual(self.web('password', stdin='correct horse\n').stdout.strip(), 'MU300-WEB-PASSWORD ok')
-        self.fake_install_hook('ls "$MU300_DEVICE_WORK" > "$FAKE/work-ls"')
+        self.answers('OPENF50_LANG=en\n')
+        self.assertEqual(self.web('password', stdin='correct horse\n').stdout.strip(), 'OPENF50-WEB-PASSWORD ok')
+        self.fake_install_hook('ls "$OPENF50_DEVICE_WORK" > "$FAKE/work-ls"')
         self.web('run', 'install', name)
         rc, out = self.follow()
         self.assertEqual(rc, '0', out)
-        self.assertIn('MU300-STEP 9/9 done', out)
-        self.assertIn('MU300-PLAN extras=vpn', out)
-        self.assertIn('MU300-PLAN password=given', out)
+        self.assertIn('OPENF50-STEP 9/9 done', out)
+        self.assertIn('OPENF50-PLAN extras=vpn', out)
+        self.assertIn('OPENF50-PLAN password=given', out)
         self.assertNotIn('correct horse', out)
-        self.assertIn('mu300-extra-vpn.tar.gz', (self.fake.root / 'work-ls').read_text())
+        self.assertIn('openf50-extra-vpn.tar.gz', (self.fake.root / 'work-ls').read_text())
         by = self.fake.root / 'dev/block/by-name'
         self.assertEqual((by / 'boot_b').read_bytes()[44:55], b'loglevel=5\0')
         self.assertEqual((by / 'misc').read_bytes()[0x800:0x820], with_slots(LIVE_A, b'_b\0\0', 0x9e, 0x2f))
-        mod = self.fake.root / 'data/adb/modules/mu300_linux_switch'
+        mod = self.fake.root / 'data/adb/modules/openf50_linux_switch'
         for f, mode in (('module.prop', 0o644), ('switch.sh', 0o755), ('action.sh', 0o755), ('bootchain.sh', 0o755),
-                        ('system/bin/mu300-linux', 0o755)):
+                        ('system/bin/openf50-linux', 0o755)):
             self.assertEqual((mod / f).stat().st_mode & 0o777, mode, f)
         s = self.status()
         self.assertEqual((s['linux_boot'], s['module'], s['job']['rc'], s['job']['step']), ('linux', 1, 0, 9))
         self.assertFalse((self.root() / 'answers.conf').exists())
         self.assertFalse((self.root() / 'extras').exists())
-        self.assertFalse((self.root() / 'x' / name[:-4] / 'mu300/extras').exists())
+        self.assertFalse((self.root() / 'x' / name[:-4] / 'openf50/extras').exists())
 
     def test_a_job_does_not_need_its_watcher(self):
         name = self.taken()
@@ -448,21 +448,21 @@ class Jobs(WebCase):
         t0 = time.time()
         r = self.web('run', 'install', name)
         self.assertLess(time.time() - t0, 2.5, 'run returns while the job goes on')
-        self.assertEqual(r.stdout.strip(), 'MU300-WEB-JOB started install')
+        self.assertEqual(r.stdout.strip(), 'OPENF50-WEB-JOB started install')
         time.sleep(0.5)
         s = self.status('deep')
         self.assertEqual(s['job']['state'], 'running')
         self.assertNotIn('linux', s)                    # nothing is mounted beside a running job
         # no second job, no new zip, and no way to stop it once it writes
-        self.assertIn('MU300-WEB-ERROR job-running', self.web('run', 'plan', name).stdout)
-        n2, d2 = self.full_zip(name='mu300-magisk-v2026.10.06-openwrt-k7.2.zip')
-        self.assertIn('MU300-WEB-ERROR job-running', self.web('take', n2, d2).stdout)
+        self.assertIn('OPENF50-WEB-ERROR job-running', self.web('run', 'plan', name).stdout)
+        n2, d2 = self.full_zip(name='openf50-magisk-v2026.10.06-openwrt-k7.2.zip')
+        self.assertIn('OPENF50-WEB-ERROR job-running', self.web('take', n2, d2).stdout)
         self.assertIn('CLEAN job-running', self.web('clean', 'all').stdout)
         for _ in range(40):
             if self.status()['job']['step'] >= 6:
                 break
             time.sleep(0.1)
-        self.assertIn('MU300-WEB-ERROR too-late', self.web('cancel').stdout)
+        self.assertIn('OPENF50-WEB-ERROR too-late', self.web('cancel').stdout)
         # a watcher that is killed (the tab closed, the cable pulled) changes nothing for the job
         w = subprocess.Popen([BUSYBOX, 'sh', str(self.stage / 'android-web.sh'), 'follow'], stdout=subprocess.PIPE,
                              stderr=subprocess.DEVNULL, env=self.web_env())
@@ -485,7 +485,7 @@ class Jobs(WebCase):
                 break
             time.sleep(0.1)
         r = self.web('cancel')
-        self.assertEqual(r.stdout.strip(), 'MU300-WEB-JOB cancelled', r.stderr)
+        self.assertEqual(r.stdout.strip(), 'OPENF50-WEB-JOB cancelled', r.stderr)
         s = self.status()
         self.assertEqual((s['job']['state'], s['job']['rc']), ('done', 143))
         time.sleep(1.2)
@@ -495,7 +495,7 @@ class Jobs(WebCase):
 
     def test_a_job_cut_off_by_a_restart_is_called_interrupted(self):
         name = self.taken()
-        self.answers('MU300_DRY_RUN=1\n')
+        self.answers('OPENF50_DRY_RUN=1\n')
         self.web('run', 'plan', name)
         self.follow()
         job = self.root() / 'job'
@@ -530,19 +530,19 @@ class Uninstall(WebCase):
         img[44:55] = b'loglevel=5\0'; img[9000:9005] = b'linux'
         (by / 'boot_b').write_bytes(bytes(img))
         fake_misc(by / 'misc', with_slots(LIVE_A, b'_b\0\0', 0x9e, 0x2f))
-        mod = self.fake.root / 'data/adb/modules/mu300_linux_switch'
+        mod = self.fake.root / 'data/adb/modules/openf50_linux_switch'
         mod.mkdir(parents=True, exist_ok=True)
         (mod / 'switch.sh').write_text('#!/system/bin/sh\n')
         tmp = self.fake.root / 'tmp'
-        (tmp / 'mu300-ubuntu.tar.gz').write_text('left by install.sh')
+        (tmp / 'openf50-ubuntu.tar.gz').write_text('left by install.sh')
         (tmp / 'android-install.sh').write_text('left by install.sh')
-        (tmp / 'mu300-web').mkdir(exist_ok=True)
-        (tmp / 'mu300-web/keep').write_text('the stage directory of the page')
+        (tmp / 'openf50-web').mkdir(exist_ok=True)
+        (tmp / 'openf50-web/keep').write_text('the stage directory of the page')
         return off, size
 
     def uninstall(self, wipe, sd='keep'):
         r = self.web('run', 'uninstall', wipe, sd)
-        self.assertEqual(r.stdout.strip(), 'MU300-WEB-JOB started uninstall', r.stderr)
+        self.assertEqual(r.stdout.strip(), 'OPENF50-WEB-JOB started uninstall', r.stderr)
         return self.follow()
 
     def check_android_again(self, slot='a'):
@@ -558,21 +558,21 @@ class Uninstall(WebCase):
         before_a = sha(self.fake.root / 'dev/block/by-name/boot_a')
         rc, out = self.uninstall('secure')
         self.assertEqual(rc, '0', out)
-        steps = [l.split()[2] for l in out.splitlines() if l.startswith('MU300-STEP ')]
+        steps = [l.split()[2] for l in out.splitlines() if l.startswith('OPENF50-STEP ')]
         self.assertEqual(steps, ['check', 'misc', 'boot', 'erase', 'card', 'cleanup', 'done'])
-        self.assertLess(out.index('MU300-STEP 2/7 misc'), out.index('MU300-STEP 3/7 boot'))
-        self.assertIn('MU300-PROGRESS 100 100', out)
+        self.assertLess(out.index('OPENF50-STEP 2/7 misc'), out.index('OPENF50-STEP 3/7 boot'))
+        self.assertIn('OPENF50-PROGRESS 100 100', out)
         self.check_android_again()
         self.assertEqual(sha(self.fake.root / 'dev/block/by-name/boot_a'), before_a)
         self.assertEqual(self.emmc(off, size), bytes(size))
         self.assertEqual(self.emmc(off + size, 13), b'BEHIND-THE-FS')
         self.assertEqual(self.emmc(MIB, 17), b'ANDROID-PARTITION')
         self.assertIn('erased and verified', out)
-        self.assertTrue((self.fake.root / 'data/adb/modules/mu300_linux_switch/remove').exists())
+        self.assertTrue((self.fake.root / 'data/adb/modules/openf50_linux_switch/remove').exists())
         tmp = self.fake.root / 'tmp'
-        self.assertFalse((tmp / 'mu300-ubuntu.tar.gz').exists())
+        self.assertFalse((tmp / 'openf50-ubuntu.tar.gz').exists())
         self.assertFalse((tmp / 'android-install.sh').exists())
-        self.assertTrue((tmp / 'mu300-web/keep').exists())
+        self.assertTrue((tmp / 'openf50-web/keep').exists())
         s = self.status()
         self.assertEqual((s['linux_boot'], s['region']['existing'], s['module']), ('android-copy', 'no', 0))
 
@@ -594,8 +594,8 @@ class Uninstall(WebCase):
 
     def test_keep_leaves_the_filesystem_and_clears_the_card_marker(self):
         off, size = self.installed()
-        (self.fake.root / 'fs/.mu300').mkdir(parents=True)
-        (self.fake.root / 'fs/.mu300/root-on-sd').write_text('')
+        (self.fake.root / 'fs/.openf50').mkdir(parents=True)
+        (self.fake.root / 'fs/.openf50/root-on-sd').write_text('')
         # the fake's unmount writes a read-write mount back by copying over: here it has to carry a removal too
         ash = self.fake.root / 'android-sh'
         ash.write_text(ash.read_text().replace('cp -R "$3/." "$FAKE/fs/"', 'rm -rf "$FAKE/fs"; mkdir "$FAKE/fs"; cp -R "$3/." "$FAKE/fs/"'))
@@ -604,7 +604,7 @@ class Uninstall(WebCase):
         self.assertEqual(rc, '0', out)
         self.check_android_again()
         self.assertEqual(self.emmc(off, size), data)
-        self.assertFalse((self.fake.root / 'fs/.mu300/root-on-sd').exists())
+        self.assertFalse((self.fake.root / 'fs/.openf50/root-on-sd').exists())
         self.assertEqual((self.fake.root / 'mounts').read_text(), '')
 
     def test_android_on_slot_b(self):
@@ -627,7 +627,7 @@ class Uninstall(WebCase):
         self.assertEqual(rc, '0', out)
         self.assertIn('is the boot slot already', out)
         self.assertIn('is a copy of boot_a already', out)
-        self.assertIn('no mu300root filesystem on the eMMC', out)
+        self.assertIn('no openf50root filesystem on the eMMC', out)
         self.assertEqual(self.parts(), before)
 
     def test_refused_before_anything_is_written(self):
@@ -646,7 +646,7 @@ class Uninstall(WebCase):
         self.assertIn('nothing was changed', out)
         self.assertEqual(self.parts(), before)
         for args in (('wipe-everything', 'keep'), ('secure', 'format'), ('secure',)):
-            self.assertIn('MU300-WEB-ERROR bad-argument', self.web('run', 'uninstall', *args).stdout)
+            self.assertIn('OPENF50-WEB-ERROR bad-argument', self.web('run', 'uninstall', *args).stdout)
 
     def test_a_region_still_attached_is_not_erased(self):
         off, size = self.installed()
@@ -662,8 +662,8 @@ class Uninstall(WebCase):
         self.check_android_again()
 
     def lib(self, code, **extra):
-        return subprocess.run([BUSYBOX, 'sh', '-c', f'MU300_LIB=1; . "{self.stage}/android-web.sh"; ' + code],
-                              capture_output=True, text=True, env=self.web_env(MU300_WEB_STAGE=self.stage, **extra), timeout=60)
+        return subprocess.run([BUSYBOX, 'sh', '-c', f'OPENF50_LIB=1; . "{self.stage}/android-web.sh"; ' + code],
+                              capture_output=True, text=True, env=self.web_env(OPENF50_WEB_STAGE=self.stage, **extra), timeout=60)
 
     def test_misc_that_does_not_verify_gets_its_old_block_back(self):
         self.installed()
@@ -693,7 +693,7 @@ class Uninstall(WebCase):
         self.assertEqual((self.fake.root / 'dev/block/by-name/misc').read_bytes()[0x800:0x820], with_slots(LIVE_A, b'_a\0\0', 0x9f, 0x1e))
 
     def test_the_card_is_erased_only_when_asked_and_only_when_it_is_ours(self):
-        for label, sdw, erased in (('mu300sd', 'erase', True), ('mu300sd', 'keep', False), ('other-linux', 'erase', False)):
+        for label, sdw, erased in (('openf50sd', 'erase', True), ('openf50sd', 'keep', False), ('other-linux', 'erase', False)):
             self.device(card=tmi.fake_ext4_bytes(label) + bytes(MIB))
             self.small_emmc(fs_mib=0)
             rc, out = self.uninstall('keep', sdw)
@@ -710,7 +710,7 @@ class Backup(WebCase):
             (by / n).write_bytes(b'IMEI 123456789012345')
         r = self.web('backup')
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
-        files = {l.split()[1]: l.split()[2:] for l in r.stdout.splitlines() if l.startswith('MU300-WEB-FILE ')}
+        files = {l.split()[1]: l.split()[2:] for l in r.stdout.splitlines() if l.startswith('OPENF50-WEB-FILE ')}
         self.assertEqual(sorted(files), ['boot_b.img', 'gpt-head.bin', 'gpt-tail.bin', 'misc-head.bin', 'partitions.txt',
                                          'sml_b.img', 'teecfg_b.img', 'trustos_b.img', 'uboot_b.img', 'vbmeta_b.img'])
         # the copies are root's: nothing was made where the adb user can write
@@ -725,22 +725,22 @@ class Backup(WebCase):
             self.assertEqual(c.returncode, 0, c.stderr)
             self.assertEqual(hashlib.sha256(base64.b64decode(c.stdout)).hexdigest(), digest, name)
         for bad in ('../answers.conf', 'answers.conf', 'boot_c.img', 'prodnv.img', '/etc/passwd', 'boot_b.img/../../x', '', 'job'):
-            self.assertIn('MU300-WEB-ERROR bad-name', self.web('cat', bad).stdout, bad)
+            self.assertIn('OPENF50-WEB-ERROR bad-name', self.web('cat', bad).stdout, bad)
         self.assertEqual(files['boot_b.img'][1], sha(by / 'boot_b'))
         self.assertEqual(int(files['misc-head.bin'][0]), 4096)
         self.assertEqual((int(files['gpt-head.bin'][0]), int(files['gpt-tail.bin'][0])), (34 * 512, 33 * 512))
         self.assertEqual((out / 'partitions.txt').read_text(), f'mmcblk0p1 userdata 2048 {32 * 2048 - 2048}\n')
-        self.assertIn('MU300-WEB-BACKUP android_slot=a linux_slot=b', r.stdout)
+        self.assertIn('OPENF50-WEB-BACKUP android_slot=a linux_slot=b', r.stdout)
         for p in out.iterdir():
             self.assertNotIn(b'IMEI', p.read_bytes())
         # a name of the list that is a link there (nobody but root could have made it) is not read through
         (out / 'boot_a.img').symlink_to(by / 'prodnv')
         r = self.web('cat', 'boot_a.img')
-        self.assertIn('MU300-WEB-ERROR no-file', r.stdout)
+        self.assertIn('OPENF50-WEB-ERROR no-file', r.stdout)
         self.assertNotIn(base64.b64encode(b'IMEI 123456789012345').decode(), r.stdout)
 
     def test_identity_and_calibration_partitions_are_refused_by_name(self):
-        r = subprocess.run([BUSYBOX, 'sh', '-c', f'MU300_LIB=1; MU300_WEB_STAGE="{self.stage}"; . "{self.stage}/android-web.sh"; '
+        r = subprocess.run([BUSYBOX, 'sh', '-c', f'OPENF50_LIB=1; OPENF50_WEB_STAGE="{self.stage}"; . "{self.stage}/android-web.sh"; '
                             'for p in prodnv nr_fixnv1_a nr_runtimenv2 nr_deltanv_b nr_phy_a persist miscdata calinv isedata '
                             'ztecfg ztepersist userdata super l_modem_a pm_sys_a metadata splloader dtbo_a vendor_boot_a; do '
                             'backup_allowed $p && echo "ALLOWED $p"; done; '
@@ -756,55 +756,55 @@ class Backup(WebCase):
         # a link to nothing is "not there" (skipped); the files that are there still come
         self.assertEqual(r.returncode, 0)
         self.assertNotIn('trustos_b.img', r.stdout)
-        self.assertIn('MU300-WEB-FILE uboot_b.img', r.stdout)
+        self.assertIn('OPENF50-WEB-FILE uboot_b.img', r.stdout)
 
 
 class Clean(WebCase):
     def test_clean(self):
         name = self.taken()
-        self.answers('MU300_DRY_RUN=1\n')
+        self.answers('OPENF50_DRY_RUN=1\n')
         (self.stage / 'out').mkdir()
         (self.stage / 'out/boot_b.img').write_text('x')
         (self.stage / 'in/half-pushed.zip').write_text('x')
         adb = self.fake.root / 'data/adb'
-        dead, alive = adb / 'mu300-magisk.DEAD01', adb / 'mu300-magisk.ALIVE1'
+        dead, alive = adb / 'openf50-magisk.DEAD01', adb / 'openf50-magisk.ALIVE1'
         for w in (dead, alive):
-            (w / 'mu300root/ubuntu').mkdir(parents=True)
-            (w / 'mu300root/ubuntu/precious').write_text('a user file')
-        (self.fake.root / 'mounts').write_text(f'/dev/block/loop7 {alive}/mu300root ext4 rw 0 0\n')
+            (w / 'openf50root/ubuntu').mkdir(parents=True)
+            (w / 'openf50root/ubuntu/precious').write_text('a user file')
+        (self.fake.root / 'mounts').write_text(f'/dev/block/loop7 {alive}/openf50root ext4 rw 0 0\n')
         (self.root() / 'out').mkdir()
         (self.root() / 'out/boot_b.img').write_text('x')
         r = self.web('clean')
-        self.assertEqual(r.stdout.strip(), 'MU300-WEB-CLEAN ok')
+        self.assertEqual(r.stdout.strip(), 'OPENF50-WEB-CLEAN ok')
         # root's own copies go; the adb user's directory is the page's to clean, root deletes nothing in it
         self.assertFalse((self.root() / 'out').exists())
         self.assertTrue((self.stage / 'out/boot_b.img').exists())
         self.assertTrue((self.stage / 'in/half-pushed.zip').exists())
         self.assertFalse((self.root() / 'answers.conf').exists())
         self.assertFalse(dead.exists())
-        self.assertEqual((alive / 'mu300root/ubuntu/precious').read_text(), 'a user file')
+        self.assertEqual((alive / 'openf50root/ubuntu/precious').read_text(), 'a user file')
         self.assertTrue((self.root() / 'zips' / name).exists())
         self.web('clean', 'all')
         self.assertFalse((self.root() / 'zips').exists())
         self.assertFalse((self.root() / 'x').exists())
         # an unreadable mount table: nothing that could hold a mounted filesystem is removed
-        (dead / 'mu300root').mkdir(parents=True)
-        self.web('clean', MU300_MOUNTS=self.tmp / 'no-such-file')
+        (dead / 'openf50root').mkdir(parents=True)
+        self.web('clean', OPENF50_MOUNTS=self.tmp / 'no-such-file')
         self.assertTrue(dead.exists())
 
 
 class BootLinux(WebCase):
     def test_only_with_linux_on_the_other_slot(self):
-        self.assertIn('MU300-WEB-ERROR no-linux', self.web('boot-linux').stdout)
+        self.assertIn('OPENF50-WEB-ERROR no-linux', self.web('boot-linux').stdout)
         by = self.fake.root / 'dev/block/by-name'
         img = bytearray((by / 'boot_b').read_bytes())
         img[44:55] = b'loglevel=5\0'; img[9000:9005] = b'linux'
         (by / 'boot_b').write_bytes(bytes(img))
         before = self.parts()
-        r = self.web('boot-linux', 'dry', MU300_BUSYBOX=BUSYBOX, MU300_SLOT_SUFFIX='_a')
+        r = self.web('boot-linux', 'dry', OPENF50_BUSYBOX=BUSYBOX, OPENF50_SLOT_SUFFIX='_a')
         if os.getuid() != 0:
             # the switch script itself wants root (it has no test switch for that): reaching it is the test here
-            self.assertIn('mu300-linux: run as root', r.stderr)
+            self.assertIn('openf50-linux: run as root', r.stderr)
             return
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         self.assertIn('misc  new: ' + with_slots(LIVE_A, b'_b\0\0', 0x9e, 0x2f).hex(), r.stdout)
@@ -815,7 +815,7 @@ class BootLinux(WebCase):
 class FetchCase(WebCase):
     """what the tests of the device's own download share: a wget that is a script, and the job around it"""
 
-    NAME = 'mu300-magisk-v2026.11.01-openwrt-k6.18.zip'
+    NAME = 'openf50-magisk-v2026.11.01-openwrt-k6.18.zip'
     # what busybox wget prints while it follows GitHub's redirect (measured on an F50, FINDINGS 72)
     SAYS = ('echo "Connecting to github.com (140.82.121.3:443)" >&2; echo "wget: note: TLS certificate validation not implemented" >&2; '
             'echo "Connecting to release-assets.githubusercontent.com (185.199.108.133:443)" >&2; ')
@@ -832,8 +832,8 @@ class FetchCase(WebCase):
         return name, digest, src
 
     def fetch(self, w, size, name=None, **env):
-        r = self.web('run', 'fetch', name or self.NAME, size, MU300_WGET=w, **env)
-        self.assertEqual(r.stdout.strip(), 'MU300-WEB-JOB started fetch', r.stdout + r.stderr)
+        r = self.web('run', 'fetch', name or self.NAME, size, OPENF50_WGET=w, **env)
+        self.assertEqual(r.stdout.strip(), 'OPENF50-WEB-JOB started fetch', r.stdout + r.stderr)
         return self.follow()
 
 
@@ -849,9 +849,9 @@ class Fetch(FetchCase):
         w = self.wget(f'echo "$@" > "$STUBLOG/wget-args"; {self.SAYS}{self.OUT}sleep 0.5; cp "{src}" "$out"')
         rc, out = self.fetch(w, size)
         self.assertEqual(rc, '0', out)
-        self.assertIn(f'MU300-PROGRESS {size} {size}', out)
+        self.assertIn(f'OPENF50-PROGRESS {size} {size}', out)
         args = (self.tmp / 'wget-args').read_text().split()
-        self.assertEqual(args[-1], f'https://github.com/dikeckaan/mu300-linux/releases/download/v2026.11.01/{name}')
+        self.assertEqual(args[-1], f'https://github.com/sadpig/OpenF50/releases/download/v2026.11.01/{name}')
         self.assertIn('-c', args)                         # a start that is there is continued
         # the download is root's: nothing was made in the adb user's directory (a directory root made there
         # refused the page's next push on a device)
@@ -861,7 +861,7 @@ class Fetch(FetchCase):
         self.assertIn('sha-mismatch', self.web('take', name, '0' * 64).stdout)
         self.assertFalse((self.root() / 'dl' / name).exists())
         self.fetch(w, size)
-        self.assertIn('MU300-WEB-ZIP', self.web('take', name, digest).stdout)
+        self.assertIn('OPENF50-WEB-ZIP', self.web('take', name, digest).stdout)
         self.assertFalse((self.root() / 'fetch.log').exists())
 
     def test_every_name_a_release_has_is_one_the_devices_own_shell_takes(self):
@@ -876,20 +876,20 @@ class Fetch(FetchCase):
         for system in ('openwrt', 'openwrt-luci', 'ubuntu-24.04', 'ubuntu-26.04'):
             for k in ('5.4', '6.18', '7.2'):
                 for t in ('v2026.10.25', 'v2026.11.01_2', 'v1'):
-                    r = self.web('run', 'fetch', f'mu300-magisk-{t}-{system}-k{k}.zip', 10, MU300_WGET=w)
-                    self.assertEqual(r.stdout.strip(), 'MU300-WEB-JOB started fetch', f'{t} {system} {k}: {r.stdout}')
+                    r = self.web('run', 'fetch', f'openf50-magisk-{t}-{system}-k{k}.zip', 10, OPENF50_WGET=w)
+                    self.assertEqual(r.stdout.strip(), 'OPENF50-WEB-JOB started fetch', f'{t} {system} {k}: {r.stdout}')
                     self.follow()
 
     def test_names_that_are_not_a_release_zip_are_never_downloaded(self):
         w = self.wget('echo called >> "$STUBLOG/wget-args"')
-        for bad in ('mu300-magisk-v1-openwrt-k5.4.zip/../x', 'evil.zip', 'mu300-magisk-v1-arch-k5.4.zip', 'mu300-magisk-v1-openwrt-k9.9.zip',
-                    'mu300-magisk-x-openwrt-k5.4.zip', 'mu300-magisk-v1-openwrt-k5.4.zip?x=1', 'mu300-magisk-v1/evil-openwrt-k5.4.zip', '',
-                    'mu300-magisk-v1-evil-openwrt-k5.4.zip', 'mu300-magisk-v1..2-openwrt-k5.4.zip', 'mu300-magisk-v1-ubuntu-25.04-k5.4.zip',
-                    'mu300-magisk-v1-openwrt-k5.4.zip.zip', 'mu300-magisk--openwrt-k5.4.zip', 'mu300-magisk-v1-openwrt-luci-luci-k5.4.zip'):
-            self.assertIn('MU300-WEB-ERROR bad-name', self.web('run', 'fetch', bad, 10, MU300_WGET=w).stdout, bad)
+        for bad in ('openf50-magisk-v1-openwrt-k5.4.zip/../x', 'evil.zip', 'openf50-magisk-v1-arch-k5.4.zip', 'openf50-magisk-v1-openwrt-k9.9.zip',
+                    'openf50-magisk-x-openwrt-k5.4.zip', 'openf50-magisk-v1-openwrt-k5.4.zip?x=1', 'openf50-magisk-v1/evil-openwrt-k5.4.zip', '',
+                    'openf50-magisk-v1-evil-openwrt-k5.4.zip', 'openf50-magisk-v1..2-openwrt-k5.4.zip', 'openf50-magisk-v1-ubuntu-25.04-k5.4.zip',
+                    'openf50-magisk-v1-openwrt-k5.4.zip.zip', 'openf50-magisk--openwrt-k5.4.zip', 'openf50-magisk-v1-openwrt-luci-luci-k5.4.zip'):
+            self.assertIn('OPENF50-WEB-ERROR bad-name', self.web('run', 'fetch', bad, 10, OPENF50_WGET=w).stdout, bad)
             if bad:
-                self.assertIn('MU300-WEB-ERROR bad-name', self.web('net', bad, MU300_WGET=w).stdout, bad)
-        self.assertIn('MU300-WEB-ERROR bad-argument', self.web('run', 'fetch', self.NAME, '1;id', MU300_WGET=w).stdout)
+                self.assertIn('OPENF50-WEB-ERROR bad-name', self.web('net', bad, OPENF50_WGET=w).stdout, bad)
+        self.assertIn('OPENF50-WEB-ERROR bad-argument', self.web('run', 'fetch', self.NAME, '1;id', OPENF50_WGET=w).stdout)
         self.assertFalse((self.tmp / 'wget-args').exists())
 
     def test_a_download_that_breaks_is_continued_where_it_stopped(self):
@@ -903,14 +903,14 @@ class Fetch(FetchCase):
         self.assertEqual(rc, '0', out)
         self.assertIn(f'- the connection broke at 3000 of {size} bytes (wget: connection closed prematurely); continuing', out)
         self.assertEqual(len((self.tmp / 'wget-args').read_text().splitlines()), 2)
-        self.assertIn('MU300-WEB-ZIP', self.web('take', name, digest).stdout)
+        self.assertIn('OPENF50-WEB-ZIP', self.web('take', name, digest).stdout)
 
     def test_a_start_left_by_an_earlier_run_is_continued_by_the_next(self):
         name, digest, src = self.served()
         size = src.stat().st_size
         broke = self.wget(f'{self.SAYS}{self.OUT}n=$(cat "$out" 2>/dev/null | wc -c); tail -c +$((n + 1)) "{src}" | head -c 5000 >> "$out"; '
                           'echo "wget: connection closed prematurely" >&2; exit 1')
-        rc, out = self.fetch(broke, size, MU300_FETCH_TRIES='2')
+        rc, out = self.fetch(broke, size, OPENF50_FETCH_TRIES='2')
         self.assertEqual(rc, '12', out)                   # failed, not "no connection": bytes did arrive
         self.assertIn('! the connection broke 2 times; 10000 of', out)
         self.assertEqual((self.root() / 'dl' / name).stat().st_size, 10000)
@@ -918,7 +918,7 @@ class Fetch(FetchCase):
         rc, out = self.fetch(rest, size)
         self.assertEqual(rc, '0', out)
         self.assertIn('- continuing after the 10000 bytes that are here already', out)
-        self.assertIn('MU300-WEB-ZIP', self.web('take', name, digest).stdout)
+        self.assertIn('OPENF50-WEB-ZIP', self.web('take', name, digest).stdout)
 
     def test_no_connection_is_said_as_that(self):
         for says in ("wget: bad address 'github.com'", "wget: can't connect to remote host (140.82.121.3): Network is unreachable",
@@ -929,7 +929,7 @@ class Fetch(FetchCase):
             self.assertEqual(rc, '10', says + out)
             self.assertIn('! the device has no connection to GitHub (wget: ', out)
             self.assertFalse((self.root() / 'dl' / self.NAME).exists())
-            n = json.loads(self.web('net', self.NAME, MU300_WGET=w).stdout.split('MU300-WEB-NET ', 1)[1])
+            n = json.loads(self.web('net', self.NAME, OPENF50_WGET=w).stdout.split('OPENF50-WEB-NET ', 1)[1])
             self.assertEqual((n['ok'], n['why']), (0, 'no-network'), says)
             self.assertTrue(n['detail'].startswith('wget: '), n)
         # the release has no such file: a failure, but not "no connection"
@@ -949,7 +949,7 @@ class Fetch(FetchCase):
             self.assertIn('which is not GitHub', out)
             self.assertFalse((self.root() / 'dl' / self.NAME).exists(), where)
             self.assertFalse((self.tmp / 'late').exists(), 'the download went on after it was sent elsewhere')
-            n = json.loads(self.web('net', self.NAME, MU300_WGET=self.wget(f'echo "{where}" >&2')).stdout.split('MU300-WEB-NET ', 1)[1])
+            n = json.loads(self.web('net', self.NAME, OPENF50_WGET=self.wget(f'echo "{where}" >&2')).stdout.split('OPENF50-WEB-NET ', 1)[1])
             self.assertEqual((n['ok'], n['why']), (0, 'host'), where)
         # ... also when the whole file was there before anyone looked
         w = self.wget(f'echo "Connecting to evil.example (203.0.113.9:443)" >&2; {self.OUT}printf 12345678 > "$out"')
@@ -984,22 +984,22 @@ class Fetch(FetchCase):
                               ('Active default network: 7\nNetworkAgentInfo{network{7} nc{[ Transports: VPN ]}}', 'other'),
                               ('Active default network: 5; rm -rf /', 'none'), ('', 'none')):
             self.stub('dumpsys', f"cat <<'EOF'\n{dumpsys}\nEOF")
-            r = self.web('net', self.NAME, MU300_WGET=ok, MU300_ANDROID_PATH=f"{self.stubs}:{os.environ['PATH']}")
-            n = json.loads(r.stdout.split('MU300-WEB-NET ', 1)[1])
+            r = self.web('net', self.NAME, OPENF50_WGET=ok, OPENF50_ANDROID_PATH=f"{self.stubs}:{os.environ['PATH']}")
+            n = json.loads(r.stdout.split('OPENF50-WEB-NET ', 1)[1])
             self.assertEqual(n, {'ok': 1, 'why': '', 'uplink': kind, 'detail': ''}, dumpsys)
         args = (self.tmp / 'wget-args').read_text().split()
         self.assertIn('--spider', args)                   # headers only: nothing is downloaded to ask
-        self.assertEqual(args[-1], f'https://github.com/dikeckaan/mu300-linux/releases/download/v2026.11.01/{self.NAME}')
+        self.assertEqual(args[-1], f'https://github.com/sadpig/OpenF50/releases/download/v2026.11.01/{self.NAME}')
         self.assertFalse((self.root() / 'dl' / self.NAME).exists())
         self.assertFalse((self.root() / 'fetch.log').exists())
-        self.web('net', MU300_WGET=ok)
+        self.web('net', OPENF50_WGET=ok)
         self.assertEqual((self.tmp / 'wget-args').read_text().split()[-1], 'https://github.com/')
 
     def test_the_page_can_cancel_a_download_and_what_arrived_stays(self):
         w = self.wget(f'{self.SAYS}{self.OUT}printf 1234 > "$out"; sleep 30')
-        self.web('run', 'fetch', self.NAME, 8, MU300_WGET=w)
+        self.web('run', 'fetch', self.NAME, 8, OPENF50_WGET=w)
         time.sleep(0.5)
-        self.assertIn('MU300-WEB-JOB cancelled', self.web('cancel').stdout)
+        self.assertIn('OPENF50-WEB-JOB cancelled', self.web('cancel').stdout)
         self.assertEqual(self.status()['job']['state'], 'done')
         self.assertEqual((self.root() / 'dl' / self.NAME).read_text(), '1234')
 
@@ -1034,7 +1034,7 @@ class Bounds(FetchCase):
         # a little, and then nothing for ever, under the size: ended by the clock; what arrived stays for the next try
         w = self.wget(f'{self.SAYS}{self.OUT}printf 1234 > "$out"; sleep 60')
         t0 = time.time()
-        rc, out = self.fetch(w, 1000, MU300_FETCH_MAX_SECONDS='1')
+        rc, out = self.fetch(w, 1000, OPENF50_FETCH_MAX_SECONDS='1')
         self.assertEqual(rc, '12', out)
         self.assertIn('did not finish in time; 4 of 1000 bytes are here', out)
         self.assertLess(time.time() - t0, 20)
@@ -1042,13 +1042,13 @@ class Bounds(FetchCase):
         # the question "can you reach GitHub" has an end as well
         w = self.wget(f'{self.SAYS}sleep 60')
         t0 = time.time()
-        n = json.loads(self.web('net', self.NAME, MU300_WGET=w, MU300_NET_MAX_SECONDS='2').stdout.split('MU300-WEB-NET ', 1)[1])
+        n = json.loads(self.web('net', self.NAME, OPENF50_WGET=w, OPENF50_NET_MAX_SECONDS='2').stdout.split('OPENF50-WEB-NET ', 1)[1])
         self.assertEqual(n['ok'], 0)
         self.assertLess(time.time() - t0, 20)
 
     def test_a_download_that_would_not_leave_the_reserve_free_is_not_started(self):
         w = self.wget('echo called >> "$STUBLOG/wget-args"')
-        rc, out = self.fetch(w, 1000, MU300_DATA_RESERVE=str(1 << 60))
+        rc, out = self.fetch(w, 1000, OPENF50_DATA_RESERVE=str(1 << 60))
         self.assertEqual(rc, '14', out)
         self.assertIn("! Android's storage has", out)
         self.assertFalse((self.tmp / 'wget-args').exists())
@@ -1057,28 +1057,28 @@ class Bounds(FetchCase):
         self.assertEqual(rc, '13', out)
         self.assertFalse((self.tmp / 'wget-args').exists())
         # the reserve is the 512 MiB the Magisk installer insists on
-        self.assertIn('DATA_RESERVE=${MU300_DATA_RESERVE:-536870912}', WEB.read_text())
+        self.assertIn('DATA_RESERVE=${OPENF50_DATA_RESERVE:-536870912}', WEB.read_text())
 
     def test_a_zip_is_not_unpacked_beyond_a_bound_and_a_pushed_file_has_a_largest_size(self):
         name, digest = self.full_zip()
-        r = self.web('take', name, digest, MU300_UNPACK_MAX='1000')
-        self.assertIn('MU300-WEB-ERROR too-large', r.stdout)
+        r = self.web('take', name, digest, OPENF50_UNPACK_MAX='1000')
+        self.assertIn('OPENF50-WEB-ERROR too-large', r.stdout)
         self.assertFalse((self.root() / 'zips' / name).exists())
         self.assertFalse((self.root() / 'x' / name[:-4]).exists())
         name, digest = self.full_zip()
-        self.assertIn('MU300-WEB-ERROR no-space', self.web('take', name, digest, MU300_DATA_RESERVE=str(1 << 60)).stdout)
+        self.assertIn('OPENF50-WEB-ERROR no-space', self.web('take', name, digest, OPENF50_DATA_RESERVE=str(1 << 60)).stdout)
         self.assertFalse((self.root() / 'x' / name[:-4]).exists())
         name, digest = self.full_zip()
-        self.assertIn('MU300-WEB-ERROR too-large', self.web('take', name, digest, MU300_ZIP_MAX='1000').stdout)
+        self.assertIn('OPENF50-WEB-ERROR too-large', self.web('take', name, digest, OPENF50_ZIP_MAX='1000').stdout)
         self.assertEqual(list((self.root()).glob('incoming*')), [])
         (self.stage / 'in/answers.conf').write_text('X=1\n' * 30000)
-        self.assertIn('MU300-WEB-ERROR too-large', self.web('answers').stdout)
+        self.assertIn('OPENF50-WEB-ERROR too-large', self.web('answers').stdout)
         self.assertFalse((self.root() / 'answers.conf').exists())
 
     def test_a_jobs_log_stops_growing_and_the_job_goes_on(self):
         name = self.taken()
-        self.answers('MU300_BOOT_ATTEMPTS=3\n')
-        self.web('run', 'plan', name, MU300_JOB_LOG_MAX='600')
+        self.answers('OPENF50_BOOT_ATTEMPTS=3\n')
+        self.web('run', 'plan', name, OPENF50_JOB_LOG_MAX='600')
         rc, out = self.follow()
         self.assertEqual(rc, '3', out)                     # the plan ran to its end
         log = (self.root() / 'job/log').read_text()
@@ -1097,7 +1097,7 @@ class Links(WebCase):
         super().setUp()
         self.victim = self.tmp / 'victim'
         self.victim.mkdir()
-        (self.victim / 'secret').write_text('MU300_PASSWORD=root-only\n')
+        (self.victim / 'secret').write_text('OPENF50_PASSWORD=root-only\n')
         (self.victim / 'keep').write_text('precious')
         self.before = self.snapshot()
 
@@ -1116,7 +1116,7 @@ class Links(WebCase):
                              ('nothing', self.tmp / 'missing')):
             (self.stage / 'in' / name).symlink_to(target)
             r = self.web('take', name, digest)
-            self.assertIn('MU300-WEB-ERROR no-file', r.stdout, what)
+            self.assertIn('OPENF50-WEB-ERROR no-file', r.stdout, what)
             self.assertFalse((self.root() / 'zips' / name).exists(), what)
             self.assertFalse((self.root() / 'incoming').exists(), what)
             self.untouched(what)
@@ -1125,17 +1125,17 @@ class Links(WebCase):
         # a directory under the file's name is not a file either
         (self.stage / 'in' / name).mkdir()
         ((self.stage / 'in' / name) / 'x').write_text('x')
-        self.assertIn('MU300-WEB-ERROR no-file', self.web('take', name, digest).stdout)
+        self.assertIn('OPENF50-WEB-ERROR no-file', self.web('take', name, digest).stdout)
         self.assertFalse((self.root() / 'zips' / name).exists())
         # the answers and an extra: the same
         for target in (self.victim / 'secret', self.victim):
             (self.stage / 'in/answers.conf').symlink_to(target)
-            self.assertIn('MU300-WEB-ERROR no-file', self.web('answers').stdout)
+            self.assertIn('OPENF50-WEB-ERROR no-file', self.web('answers').stdout)
             # root's answers never hold what the link pointed at
             self.assertFalse((self.root() / 'answers.conf').exists())
             (self.stage / 'in/answers.conf').unlink(missing_ok=True)
             (self.stage / 'in/extra-vpn.tar.gz').symlink_to(target)
-            self.assertIn('MU300-WEB-ERROR no-file', self.web('extra', 'vpn', 'extra-vpn.tar.gz', '0' * 64).stdout)
+            self.assertIn('OPENF50-WEB-ERROR no-file', self.web('extra', 'vpn', 'extra-vpn.tar.gz', '0' * 64).stdout)
             self.assertEqual(list((self.root() / 'extras').glob('*')), [])
             (self.stage / 'in/extra-vpn.tar.gz').unlink(missing_ok=True)
             self.untouched()
@@ -1144,21 +1144,21 @@ class Links(WebCase):
         # in/ itself points somewhere else: nothing is taken out of that place, and nothing is made or removed in it
         name, digest = self.full_zip()
         shutil.move(self.stage / 'in' / name, self.victim / name)
-        (self.victim / 'answers.conf').write_text('MU300_LANG=en\n')
+        (self.victim / 'answers.conf').write_text('OPENF50_LANG=en\n')
         self.before = self.snapshot()
         shutil.rmtree(self.stage / 'in')
         (self.stage / 'in').symlink_to(self.victim)
-        self.assertIn('MU300-WEB-ERROR no-file', self.web('take', name, digest).stdout)
-        self.assertIn('MU300-WEB-ERROR no-file', self.web('answers').stdout)
+        self.assertIn('OPENF50-WEB-ERROR no-file', self.web('take', name, digest).stdout)
+        self.assertIn('OPENF50-WEB-ERROR no-file', self.web('answers').stdout)
         self.untouched('take and answers')
-        self.assertEqual(self.web('clean').stdout.strip(), 'MU300-WEB-CLEAN ok')
+        self.assertEqual(self.web('clean').stdout.strip(), 'OPENF50-WEB-CLEAN ok')
         self.web('clean', 'all')
         self.untouched('clean')
         self.assertTrue((self.stage / 'in').is_symlink())
         # the device's own download does not go there either
         w = self.stubs / 'fake-wget'
         self.stub('fake-wget', Fetch.SAYS + Fetch.OUT + 'printf 12345678 > "$out"')
-        self.web('run', 'fetch', Fetch.NAME, 8, MU300_WGET=w)
+        self.web('run', 'fetch', Fetch.NAME, 8, OPENF50_WGET=w)
         self.assertEqual(self.follow()[0], '0')
         self.assertEqual((self.root() / 'dl' / Fetch.NAME).read_text(), '12345678')
         self.untouched('fetch')
@@ -1179,7 +1179,7 @@ class Links(WebCase):
         (self.root() / 'dl').mkdir(exist_ok=True)
         (self.root() / 'dl' / Fetch.NAME).symlink_to(self.victim / 'keep')
         self.stub('fake-wget', Fetch.SAYS + Fetch.OUT + 'printf 12345678 > "$out"')
-        self.web('run', 'fetch', Fetch.NAME, 8, MU300_WGET=self.stubs / 'fake-wget')
+        self.web('run', 'fetch', Fetch.NAME, 8, OPENF50_WGET=self.stubs / 'fake-wget')
         self.follow()
         self.untouched('fetch')
 
@@ -1191,8 +1191,8 @@ class Links(WebCase):
         self.root().symlink_to(self.victim)
         name, digest = self.full_zip()
         for cmd in (['take', name, digest], ['answers'], ['backup'], ['run', 'uninstall', 'quick', 'keep'], ['net']):
-            self.assertIn('MU300-WEB-ERROR no-root-dir', self.web(*cmd).stdout, cmd)
-        self.assertEqual(self.web('clean').stdout.strip(), 'MU300-WEB-CLEAN ok')
+            self.assertIn('OPENF50-WEB-ERROR no-root-dir', self.web(*cmd).stdout, cmd)
+        self.assertEqual(self.web('clean').stdout.strip(), 'OPENF50-WEB-CLEAN ok')
         self.untouched()
         self.assertEqual(sorted(p.name for p in self.victim.iterdir()), ['keep', 'secret'])
 
@@ -1200,29 +1200,29 @@ class Links(WebCase):
         off, size = self.small_emmc()
         tmp = self.fake.root / 'tmp'
         tmp.mkdir(exist_ok=True)
-        (tmp / 'mu300root').symlink_to(self.victim)              # where install.sh mounts: a link to a directory
-        (tmp / 'mu300-rootfs.tar.gz').symlink_to(self.victim / 'keep')
-        (tmp / 'mu300-dir').mkdir()
-        (tmp / 'mu300-dir/inside').write_text('not ours to walk')
+        (tmp / 'openf50root').symlink_to(self.victim)              # where install.sh mounts: a link to a directory
+        (tmp / 'openf50-rootfs.tar.gz').symlink_to(self.victim / 'keep')
+        (tmp / 'openf50-dir').mkdir()
+        (tmp / 'openf50-dir/inside').write_text('not ours to walk')
         (tmp / 'android-install.sh').symlink_to(self.victim / 'secret')
-        (tmp / 'mu300-kernel.tar.gz').write_text('left by the installer')
+        (tmp / 'openf50-kernel.tar.gz').write_text('left by the installer')
         self.web('run', 'uninstall', 'quick', 'keep')
         rc, out = self.follow()
         self.assertEqual(rc, '0', out)
         self.untouched()
-        self.assertFalse((tmp / 'mu300root').is_symlink())       # the links went, as links
-        self.assertFalse((tmp / 'mu300-rootfs.tar.gz').is_symlink())
+        self.assertFalse((tmp / 'openf50root').is_symlink())       # the links went, as links
+        self.assertFalse((tmp / 'openf50-rootfs.tar.gz').is_symlink())
         self.assertFalse((tmp / 'android-install.sh').is_symlink())
-        self.assertFalse((tmp / 'mu300-kernel.tar.gz').exists())
-        self.assertEqual((tmp / 'mu300-dir/inside').read_text(), 'not ours to walk')
+        self.assertFalse((tmp / 'openf50-kernel.tar.gz').exists())
+        self.assertEqual((tmp / 'openf50-dir/inside').read_text(), 'not ours to walk')
 
     def test_nothing_in_the_script_writes_into_the_adb_users_directory(self):
         # every use of $S is a script that is read or run, or the one rename out of it
         import re
         uses = [l.strip() for l in WEB.read_text().splitlines() if re.search(r'\$S(/|"|\b)', l) and not l.lstrip().startswith('#')]
         for l in uses:
-            ok = (re.search(r'\. "\$S/[a-z-]+\.sh"', l) or re.search(r'"\$S/(android-mount-mu300root|switch)\.sh"', l) or
-                  l.startswith('S=${MU300_WEB_STAGE') or l.startswith('[ ! -L "$S" ] && [ ! -L "$S/in" ]') or
+            ok = (re.search(r'\. "\$S/[a-z-]+\.sh"', l) or re.search(r'"\$S/(android-mount-openf50root|switch)\.sh"', l) or
+                  l.startswith('S=${OPENF50_WEB_STAGE') or l.startswith('[ ! -L "$S" ] && [ ! -L "$S/in" ]') or
                   l.startswith('mv "$S/in/$1" "$_b"'))
             self.assertTrue(ok, l)
         for never in ('> "$S', '>> "$S', 'rm -rf "$S', 'rm -f "$S', 'mkdir -p "$S', 'chmod 755 "$S', 'chmod 644 "$S', '-O "$S', 'of="$S', 'chown "$(stat'):
@@ -1318,7 +1318,7 @@ class EndToEnd(WebCase):
         off, size = self.small_emmc(disk_mib=1200, fs_mib=0)       # room for OpenWrt (a sparse file)
         # the fake android-install.sh does not make a filesystem: put one where the installer was told to
         self.fake_install_hook('printf "\\123\\357" | dd of="$FAKE/dev/block/mmcblk0" bs=1 seek=$((OFF + 1080)) conv=notrunc 2>/dev/null; '
-                               'printf mu300root | dd of="$FAKE/dev/block/mmcblk0" bs=1 seek=$((OFF + 1144)) conv=notrunc 2>/dev/null; '
+                               'printf openf50root | dd of="$FAKE/dev/block/mmcblk0" bs=1 seek=$((OFF + 1144)) conv=notrunc 2>/dev/null; '
                                'printf "\\000\\100\\000\\000" | dd of="$FAKE/dev/block/mmcblk0" bs=1 seek=$((OFF + 1028)) conv=notrunc 2>/dev/null')
         o = self.e2e(E2E_UNINSTALL='secure')
         self.assertEqual(o['errors'], [])

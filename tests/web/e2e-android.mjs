@@ -3,8 +3,8 @@
 // of tests/fakedevice.py. tests/test_android_web.py (EndToEnd) builds that device and the zip, runs this, and reads
 // the JSON it prints; it is not a test file of its own (node --test does not pick it up).
 //
-// The environment is the fake device's (MU300_* paths), plus:
-//   E2E_STAGE     the directory that stands for /data/local/tmp/mu300-web
+// The environment is the fake device's (OPENF50_* paths), plus:
+//   E2E_STAGE     the directory that stands for /data/local/tmp/openf50-web
 //   E2E_SITE      device/ as site/tools/stage.sh staged it (the scripts and their SHA256SUMS)
 //   E2E_BUSYBOX   busybox (Magisk's, on a device)
 //   E2E_ZIP       a Magisk zip as a release has it;  E2E_ZIP_SHA256 its checksum
@@ -25,7 +25,7 @@ const E = process.env;
 const stage = E.E2E_STAGE;
 const local = (p) => path.join(stage, p.slice(STAGE.length));
 
-// the device's files for adb's sync service: /data/local/tmp/mu300-web/... on disk
+// the device's files for adb's sync service: /data/local/tmp/openf50-web/... on disk
 const files = {
   get: (p) => (p.startsWith(STAGE + "/") && fs.existsSync(local(p)) ? new Uint8Array(fs.readFileSync(local(p))) : undefined),
   has: (p) => p.startsWith(STAGE + "/") && fs.existsSync(local(p)),
@@ -112,7 +112,7 @@ const answers = answersFor(choices, 0, { lang: "en", status, analysis, adbKeyLin
 await dev.setAnswers(answers, PASSWORD);
 await dev.start("plan", zipName);
 const planLines = [];
-out.planRc = await dev.follow((e) => { if (e.type === "plan") planLines.push(`MU300-PLAN ${e.key}=${e.value}`); });
+out.planRc = await dev.follow((e) => { if (e.type === "plan") planLines.push(`OPENF50-PLAN ${e.key}=${e.value}`); });
 out.plan = parsePlan(planLines);
 status = await dev.status();
 out.afterPlan = { linux_boot: status.linux_boot, job: status.job };

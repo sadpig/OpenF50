@@ -1,7 +1,7 @@
-"""SMS forwarding of the control panel (openwrt-luci): mu300-sms-forward queues the messages mu300-sms pools and sends
+"""SMS forwarding of the control panel (openwrt-luci): openf50-sms-forward queues the messages openf50-sms pools and sends
 them on to a webhook, a Telegram chat, an e-mail address (msmtp) and another phone; unisoc-modem/forward is the panel's
 adapter for its settings. The HTTP requests go to the ucode helper on stdin: here `ucode` is a stub that records what
-came on stdin and its arguments, and answers with what the test chose. mu300-sms and msmtp are stubs too.
+came on stdin and its arguments, and answers with what the test chose. openf50-sms and msmtp are stubs too.
 
 What matters most: forwarding is off until it is turned on; the filters; the queue is bounded and on flash, the
 attempts and the log in RAM; a failure is retried with a growing wait, a refusal that cannot change is not; the
@@ -14,12 +14,12 @@ import time
 import unittest
 
 from helpers import TOP, ShellTest
-from test_mu300dash_security import JSONFILTER
+from test_openf50dash_security import JSONFILTER
 
-FWD = TOP / 'openwrt' / 'luci-overlay' / 'opt' / 'mu300' / 'bin' / 'mu300-sms-forward'
-HTTP_UC = TOP / 'openwrt' / 'luci-overlay' / 'opt' / 'mu300' / 'lib' / 'sms-forward-http.uc'
-ADAPTER = TOP / 'openwrt' / 'luci-app-mu300' / 'root' / 'usr' / 'libexec' / 'unisoc-modem' / 'forward'
-DASH = TOP / 'openwrt' / 'luci-app-mu300' / 'root' / 'usr' / 'libexec' / 'rpcd' / 'mu300dash'
+FWD = TOP / 'openwrt' / 'luci-overlay' / 'opt' / 'openf50' / 'bin' / 'openf50-sms-forward'
+HTTP_UC = TOP / 'openwrt' / 'luci-overlay' / 'opt' / 'openf50' / 'lib' / 'sms-forward-http.uc'
+ADAPTER = TOP / 'openwrt' / 'luci-app-openf50' / 'root' / 'usr' / 'libexec' / 'unisoc-modem' / 'forward'
+DASH = TOP / 'openwrt' / 'luci-app-openf50' / 'root' / 'usr' / 'libexec' / 'rpcd' / 'openf50dash'
 
 TOKEN = '123456789:AAHsecretTokenValue_0123456789'
 PASSWORD = 'hunter2-mail-pass'
@@ -27,7 +27,7 @@ HOOK_URL = 'http://192.0.2.10:8099/hook?key=urlsecret'
 
 # the stub ucode: the request (stdin) into $STUBLOG/http.N, its arguments into $STUBLOG/argv.log; it answers with the
 # first line of $STUBLOG/answers (consumed), else "status 200". Like the helper, it adds the reply's body to a 2xx
-# only when MU300_FWD_ANSWER asks for it ($STUBLOG/answers.env says, per request, whether it did): the bytes of
+# only when OPENF50_FWD_ANSWER asks for it ($STUBLOG/answers.env says, per request, whether it did): the bytes of
 # $STUBLOG/answers.reply.N, else answers.reply - all of them, the cut to the first bytes is then the forwarder's
 UCODE = r'''
 import os, sys
@@ -40,7 +40,7 @@ lines = open(a).read().splitlines() if os.path.exists(a) else []
 line = lines[0] if lines else 'status 200'
 if lines:
     open(a, 'w').write(''.join(l + '\n' for l in lines[1:]))
-ask = os.environ.get('MU300_FWD_ANSWER')
+ask = os.environ.get('OPENF50_FWD_ANSWER')
 open(a + '.env', 'a').write((ask or '-') + '\n')
 sys.stdout.buffer.write(line.encode() + b'\n')
 if ask and line.startswith('status 2'):
@@ -70,10 +70,10 @@ class Forwarder(ShellTest):
         self.pool = self.tmp / 'pool'
         (self.stubs / 'ucode.py').write_text(UCODE)
         self.stub('ucode', f'exec python3 "{self.stubs}/ucode.py" "$@"')
-        # mu300-sms: the arguments and stdin of a send, and "sent (reference 7)"
-        self.stub('mu300-sms', 'printf "%s\\n" "$*" >> "$STUBLOG/sms-argv.log"; cat > "$STUBLOG/sms-stdin.$$"; '
+        # openf50-sms: the arguments and stdin of a send, and "sent (reference 7)"
+        self.stub('openf50-sms', 'printf "%s\\n" "$*" >> "$STUBLOG/sms-argv.log"; cat > "$STUBLOG/sms-stdin.$$"; '
                                '[ -f "$STUBLOG/sms-fail" ] && { cat "$STUBLOG/sms-fail" >&2; exit 1; }; echo "sent (reference 7)"')
-        self.stub('hostname', 'echo mu300')
+        self.stub('hostname', 'echo openf50')
 
     def fresh(self):
         for p in (self.state, self.run_dir):
@@ -91,9 +91,9 @@ class Forwarder(ShellTest):
         os.chmod(self.conf, 0o600)
 
     def fwd(self, shell, *args, **env):
-        e = dict(MU300_FWD_CONF=self.conf, MU300_FWD_STATE=self.state, MU300_FWD_RUN=self.run_dir,
-                 MU300_SMS_POOL=self.pool, MU300_SMS_BIN=self.stubs / 'mu300-sms', MU300_FWD_HTTP=HTTP_UC,
-                 MU300_FWD_NO_WORKER=1, MU300_FWD_BACKOFF=1)
+        e = dict(OPENF50_FWD_CONF=self.conf, OPENF50_FWD_STATE=self.state, OPENF50_FWD_RUN=self.run_dir,
+                 OPENF50_SMS_POOL=self.pool, OPENF50_SMS_BIN=self.stubs / 'openf50-sms', OPENF50_FWD_HTTP=HTTP_UC,
+                 OPENF50_FWD_NO_WORKER=1, OPENF50_FWD_BACKOFF=1)
         e.update(env)
         return self.script(shell, FWD, *args, **e)
 
@@ -174,8 +174,8 @@ class Forwarder(ShellTest):
         for shell in self.each_shell():
             self.fresh()
             self.write_conf(enabled=1, webhook=1, webhook_url=HOOK_URL)
-            self.fwd(shell, 'enqueue', '1', '2', MU300_FWD_QUEUE_MAX=2)
-            self.fwd(shell, 'enqueue', '3', MU300_FWD_QUEUE_MAX=2)
+            self.fwd(shell, 'enqueue', '1', '2', OPENF50_FWD_QUEUE_MAX=2)
+            self.fwd(shell, 'enqueue', '3', OPENF50_FWD_QUEUE_MAX=2)
             self.assertEqual([f.rsplit('/', 1)[1] for _, f in self.queue()], ['000002', '000003'])
             self.assertIn(['1', 'webhook', 'dropped', 'queue full'], [l[1:] for l in self.log()])
 
@@ -304,7 +304,7 @@ class Forwarder(ShellTest):
             self.assertEqual(r.returncode, 0, r.stderr)
             [(_, _, body)] = self.requests()
             doc = json.loads(body)
-            self.assertEqual(doc['who'], 'MU300')
+            self.assertEqual(doc['who'], 'OPENF50')
             self.assertIn('Test message from the control panel', doc['text'])
             self.assertEqual([l[1:4] for l in self.log()], [['test', 'webhook', 'sent']])
 
@@ -314,13 +314,13 @@ class Forwarder(ShellTest):
             self.fresh()
             self.write_conf(enabled=1, webhook=1, webhook_url=HOOK_URL, webhook_body='{"a":"{text}{text}{text}"}')
             self.fwd(shell, 'enqueue', '8')
-            self.fwd(shell, 'run', MU300_FWD_BODY_MAX=1000)
+            self.fwd(shell, 'run', OPENF50_FWD_BODY_MAX=1000)
             self.assertEqual(self.requests(), [])
             self.assertEqual(self.queue(), [])
             self.assertEqual(self.log()[-1][1:], ['8', 'webhook', 'failed', 'the webhook body is too large'])
             # under the limit it goes
             self.fwd(shell, 'enqueue', '8')
-            self.fwd(shell, 'run', MU300_FWD_BODY_MAX=2000)
+            self.fwd(shell, 'run', OPENF50_FWD_BODY_MAX=2000)
             [(_, _, body)] = self.requests()
             self.assertEqual(json.loads(body), {'a': 'x' * 1200})
 
@@ -462,7 +462,7 @@ class Forwarder(ShellTest):
             text if isinstance(text, bytes) else text.encode('utf-8'))
 
     def asked(self):
-        """Per request: what MU300_FWD_ANSWER was for the helper ('-': not set, it passes on the status alone)."""
+        """Per request: what OPENF50_FWD_ANSWER was for the helper ('-': not set, it passes on the status alone)."""
         return (self.tmp / 'answers.env').read_text().split()
 
     def test_a_service_error_in_a_200_is_retried_until_the_answer_is_right(self):
@@ -486,7 +486,7 @@ class Forwarder(ShellTest):
             self.write_conf(enabled=1, webhook=1, webhook_url=HOOK_URL, webhook_expect='errcode=0')
             self.fwd(shell, 'enqueue', '1')
             self.reply('{"errcode":310000,"errmsg":"sign not match"}')
-            self.fwd(shell, 'run', MU300_FWD_ATTEMPTS=2)
+            self.fwd(shell, 'run', OPENF50_FWD_ATTEMPTS=2)
             self.assertEqual([l[3:] for l in self.log()], [
                 ['retry', 'HTTP 200, the service answered errcode=310000, attempt 1, next in 1 s'],
                 ['failed', 'HTTP 200, the service answered errcode=310000, gave up after 2 attempts']])
@@ -576,7 +576,7 @@ class Forwarder(ShellTest):
                 self.write_conf(enabled=1, webhook=1, webhook_url=HOOK_URL, webhook_expect='errcode=0')
                 self.fwd(shell, 'enqueue', '1')
                 self.reply(reply)
-                r = self.fwd(shell, 'run', MU300_FWD_ATTEMPTS=1)
+                r = self.fwd(shell, 'run', OPENF50_FWD_ATTEMPTS=1)
                 self.assertEqual((r.returncode, r.stdout + r.stderr), (0, ''))
                 self.assertEqual(self.log()[-1][4].split(', gave up')[0], detail)
                 kept = b''
@@ -616,8 +616,8 @@ class Forwarder(ShellTest):
                 self.assertEqual((r.returncode, r.stdout + r.stderr), (1, ''))
             # open again once the gap is over; a note that is no time, or one from the future, does not keep it shut
             time.sleep(1.2)
-            self.assertEqual(self.fwd(shell, 'test-gate', MU300_FWD_TEST_GAP=1).returncode, 0)
-            self.assertEqual(self.fwd(shell, 'test-gate', MU300_FWD_TEST_GAP=1).returncode, 1)
+            self.assertEqual(self.fwd(shell, 'test-gate', OPENF50_FWD_TEST_GAP=1).returncode, 0)
+            self.assertEqual(self.fwd(shell, 'test-gate', OPENF50_FWD_TEST_GAP=1).returncode, 1)
             for note in ('x;id\n', '', str(int(time.time()) + 86400) + '\n'):
                 (self.run_dir / 'test.at').write_text(note)
                 self.assertEqual(self.fwd(shell, 'test-gate').returncode, 0, note)
@@ -689,7 +689,7 @@ class Forwarder(ShellTest):
             self.fwd(shell, 'enqueue', '1')
             self.answers('status 500', 'error connect', 'status 429')
             t0 = time.monotonic()
-            r = self.fwd(shell, 'run', MU300_FWD_ATTEMPTS=3)
+            r = self.fwd(shell, 'run', OPENF50_FWD_ATTEMPTS=3)
             self.assertEqual(r.returncode, 0, r.stderr)
             # 1 s, then 2 s between the three attempts; the worker's clock counts whole seconds (date +%s), so the
             # waits it really makes can be up to a second shorter each: only that it did wait is timed here
@@ -773,10 +773,10 @@ class Forwarder(ShellTest):
         pool_msg(self.pool, 1, '+905551112233', 'x')
         for shell in self.each_shell():
             self.fresh()
-            (self.tmp / 'sms-fail').write_text('mu300-sms: the modem did not take the message: +CMS ERROR: 28\n')
+            (self.tmp / 'sms-fail').write_text('openf50-sms: the modem did not take the message: +CMS ERROR: 28\n')
             self.write_conf(enabled=1, sms=1, sms_number='+905550000000')
             self.fwd(shell, 'enqueue', '1')
-            self.fwd(shell, 'run', MU300_FWD_ATTEMPTS=2)
+            self.fwd(shell, 'run', OPENF50_FWD_ATTEMPTS=2)
             self.assertEqual([l[3] for l in self.log()], ['retry', 'failed'])
             self.assertIn('+CMS ERROR: 28', self.log()[0][4])
             (self.tmp / 'sms-fail').unlink()
@@ -822,7 +822,7 @@ class Forwarder(ShellTest):
         for shell in self.each_shell():
             self.fresh()
             self.write_conf(enabled=1, webhook=1, webhook_url=HOOK_URL)
-            r = self.fwd(shell, 'kick', MU300_FWD_NO_WORKER=0)
+            r = self.fwd(shell, 'kick', OPENF50_FWD_NO_WORKER=0)
             self.assertEqual(r.returncode, 0, r.stderr)
             self.assertFalse(self.state.exists())
             r = self.fwd(shell, 'status')
@@ -833,7 +833,7 @@ class Forwarder(ShellTest):
         for shell in self.each_shell():
             self.fresh()
             self.write_conf(enabled=1, webhook=1, webhook_url=HOOK_URL)
-            r = self.fwd(shell, 'enqueue', '1', MU300_FWD_NO_WORKER=0)
+            r = self.fwd(shell, 'enqueue', '1', OPENF50_FWD_NO_WORKER=0)
             self.assertEqual(r.returncode, 0, r.stderr)
             for _ in range(100):
                 if self.queue() == [] and not (self.run_dir / 'worker.lock').exists():
@@ -853,7 +853,7 @@ class Forwarder(ShellTest):
                 self.assertEqual(r.stdout.decode(), want, (shell, text[:5]))
 
     def lib_from_script(self):
-        """The functions of mu300-sms-forward, without its command dispatch, as $tmp/lib.sh."""
+        """The functions of openf50-sms-forward, without its command dispatch, as $tmp/lib.sh."""
         src = FWD.read_text(encoding='utf-8')
         (self.tmp / 'lib.sh').write_text(src[:src.index('\ncase ${1:-} in')] + '\n', encoding='utf-8')
 
@@ -872,7 +872,7 @@ class Forwarder(ShellTest):
         self.assertIn('verify: true', src)
         self.assertIn('if (!cl.connect())', src)
         # the reply's body: only when the caller asks in the environment, only of a 2xx, only its first bytes
-        self.assertIn("getenv('MU300_FWD_ANSWER')", src)
+        self.assertIn("getenv('OPENF50_FWD_ANSWER')", src)
         self.assertIn('if (st.status >= 200 && st.status < 300 && keep > 0) {', src)
         self.assertIn('answer += substr(d, 0, keep - length(answer));', src)
         fwd = FWD.read_text()
@@ -898,8 +898,8 @@ class Adapter(ShellTest):
                          'esac')
 
     def adapter(self, shell, *args, stdin=None, **env):
-        return self.script(shell, ADAPTER, *args, stdin=stdin, MU300_FWD_CONF=self.conf,
-                           MU300_FWD_BIN=self.stubs / 'fwd', **env)
+        return self.script(shell, ADAPTER, *args, stdin=stdin, OPENF50_FWD_CONF=self.conf,
+                           OPENF50_FWD_BIN=self.stubs / 'fwd', **env)
 
     def set(self, shell, **fields):
         r = self.adapter(shell, 'set', stdin=json.dumps(fields, ensure_ascii=False))
@@ -965,7 +965,7 @@ class Adapter(ShellTest):
     BODY = '{"msg_type": "text",\n "content": {"text": "{message}"},\n "path": "C:\\\\x", "q": "\\"{sender}\\""}'
 
     def test_the_custom_body_is_saved_shown_again_and_sent(self):
-        """The page's text -> the file's one line -> the page again, and through mu300-sms-forward to the request."""
+        """The page's text -> the file's one line -> the page again, and through openf50-sms-forward to the request."""
         (self.stubs / 'ucode.py').write_text(UCODE)
         self.stub('ucode', f'exec python3 "{self.stubs}/ucode.py" "$@"')
         pool = self.tmp / 'pool'
@@ -984,8 +984,8 @@ class Adapter(ShellTest):
             self.assertEqual(st['webhook_body'], self.BODY)
             for secret in ('urlsecret', 'hdrsecret', '/hook'):      # the body comes back, the secrets still do not
                 self.assertNotIn(secret, raw)
-            env = self.env(MU300_FWD_CONF=self.conf, MU300_FWD_STATE=self.tmp / 'state', MU300_FWD_RUN=self.tmp / 'run',
-                           MU300_SMS_POOL=pool, MU300_FWD_HTTP=HTTP_UC, MU300_FWD_NO_WORKER=1)
+            env = self.env(OPENF50_FWD_CONF=self.conf, OPENF50_FWD_STATE=self.tmp / 'state', OPENF50_FWD_RUN=self.tmp / 'run',
+                           OPENF50_SMS_POOL=pool, OPENF50_FWD_HTTP=HTTP_UC, OPENF50_FWD_NO_WORKER=1)
             for cmd in ('enqueue 3', 'run'):
                 r = subprocess.run(shell + [str(FWD)] + cmd.split(), capture_output=True, text=True, env=env, timeout=60)
                 self.assertEqual((r.returncode, r.stdout + r.stderr), (0, ''))
@@ -1148,16 +1148,16 @@ class Adapter(ShellTest):
 
 class Wiring(unittest.TestCase):
     def test_page_menu_acl_and_rpc(self):
-        app = TOP / 'openwrt' / 'luci-app-mu300'
-        menu = json.loads((app / 'root/usr/share/luci/menu.d/luci-app-mu300.json').read_text())
-        self.assertEqual(menu['admin/modem/sms-forward']['action'], {'type': 'view', 'path': 'mu300/forward'})
+        app = TOP / 'openwrt' / 'luci-app-openf50'
+        menu = json.loads((app / 'root/usr/share/luci/menu.d/luci-app-openf50.json').read_text())
+        self.assertEqual(menu['admin/modem/sms-forward']['action'], {'type': 'view', 'path': 'openf50/forward'})
         cellular = [k for _, k in sorted((v['order'], k) for k, v in menu.items() if k.startswith('admin/modem/'))]
         self.assertEqual(cellular[cellular.index('admin/modem/sms') + 1], 'admin/modem/sms-forward')
-        acl = json.loads((app / 'root/usr/share/rpcd/acl.d/luci-app-mu300.json').read_text())['luci-app-mu300']
+        acl = json.loads((app / 'root/usr/share/rpcd/acl.d/luci-app-openf50.json').read_text())['luci-app-openf50']
         for m in ('forward_get', 'forward_set', 'forward_test', 'forward_log_clear'):
-            self.assertIn(m, acl['write']['ubus']['mu300dash'])
-            self.assertNotIn(m, acl['read']['ubus']['mu300dash'])
-        common = (app / 'htdocs/luci-static/resources/mu300/common.js').read_text()
+            self.assertIn(m, acl['write']['ubus']['openf50dash'])
+            self.assertNotIn(m, acl['read']['ubus']['openf50dash'])
+        common = (app / 'htdocs/luci-static/resources/openf50/common.js').read_text()
         self.assertIn('callFwdGet: callFwdGet, callFwdSet: callFwdSet, callFwdTest: callFwdTest, '
                       'callFwdLogClear: callFwdLogClear', common)
         # the custom body, then the answer check (issue #171): declared to rpcd, sent by the page as the last
@@ -1166,7 +1166,7 @@ class Wiring(unittest.TestCase):
         self.assertIn('"webhook_body": "String"', DASH.read_text())
         self.assertIn('"webhook_expect": "String"', DASH.read_text())
         self.assertIn('"forward_log_clear": { }', DASH.read_text())
-        view = (app / 'htdocs/luci-static/resources/view/mu300/forward.js').read_text()
+        view = (app / 'htdocs/luci-static/resources/view/openf50/forward.js').read_text()
         self.assertIn("this.area('webhook_body', st.webhook_body,", view)
         self.assertIn("this.val('sms_number').trim(), this.val('webhook_body'),\n"
                       "\t\t\tthis.val('webhook_expect').trim())", view)
@@ -1180,10 +1180,10 @@ class Wiring(unittest.TestCase):
         self.assertTrue(os.access(ADAPTER, os.X_OK))
         self.assertTrue(os.access(FWD, os.X_OK))
         build = (TOP / 'openwrt' / 'build-rootfs.sh').read_text()
-        self.assertIn('$R/opt/mu300/bin/mu300-sms-forward', build)
+        self.assertIn('$R/opt/openf50/bin/openf50-sms-forward', build)
 
     def test_the_view_never_shows_a_saved_secret(self):
-        view = (TOP / 'openwrt/luci-app-mu300/htdocs/luci-static/resources/view/mu300/forward.js').read_text()
+        view = (TOP / 'openwrt/luci-app-openf50/htdocs/luci-static/resources/view/openf50/forward.js').read_text()
         # the secret fields start empty; only their *_set flags and hints are read
         for k in ('webhook_url', 'webhook_headers', 'telegram_token', 'email_password'):
             self.assertNotIn(f'st.{k})', view)

@@ -7,19 +7,19 @@ built from public sources with Docker.
 yourself or change an ingredient.
 
 The full, authoritative instructions are in
-[docs/BUILD.md](https://github.com/dikeckaan/mu300-linux/blob/main/docs/BUILD.md). This page is a map.
+[docs/BUILD.md](https://github.com/dikeckaan/openf50-linux/blob/main/docs/BUILD.md). This page is a map.
 
 ## What a release contains
 
 | File | Contents |
 |---|---|
-| `mu300-kernel.tar.gz` | Linux 5.4.254 `Image` and modules (with the U30 Air's own), static busybox and logdw, the generic boot ramdisk segment |
-| `mu300-kernel-6.18.tar.gz`, `mu300-kernel-7.2.tar.gz` | the mainline kernels and their modules |
-| `mu300-ubuntu-rootfs.tar.gz`, `mu300-ubuntu-26.04-rootfs.tar.gz` | Ubuntu 24.04 and 26.04 |
-| `mu300-openwrt-rootfs.tar.gz`, `mu300-openwrt-luci-rootfs.tar.gz` | OpenWrt 25.12.5, plain and with the control panel |
-| `mu300-extra-lang.tar.gz` | more web interface languages |
-| `mu300-update` | the on-device updater |
-| `mu300-magisk-*.zip` | Magisk installers, one per system and kernel |
+| `openf50-kernel.tar.gz` | Linux 5.4.254 `Image` and modules (with the U30 Air's own), static busybox and logdw, the generic boot ramdisk segment |
+| `openf50-kernel-6.18.tar.gz`, `openf50-kernel-7.2.tar.gz` | the mainline kernels and their modules |
+| `openf50-ubuntu-rootfs.tar.gz`, `openf50-ubuntu-26.04-rootfs.tar.gz` | Ubuntu 24.04 and 26.04 |
+| `openf50-openwrt-rootfs.tar.gz`, `openf50-openwrt-luci-rootfs.tar.gz` | OpenWrt 25.12.5, plain and with the control panel |
+| `openf50-extra-lang.tar.gz` | more web interface languages |
+| `openf50-update` | the on-device updater |
+| `openf50-magisk-*.zip` | Magisk installers, one per system and kernel |
 | `SHA256SUMS`, `SHA256SUMS-magisk` | checksums |
 
 The images contain **no proprietary files**; the installer takes those from your own device.
@@ -32,10 +32,10 @@ flowchart TD
     K --> I[initramfs boot/init]
     I --> M[Load 85 vendor modules in a fixed order]
     I --> U[USB gadget: NCM or ECM network + serial console]
-    I --> F[Find the Linux disk:<br/>SD card mu300sd, else free eMMC space mu300root]
+    I --> F[Find the Linux disk:<br/>SD card openf50sd, else free eMMC space openf50root]
     F --> S[switch_root into the chosen system]
-    S --> V[mu300-vendor: Android modem_control in a chroot]
-    S --> L[mu300-lan: USB + Wi-Fi bridge, DHCP/DNS]
+    S --> V[openf50-vendor: Android modem_control in a chroot]
+    S --> L[openf50-lan: USB + Wi-Fi bridge, DHCP/DNS]
     S --> W[Wi-Fi, mobile data, Bluetooth, SSH]
 ```
 
@@ -49,7 +49,7 @@ That builds the 5.4 kernel and its Wi-Fi, Bluetooth and Mali modules from pinned
 applied (about 10 minutes on Apple silicon). Then:
 
 * **Root filesystems:** Ubuntu from `rootfs/` (Docker), OpenWrt with `openwrt/build-rootfs.sh`, the control-panel system
-  with `MU300_SYSTEM=openwrt-luci openwrt/build-rootfs.sh`.
+  with `OPENF50_SYSTEM=openwrt-luci openwrt/build-rootfs.sh`.
 * **Install your own build:** `./install.sh --build` uses your local kernel outputs and builds the root filesystems
   instead of downloading them.
 * **Release:** `tools/make-release.sh TAG --publish` (it refuses to publish an image that contains firmware, Android
@@ -62,13 +62,13 @@ applied (about 10 minutes on Apple silicon). Then:
   [dikeckaan/zte-ums9620-kernel-5.4.254](https://github.com/dikeckaan/zte-ums9620-kernel-5.4.254).
 * Wi-Fi, Bluetooth and GPU drivers: realme C51/C53 AndroidT kernel release (GPL-2.0).
 * Mainline 6.18 and 7.2: kernel.org Linux plus the port in
-  [`upstream/`](https://github.com/dikeckaan/mu300-linux/tree/main/upstream).
+  [`upstream/`](https://github.com/dikeckaan/openf50-linux/tree/main/upstream).
 * Each release's notes list the exact source commits.
 
 ## Other distributions
 
 Debian 13, Kali, Arch Linux ARM and ImmortalWrt build from this repository too; how, and what to expect:
-[docs/DISTROS.md](https://github.com/dikeckaan/mu300-linux/blob/main/docs/DISTROS.md). A distribution must be arm64 and
+[docs/DISTROS.md](https://github.com/dikeckaan/openf50-linux/blob/main/docs/DISTROS.md). A distribution must be arm64 and
 work on the kernel you run; one with a different init system than systemd or procd needs its ~15 services written again.
 
 ## Repository layout

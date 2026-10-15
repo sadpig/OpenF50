@@ -16,15 +16,15 @@ export function demoReleases() {
     for (const [s, size] of Object.entries(sizes)) {
       for (const k of ["5.4", "6.18", "7.2"]) {
         if (s === "ubuntu-26.04" && k === "5.4") continue;
-        const name = `mu300-magisk-${tag}-${s}-k${k}.zip`;
-        assets.set(name, asset("dikeckaan/mu300-linux", tag, name, size));
+        const name = `openf50-magisk-${tag}-${s}-k${k}.zip`;
+        assets.set(name, asset("dikeckaan/openf50-linux", tag, name, size));
       }
     }
     return { tag, prerelease, published: Date.now(), assets };
   };
   return { stable: mk(TAG, false), beta: mk("v2026.11.04", true) };
 }
-export function demoVpn() { return { tag: "v2.0.1", ...asset("dikeckaan/mu300-linux-vpn", "v2.0.1", "mu300-linux-vpn.tar.gz", 41946588) }; }
+export function demoVpn() { return { tag: "v2.0.1", ...asset("dikeckaan/mu300-linux-vpn", "v2.0.1", "openf50-linux-vpn.tar.gz", 41946588) }; }
 
 function baseStatus(kind) {
   const small = kind === "small";
@@ -33,7 +33,7 @@ function baseStatus(kind) {
   const start = (Math.floor(lastEnd / 4096) + 1) * 4096, end = (Math.floor((disk - 34) / 4096) - 1) * 4096;
   const installed = kind === "installed";
   return {
-    v: 1, model: "ZTE F50", product: "mu300", device: "f50", android: "13", build: "MU300_ZYV1.0.0B09", boot_completed: 1, android_slot: "a", linux_slot: "b",
+    v: 1, model: "ZTE F50", product: "openf50", device: "f50", android: "13", build: "OPENF50_ZYV1.0.0B09", boot_completed: 1, android_slot: "a", linux_slot: "b",
     slots_ok: 1, root_kind: "magisk", magisk: "27.0:MAGISK:R", magiskboot: 1, busybox: "/data/adb/magisk/busybox", misc: { valid: 1, bc: "00" },
     linux_boot: installed ? "linux" : "android-copy", disk, last_end: lastEnd,
     region: { off: start * 512, size: Math.max(0, (end - start) * 512), existing: installed ? "yes" : "no", dirty: installed || small ? -1 : 0 },
@@ -47,20 +47,20 @@ function baseStatus(kind) {
 class DemoAndroid {
   constructor(kind, log) { this.kind = "android"; this.variant = kind; this.log = log; this.serial = "324950664950"; this.st = baseStatus(kind); this.job = null; }
   async probe() {
-    return { props: { "ro.product.model": "ZTE F50", "ro.product.device": "mu300", "ro.build.version.release": "13", "ro.build.display.id": "MU300_ZYV1.0.0B09", "ro.boot.slot_suffix": "_a" }, lock: this.variant === "installed" ? "locked" : "unknown", su: true };
+    return { props: { "ro.product.model": "ZTE F50", "ro.product.device": "openf50", "ro.build.version.release": "13", "ro.build.display.id": "OPENF50_ZYV1.0.0B09", "ro.boot.slot_suffix": "_a" }, lock: this.variant === "installed" ? "locked" : "unknown", su: true };
   }
   async root() { await wait(700); return "granted"; }
   async stage() { await wait(300); }
   async status() { await wait(250); return JSON.parse(JSON.stringify(this.st)); }
   async takeZip(file, name, sha, o = {}) {
     for (let i = 0; i <= 20; i++) { if (o.onProgress) o.onProgress(file.size * i / 20, file.size); await wait(80); }
-    this.log(`MU300-WEB-ZIP {"name":"${name}","web":1}`);
+    this.log(`OPENF50-WEB-ZIP {"name":"${name}","web":1}`);
     return { name, web: 1 };
   }
   async net() { await wait(600); return this.variant === "small" ? { ok: false, why: "no-network", uplink: "none", detail: "wget: bad address 'github.com'" } : { ok: true, why: "", uplink: "mobile", detail: "" }; }
   async fetchZip(name, size, sha, onProgress = () => {}) {
     for (let i = 0; i <= 30; i++) { onProgress(size * i / 30, size); await wait(120); }
-    this.log(`MU300-WEB-ZIP {"name":"${name}","web":1}`);
+    this.log(`OPENF50-WEB-ZIP {"name":"${name}","web":1}`);
     return { name, web: 1 };
   }
   async addExtra(kind, file, sha, o = {}) { for (let i = 0; i <= 10; i++) { if (o.onProgress) o.onProgress(file.size * i / 10, file.size); await wait(60); } }
@@ -69,17 +69,17 @@ class DemoAndroid {
   async follow(onEvent) {
     const say = async (line, ms = 350) => {
       this.log(line);
-      const m = /^MU300-STEP (\d+)\/(\d+) (\S+)$/.exec(line);
-      const p = /^MU300-PLAN ([a-z_]+)=(.*)$/.exec(line);
+      const m = /^OPENF50-STEP (\d+)\/(\d+) (\S+)$/.exec(line);
+      const p = /^OPENF50-PLAN ([a-z_]+)=(.*)$/.exec(line);
       onEvent(m ? { type: "step", n: +m[1], of: +m[2], name: m[3] } : p ? { type: "plan", key: p[1], value: p[2] } : line.startsWith("! ") ? { type: "error", text: line.slice(2) } : { type: "text", text: line });
       await wait(ms);
     };
     const j = this.job, a = this.answers || "";
-    const sd = /MU300_STORAGE=sd/.test(a);
+    const sd = /OPENF50_STORAGE=sd/.test(a);
     if (j.kind === "uninstall") {
       const names = ["check", "misc", "boot", "erase", "card", "cleanup", "done"];
       for (let i = 0; i < names.length; i++) {
-        await say(`MU300-STEP ${i + 1}/7 ${names[i]}`, 500);
+        await say(`OPENF50-STEP ${i + 1}/7 ${names[i]}`, 500);
         if (names[i] === "erase" && j.args[0] === "secure") for (let d = 1; d <= 8; d++) { onEvent({ type: "progress", done: d * 4096, total: 32768 }); await wait(250); }
       }
       await say("- Done. The device boots Android; restart it once to check.");
@@ -88,20 +88,20 @@ class DemoAndroid {
     }
     const system = /-(ubuntu-2[46]\.04|openwrt-luci|openwrt)-k([0-9.]+)\.zip$/.exec(j.args[0]) || [0, "openwrt", "5.4"];
     const os = system[1].startsWith("ubuntu") ? "ubuntu" : system[1];
-    await say(`MU300 Linux ${TAG}`);
-    await say("MU300-STEP 1/9 check"); await say("- device: ZTE F50 / mu300"); await say("- Android runs from slot a; Linux goes to slot b (boot_b)");
-    await say("MU300-STEP 2/9 unpack", 700); await say("MU300-STEP 3/9 plan");
-    const have = this.st.linux && !/MU300_MODE=wipe/.test(a) ? Object.keys(this.st.linux.systems).join(" ") : "";
-    const format = this.st.region.existing === "yes" && !/MU300_MODE=wipe/.test(a) && !sd ? "0" : this.st.linux && sd ? "0" : "1";
+    await say(`OPENF50 Linux ${TAG}`);
+    await say("OPENF50-STEP 1/9 check"); await say("- device: ZTE F50 / openf50"); await say("- Android runs from slot a; Linux goes to slot b (boot_b)");
+    await say("OPENF50-STEP 2/9 unpack", 700); await say("OPENF50-STEP 3/9 plan");
+    const have = this.st.linux && !/OPENF50_MODE=wipe/.test(a) ? Object.keys(this.st.linux.systems).join(" ") : "";
+    const format = this.st.region.existing === "yes" && !/OPENF50_MODE=wipe/.test(a) && !sd ? "0" : this.st.linux && sd ? "0" : "1";
     for (const l of [`tag=${TAG}`, `system=${system[1]}`, `os=${os}`, `ubuntu=${system[1].startsWith("ubuntu") ? system[1].slice(7) : ""}`, `kernel=${system[2]}`, "device=f50",
       `storage=${sd ? "sd" : "internal"}`, `sd_dev=${sd ? "/dev/block/mmcblk1p1" : ""}`, `offset=${this.st.region.off}`, `size=${sd ? this.st.sd.bytes : this.st.region.size}`,
       `format=${this.installedOnce ? "0" : format}`, `update=${this.installedOnce || format === "0" ? "1" : "0"}`, `have=${have}`, `boot_os=${os}`, "default_linux=1", "boot_attempts=5", "hotspot=1", "gpu=yes",
-      `password=${this.installedOnce || format === "0" ? "kept" : "image"}`, "extras=", "adb=1", "linux_slot=b", "android_slot=a", "sync_bootchain=1", "bootchain=", `dry_run=${j.kind === "plan" ? 1 : 0}`]) await say("MU300-PLAN " + l, 15);
+      `password=${this.installedOnce || format === "0" ? "kept" : "image"}`, "extras=", "adb=1", "linux_slot=b", "android_slot=a", "sync_bootchain=1", "bootchain=", `dry_run=${j.kind === "plan" ? 1 : 0}`]) await say("OPENF50-PLAN " + l, 15);
     if (j.kind === "plan") { await say("- Dry run: nothing was written."); return 3; }
-    await say("MU300-STEP 4/9 vendor", 900); await say("MU300-STEP 5/9 image", 900);
-    await say("MU300-STEP 6/9 systems"); await say(`[device] installing ${os}`, 2500); await say("MU300-INSTALL-OK");
-    await say("MU300-STEP 7/9 boot"); await say("- Writing and verifying boot_b", 1200);
-    await say("MU300-STEP 8/9 arm", 600); await say("MU300-STEP 9/9 done"); await say(`- Done. Reboot to start ${os}.`);
+    await say("OPENF50-STEP 4/9 vendor", 900); await say("OPENF50-STEP 5/9 image", 900);
+    await say("OPENF50-STEP 6/9 systems"); await say(`[device] installing ${os}`, 2500); await say("OPENF50-INSTALL-OK");
+    await say("OPENF50-STEP 7/9 boot"); await say("- Writing and verifying boot_b", 1200);
+    await say("OPENF50-STEP 8/9 arm", 600); await say("OPENF50-STEP 9/9 done"); await say(`- Done. Reboot to start ${os}.`);
     this.installedOnce = true;
     this.st.linux_boot = "linux"; this.st.module = 1;
     if (!sd) this.st.region.existing = "yes";
@@ -130,19 +130,19 @@ class DemoAndroid {
 }
 
 class DemoLinux {
-  constructor(log) { this.kind = "linux"; this.log = log; this.serial = "MU300LINUX-324950664950-203d8329"; this.kernel = "6.18"; this.bootOs = "ubuntu"; }
+  constructor(log) { this.kind = "linux"; this.log = log; this.serial = "OPENF50LINUX-324950664950-203d8329"; this.kernel = "6.18"; this.bootOs = "ubuntu"; }
   async info() {
-    return { source: "commands", device: "f50", version: "v2026.10.23", os: "ubuntu 24.04", kernel: this.kernel === "6.18" ? "6.18.56-mu300" : this.kernel === "7.2" ? "7.2.10-mu300" : "5.4.254", kernelChoice: this.kernel,
+    return { source: "commands", device: "f50", version: "v2026.10.23", os: "ubuntu 24.04", kernel: this.kernel === "6.18" ? "6.18.56-openf50" : this.kernel === "7.2" ? "7.2.10-openf50" : "5.4.254", kernelChoice: this.kernel,
       bootOs: this.bootOs, defaultBoot: "linux", attempts: 5, systems: ["ubuntu", "openwrt-luci"], uptime: 5025, isRoot: true };
   }
   async _say(onLine, lines, rc = 0) { for (const l of lines) { this.log(l); if (onLine) onLine(l); await wait(250); } return { rc }; }
-  checkUpdate(onLine) { return this._say(onLine, ["==> installed: v2026.10.23 (ubuntu, openwrt-luci), kernel 6.18", `==> newest release: ${TAG}`, "an update is available: sudo mu300-update apply"]); }
-  applyUpdate(onLine) { return this._say(onLine, [`==> downloading ${TAG}`, "==> unpacking ubuntu", "==> kept: etc/mu300 etc/ssh home root", "==> boot image updated; reboot to start it"]); }
+  checkUpdate(onLine) { return this._say(onLine, ["==> installed: v2026.10.23 (ubuntu, openwrt-luci), kernel 6.18", `==> newest release: ${TAG}`, "an update is available: sudo openf50-update apply"]); }
+  applyUpdate(onLine) { return this._say(onLine, [`==> downloading ${TAG}`, "==> unpacking ubuntu", "==> kept: etc/openf50 etc/ssh home root", "==> boot image updated; reboot to start it"]); }
   async setKernel(k, onLine) { const r = await this._say(onLine, [`==> kernel ${k}: downloading`, "==> boot image written and verified", "the next boot is a trial"]); this.kernel = k; return r; }
   async setBootOs(n, onLine) { const r = await this._say(onLine, [`boot system: ${n} (reboot to apply)`]); this.bootOs = n; return r; }
   nextBoot(t, onLine) { return this._say(onLine, [`next boot: ${t}`]); }
   async toAndroid(onLine) { return this._say(onLine, ["next boot: android"]); }
-  logs(onLine) { return this._say(onLine, ["--- mu300-update version", "v2026.10.23", "--- dmesg (last 300 lines)", "[    3.201] sprd-sdhci 20300000.sdio: card claimed", "[   12.911] wlan0: aa:bb:cc:dd:ee:ff associated", "[   14.002] modem: IMEI 867530012345678 registered"]); }
+  logs(onLine) { return this._say(onLine, ["--- openf50-update version", "v2026.10.23", "--- dmesg (last 300 lines)", "[    3.201] sprd-sdhci 20300000.sdio: card claimed", "[   12.911] wlan0: aa:bb:cc:dd:ee:ff associated", "[   14.002] modem: IMEI 867530012345678 registered"]); }
   async reboot() { await wait(300); }
 }
 

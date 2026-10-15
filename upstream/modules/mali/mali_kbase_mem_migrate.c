@@ -35,11 +35,11 @@
  */
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 0, 0)
 /*
- * MU300: this DDK drives page migration through PageMovable()/a_ops->migratepage, which the folio conversion
+ * OPENF50: this DDK drives page migration through PageMovable()/a_ops->migratepage, which the folio conversion
  * replaced. Migration is an optimisation the driver runs fine without, so it is compiled out here and the
  * module parameter below is forced off.
  */
-#define MU300_NO_PAGE_MIGRATION 1
+#define OPENF50_NO_PAGE_MIGRATION 1
 #define PageMovable(p) (false)
 #define __SetPageMovable(p, m) do { (void)(p); (void)(m); } while (0)
 #define __ClearPageMovable(p) do { (void)(p); } while (0)
@@ -322,7 +322,7 @@ static void kbase_page_putback(struct page *p)
 }
 
 static const struct address_space_operations kbase_address_space_ops = {
-#ifndef MU300_NO_PAGE_MIGRATION
+#ifndef OPENF50_NO_PAGE_MIGRATION
 	.isolate_page = kbase_page_isolate,
 	.migratepage = kbase_page_migrate,
 	.putback_page = kbase_page_putback,
@@ -347,7 +347,7 @@ void kbase_mem_migrate_init(struct kbase_device *kbdev)
 
 	if (kbase_page_migration_enabled < 0)
 		kbase_page_migration_enabled = 0;
-#ifdef MU300_NO_PAGE_MIGRATION
+#ifdef OPENF50_NO_PAGE_MIGRATION
 	kbase_page_migration_enabled = 0;
 #endif
 

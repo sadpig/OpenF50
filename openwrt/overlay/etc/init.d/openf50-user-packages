@@ -1,0 +1,16 @@
+#!/bin/sh /etc/rc.common
+# The packages installed on the device before an update, installed again (openf50-user-packages run): once, after the
+# rest has started; it waits for the internet itself, and does nothing when there is nothing to install again.
+START=99
+USE_PROCD=1
+export PATH="$PATH:/opt/openf50/busybox-bin"
+
+start_service() {
+	[ -s /etc/openf50/user-packages/wanted ] || return 0
+	procd_open_instance
+	procd_set_param command /opt/openf50/bin/openf50-user-packages run
+	procd_set_param env PATH="$PATH"
+	procd_set_param stdout 1
+	procd_set_param stderr 1
+	procd_close_instance
+}

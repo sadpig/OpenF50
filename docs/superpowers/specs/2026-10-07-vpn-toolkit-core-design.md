@@ -5,7 +5,7 @@ fixes the details. ② is the LuCI screen on top of it, ④ adds L2TP, PPTP, IKE
 
 ## Why
 
-`mu300-vpn` speaks one protocol: a VLESS share link in `/etc/mu300/vpn.conf`, run by Xray (behind
+`openf50-vpn` speaks one protocol: a VLESS share link in `/etc/openf50/vpn.conf`, run by Xray (behind
 hev-socks5-tunnel) or sing-box. People have WireGuard configs, OpenVPN files, Clash/mihomo subscriptions, VMess,
 Trojan and Shadowsocks links, and raw Xray/sing-box JSON from their panels. The user's goal is one VPN screen for all
 of them. That needs, under the screen, a store of named profiles, one driver per engine behind a fixed contract, and
@@ -18,33 +18,33 @@ runs without the kill switch's sing-box substitute, Tailscale rules 5198-5200).
 ## What the user gets
 
 ```
-mu300-vpn profile list                       id, type, name, * on the active one (TSV)
-mu300-vpn profile show ID                    name, type, source, created, server - never a secret
-mu300-vpn profile add TYPE NAME FILE|URI     store a profile of that type
-mu300-vpn profile import FILE|URI [NAME]     the same, type sniffed from the scheme or the content
-mu300-vpn profile edit ID FILE|URI           replace its config (checked first)
-mu300-vpn profile set ID KEY VALUE           a per-type option (TLS_PIN_SHA256, MIHOMO_STACK, OVPN_USER, ...)
-mu300-vpn profile remove ID                  not the active one while the VPN is on
-mu300-vpn profile use ID                     make it active; a running VPN restarts on it
-mu300-vpn profile export ID                  the raw config to the terminal (the one place secrets are printed)
-mu300-vpn on | off | restart | status        on: ENABLE=1 + service; off: ENABLE=0, service stopped, kill switch down
-mu300-vpn settings [get [KEY] | set KEY VALUE]
-mu300-vpn engines [install ENGINE]           TSV: engine, present|missing, path or the command that gets it
-mu300-vpn check [ID]                         validate a profile with its engine (default: the active one)
-mu300-vpn gen | run | guard | status | engines   unchanged for the service units, mobile-data and wifi-client
+openf50-vpn profile list                       id, type, name, * on the active one (TSV)
+openf50-vpn profile show ID                    name, type, source, created, server - never a secret
+openf50-vpn profile add TYPE NAME FILE|URI     store a profile of that type
+openf50-vpn profile import FILE|URI [NAME]     the same, type sniffed from the scheme or the content
+openf50-vpn profile edit ID FILE|URI           replace its config (checked first)
+openf50-vpn profile set ID KEY VALUE           a per-type option (TLS_PIN_SHA256, MIHOMO_STACK, OVPN_USER, ...)
+openf50-vpn profile remove ID                  not the active one while the VPN is on
+openf50-vpn profile use ID                     make it active; a running VPN restarts on it
+openf50-vpn profile export ID                  the raw config to the terminal (the one place secrets are printed)
+openf50-vpn on | off | restart | status        on: ENABLE=1 + service; off: ENABLE=0, service stopped, kill switch down
+openf50-vpn settings [get [KEY] | set KEY VALUE]
+openf50-vpn engines [install ENGINE]           TSV: engine, present|missing, path or the command that gets it
+openf50-vpn check [ID]                         validate a profile with its engine (default: the active one)
+openf50-vpn gen | run | guard | status | engines   unchanged for the service units, mobile-data and wifi-client
 ```
 
-`mu300-toolkit`'s VPN menu works in profiles: list, activate, import (paste a link or a path), remove, kill switch,
+`openf50-toolkit`'s VPN menu works in profiles: list, activate, import (paste a link or a path), remove, kill switch,
 engines, on/off, restart.
 
 ## Storage
 
-Everything under `/etc/mu300`, which updates keep. Each system (Ubuntu, OpenWrt, openwrt-luci, Arch) has its own.
+Everything under `/etc/openf50`, which updates keep. Each system (Ubuntu, OpenWrt, openwrt-luci, Arch) has its own.
 
 ```
-/etc/mu300/vpn.conf                    ENABLE=0|1 - still THE switch (mu300-update, android-install.sh, wifi-client,
-                                       mu300-extra, the dashboard and older images read it); legacy keys below it
-/etc/mu300/vpn/                        0700
+/etc/openf50/vpn.conf                    ENABLE=0|1 - still THE switch (openf50-update, android-install.sh, wifi-client,
+                                       openf50-extra, the dashboard and older images read it); legacy keys below it
+/etc/openf50/vpn/                        0700
     settings                           KEY=VALUE, 0600
     active                             the active profile id
     legacy.snapshot                    the legacy keys as last migrated (0600; see Migration)
@@ -53,12 +53,12 @@ Everything under `/etc/mu300`, which updates keep. Each system (Ubuntu, OpenWrt,
         uri | config.json | config.yaml | wg.conf | client.ovpn      (0600) exactly one
         auth.txt                       OpenVPN user/password (0600), only when the profile has them
     cache/mihomo/                      mihomo's home (GeoIP/GeoSite downloads survive reboots)
-/run/mu300-vpn/                        0700, generated configs, iface, server-ip, dns, pids
+/run/openf50-vpn/                        0700, generated configs, iface, server-ip, dns, pids
 ```
 
 `meta` and `settings` are never sourced: values are read with `sed -n "s/^KEY=//p"` and written single-quoted with
-`'` escaped, so a name typed in LuCI cannot run anything. `MU300_VPN_DIR` (tests) defaults to the directory of
-`MU300_VPN_CONF` + `/vpn`, so a test that points the conf into a scratch directory gets its store there too.
+`'` escaped, so a name typed in LuCI cannot run anything. `OPENF50_VPN_DIR` (tests) defaults to the directory of
+`OPENF50_VPN_CONF` + `/vpn`, so a test that points the conf into a scratch directory gets its store there too.
 
 ### Settings
 
@@ -92,13 +92,13 @@ YAML with `proxies:` or `proxy-providers:` → mihomo. The ID is the name lowerc
 
 ## Engine drivers
 
-`/opt/mu300/lib/vpn/<type>.sh`, sourced by `mu300-vpn` (`MU300_VPN_LIB` for tests). The loader refuses a type that
+`/opt/openf50/lib/vpn/<type>.sh`, sourced by `openf50-vpn` (`OPENF50_VPN_LIB` for tests). The loader refuses a type that
 is not `[a-z-]+` or has no file; for the reserved ones it says `TYPE: not available in this version`. Each driver
 defines:
 
 | function | does |
 |---|---|
-| `drv_engines` | prints the programs it needs, one path per line (resolved: extra, then /opt/mu300/bin, then PATH) |
+| `drv_engines` | prints the programs it needs, one path per line (resolved: extra, then /opt/openf50/bin, then PATH) |
 | `drv_engines_ok` | 0 when they are all executable (and, for wireguard, the kernel has it) |
 | `drv_check` | validates the profile's file (`$PDIR`) and the rebuild of it, with the driver's own parser; errors to stderr. The engine's own check (`xray run -test`, `sing-box check`, `mihomo -t`) runs at `drv_gen`, on the rebuilt file, because xray's needs the resolved addresses |
 | `drv_gen` | the runtime config under `$RUN` from the profile + settings (the check first, then the engine's own check on the file written); writes `$RUN/server-ip` (addresses to keep off the tunnel, one per line) and optionally `$RUN/dns` |
@@ -113,7 +113,7 @@ what the core does, same prefs and table, as today). The core then:
 
 1. puts the full kill switch up (KILL_SWITCH=1), before anything that can fail - unchanged;
 2. migrates a legacy vpn.conf (below), loads the active profile and its driver;
-3. gets missing engines: vpn / vpn-mihomo extras by `mu300-extra adopt`/`install` (through the download window when
+3. gets missing engines: vpn / vpn-mihomo extras by `openf50-extra adopt`/`install` (through the download window when
    the kill switch is up - the window code is unchanged, the extra's name is now a parameter); packages are never
    installed by the service, it fails closed with the command to run;
 4. `drv_gen` (which includes the check);
@@ -136,15 +136,15 @@ The kill switch lets only marked traffic out on an uplink, and rule 9000 keeps i
   What else of the config survives is an allowlist (Security).
 * **sing-box**: `route.default_mark`. Raw JSON: `jq` replaces `inbounds` with our TUN (gvisor, `sbtun`,
   `auto_route`, `strict_route`, the LAN excluded - as generated today), sets `default_mark`, `auto_detect_interface`,
-  and adds a `mu300-bootstrap` UDP DNS server (BOOTSTRAP_DNS) used as `default_domain_resolver` unless the config
+  and adds a `openf50-bootstrap` UDP DNS server (BOOTSTRAP_DNS) used as `default_domain_resolver` unless the config
   names its own. The rest is held to an allowlist (Security). `sing-box check` runs on the rebuilt file.
 * **mihomo**: `routing-mark: 720`. The YAML is reduced to the top-level keys the Security section allows (awk: a
-  top-level key and its indented block; every other block is removed) and ours appended: TUN `mh-mu300`, stack from
+  top-level key and its indented block; every other block is removed) and ours appended: TUN `mh-openf50`, stack from
   the profile's `MIHOMO_STACK` (default gvisor), `auto-route: false`, `auto-detect-interface: false`, no DNS hijack;
   `dns` with `proxy-server-nameserver`/`default-nameserver` = BOOTSTRAP_DNS, `nameserver` = REMOTE_DNS,
   `respect-rules: true`; `allow-lan: false`; `bind-address: '127.0.0.1'`; no `external-controller` of any kind (the
   TUN is the only thing that listens). Checked with `mihomo -t`.
-* **wireguard**: `wg set wg-mu300 fwmark 0x2d0`. `wg.conf`'s wg-quick keys (Address, DNS, MTU, Table, Pre/PostUp/Down,
+* **wireguard**: `wg set wg-openf50 fwmark 0x2d0`. `wg.conf`'s wg-quick keys (Address, DNS, MTU, Table, Pre/PostUp/Down,
   SaveConfig) are stripped for `wg setconf`, and so are ListenPort (a config opens no port on the device) and
   FwMark (the mark is ours, set by `wg set` after setconf); the Endpoint name is resolved, Address goes on with `ip addr`, MTU
   default 1420, DNS (first) to `$RUN/dns`. A peer without `0.0.0.0/0` in AllowedIPs gets a warning (traffic outside
@@ -178,12 +178,12 @@ The kill switch lets only marked traffic out on an uplink, and rule 9000 keeps i
     vocabulary; an unknown first word is never repeated) and never an argument. Also refused: a tap profile, no
     remote, neither `client` nor `tls-client`, no `<ca>`/`<pkcs12>`.
   * `remote` names are resolved to addresses; the written config is read back by the same parser for `server-ip`.
-  Run as `openvpn --config $RUN/openvpn.conf --dev tun-mu300 --dev-type tun --route-noexec --pull-filter accept
+  Run as `openvpn --config $RUN/openvpn.conf --dev tun-openf50 --dev-type tun --route-noexec --pull-filter accept
   ifconfig --pull-filter accept ifconfig-ipv6 --pull-filter accept topology --pull-filter accept "dhcp-option DNS"
   --pull-filter accept ping --pull-filter accept ping-restart --pull-filter accept peer-id --pull-filter accept
   cipher --pull-filter accept auth-token --pull-filter accept route-gateway --pull-filter accept protocol-flags
   --pull-filter accept key-derivation --pull-filter accept tun-mtu --pull-filter ignore "" --mark 720
-  --script-security 2 --up /opt/mu300/lib/vpn/openvpn-up --setenv MU300_VPN_RUN $RUN --auth-nocache --verb 3
+  --script-security 2 --up /opt/openf50/lib/vpn/openvpn-up --setenv OPENF50_VPN_RUN $RUN --auth-nocache --verb 3
   [--auth-user-pass $RUN/ovpn.auth]`: our options after `--config`, so they win. What the server pushes is held to
   an accept list, not a denylist: a pull filter is a prefix match and the first that matches wins, so the accepts
   come first and `ignore ""` (which matches everything) last. Accepted: the session's addresses and topology
@@ -211,11 +211,11 @@ opens a **resolve window**: the download window's ruleset with only the DNS sets
 each way, never a gap. The legacy behaviour stays as it is for VLESS links: with the kill switch, a VLESS xray profile
 runs on sing-box when it is installed, and an allowInsecure link that needs a pin is refused rather than moved
 (the existing tests). A non-VLESS xray link that asks for allowInsecure with no pin under the kill switch fails closed
-(`mu300-vpn profile set ID TLS_PIN_SHA256 ...`).
+(`openf50-vpn profile set ID TLS_PIN_SHA256 ...`).
 
 ## Migration
 
-Per system, at every start of `mu300-vpn` (any command), idempotent, and only when `/etc/mu300/vpn` can be written
+Per system, at every start of `openf50-vpn` (any command), idempotent, and only when `/etc/openf50/vpn` can be written
 (as root); otherwise the legacy file is read in memory, as today.
 
 * vpn.conf's legacy keys (everything but ENABLE: VLESS_URI ENGINE KILL_SWITCH TAILSCALE REMOTE_DNS BOOTSTRAP_DNS
@@ -229,20 +229,20 @@ Per system, at every start of `mu300-vpn` (any command), idempotent, and only wh
   older image's `save_pin` after a downgrade and upgrade) wins for the keys it changed, and settings changed with the
   new commands are kept otherwise.
 * vpn.conf is left in place with its keys (an older image installed over this one finds a working VLESS VPN) and
-  gets one comment line at the top: `# mu300-vpn: migrated to /etc/mu300/vpn (profile legacy); only ENABLE is read
+  gets one comment line at the top: `# openf50-vpn: migrated to /etc/openf50/vpn (profile legacy); only ENABLE is read
   from this file now`. `on`/`off` change only its ENABLE line (and create the file with just that line when there is
   none). The xray pin fetched for a link is saved in the profile's meta.
 
 ## Engines and the new extra
 
 * `tools/fetch-mihomo.sh [OUTDIR]`: MetaCubeX/mihomo v1.19.32 `mihomo-linux-arm64-v1.19.32.gz`, pinned by sha256,
-  writes `OUTDIR/mihomo`. `tools/make-extra.sh vpn-mihomo OUT TAG` builds `mu300-extra-vpn-mihomo.tar.gz`
+  writes `OUTDIR/mihomo`. `tools/make-extra.sh vpn-mihomo OUT TAG` builds `openf50-extra-vpn-mihomo.tar.gz`
   (`bin/mihomo`, `components`). `tools/make-release.sh` builds it, audits it with the others and lists it in the
-  release notes. `mu300-update`: `EXTRAS="vpn lang vpn-mihomo"`, its description; `mu300-extra list` shows it.
-* `mu300-vpn engines` prints one TSV line per engine: `xray`, `hev-socks5-tunnel`, `sing-box` (vpn extra),
+  release notes. `openf50-update`: `EXTRAS="vpn lang vpn-mihomo"`, its description; `openf50-extra list` shows it.
+* `openf50-vpn engines` prints one TSV line per engine: `xray`, `hev-socks5-tunnel`, `sing-box` (vpn extra),
   `mihomo` (vpn-mihomo extra), `wireguard` (kernel + wg), `openvpn` (package), each `present PATH` or
   `missing HOW`. Exit 0 when the active profile's engines are present (as the toolkit expects today).
-* `mu300-vpn engines install ENGINE`: `mu300-extra install vpn|vpn-mihomo`, or `apk add openvpn-openssl` /
+* `openf50-vpn engines install ENGINE`: `openf50-extra install vpn|vpn-mihomo`, or `apk add openvpn-openssl` /
   `apk add wireguard-tools` on OpenWrt, `apt-get install -y openvpn` / `wireguard-tools` on Ubuntu, `pacman -S
   --noconfirm openvpn` / `wireguard-tools` on Arch. LuCI's Engines tab (②) calls this.
 * Images: `jq` is added to Ubuntu, OpenWrt and Arch (the raw-JSON drivers need it), `wireguard-tools` to Ubuntu
@@ -250,11 +250,11 @@ Per system, at every start of `mu300-vpn` (any command), idempotent, and only wh
 
 ## Other callers
 
-* `wifi-client`'s `vpn_kill_switch` reads KILL_SWITCH from `etc/mu300/vpn/settings` first, then vpn.conf.
+* `wifi-client`'s `vpn_kill_switch` reads KILL_SWITCH from `etc/openf50/vpn/settings` first, then vpn.conf.
 * The OpenWrt dashboard (`dashboard-info`) shows the active profile's type as the engine and treats the tunnel as up
-  when `/run/mu300-vpn/iface` names an interface that exists (any type).
+  when `/run/openf50-vpn/iface` names an interface that exists (any type).
 * systemd unit and init script: descriptions only; both still start on `vpn.conf`, which `on` creates.
-* `mu300-extra remove vpn` still refuses while ENABLE=1 (the switch stayed where it was).
+* `openf50-extra remove vpn` still refuses while ENABLE=1 (the switch stayed where it was).
 
 ## Security
 
@@ -374,7 +374,7 @@ Per system, at every start of `mu300-vpn` (any command), idempotent, and only wh
   * No listener is left (our SOCKS inbound is the only one) and `reverse` is refused, so nothing arrives through
     the tunnel.
 * **sing-box raw JSON.**
-  * Top level: kept: `dns` (plus our `mu300-bootstrap` server), `outbounds`, `route`, `endpoints`. Ours: `inbounds`
+  * Top level: kept: `dns` (plus our `openf50-bootstrap` server), `outbounds`, `route`, `endpoints`. Ours: `inbounds`
     (our TUN only), `log` (`{"level":"warn","timestamp":false}`, stdout only, so no `output` path). Dropped:
     `experimental` as a whole (`clash_api`, `v2ray_api`, the `debug` listener, a `cache_file` path the engine would
     write). Any other top-level key - `services` (ssm-api, derp, resolved: all listen), `ntp`, `certificate`, a
@@ -397,7 +397,7 @@ Per system, at every start of `mu300-vpn` (any command), idempotent, and only wh
     cannot sit next to our bootstrap server).
   * Every `detour` (outbounds, endpoints, DNS servers), a rule set's `download_detour`, a selector's or urltest's
     `outbounds`/`default`, a route rule's `outbound` and `route.final` must name an outbound or endpoint of the
-    config; a DNS server's `domain_resolver` must name one of its DNS servers (or `mu300-bootstrap`).
+    config; a DNS server's `domain_resolver` must name one of its DNS servers (or `openf50-bootstrap`).
 * **mihomo YAML (Task 7 follows this).** Clash files carry many harmless keys, so unknown top-level keys are removed,
   not refused. Kept: `proxies`, `proxy-groups`, `proxy-providers`, `rules`, `rule-providers`, `sub-rules`, `hosts`,
   `mode`, `log-level`, `ipv6`, `geodata-mode`, `geodata-loader`, `geox-url`, `profile`, `sniffer`. Written by the
@@ -418,7 +418,7 @@ Per system, at every start of `mu300-vpn` (any command), idempotent, and only wh
     line at column 0 of the form `KEY:` with KEY of `[A-Za-z0-9_-]`, and its block runs to the next such line (blank
     and `#` lines belong to the block they follow); a kept block is copied as it is, a dropped one goes, and the
     check names the dropped keys (they match that pattern, so nothing else of the file is repeated). A dropped block
-    that defines an anchor (`&name`) is kept inert under a name of the driver's, `mu300-anchor-N`, which mihomo
+    that defines an anchor (`&name`) is kept inert under a name of the driver's, `openf50-anchor-N`, which mihomo
     does not read (subscription templates and mihomo's own example put the defaults of providers and groups under
     keys of their own and merge them with `<<: *name`; without the anchor the file would not parse); it goes through
     the same removals and the same text check as a kept block, so nothing it anchors can bring the two keys in. Inside a kept
@@ -438,10 +438,10 @@ Per system, at every start of `mu300-vpn` (any command), idempotent, and only wh
     continued at column 0: YAML would read it as top-level content that the line rules cannot see), a kept key
     given twice (mihomo's YAML reader refuses it anyway), a top-level key that is a kept name or one of ours in
     another spelling (case, `_` for `-`: refused by the name it collides with, as the JSON drivers refuse a
-    misspelled shape key), a key of the driver's own reserved names (`mu300-anchor-N`), and a file without
+    misspelled shape key), a key of the driver's own reserved names (`openf50-anchor-N`), and a file without
     `proxies` and `proxy-providers`. The size cap comes before anything reads the file, as in the JSON drivers. A
     first line `---`, a BOM and CRLF line ends are taken. The written file is checked again before `mihomo -t`
-    (no line break but LF, the guard's line model being yaml.v3's; every column-0 key one of the kept list, ours or `mu300-anchor-N`, `tun` and `dns` exactly once, `routing-mark: 720`,
+    (no line break but LF, the guard's line model being yaml.v3's; every column-0 key one of the kept list, ours or `openf50-anchor-N`, `tun` and `dns` exactly once, `routing-mark: 720`,
     `allow-lan: false`, `bind-address` once, no `external-*` key), and
     `mihomo -t`'s own output is not shown (its YAML errors quote values); the message gives the command to run.
 * The kill switch is unchanged: only marked traffic, NTP and the Wi-Fi client's DHCP leave on an uplink; forwarded
@@ -456,7 +456,7 @@ Per system, at every start of `mu300-vpn` (any command), idempotent, and only wh
   TUN, no controller); migration (first, idempotent, an edited vpn.conf, not writable); profile CRUD, ID validation,
   `use` keeping the kill switch (no `delete table` between two runs); settings validation; `engines` output;
   reserved types; nothing secret in stdout/stderr of `list`/`show`/`status`/`run`.
-* `tests/test_static.py`: the vpn-mihomo extra in make-release's build and audit lists and mu300-update's EXTRAS;
+* `tests/test_static.py`: the vpn-mihomo extra in make-release's build and audit lists and openf50-update's EXTRAS;
   jq in the three image package lists.
 * On the device (U30 Air, OpenWrt, mainline 7.2): migration of the working legacy VLESS conf without reading it,
   `status` with the exit IP afterwards; WireGuard and OpenVPN against test servers in Docker on the oracle-arm box;

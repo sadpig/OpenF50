@@ -66,7 +66,7 @@ test("a generated key works and its public half matches", async () => {
 
 test("key names keep only what a key file line may hold", () => {
   assert.equal(cleanName("a b;c'd$(x)"), "abcdx");
-  assert.equal(cleanName(""), "mu300-web");
+  assert.equal(cleanName(""), "openf50-web");
   assert.equal(cleanName("x".repeat(100)).length, 64);
   assert.ok(!validKey({ n: "zz", d: "1", e: "1" }));
   assert.ok(!validKey(null));
@@ -96,7 +96,7 @@ test("headers: the constants are adb's, the magic and checksum are checked", () 
 });
 
 test("the banner: state, properties and features; garbage gives an empty one", () => {
-  const b = parseBanner(Buffer.from("device::ro.product.name=MU300;ro.product.model=F50;features=shell_v2,cmd,abb\0"));
+  const b = parseBanner(Buffer.from("device::ro.product.name=OPENF50;ro.product.model=F50;features=shell_v2,cmd,abb\0"));
   assert.equal(b.state, "device"); assert.equal(b.props["ro.product.model"], "F50");
   assert.deepEqual([...b.features], ["shell_v2", "cmd", "abb"]);
   assert.equal(parseBanner(Buffer.from("\xff\xfe nonsense")).state, "");
@@ -226,10 +226,10 @@ test("shell without v2: one stream, the status from the line this client adds", 
 });
 
 test("shell: lines as they come, CRLF from a pty turned into lines, pieces split anywhere", async () => {
-  const { conn } = await connected({ async *shell() { yield { out: "MU300-STEP a\r\nMU300-" }; yield { wait: 5 }; yield { out: "STEP b\r\npartial" }; yield { err: "oops\n" }; return 0; } });
+  const { conn } = await connected({ async *shell() { yield { out: "OPENF50-STEP a\r\nOPENF50-" }; yield { wait: 5 }; yield { out: "STEP b\r\npartial" }; yield { err: "oops\n" }; return 0; } });
   const lines = [];
   const r = await shell(conn, "x", { onLine: (l, e) => lines.push([l, e]) });
-  assert.deepEqual(lines, [["MU300-STEP a", false], ["MU300-STEP b", false], ["oops", true], ["partial", false]]);
+  assert.deepEqual(lines, [["OPENF50-STEP a", false], ["OPENF50-STEP b", false], ["oops", true], ["partial", false]]);
   assert.equal(r.exitCode, 0);
 });
 

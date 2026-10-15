@@ -1,0 +1,15 @@
+[Unit]
+Description=OPENF50 Bluetooth controller (SC2355/Marlin3 H4 over PCIe)
+After=openf50-wifi.service
+Requires=openf50-wifi.service
+Before=bluetooth.service
+
+[Service]
+Type=simple
+ExecStart=/opt/openf50/bin/bluetooth-start
+ExecStopPost=-/usr/sbin/rfkill block bluetooth
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

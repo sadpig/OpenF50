@@ -32,7 +32,7 @@ def shell_scripts():
         TOP / 'tools' / 'linux-mode.sh', TOP / 'tools' / 'storage.sh', TOP / 'android-vendor' / 'ueventd-perms.sh']
     cands += list((TOP / 'android' / 'magisk' / 'installer').glob('*.sh'))
     cands += [TOP / 'android' / 'magisk' / 'installer' / 'update-binary']
-    cands += list((TOP / 'android' / 'magisk' / 'mu300-linux-switch').glob('*.sh'))
+    cands += list((TOP / 'android' / 'magisk' / 'openf50-linux-switch').glob('*.sh'))
     cands += [p for p in OPENWRT.rglob('*') if p.is_file()]
     cands += [p for p in LUCI_OVERLAY.rglob('*') if p.is_file()]
     out = []
@@ -69,47 +69,47 @@ class Syntax(unittest.TestCase):
 
 class Rules(unittest.TestCase):
     def test_power_page_is_wired(self):
-        menu = json.loads((TOP / 'openwrt/luci-app-mu300/root/usr/share/luci/menu.d/luci-app-mu300.json').read_text())
-        self.assertEqual(menu['admin/system/power']['action']['path'], 'mu300/power')
-        common = (TOP / 'openwrt/luci-app-mu300/htdocs/luci-static/resources/mu300/common.js').read_text()
+        menu = json.loads((TOP / 'openwrt/luci-app-openf50/root/usr/share/luci/menu.d/luci-app-openf50.json').read_text())
+        self.assertEqual(menu['admin/system/power']['action']['path'], 'openf50/power')
+        common = (TOP / 'openwrt/luci-app-openf50/htdocs/luci-static/resources/openf50/common.js').read_text()
         self.assertIn("method: 'power_get'", common)
         self.assertIn("method: 'power_set', params: [ 'op', 'key', 'value' ]", common)
-        view = (TOP / 'openwrt/luci-app-mu300/htdocs/luci-static/resources/view/mu300/power.js').read_text()
+        view = (TOP / 'openwrt/luci-app-openf50/htdocs/luci-static/resources/view/openf50/power.js').read_text()
         for s in ('WIFI_IDLE', 'RADIO_IDLE', 'LEDS_IDLE', 'CPU', 'SAVER_BELOW', 'CHARGE_TO', 'callPowerSet'):
             self.assertIn(s, view)
-        acl = json.loads((TOP / 'openwrt/luci-app-mu300/root/usr/share/rpcd/acl.d/luci-app-mu300.json').read_text())
-        self.assertIn('power_get', acl['luci-app-mu300']['read']['ubus']['mu300dash'])
-        self.assertIn('power_set', acl['luci-app-mu300']['write']['ubus']['mu300dash'])
+        acl = json.loads((TOP / 'openwrt/luci-app-openf50/root/usr/share/rpcd/acl.d/luci-app-openf50.json').read_text())
+        self.assertIn('power_get', acl['luci-app-openf50']['read']['ubus']['openf50dash'])
+        self.assertIn('power_set', acl['luci-app-openf50']['write']['ubus']['openf50dash'])
 
     def test_power_profiles_are_wired_in(self):
         # the daemon runs on both systems, the keys wake it, the Ubuntu units skip the radios in a charging boot,
         # the command is on PATH, OpenWrt's own power-key handler (a tap = poweroff) is neutralised, and power.conf is kept
-        self.assertIn('mu300-power', (TOP / 'rootfs/overlay/opt/mu300/lib/path-commands').read_text().split())
-        buttons = (BIN / 'mu300-buttons').read_text()
-        self.assertIn('mu300-power wake', buttons)
-        unit = (TOP / 'rootfs/overlay/etc/systemd/system/mu300-power.service').read_text()
-        self.assertIn('ExecStart=/opt/mu300/bin/mu300-power daemon', unit)
-        self.assertIn('After=mu300-hotspot.service mu300-mobile-data.service', unit)
+        self.assertIn('openf50-power', (TOP / 'rootfs/overlay/opt/openf50/lib/path-commands').read_text().split())
+        buttons = (BIN / 'openf50-buttons').read_text()
+        self.assertIn('openf50-power wake', buttons)
+        unit = (TOP / 'rootfs/overlay/etc/systemd/system/openf50-power.service').read_text()
+        self.assertIn('ExecStart=/opt/openf50/bin/openf50-power daemon', unit)
+        self.assertIn('After=openf50-hotspot.service openf50-mobile-data.service', unit)
         # R10: stopped while idle, the TERM trap runs the whole wake (up to ~120 s for the radio lock)
         self.assertIn('TimeoutStopSec=150', unit)
-        self.assertIn('mu300-power.service:multi-user.target', (TOP / 'rootfs/assemble.sh').read_text())
-        init = (TOP / 'openwrt/overlay/etc/init.d/mu300-power').read_text()
-        self.assertIn('procd_set_param command /opt/mu300/bin/mu300-power daemon', init)
+        self.assertIn('openf50-power.service:multi-user.target', (TOP / 'rootfs/assemble.sh').read_text())
+        init = (TOP / 'openwrt/overlay/etc/init.d/openf50-power').read_text()
+        self.assertIn('procd_set_param command /opt/openf50/bin/openf50-power daemon', init)
         self.assertIn('procd_set_param term_timeout 150', init)
         self.assertRegex(init, r'START=9[6-9]')
-        for u in ('mu300-hotspot.service', 'mu300-mobile-data.service'):
-            self.assertIn('ConditionPathExists=!/run/mu300/charging-boot', (TOP / 'rootfs/overlay/etc/systemd/system' / u).read_text())
+        for u in ('openf50-hotspot.service', 'openf50-mobile-data.service'):
+            self.assertIn('ConditionPathExists=!/run/openf50/charging-boot', (TOP / 'rootfs/overlay/etc/systemd/system' / u).read_text())
         build = (TOP / 'openwrt/build-rootfs.sh').read_text()
         self.assertIn('for b in power wps rfkill', build)
         self.assertIn('mkdir -p $R/etc/rc.button', build)
         self.assertIn('rc.button/$b', build)
         self.assertLess(build.index('cp -a /in/overlay/. $R/'), build.index('for b in power wps rfkill'))
-        self.assertIn('mu300-power', build.split('for s in mu300-accounts')[1].split('; do')[0])
-        # etc/mu300 is kept whole on both systems, and power.conf lives in it
-        update = (TOP / 'rootfs/overlay/opt/mu300/bin/mu300-update').read_text()
-        self.assertRegex(update, r'ubuntu\) echo "etc/mu300 ')
-        self.assertRegex(update, r'openwrt\) echo "etc/config etc/mu300 ')
-        self.assertIn('/etc/mu300/power.conf', (BIN / 'mu300-power').read_text())
+        self.assertIn('openf50-power', build.split('for s in openf50-accounts')[1].split('; do')[0])
+        # etc/openf50 is kept whole on both systems, and power.conf lives in it
+        update = (TOP / 'rootfs/overlay/opt/openf50/bin/openf50-update').read_text()
+        self.assertRegex(update, r'ubuntu\) echo "etc/openf50 ')
+        self.assertRegex(update, r'openwrt\) echo "etc/config etc/openf50 ')
+        self.assertIn('/etc/openf50/power.conf', (BIN / 'openf50-power').read_text())
 
     def test_customize_leaves_magisks_shell_alone(self):
         # Magisk sources customize.sh: errexit or nounset there would end Magisk's own installer before its cleanup
@@ -120,7 +120,7 @@ class Rules(unittest.TestCase):
         self.assertIn('SKIPUNZIP=1', code)
 
     def test_installer_never_writes_androids_boot_partition(self):
-        s = (TOP / 'android' / 'magisk' / 'installer' / 'mu300-install.sh').read_text()
+        s = (TOP / 'android' / 'magisk' / 'installer' / 'openf50-install.sh').read_text()
         self.assertNotRegex(s, r'of="?\$BOOT_ANDROID')
         self.assertNotRegex(s, r'write_boot "?\$BOOT_ANDROID')
 
@@ -154,7 +154,7 @@ class Rules(unittest.TestCase):
         for name in ('install.ps1', 'uninstall.ps1'):
             for n, line in enumerate((TOP / name).read_text().splitlines(), 1):
                 if 'adb push' in line:
-                    self.assertNotRegex(line, r'\.(sh|prop)\b|mu300-linux"|\$f"', f'{name}:{n}')
+                    self.assertNotRegex(line, r'\.(sh|prop)\b|openf50-linux"|\$f"', f'{name}:{n}')
         self.assertIn('eol=lf', (TOP / '.gitattributes').read_text())
 
     def test_single_quoted_scripts_have_no_apostrophes(self):
@@ -173,37 +173,37 @@ class Rules(unittest.TestCase):
 
     def test_every_tool_that_mounts_the_filesystem_knows_the_card(self):
         for f in ('uninstall.sh', 'uninstall.ps1', 'tools/reset-password.sh', 'tools/android-import-hotspot.sh'):
-            self.assertIn('mu300sd', (TOP / f).read_text(), f)
+            self.assertIn('openf50sd', (TOP / f).read_text(), f)
 
     def test_every_system_list_has_openwrt_luci(self):
         # every place that names the systems knows the third one, by its name or by the OpenWrt kind pattern
-        files = ('boot/init', 'rootfs/overlay/opt/mu300/bin/mu300-update', 'rootfs/overlay/opt/mu300/bin/mu300-os',
+        files = ('boot/init', 'rootfs/overlay/opt/openf50/bin/openf50-update', 'rootfs/overlay/opt/openf50/bin/openf50-os',
                  'tools/android-install.sh', 'tools/reset-password.sh', 'tools/vendor-overlay.py', 'install.sh',
-                 'install.ps1', 'tools/make-release.sh', 'rootfs/overlay/opt/mu300/bin/mu300-extra',
-                 'android/magisk/installer/mu300-install.sh')
+                 'install.ps1', 'tools/make-release.sh', 'rootfs/overlay/opt/openf50/bin/openf50-extra',
+                 'android/magisk/installer/openf50-install.sh')
         for f in files:
             with self.subTest(file=f):
                 text = (TOP / f).read_text()
                 self.assertTrue('openwrt-luci' in text or 'openwrt-*' in text or 'openwrt|openwrt-' in text, f)
 
     def test_openwrt_luci_build_wiring(self):
-        # MU300_SYSTEM=openwrt-luci: the same build as plain OpenWrt plus the panel, its catalogs compiled from po/
+        # OPENF50_SYSTEM=openwrt-luci: the same build as plain OpenWrt plus the panel, its catalogs compiled from po/
         # and Aurora pinned by hash (D3, D5); ImmortalWrt with the panel was never tested by anyone, so refused
         text = (TOP / 'openwrt' / 'build-rootfs.sh').read_text()
-        for s in ('MU300_SYSTEM', '05f9015e0a4e2859f6a153f69e472f2984481490d4ce6db19b8a41bba7264f1e', 'po2lmo.py',
+        for s in ('OPENF50_SYSTEM', '05f9015e0a4e2859f6a153f69e472f2984481490d4ce6db19b8a41bba7264f1e', 'po2lmo.py',
                   'luci-overlay', 'packages.txt', 'luci-i18n-$c-$l', 'for l in tr zh-cn', 'base.$l.lmo'):
             self.assertIn(s, text)
         arm = re.search(r'^\s*openwrt-luci\)(.*?);;', text, re.M | re.S)
-        self.assertIsNotNone(arm, 'no openwrt-luci arm in the MU300_SYSTEM case')
+        self.assertIsNotNone(arm, 'no openwrt-luci arm in the OPENF50_SYSTEM case')
         self.assertRegex(arm.group(1), r'"\$FLAVOUR" = openwrt \]', 'openwrt-luci does not refuse immortalwrt')
-        self.assertIn('mu300-$SYSTEM-$VER-rootfs.tar.gz', text)
+        self.assertIn('openf50-$SYSTEM-$VER-rootfs.tar.gz', text)
         # ImmortalWrt keeps the name it had; the Aurora hash is pinned in the script, only the file may be overridden
-        self.assertIn('mu300-immortalwrt-$VER-rootfs.tar.gz', text)
-        self.assertNotIn('MU300_LUCI_THEME_SHA256', text)
+        self.assertIn('openf50-immortalwrt-$VER-rootfs.tar.gz', text)
+        self.assertNotIn('OPENF50_LUCI_THEME_SHA256', text)
         self.assertRegex(text, r'(?m)^\s*THEME_SHA=05f9015e0a4e2859f6a153f69e472f2984481490d4ce6db19b8a41bba7264f1e$')
-        mk = (TOP / 'openwrt' / 'luci-app-mu300' / 'Makefile').read_text()
+        mk = (TOP / 'openwrt' / 'luci-app-openf50' / 'Makefile').read_text()
         self.assertRegex(mk, r'set -e; \$\(foreach', 'a failing catalog must fail the compile')
-        f = LUCI_OVERLAY / 'etc' / 'uci-defaults' / '91-mu300-luci'
+        f = LUCI_OVERLAY / 'etc' / 'uci-defaults' / '91-openf50-luci'
         self.assertTrue(f.is_file() and f.stat().st_mode & 0o111, f'{f} missing or not executable')
         self.assertIn('/luci-static/aurora', f.read_text())
         self.assertIn(f, [p for p, _ in shell_scripts()])   # so test_every_script_parses parses it
@@ -215,17 +215,17 @@ class Rules(unittest.TestCase):
             self.assertNotRegex(text, r'(^|\s)(ubuntu|openwrt)\)', f)
 
     def test_the_commands_on_path_are_the_same_everywhere(self):
-        # the Ubuntu image, the OpenWrt image and the boot-time links (mu300-extra link, for systems installed before a
+        # the Ubuntu image, the OpenWrt image and the boot-time links (openf50-extra link, for systems installed before a
         # command had one) link the same commands. They used to be three copies of the list: the fixups' lagged behind
-        # (mu300-led, mu300-device were "command not found" on an installed U30 Air), and all three left mu300-ussd out.
+        # (openf50-led, openf50-device were "command not found" on an installed U30 Air), and all three left openf50-ussd out.
         # Now there is one file, and every place reads it.
-        lst = (TOP / 'rootfs/overlay/opt/mu300/lib/path-commands').read_text().split()
-        self.assertIn('$R/opt/mu300/lib/path-commands', (TOP / 'rootfs/assemble.sh').read_text())
-        self.assertIn('/in/opt-mu300/lib/path-commands', (TOP / 'openwrt/build-rootfs.sh').read_text())
-        self.assertIn('/lib/path-commands', (BIN / 'mu300-extra').read_text())
-        self.assertIn('mu300-extra link', (BIN / 'rootfs-fixups').read_text())
-        self.assertIn('mu300-extra link', (OPENWRT / 'etc/init.d/mu300-post').read_text())
-        for c in ('mu300-device', 'mu300-sim', 'mu300-led', 'mobile-data', 'mu300-update', 'mu300-ussd', 'sms', 'mu300-extra'):
+        lst = (TOP / 'rootfs/overlay/opt/openf50/lib/path-commands').read_text().split()
+        self.assertIn('$R/opt/openf50/lib/path-commands', (TOP / 'rootfs/assemble.sh').read_text())
+        self.assertIn('/in/opt-openf50/lib/path-commands', (TOP / 'openwrt/build-rootfs.sh').read_text())
+        self.assertIn('/lib/path-commands', (BIN / 'openf50-extra').read_text())
+        self.assertIn('openf50-extra link', (BIN / 'rootfs-fixups').read_text())
+        self.assertIn('openf50-extra link', (OPENWRT / 'etc/init.d/openf50-post').read_text())
+        for c in ('openf50-device', 'openf50-sim', 'openf50-led', 'mobile-data', 'openf50-update', 'openf50-ussd', 'sms', 'openf50-extra'):
             self.assertIn(c, lst)
         self.assertEqual(len(lst), len(set(lst)))
         for c in lst:
@@ -233,40 +233,40 @@ class Rules(unittest.TestCase):
 
     def test_reply_deadlines_are_at_least_t_whole_seconds(self):
         # date +%s counts whole seconds: "now + T" ends between T - 1 and T seconds away, so a command written late in
-        # a second had almost none of its budget (mu300-atd lost replies with T=1). Every file-clock deadline is now + T + 1.
-        for name, pat in (('mu300-at', r'\$\(date \+%s\) \+ T \+ 1'),
-                          ('mu300-ussd', r'\$\(date \+%s\) \+ T \+ 1'),
-                          ('mu300-atd', r'\$\(now\) \+ \$1 \+ 1')):
+        # a second had almost none of its budget (openf50-atd lost replies with T=1). Every file-clock deadline is now + T + 1.
+        for name, pat in (('openf50-at', r'\$\(date \+%s\) \+ T \+ 1'),
+                          ('openf50-ussd', r'\$\(date \+%s\) \+ T \+ 1'),
+                          ('openf50-atd', r'\$\(now\) \+ \$1 \+ 1')):
             src = (BIN / name).read_text()
             self.assertRegex(src, pat, name)
             self.assertNotRegex(src, r'date \+%s\) \+ T \)', name)
 
     def test_images_carry_no_vpn(self):
-        # the VPN is the module of dikeckaan/mu300-linux-vpn: no mu300-vpn, no drivers, no service, no engines in
+        # the VPN is the module of dikeckaan/mu300-linux-vpn: no openf50-vpn, no drivers, no service, no engines in
         # any image or in this repository, and no release of this repository builds or publishes it
-        for f in ('rootfs/overlay/opt/mu300/bin/mu300-vpn', 'rootfs/overlay/opt/mu300/lib/vpn',
-                  'rootfs/overlay/etc/systemd/system/mu300-vpn.service', 'openwrt/overlay/etc/init.d/mu300-vpn',
-                  'rootfs/overlay/etc/mu300/vpn.conf.example', 'tools/fetch-xray.sh', 'tools/fetch-sing-box.sh',
+        for f in ('rootfs/overlay/opt/openf50/bin/openf50-vpn', 'rootfs/overlay/opt/openf50/lib/vpn',
+                  'rootfs/overlay/etc/systemd/system/openf50-vpn.service', 'openwrt/overlay/etc/init.d/openf50-vpn',
+                  'rootfs/overlay/etc/openf50/vpn.conf.example', 'tools/fetch-xray.sh', 'tools/fetch-sing-box.sh',
                   'tools/fetch-mihomo.sh'):
             self.assertFalse((TOP / f).exists(), f)
-        self.assertNotIn('mu300-vpn', (TOP / 'rootfs/overlay/opt/mu300/lib/path-commands').read_text().split())
+        self.assertNotIn('openf50-vpn', (TOP / 'rootfs/overlay/opt/openf50/lib/path-commands').read_text().split())
         for f in ('rootfs/assemble.sh', 'rootfs/Dockerfile', 'openwrt/build-rootfs.sh', 'arch/build-rootfs.sh'):
             src = (TOP / f).read_text()
-            for e in ('xray', 'sing-box', 'hev-socks5-tunnel', 'mihomo', 'mu300-vpn'):
-                self.assertNotRegex(src, rf'opt/mu300/bin/{e}\b', (f, e))
+            for e in ('xray', 'sing-box', 'hev-socks5-tunnel', 'mihomo', 'openf50-vpn'):
+                self.assertNotRegex(src, rf'opt/openf50/bin/{e}\b', (f, e))
             self.assertNotIn('vpn.conf.example', src, f)
             self.assertNotIn('lib/vpn', src, f)
-        self.assertNotRegex((TOP / 'arch/build-rootfs.sh').read_text(), r'for c in [^;]*\bmu300-vpn\b')
+        self.assertNotRegex((TOP / 'arch/build-rootfs.sh').read_text(), r'for c in [^;]*\bopenf50-vpn\b')
         rel = (TOP / 'tools/make-release.sh').read_text()
         self.assertNotRegex(rel, r'make-extra\.sh" vpn')
-        self.assertNotIn('mu300-extra-vpn', rel)
+        self.assertNotIn('openf50-extra-vpn', rel)
         self.assertNotIn('fetch-', rel)
         self.assertRegex(rel, r'(?m)^for x in lang; do')
         self.assertIn('https://github.com/dikeckaan/mu300-linux-vpn', rel)
         # the audit refuses an image that still has any of it
-        self.assertIn('opt/mu300/bin/(xray|sing-box|hev-socks5-tunnel|mihomo|mu300-vpn)', rel)
-        for pat in ('^opt/mu300/lib/vpn(/|$)', 'etc/systemd/system/mu300-vpn', 'etc/init\\.d/mu300-vpn',
-                    'etc/mu300/vpn\\.conf\\.example'):
+        self.assertIn('opt/openf50/bin/(xray|sing-box|hev-socks5-tunnel|mihomo|openf50-vpn)', rel)
+        for pat in ('^opt/openf50/lib/vpn(/|$)', 'etc/systemd/system/openf50-vpn', 'etc/init\\.d/openf50-vpn',
+                    'etc/openf50/vpn\\.conf\\.example'):
             self.assertIn(pat, rel)
         extra = (TOP / 'tools/make-extra.sh').read_text()
         self.assertNotRegex(extra, r'(?m)^    vpn\)')
@@ -274,34 +274,34 @@ class Rules(unittest.TestCase):
         self.assertNotIn('fetch-', extra)
 
     def test_the_vpn_module_wiring(self):
-        # mu300-update knows the module (fixed asset names, the repository's latest release, MU300_VPN_URL), and
-        # mu300-extra lists vpn and its engine extras from it (module v2: the core, and the bundle as the fallback)
-        up = (BIN / 'mu300-update').read_text()
+        # openf50-update knows the module (fixed asset names, the repository's latest release, OPENF50_VPN_URL), and
+        # openf50-extra lists vpn and its engine extras from it (module v2: the core, and the bundle as the fallback)
+        up = (BIN / 'openf50-update').read_text()
         self.assertRegex(up, r'(?m)^EXTRAS="vpn lang vpn-mihomo panel vpn-xray vpn-singbox vpn-dae"$')
         self.assertRegex(up, r'(?m)^VPN_ENGINE_EXTRAS="vpn-xray vpn-singbox vpn-mihomo vpn-dae"$')
         self.assertRegex(up, r'(?m)^VPN_REPO=dikeckaan/mu300-linux-vpn$')
-        self.assertIn('VPN_URL=${MU300_VPN_URL:-https://github.com/$VPN_REPO/releases/latest/download}', up)
-        self.assertIn('vpn) echo mu300-linux-vpn-core.tar.gz ;; vpn-bundle) echo mu300-linux-vpn.tar.gz ;;', up)
-        self.assertIn('vpn-mihomo|vpn-xray|vpn-singbox|vpn-dae) echo "mu300-linux-$1.tar.gz" ;;', up)
+        self.assertIn('VPN_URL=${OPENF50_VPN_URL:-https://github.com/$VPN_REPO/releases/latest/download}', up)
+        self.assertIn('vpn) echo openf50-linux-vpn-core.tar.gz ;; vpn-bundle) echo openf50-linux-vpn.tar.gz ;;', up)
+        self.assertIn('vpn-mihomo|vpn-xray|vpn-singbox|vpn-dae) echo "openf50-linux-$1.tar.gz" ;;', up)
         self.assertNotIn('extra_adopt', up)
         body = up[up.index('\napply() {'):up.index('\nclean_broken() {')]
         # the module is had before anything changes, and put in place before the systems are switched
         self.assertLess(body.index('modules_fetch'), body.index('all files are here and verified'))
         self.assertLess(body.index('modules_install'), body.index('apply_one'))
         self.assertLess(body.index('apply_one'), body.index('modules_link'))
-        ex = (BIN / 'mu300-extra').read_text()
+        ex = (BIN / 'openf50-extra').read_text()
         self.assertIn('vpn-mihomo', ex.split('BIN=')[0])
         self.assertIn('--from FILE|DIR', ex.split('BIN=')[0])
         # the installers take the module from its repository when the release has no vpn extra of its own
         for f in ('install.sh', 'install.ps1'):
             src = (TOP / f).read_text()
             self.assertIn('https://github.com/dikeckaan/mu300-linux-vpn/releases/latest/download', src, f)
-            self.assertIn('MU300_VPN_URL', src, f)
-            self.assertIn('MU300_VPN_MODULE', src, f)
+            self.assertIn('OPENF50_VPN_URL', src, f)
+            self.assertIn('OPENF50_VPN_MODULE', src, f)
             self.assertNotIn('make-extra.sh" vpn', src, f)
 
     def test_images_carry_jq(self):
-        # the VPN module's mu300-vpn reads vmess links and raw Xray/sing-box configs with jq, so every image has it; Ubuntu
+        # the VPN module's openf50-vpn reads vmess links and raw Xray/sing-box configs with jq, so every image has it; Ubuntu
         # and Arch also get wireguard-tools (OpenWrt has it already). The CI runner needs jq for the same tests.
         def words(block):
             return block.replace('\\\n', ' ').split()
@@ -337,14 +337,14 @@ class Rules(unittest.TestCase):
         # the SD card can hold the Linux filesystem: the port lets the card slot's host probe next to the eMMC, and
         # still keeps any other sdhci host (the stock DT's sdio_wifi; Wi-Fi is on PCIe) out
         port = (TOP / 'upstream' / 'port' / 'install.py').read_text()
-        self.assertIn('MU300: only the eMMC and the card slot', port)
+        self.assertIn('OPENF50: only the eMMC and the card slot', port)
         self.assertIn('if (!of_property_read_bool(pdev->dev.of_node, "non-removable") &&', port)
         self.assertIn('of_property_match_string(pdev->dev.of_node, "sprd,name", "sdio_sd") < 0)', port)
-        self.assertIn('MU300: CD GPIO deferred', port)
+        self.assertIn('OPENF50: CD GPIO deferred', port)
         # a deferral that is only masked leaves the rest of mmc_of_parse() undone (UHS modes, no-sdio, no-mmc): the
         # unresolvable cd-gpios is dropped and the parse run again
         self.assertIn('of_remove_property(pdev->dev.of_node, cd)', port)
-        self.assertIn("'MU300: only the eMMC and the card slot', 'MU300: CD GPIO deferred', "
+        self.assertIn("'OPENF50: only the eMMC and the card slot', 'OPENF50: CD GPIO deferred', "
                       "'of_remove_property(pdev->dev.of_node, cd)'", port)
         self.assertRegex((TOP / 'upstream' / 'make-bundle.sh').read_text(),
                          r"printf 'sdcard\\nlinux-slot\\n' > \"\$W/b/features\"")
@@ -354,7 +354,7 @@ class Rules(unittest.TestCase):
         # leave mmcblk1 to the eMMC: init then never found the card and rebooted at 300 s (FINDINGS 31l). The card
         # slot's host waits until the eMMC's host is added.
         port = (TOP / 'upstream' / 'port' / 'install.py').read_text()
-        self.assertIn('MU300: the eMMC is mmc0', port)
+        self.assertIn('OPENF50: the eMMC is mmc0', port)
         self.assertIn('static bool sdhci_sprd_emmc_added;', port)
         self.assertIn('for_each_compatible_node(np, NULL, "sprd,sdhci-r11")', port)
         # the deferral sits right after the host filter, before sdhci_pltfm_init() allocates the host index
@@ -367,13 +367,13 @@ class Rules(unittest.TestCase):
                       port)
         self.assertIn('\\t\\tWRITE_ONCE(sdhci_sprd_emmc_added, true);', port)
         # and the build stops when the edit did not apply
-        self.assertIn("'MU300: the eMMC is mmc0', 'WRITE_ONCE(sdhci_sprd_emmc_added, true);'", port)
+        self.assertIn("'OPENF50: the eMMC is mmc0', 'WRITE_ONCE(sdhci_sprd_emmc_added, true);'", port)
 
     def test_mainline_v50_bits_bind_only_on_a_v50(self):
         """The ZTE V50 (FINDINGS 95, kano's port): its LED driver binds only ZTE's AW9523B node, its eMMC host is kept
         awake only where that node is, and a kernel bundle names the V50 only when it has the driver. The F50's and
         the U30 Air's device trees have no such node: there the kernel does what it did."""
-        cfg = (TOP / 'upstream' / 'mu300-mainline.config').read_text()
+        cfg = (TOP / 'upstream' / 'openf50-mainline.config').read_text()
         self.assertRegex(cfg, r'(?m)^CONFIG_LEDS_AW9523B=y$')
         port = (TOP / 'upstream' / 'port' / 'install.py').read_text()
         self.assertIn("('LEDS_AW9523B', 'leds-aw9523b',", port)
@@ -399,7 +399,7 @@ class Rules(unittest.TestCase):
     def test_mainline_drives_the_u30_air_charger(self):
         # Without a driver the charger kept what Android left in it: charging off (CHG_CONFIG 0), 500 mA input, and
         # the battery drained while plugged in. bq256xx drives the vendor node "ti,bq2560x_chg" now.
-        cfg = (TOP / 'upstream' / 'mu300-mainline.config').read_text()
+        cfg = (TOP / 'upstream' / 'openf50-mainline.config').read_text()
         for k in ('CONFIG_CHARGER_BQ256XX=y', 'CONFIG_REGMAP_I2C=y', 'CONFIG_I2C_SPRD=y', 'CONFIG_EXTCON_USB_GPIO=y'):
             self.assertRegex(cfg, rf'(?m)^{k}$')
         port = (TOP / 'upstream' / 'port' / 'install.py').read_text()
@@ -486,14 +486,14 @@ class Rules(unittest.TestCase):
                   '+\t\tval->intval = clamp(value, 0, 100);'):
             self.assertIn(s, p11)
         self.assertNotIn('* 10;', p11)
-        # mu300-usb reaches the chip past the driver and leaves its watchdog off then
-        usb = (BIN / 'mu300-usb').read_text()
+        # openf50-usb reaches the chip past the driver and leaves its watchdog off then
+        usb = (BIN / 'openf50-usb').read_text()
         self.assertIn('[ -e "$R/sys/bus/i2c/devices/$BUS-006b/driver" ] && FORCE=-f', usb)
 
     def test_mainline_can_suspend(self):
         # System suspend (PSCI SYSTEM_SUSPEND) and a tickless idle: under the periodic tick a CPU brought back online
         # was left out of the timer broadcast and locked up, which every suspend (and `cpu7 offline/online`) hit
-        cfg = (TOP / 'upstream' / 'mu300-mainline.config').read_text()
+        cfg = (TOP / 'upstream' / 'openf50-mainline.config').read_text()
         for k in ('CONFIG_SUSPEND', 'CONFIG_PM_SLEEP', 'CONFIG_NO_HZ_IDLE', 'CONFIG_HIGH_RES_TIMERS'):
             self.assertRegex(cfg, rf'(?m)^{k}=y$')
         drv = TOP / 'upstream' / 'port' / 'drivers'
@@ -524,7 +524,7 @@ class Rules(unittest.TestCase):
 
     def test_mainline_config_has_kvm_and_the_module_set(self):
         # /dev/kvm (the CPUs start at EL2) and the router/container modules; the kernel's own modules reach the bundle
-        cfg = (TOP / 'upstream' / 'mu300-mainline.config').read_text()
+        cfg = (TOP / 'upstream' / 'openf50-mainline.config').read_text()
         opts = {}
         for line in cfg.splitlines():
             if line.startswith('CONFIG_'):
@@ -548,33 +548,33 @@ class Rules(unittest.TestCase):
         # Cellular > TTL: the menu entry right after the AT terminal, its view, the rpc declarations in common.js,
         # ttl_get readable and ttl_set only with write access, the adapter executable
         import json
-        app = TOP / 'openwrt' / 'luci-app-mu300'
-        menu = json.loads((app / 'root/usr/share/luci/menu.d/luci-app-mu300.json').read_text())
+        app = TOP / 'openwrt' / 'luci-app-openf50'
+        menu = json.loads((app / 'root/usr/share/luci/menu.d/luci-app-openf50.json').read_text())
         ttl = menu['admin/modem/ttl']
         self.assertEqual(ttl['title'], 'TTL')
-        self.assertEqual(ttl['action'], {'type': 'view', 'path': 'mu300/ttl'})
+        self.assertEqual(ttl['action'], {'type': 'view', 'path': 'openf50/ttl'})
         cellular = sorted((v['order'], k) for k, v in menu.items() if k.startswith('admin/modem/'))
         keys = [k for _, k in cellular]
         self.assertEqual(keys[keys.index('admin/modem/at') + 1], 'admin/modem/ttl')
         self.assertEqual(len({o for o, _ in cellular}), len(cellular), 'two Cellular pages with the same order')
-        self.assertTrue((app / 'htdocs/luci-static/resources/view/mu300/ttl.js').is_file())
-        common = (app / 'htdocs/luci-static/resources/mu300/common.js').read_text()
+        self.assertTrue((app / 'htdocs/luci-static/resources/view/openf50/ttl.js').is_file())
+        common = (app / 'htdocs/luci-static/resources/openf50/common.js').read_text()
         self.assertIn("method: 'ttl_get'", common)
         self.assertIn("method: 'ttl_set', params: [ 'value' ]", common)
         self.assertIn('callTtlGet: callTtlGet, callTtlSet: callTtlSet', common)
-        acl = json.loads((app / 'root/usr/share/rpcd/acl.d/luci-app-mu300.json').read_text())['luci-app-mu300']
-        self.assertIn('ttl_get', acl['read']['ubus']['mu300dash'])
-        self.assertNotIn('ttl_set', acl['read']['ubus']['mu300dash'])
-        self.assertIn('ttl_set', acl['write']['ubus']['mu300dash'])
+        acl = json.loads((app / 'root/usr/share/rpcd/acl.d/luci-app-openf50.json').read_text())['luci-app-openf50']
+        self.assertIn('ttl_get', acl['read']['ubus']['openf50dash'])
+        self.assertNotIn('ttl_set', acl['read']['ubus']['openf50dash'])
+        self.assertIn('ttl_set', acl['write']['ubus']['openf50dash'])
         self.assertTrue((app / 'root/usr/libexec/unisoc-modem/ttl').stat().st_mode & 0o111)
         # the fast-path note belongs to the nft backend only
-        view = (app / 'htdocs/luci-static/resources/view/mu300/ttl.js').read_text()
+        view = (app / 'htdocs/luci-static/resources/view/openf50/ttl.js').read_text()
         self.assertRegex(view, r"if \(st\.backend === 'nft'\)\s*card\.appendChild\([^;]*firewall fast-path is off")
 
     def test_mainline_rewrites_the_ttl_in_tc(self):
-        # mu300-ttl's tc backend (clsact egress, matchall, pedit, csum): the flowtable transmits through egress, so
-        # flow offloading stays on. The 5.4 kernel has no pedit: mu300-ttl falls back to nftables there.
-        cfg = (TOP / 'upstream' / 'mu300-mainline.config').read_text()
+        # openf50-ttl's tc backend (clsact egress, matchall, pedit, csum): the flowtable transmits through egress, so
+        # flow offloading stays on. The 5.4 kernel has no pedit: openf50-ttl falls back to nftables there.
+        cfg = (TOP / 'upstream' / 'openf50-mainline.config').read_text()
         for k in ('CONFIG_NET_SCH_INGRESS', 'CONFIG_NET_CLS_ACT'):
             self.assertRegex(cfg, rf'(?m)^{k}=y$')
         for k in ('CONFIG_NET_CLS_MATCHALL', 'CONFIG_NET_ACT_PEDIT', 'CONFIG_NET_ACT_CSUM'):
@@ -584,13 +584,13 @@ class Rules(unittest.TestCase):
 
     def test_every_release_kernel_bundle_has_the_sd_host(self):
         # 5.4 reads the card as well (FINDINGS 31j): its bundle says so, and the release audit fails when any of the
-        # three bundles does not (mu300-update refuses such a bundle for a system on the card)
+        # three bundles does not (openf50-update refuses such a bundle for a system on the card)
         mr = (TOP / 'tools' / 'make-release.sh').read_text()
         self.assertIn("printf 'sdcard\\nlinux-slot\\n' > \"$K/features\"", mr)
-        self.assertLess(mr.index('$K/features'), mr.index('tar -C "$K" -czf "$D/mu300-kernel.tar.gz" .'))
-        self.assertIn('for a in mu300-kernel mu300-kernel-6.18 mu300-kernel-7.2; do\n'
+        self.assertLess(mr.index('$K/features'), mr.index('tar -C "$K" -czf "$D/openf50-kernel.tar.gz" .'))
+        self.assertIn('for a in openf50-kernel openf50-kernel-6.18 openf50-kernel-7.2; do\n'
                       '    tar -xzOf "$D/$a.tar.gz" ./features 2>/dev/null | grep -qx sdcard', mr)
-        # and that its init works with Linux on either slot (mu300-update refuses one without it on slot a)
+        # and that its init works with Linux on either slot (openf50-update refuses one without it on slot a)
         self.assertIn('    tar -xzOf "$D/$a.tar.gz" ./features 2>/dev/null | grep -qx linux-slot', mr)
 
     def test_release_can_be_a_prerelease(self):
@@ -607,7 +607,7 @@ class Rules(unittest.TestCase):
         # `tr < /proc/$pid/cmdline 2>/dev/null` reports a failed redirection (the process just went) before its own
         # 2>/dev/null applies, so "can't open /proc/..." reaches the log: the read is braced, `{ tr < ...; } 2>/dev/null`
         files = [p for p, _ in shell_scripts()]
-        files += [p for p in (TOP / 'openwrt' / 'luci-app-mu300' / 'root').rglob('*')
+        files += [p for p in (TOP / 'openwrt' / 'luci-app-openf50' / 'root').rglob('*')
                   if p.is_file() and shebang(p).endswith('sh')]
         bad = re.compile(r'<\s*"?/proc/\$[^\s;|]*\s+2>\s*/dev/null')
         found = []
@@ -619,28 +619,28 @@ class Rules(unittest.TestCase):
 
     def test_quiet_console_sysctl_on_both_systems(self):
         # K24: both images carry the same drop-in (systemd-sysctl on Ubuntu, procd's /etc/init.d/sysctl on OpenWrt)
-        a = (TOP / 'rootfs' / 'overlay' / 'etc' / 'sysctl.d' / '99-mu300-console.conf').read_text()
-        b = (TOP / 'openwrt' / 'overlay' / 'etc' / 'sysctl.d' / '99-mu300-console.conf').read_text()
+        a = (TOP / 'rootfs' / 'overlay' / 'etc' / 'sysctl.d' / '99-openf50-console.conf').read_text()
+        b = (TOP / 'openwrt' / 'overlay' / 'etc' / 'sysctl.d' / '99-openf50-console.conf').read_text()
         self.assertEqual(a, b)
         self.assertRegex(a, r'(?m)^kernel\.printk = 1$')
 
     def test_modem_control_is_released_early_and_without_a_fixed_wait(self):
         # K22, K23: S09 (leading zero kept, rc.common embeds START verbatim: S9 would sort after S19) and no
         # unconditional sleep before android-vendor-start, which waits for the modem nodes itself
-        f = (TOP / 'openwrt' / 'overlay' / 'etc' / 'init.d' / 'mu300-vendor').read_text()
+        f = (TOP / 'openwrt' / 'overlay' / 'etc' / 'init.d' / 'openf50-vendor').read_text()
         self.assertRegex(f, r'(?m)^START=09$')
         self.assertIn('leading zero', f)
-        self.assertIn('procd_set_param command /opt/mu300/bin/android-vendor-start\n', f)
+        self.assertIn('procd_set_param command /opt/openf50/bin/android-vendor-start\n', f)
         self.assertNotRegex(f, r'sleep 5')
         # nothing else may order itself in front of it
         for s in (TOP / 'openwrt' / 'overlay' / 'etc' / 'init.d').iterdir():
             m = re.search(r'(?m)^START=(\d+)', s.read_text())
-            if s.name != 'mu300-vendor' and m:
+            if s.name != 'openf50-vendor' and m:
                 self.assertGreater(int(m.group(1)), 9, s.name)
 
     def test_atd_before_the_network_with_a_second_daemon_on_nr2(self):
         # K16, K17, K18, K21: S19 (the dial at S20 asks the daemon), nr1 and nr2 only, nr2 without a URC channel
-        f = (TOP / 'openwrt' / 'overlay' / 'etc' / 'init.d' / 'mu300-atd').read_text()
+        f = (TOP / 'openwrt' / 'overlay' / 'etc' / 'init.d' / 'openf50-atd').read_text()
         self.assertRegex(f, r'(?m)^START=19$')
         # K20: radio-warmup is the third instance, and it opens no channel: it waits for nr1's daemon and asks it
         # These assertions describe the unchanged default SIM1 path. SIM2 is exercised by test_sim2.
@@ -648,27 +648,27 @@ class Rules(unittest.TestCase):
         self.assertEqual(re.findall(r'procd_open_instance (\S+)', f), ['atd', 'atd2', 'radio-warmup'])
         warm = f[f.index('procd_open_instance radio-warmup'):]
         warm = warm[:warm.index('procd_close_instance')]
-        self.assertIn('until [ -p /run/mu300-at/cmd ]', warm)
-        self.assertIn('exec /opt/mu300/bin/mobile-data radio-on', warm)
+        self.assertIn('until [ -p /run/openf50-at/cmd ]', warm)
+        self.assertIn('exec /opt/openf50/bin/mobile-data radio-on', warm)
         # a charging boot (init's marker) keeps the radio off until the Wi-Fi key
-        self.assertLess(warm.index('[ -e /run/mu300/charging-boot ] && exit 0'), warm.index('mobile-data radio-on'))
+        self.assertLess(warm.index('[ -e /run/openf50/charging-boot ] && exit 0'), warm.index('mobile-data radio-on'))
         self.assertNotIn('stty_nr', warm)
         self.assertNotIn('respawn', warm)   # one round per start; netifd's dial and watch retry
-        self.assertIn('wait_and_exec "$cmddev" /opt/mu300/bin/mu300-atd', f)
-        self.assertIn('wait_and_exec "$datadev" /opt/mu300/bin/mu300-atd', f)
-        self.assertIn('procd_set_param env MU300_AT_DEV="$datadev" MU300_AT_DIR=/run/mu300-at2 '
-                      'MU300_AT_URC_CHANNELS=\n', f)
+        self.assertIn('wait_and_exec "$cmddev" /opt/openf50/bin/openf50-atd', f)
+        self.assertIn('wait_and_exec "$datadev" /opt/openf50/bin/openf50-atd', f)
+        self.assertIn('procd_set_param env OPENF50_AT_DEV="$datadev" OPENF50_AT_DIR=/run/openf50-at2 '
+                      'OPENF50_AT_URC_CHANNELS=\n', f)
         self.assertNotRegex(f, r'stty_nr[3-7]')
         self.assertIn('[ ! -x /usr/libexec/unisoc-modem/lock ] || : > /run/unisoc-modem-early-hook-pending', f)
-        u = (TOP / 'rootfs' / 'overlay' / 'etc' / 'systemd' / 'system' / 'mu300-atd2.service').read_text()
-        for line in ('Environment=MU300_AT_ROLE=data', 'Environment=MU300_AT_DIR=/run/mu300-at2',
-                     'Environment=MU300_AT_URC_CHANNELS=\n', 'ConditionPathExists=|/dev/stty_nr2'):
+        u = (TOP / 'rootfs' / 'overlay' / 'etc' / 'systemd' / 'system' / 'openf50-atd2.service').read_text()
+        for line in ('Environment=OPENF50_AT_ROLE=data', 'Environment=OPENF50_AT_DIR=/run/openf50-at2',
+                     'Environment=OPENF50_AT_URC_CHANNELS=\n', 'ConditionPathExists=|/dev/stty_nr2'):
             self.assertIn(line, u)
-        self.assertIn('mu300-atd2.service:multi-user.target', (TOP / 'rootfs' / 'assemble.sh').read_text())
-        self.assertIn('mu300-atd2.service:multi-user.target', (TOP / 'arch' / 'build-rootfs.sh').read_text())
+        self.assertIn('openf50-atd2.service:multi-user.target', (TOP / 'rootfs' / 'assemble.sh').read_text())
+        self.assertIn('openf50-atd2.service:multi-user.target', (TOP / 'arch' / 'build-rootfs.sh').read_text())
 
     def test_cellular_downlink_in_the_software_flowtable(self):
-        # K28, K29: mu300cell reports sipa_eth0 as l3_device only, so fw4 leaves it out of its flowtable and the
+        # K28, K29: openf50cell reports sipa_eth0 as l3_device only, so fw4 leaves it out of its flowtable and the
         # downlink takes the slow forwarding path. The patch puts it in; it is applied with --fuzz=0 to every OpenWrt
         # system (outside the panel block), so a changed fw4 fails the build instead of shipping without it.
         patch = (TOP / 'openwrt' / 'patches' / 'fw4-sipa-offload.patch').read_text()
@@ -721,15 +721,15 @@ class Rules(unittest.TestCase):
                                               'nft delete rule inet fw4 other handle 9',
                                               'nft delete flowtable inet fw4 ft'], (rel, calls))
         # software offloading on, hardware off: the SIPA and SC2355 drivers have no nftables hardware offload
-        uci = (OPENWRT / 'etc' / 'uci-defaults' / '90-mu300').read_text()
+        uci = (OPENWRT / 'etc' / 'uci-defaults' / '90-openf50').read_text()
         self.assertIn("uci -q set firewall.@defaults[0].flow_offloading='1'", uci)
         self.assertIn("uci -q set firewall.@defaults[0].flow_offloading_hw='0'", uci)
         self.assertIn('uci commit firewall', uci)
 
     def test_build_stops_without_the_cellular_protocol(self):
-        # K74: without mu300cell.sh netifd has no wan, and the image would boot without mobile data; openwrt-luci's
-        # first boot selects relay mode (K30), which runs mu300cell-v6.sh: its overlay must have it, whatever
-        # mu300cell.sh says. Checked before any download.
+        # K74: without openf50cell.sh netifd has no wan, and the image would boot without mobile data; openwrt-luci's
+        # first boot selects relay mode (K30), which runs openf50cell-v6.sh: its overlay must have it, whatever
+        # openf50cell.sh says. Checked before any download.
         def run(files, system, extra_env=None):
             with tempfile.TemporaryDirectory() as d:
                 top = Path(d)
@@ -738,21 +738,21 @@ class Rules(unittest.TestCase):
                 for rel, body in files.items():
                     (top / rel).parent.mkdir(parents=True, exist_ok=True)
                     (top / rel).write_text(body)
-                env = dict(os.environ, MU300_SYSTEM=system, MU300_INPUTS=d, PATH='/usr/bin:/bin',
-                           MU300_LUCI_THEME_APK=str(top / 'no-theme.apk'))
+                env = dict(os.environ, OPENF50_SYSTEM=system, OPENF50_INPUTS=d, PATH='/usr/bin:/bin',
+                           OPENF50_LUCI_THEME_APK=str(top / 'no-theme.apk'))
                 env.update(extra_env or {})
                 return subprocess.run(['sh', str(top / 'openwrt' / 'build-rootfs.sh'), 'x.tar.gz'], env=env,
                                       capture_output=True, text=True, timeout=30)
-        cell = 'openwrt/overlay/lib/netifd/proto/mu300cell.sh'
-        v6 = 'openwrt/luci-overlay/lib/netifd/proto/mu300cell-v6.sh'
+        cell = 'openwrt/overlay/lib/netifd/proto/openf50cell.sh'
+        v6 = 'openwrt/luci-overlay/lib/netifd/proto/openf50cell-v6.sh'
         patch = {'openwrt/patches/fw4-sipa-offload.patch': 'x\n',
                  'openwrt/patches/fw4-old-kernel-flowtable.patch': 'x\n',
                  'openwrt/patches/wifi-scripts-no-dfs.patch': 'x\n'}
         for system in ('openwrt', 'openwrt-luci'):
-            with self.subTest(system=system, missing='mu300cell.sh'):
+            with self.subTest(system=system, missing='openf50cell.sh'):
                 r = run(patch, system)
                 self.assertEqual(r.returncode, 1, r.stderr)
-                self.assertIn('mu300cell.sh', r.stderr)
+                self.assertIn('openf50cell.sh', r.stderr)
             with self.subTest(system=system, missing='the patch'):
                 r = run({cell: 'x\n', v6: 'x\n'}, system)
                 self.assertEqual(r.returncode, 1, r.stderr)
@@ -761,10 +761,10 @@ class Rules(unittest.TestCase):
                 r = run({cell: 'x\n', v6: 'x\n', **{k: v for k, v in patch.items() if 'wifi-scripts' not in k}}, system)
                 self.assertEqual(r.returncode, 1, r.stderr)
                 self.assertIn('wifi-scripts-no-dfs.patch', r.stderr)
-        # openwrt-luci needs the monitor even when mu300cell.sh does not name it; plain OpenWrt (never relay) does not
+        # openwrt-luci needs the monitor even when openf50cell.sh does not name it; plain OpenWrt (never relay) does not
         r = run(dict(patch, **{cell: 'x\n'}), 'openwrt-luci')
         self.assertEqual(r.returncode, 1, r.stderr)
-        self.assertIn('mu300cell-v6.sh', r.stderr)
+        self.assertIn('openf50cell-v6.sh', r.stderr)
         # with every file present neither check stops the build (it stops later: openwrt-luci at the theme this tree
         # lacks, plain OpenWrt at its download, which a curl stub refuses)
         with tempfile.TemporaryDirectory() as stubs:
@@ -781,7 +781,7 @@ class Rules(unittest.TestCase):
 
     def test_panel_mounts_survive_spaces_in_paths(self):
         # final review minor 5: the panel system's docker mounts were one word-split string; a checkout or a
-        # MU300_LUCI_THEME_APK path with a space broke the build. They are the positional parameters now, each path
+        # OPENF50_LUCI_THEME_APK path with a space broke the build. They are the positional parameters now, each path
         # one argument: the build's own `set --` statement is run with spaces in every path
         text = (TOP / 'openwrt' / 'build-rootfs.sh').read_text()
         self.assertNotIn('$LUCI', text)
@@ -792,27 +792,27 @@ class Rules(unittest.TestCase):
             r = subprocess.run(sh + ['-c', m.group(1) + '\nprintf "%s\\n" "$@"'], capture_output=True, text=True,
                                env=dict(os.environ, THEME_APK='/a b/theme.apk', TOP='/my repo', CAT='/t m/cat'))
             self.assertEqual(r.stdout.splitlines(), [
-                '-v', '/a b/theme.apk:/in/luci-theme-aurora.apk:ro', '-v', '/my repo/openwrt/luci-app-mu300:/in/luci-plugin:ro',
+                '-v', '/a b/theme.apk:/in/luci-theme-aurora.apk:ro', '-v', '/my repo/openwrt/luci-app-openf50:/in/luci-plugin:ro',
                 '-v', '/my repo/openwrt/luci-overlay:/in/luci-overlay:ro', '-v', '/t m/cat:/in/catalogs:ro'], sh)
 
     def test_openwrt_luci_starts_ndp_learn(self):
-        # K37: init.d/mu300-ndp is enabled in openwrt-luci's image (it does nothing unless wan is in relay mode) and
+        # K37: init.d/openf50-ndp is enabled in openwrt-luci's image (it does nothing unless wan is in relay mode) and
         # is executable there, beside the SMS service
         text = (TOP / 'openwrt' / 'build-rootfs.sh').read_text()
         block = text[text.index('ln -sf ../init.d/unisoc-modem-ui $R/etc/rc.d/'):text.index('apk list --installed | sort')]
-        self.assertIn('$R/etc/init.d/mu300-ndp', block)
-        self.assertIn('ln -sf ../init.d/mu300-ndp $R/etc/rc.d/S${n}mu300-ndp', block)
-        for f in ('etc/init.d/mu300-ndp', 'opt/mu300/bin/ndp-learn', 'lib/netifd/proto/mu300cell-v6.sh'):
+        self.assertIn('$R/etc/init.d/openf50-ndp', block)
+        self.assertIn('ln -sf ../init.d/openf50-ndp $R/etc/rc.d/S${n}openf50-ndp', block)
+        for f in ('etc/init.d/openf50-ndp', 'opt/openf50/bin/ndp-learn', 'lib/netifd/proto/openf50cell-v6.sh'):
             self.assertTrue((LUCI_OVERLAY / f).stat().st_mode & 0o111, f)
 
     def test_board_json_names_the_usb_lan_port(self):
-        # panel page audit: armsr's 99-default_network gave board.json a LAN on eth0, which the MU300 does not have;
+        # panel page audit: armsr's 99-default_network gave board.json a LAN on eth0, which the OPENF50 does not have;
         # LuCI's Status > Overview showed an "eth0, no link" port and its ubus status call failed. board.d/05 names
         # usb0 first (board_detect runs board.d in name order, and 99-default_network leaves a network it finds)
         d = OPENWRT / 'etc' / 'board.d'
-        self.assertEqual(sorted(p.name for p in d.iterdir()), ['05_mu300_network'])
-        self.assertLess('05_mu300_network', '99-default_network')
-        f = d / '05_mu300_network'
+        self.assertEqual(sorted(p.name for p in d.iterdir()), ['05_openf50_network'])
+        self.assertLess('05_openf50_network', '99-default_network')
+        f = d / '05_openf50_network'
         self.assertTrue(f.stat().st_mode & 0o111)
         stub = ('board_config_update() { echo update; }\nboard_config_flush() { echo flush; }\n'
                 'ucidef_set_interface_lan() { echo "lan $*"; }\n')
@@ -824,7 +824,7 @@ class Rules(unittest.TestCase):
 
     def test_sqm_default_queue_names_the_cellular_uplink(self):
         # panel page audit: the image's /etc/config/sqm (sqm-scripts' default, disabled) named eth1, which the
-        # MU300 does not have; the build names sipa_eth0 instead, and stops when a queue still names eth1
+        # OPENF50 does not have; the build names sipa_eth0 instead, and stops when a queue still names eth1
         text = (TOP / 'openwrt' / 'build-rootfs.sh').read_text()
         start = text.index('if [ -f $R/etc/config/sqm ]; then')
         block = text[start:text.index('\nfi\n', start) + 4]
@@ -885,7 +885,7 @@ class Rules(unittest.TestCase):
             self.assertIn(pre + '\tWRITE_ONCE(sc2355_hif.hif, NULL);', text)
 
     def test_wifi_notify_init_unwinds_and_registers_the_reset_notifier_last(self):
-        # kanoqwq/mu300-linux@23361ce: a failed notify_init left the WCN reset notifier registered on a freed priv
+        # kanoqwq/openf50-linux@23361ce: a failed notify_init left the WCN reset notifier registered on a freed priv
         iface = (TOP / 'upstream' / 'modules' / 'sprd_wlan_combo' / 'common' / 'iface.c').read_text()
         body = iface[iface.index('static int iface_notify_init('):]
         body = body[:body.index('\n}\n')]
@@ -901,7 +901,7 @@ class Rules(unittest.TestCase):
             self.assertIn(label, body)
 
     def test_wifi_rx_teardown_stops_the_refill_producers_first(self):
-        # kanoqwq/mu300-linux@23361ce: the RX work queues refills on sprd_work and a refill arms the timed retry;
+        # kanoqwq/openf50-linux@23361ce: the RX work queues refills on sprd_work and a refill arms the timed retry;
         # rx_deinit drained them in an order that let one re-arm the other over a freed rx_mgmt
         wlan = TOP / 'upstream' / 'modules' / 'sprd_wlan_combo' / 'sc2355'
         self.assertIn('\tbool stopping;\n};', (wlan / 'rx.h').read_text())
@@ -954,7 +954,7 @@ class Rules(unittest.TestCase):
         self.assertLess(ack.index('sprd_chip_drop_tcp_msg('), ack.index('timer_shutdown_sync(&ack_m->ack_info[i].timer);'))
 
     def test_wifi_tx_backpressure_is_not_logged_as_an_error(self):
-        # kanoqwq/mu300-linux@3386928: a full TX ring is flow control, hit on every scheduling pass under load;
+        # kanoqwq/openf50-linux@3386928: a full TX ring is flow control, hit on every scheduling pass under load;
         # the vendor printed two pr_err lines for it each time
         wlan = TOP / 'upstream' / 'modules' / 'sprd_wlan_combo' / 'sc2355'
         pcie = (wlan / 'pcie.c').read_text()
@@ -1018,7 +1018,7 @@ class ApkRetry(unittest.TestCase):
         # the function stands before the first use, inside the one single-quoted script of the container
         self.assertLess(text.index('# --- apk-retry end'), text.index('\napk update >/dev/null'))
         self.assertNotIn("'", self.block)
-        self.tmp = Path(tempfile.mkdtemp(prefix='mu300-test-'))
+        self.tmp = Path(tempfile.mkdtemp(prefix='openf50-test-'))
         stub = self.tmp / 'apk'
         # fails FAIL times (a counter in a file), then succeeds; records every call
         stub.write_text('#!/bin/sh\necho "$*" >> "$LOG"\nn=$(cat "$COUNT" 2>/dev/null || echo 0)\n'
@@ -1032,7 +1032,7 @@ class ApkRetry(unittest.TestCase):
         for f in ('log', 'count'):
             (self.tmp / f).unlink(missing_ok=True)
         env = dict(os.environ, PATH=f'{self.tmp}{os.pathsep}{os.environ["PATH"]}', LOG=str(self.tmp / 'log'),
-                   COUNT=str(self.tmp / 'count'), FAIL=str(fail), MU300_APK_RETRY_WAIT='0')
+                   COUNT=str(self.tmp / 'count'), FAIL=str(fail), OPENF50_APK_RETRY_WAIT='0')
         # as the build runs it: sh -eu, the output thrown away
         r = subprocess.run(shell + ['-eu', '-c', self.block + f'apk {args} >/dev/null\necho done'], env=env,
                            capture_output=True, text=True, timeout=30)

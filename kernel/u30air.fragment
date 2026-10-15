@@ -1,4 +1,4 @@
-# ZTE U30 Air on top of the MU300 (F50) kernel config: what its stock kernel (/proc/config.gz, U30Air_SSV1.0.0B14)
+# ZTE U30 Air on top of the OPENF50 (F50) kernel config: what its stock kernel (/proc/config.gz, U30Air_SSV1.0.0B14)
 # sets differently. Same board and SoC, but a battery with ZTE's "SQC" charger stack, USB-PD, LEDs, a SAR sensor
 # and an NFC tag. Only modules may change: the kernel Image has to stay the one the F50 build made (the U30 Air
 # modules load next to its modules). So I2C_CHARDEV, built in there, is a module here, and I2C_SMBUS is left out:

@@ -21,11 +21,11 @@
 
 #include "mali_kbase_csf_tl_reader.h"
 #include <linux/version.h>
-/* MU300: del_timer_sync() was renamed in 6.15 */
+/* OPENF50: del_timer_sync() was renamed in 6.15 */
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 15, 0)
-#define mu300_timer_delete_sync(t) timer_delete_sync(t)
+#define openf50_timer_delete_sync(t) timer_delete_sync(t)
 #else
-#define mu300_timer_delete_sync(t) del_timer_sync(t)
+#define openf50_timer_delete_sync(t) del_timer_sync(t)
 #endif
 
 
@@ -462,7 +462,7 @@ void kbase_csf_tl_reader_init(struct kbase_csf_tl_reader *self,
 
 void kbase_csf_tl_reader_term(struct kbase_csf_tl_reader *self)
 {
-	mu300_timer_delete_sync(&self->read_timer);
+	openf50_timer_delete_sync(&self->read_timer);
 }
 
 int kbase_csf_tl_reader_start(struct kbase_csf_tl_reader *self,
@@ -515,7 +515,7 @@ void kbase_csf_tl_reader_stop(struct kbase_csf_tl_reader *self)
 	/* Disable the tracebuffer on the CSFFW side. */
 	tl_reader_update_enable_bit(self, false);
 
-	mu300_timer_delete_sync(&self->read_timer);
+	openf50_timer_delete_sync(&self->read_timer);
 
 	spin_lock_irqsave(&self->read_lock, flags);
 

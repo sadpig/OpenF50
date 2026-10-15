@@ -17,7 +17,7 @@ logs-*/
 rootfs/base.tar
 __pycache__/
 .DS_Store
-tools/bt-init/mu300-bt-init
+tools/bt-init/openf50-bt-init
 tools/gpu/cltest
 work/
 work-*/
@@ -41,9 +41,9 @@ tools/ctlset/ctlset
 tools/adbd/adbd
 
 # written by the installer self-update in copies without git
-.mu300-source
+.openf50-source
 upstream/out-*/
 # the user's own list of files the self-update leaves alone (tools/self-update.sh, install.ps1)
-.mu300-keep
+.openf50-keep
 # a test run with TMPDIR inside the tree
-tests/mu300-test-*/
+tests/openf50-test-*/

@@ -6,7 +6,7 @@ shares the connection with everything on its Wi-Fi and USB.
 **The simple version:** the modem is a little phone inside the box. Linux dials in for you, keeps watching the line,
 and dials again if it drops. Most SIM cards need no settings at all.
 
-![Clients, the device and the mobile network](https://kaandikec.com/mu300-linux/assets/img/network.svg)
+![Clients, the device and the mobile network](https://kaandikec.com/openf50-linux/assets/img/network.svg)
 
 ```mermaid
 flowchart LR
@@ -22,7 +22,7 @@ flowchart LR
 sudo mobile-data status
 ```
 
-No `sudo` on OpenWrt. The connection reconnects by itself after modem resets (`mu300-mobile-data-watch`), unless you
+No `sudo` on OpenWrt. The connection reconnects by itself after modem resets (`openf50-mobile-data-watch`), unless you
 took it down yourself with `mobile-data down`. Other subcommands: `up [APN]`, `down`, `signal`, `sim-reset`.
 
 **No internet?** First check that the SIM has a **data plan**. A missing plan looks like a connection that keeps
@@ -35,7 +35,7 @@ which is what most carriers expect.
 
 | System | Where |
 |---|---|
-| Ubuntu | `/etc/mu300/mobile-data.conf`: `MU300_APN` and `MU300_PDP_TYPE` (an example is in `/etc/mu300/mobile-data.conf.example`) |
+| Ubuntu | `/etc/openf50/mobile-data.conf`: `OPENF50_APN` and `OPENF50_PDP_TYPE` (an example is in `/etc/openf50/mobile-data.conf.example`) |
 | OpenWrt | LuCI -> Network -> Interfaces -> wan, or `uci set network.wan.apn='…'; uci commit network; ifup wan` |
 
 **An APN with a user name and a password** (a private APN, some MVNOs): set them next to the APN. They need an APN;
@@ -44,7 +44,7 @@ printable ASCII, at most 64 characters each, no quotes or backslashes. The authe
 
 | System | Where |
 |---|---|
-| Ubuntu | `MU300_APN_USER`, `MU300_APN_PASSWORD`, `MU300_APN_AUTH` in `/etc/mu300/mobile-data.conf` |
+| Ubuntu | `OPENF50_APN_USER`, `OPENF50_APN_PASSWORD`, `OPENF50_APN_AUTH` in `/etc/openf50/mobile-data.conf` |
 | OpenWrt | the same page (APN user name, APN password, APN authentication), or `uci set network.wan.username='…'; uci set network.wan.password='…'; uci set network.wan.auth='chap'; uci commit network; ifup wan` |
 
 The file that holds the password must be readable by root alone; the dial makes it so (`chmod 600`) and does not
@@ -59,11 +59,11 @@ survives reboots and switching between systems, and nothing is counted twice. On
 is Cellular > Data usage.
 
 ```sh
-mu300-traffic                       # today, this billing cycle and the cap
-sudo mu300-traffic set reset-day 1  # the day a billing cycle starts
-sudo mu300-traffic set cap 50G      # a monthly cap; it warns at 90 % unless you set another level
-sudo mu300-traffic set cut on       # optional: mobile data off at the cap, back on when the next cycle starts
-mu300-traffic days                  # the last days with traffic
+openf50-traffic                       # today, this billing cycle and the cap
+sudo openf50-traffic set reset-day 1  # the day a billing cycle starts
+sudo openf50-traffic set cap 50G      # a monthly cap; it warns at 90 % unless you set another level
+sudo openf50-traffic set cut on       # optional: mobile data off at the cap, back on when the next cycle starts
+openf50-traffic days                  # the last days with traffic
 ```
 
 ## Network, band and cell locks (control panel)
@@ -76,7 +76,7 @@ The **Status dashboard** shows live signal, bands, cells and temperatures. See [
 ## USSD (balance, own number)
 
 ```sh
-sudo mu300-ussd '*101#'
+sudo openf50-ussd '*101#'
 ```
 
 The code depends on your carrier.
@@ -84,11 +84,11 @@ The code depends on your carrier.
 ## TTL
 
 ```sh
-sudo mu300-ttl set 64     # a fixed TTL for everything leaving through mobile data
-sudo mu300-ttl off        # back to the default
+sudo openf50-ttl set 64     # a fixed TTL for everything leaving through mobile data
+sudo openf50-ttl off        # back to the default
 ```
 
-Also in `mu300-toolkit` -> Network -> TTL, or the panel's Cellular -> TTL. On the mainline kernels the rule is in tc
+Also in `openf50-toolkit` -> Network -> TTL, or the panel's Cellular -> TTL. On the mainline kernels the rule is in tc
 and flow offloading stays on; on 5.4 it is in nftables and offloading is off while a TTL is set.
 
 > Changing what your device sends (TTL, band locks, VPNs) may break your operator's terms or local law. Check before
@@ -112,9 +112,9 @@ different city.
 
 ## Saving power (U30 Air)
 
-`mu300-power` can switch the radio to LTE only or off while nobody is connected. See the
-[README's power row](https://github.com/dikeckaan/mu300-linux#everyday-use) and
+`openf50-power` can switch the radio to LTE only or off while nobody is connected. See the
+[README's power row](https://github.com/dikeckaan/openf50-linux#everyday-use) and
 [Hardware Notes](Hardware-Notes#u30-air-battery-buttons-nfc-usb-host).
 
 Deep details (radio registration, the data bearer, modem resets):
-[FINDINGS 15, 26](https://github.com/dikeckaan/mu300-linux/blob/main/docs/FINDINGS.md).
+[FINDINGS 15, 26](https://github.com/dikeckaan/openf50-linux/blob/main/docs/FINDINGS.md).

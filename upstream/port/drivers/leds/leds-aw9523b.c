@@ -13,7 +13,7 @@
  *     white, blue and red emitters (groupcolor_store, and lit one group at a time on the device): v50_lamps below.
  *
  * What it registers: the device tree's groups under their own names, every wired pin alone (aw9523b:pinN), and,
- * only when the binding is exactly the V50's, the lamps by colour (v50:net1:white ...; mu300-led uses those). No
+ * only when the binding is exactly the V50's, the lamps by colour (v50:net1:white ...; openf50-led uses those). No
  * interrupt, worker or thread; every write is synchronous. All dark at unbind and shutdown.
  * A board without this node never gets here: the F50's and the U30 Air's device trees have none.
  */

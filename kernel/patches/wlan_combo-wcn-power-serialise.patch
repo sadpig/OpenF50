@@ -25,7 +25,7 @@ channels registered, with the count at 0 (now undone as a power-off does).
  
  	int exit;
  	atomic_t power_cnt;
-+	/* MU300: one WCN power transition at a time (sprd_iface_set_power) */
++	/* OPENF50: one WCN power transition at a time (sprd_iface_set_power) */
 +	struct mutex power_lock;
  	int flag;
  	int lastflag;
@@ -34,7 +34,7 @@ channels registered, with the count at 0 (now undone as a power-off does).
  	}
  
  	if (sprd_hif_post_init(hif)) {
-+		/* MU300: post_init unwound its channels; the chip was started, stop it as a power-off would */
++		/* OPENF50: post_init unwound its channels; the chip was started, stop it as a power-off would */
 +		if (stop_marlin(MARLIN_WIFI))
 +			pr_err("stop_marlin failed!!\n");
  		atomic_sub(1, &hif->power_cnt);
@@ -45,7 +45,7 @@ channels registered, with the count at 0 (now undone as a power-off does).
  
  	if (sprd_sync_version(hif)) {
 +		/*
-+		 * MU300: undo the power-on as sprd_hif_power_off() does.  The vendor left the channels registered
++		 * OPENF50: undo the power-on as sprd_hif_power_off() does.  The vendor left the channels registered
 +		 * and the chip started with the count at 0: the next power-on registered them again over live ones,
 +		 * and a probe that failed here freed hif under channels that could still interrupt.
 +		 */
@@ -63,7 +63,7 @@ channels registered, with the count at 0 (now undone as a power-off does).
  	int ret = 0;
  
 +	/*
-+	 * MU300: power_cnt is atomic, the transitions behind it are not.  Probe powers the chip off after it
++	 * OPENF50: power_cnt is atomic, the transitions behind it are not.  Probe powers the chip off after it
 +	 * registered wlan0, outside RTNL, so userspace (hostapd, netifd) can open the interface meanwhile: the
 +	 * open's power-on (1st count) ran start_marlin + post_init while the probe's power-off (last count) was
 +	 * still in post_deinit.  post_deinit then cleared the channels and sc2355_hif.hif that post_init had just
@@ -102,7 +102,7 @@ channels registered, with the count at 0 (now undone as a power-off does).
  	ret = iface_core_init(&pdev->dev, priv);
  	if (ret) {
  		pr_err("%s core init failed: %d\n", __func__, ret);
-+		/* MU300: power off while hif still exists (sprd_core_free frees priv, and hif with it) */
++		/* OPENF50: power off while hif still exists (sprd_core_free frees priv, and hif with it) */
 +		sprd_iface_set_power(hif, false);
  		sprd_hif_deinit(hif);
  		sprd_core_free(priv);
@@ -125,7 +125,7 @@ channels registered, with the count at 0 (now undone as a power-off does).
  
  	iface_notify_deinit(priv);
  	iface_core_deinit(priv);
-+	/* MU300: power off while hif still exists (sprd_core_free frees priv, and hif and its lock with it) */
++	/* OPENF50: power off while hif still exists (sprd_core_free frees priv, and hif and its lock with it) */
 +	pr_info("Power off WCN (%d time)\n", atomic_read(&hif->power_cnt));
 +	sprd_iface_set_power(hif, false);
  	sprd_hif_deinit(hif);
@@ -152,7 +152,7 @@ channels registered, with the count at 0 (now undone as a power-off does).
  	       __func__, chn, head, tail, num);
  
 +	/*
-+	 * MU300: an RX interrupt outside the channels' lifetime (post_init publishes hif before it registers
++	 * OPENF50: an RX interrupt outside the channels' lifetime (post_init publishes hif before it registers
 +	 * them, post_deinit clears it after it unregistered them, sprd_iface_set_power serialises the two).
 +	 * Without hif there is no device to unmap the buffers from and no queue to hand them to, and the
 +	 * channel's mbuf pool is already freed (no sprdwcn_bus_list_free): the data buffers of this one list
@@ -182,17 +182,17 @@ channels registered, with the count at 0 (now undone as a power-off does).
  	int ret = -EINVAL, chn = 0;
  
 -	sc2355_hif.hif = (void *)hif;
-+	/* MU300: published before any channel can interrupt (the RX/TX callbacks read it in hard IRQ) */
++	/* OPENF50: published before any channel can interrupt (the RX/TX callbacks read it in hard IRQ) */
 +	smp_store_release(&sc2355_hif.hif, (void *)hif);
  	/*
- 	 * MU300 (from kanoqwq/mu300-linux): a failed/aborted earlier power cycle clears this pointer in the
+ 	 * OPENF50 (from kanoqwq/openf50-linux): a failed/aborted earlier power cycle clears this pointer in the
  	 * error path below.  The vendor driver only restores it in pcie_init(),
 @@ -2040,7 +2055,8 @@
  
  	for (chn = 0; chn < sc2355_hif.max_num; chn++)
  		sprdwcn_bus_chn_deinit(&sc2355_hif.mchn_ops[chn]);
 -	sc2355_hif.hif = NULL;
-+	/* MU300: cleared only after every channel is unregistered (the callbacks check for NULL) */
++	/* OPENF50: cleared only after every channel is unregistered (the callbacks check for NULL) */
 +	WRITE_ONCE(sc2355_hif.hif, NULL);
  	sc2355_hif.max_num = 0;
  

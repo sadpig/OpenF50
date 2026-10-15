@@ -1,6 +1,6 @@
 // The decisions of the wizard, without a screen: what fits where, which choices the installer on the device would
 // refuse (said before a file is sent), the answers file of each run, and what the installer's marked lines mean.
-// The rules are the installers' own (install.sh, mu300-install.sh, tools/storage.sh); the device decides again in
+// The rules are the installers' own (install.sh, openf50-install.sh, tools/storage.sh); the device decides again in
 // the end, and its word counts.
 export const MIB = 1024 * 1024, GIB = 1024 * MIB;
 // what each choice needs on the Linux filesystem (two copies of a system during an update, and room to work)
@@ -121,7 +121,7 @@ export function validateChoices(c, ctx) {
   if (c.target === "sd" && !analysis.sd.present) e.push({ code: "no-card" });
   if (c.target === "sd" && analysis.sd.existing === "foreign") e.push({ code: "card-foreign" });
   if (c.target === "internal" && !analysis.internal.usable) e.push({ code: "internal-too-small" });
-  // init starts a mu300sd card before anything inside: an installation inside would never start
+  // init starts a openf50sd card before anything inside: an installation inside would never start
   if (c.target === "internal" && analysis.sd.existing === "yes") e.push({ code: "card-boots-first" });
 
   const existing = targetExisting(analysis, c.target);
@@ -157,32 +157,32 @@ export function answersFor(c, run, ctx) {
   const { status, analysis } = ctx;
   const existing = targetExisting(analysis, c.target);
   const keep = existing && c.mode !== "wipe";
-  const lines = [`MU300_LANG=${["en", "tr", "zh"].includes(ctx.lang) ? ctx.lang : "en"}`, `MU300_STORAGE=${c.target}`];
+  const lines = [`OPENF50_LANG=${["en", "tr", "zh"].includes(ctx.lang) ? ctx.lang : "en"}`, `OPENF50_STORAGE=${c.target}`];
   if (run === 0) {
-    lines.push(`MU300_MODE=${keep || !existing ? "update" : "wipe"}`);
-    if (c.target === "sd" && !keep && c.eraseConfirmed) lines.push("MU300_SD_ERASE=yes");
-    if (c.target === "internal" && !existing && analysis.internal.dirty > 0 && c.overwriteConfirmed) lines.push("MU300_REGION_OVERWRITE=yes");
+    lines.push(`OPENF50_MODE=${keep || !existing ? "update" : "wipe"}`);
+    if (c.target === "sd" && !keep && c.eraseConfirmed) lines.push("OPENF50_SD_ERASE=yes");
+    if (c.target === "internal" && !existing && analysis.internal.dirty > 0 && c.overwriteConfirmed) lines.push("OPENF50_REGION_OVERWRITE=yes");
   } else {
     // the first run made the filesystem and put a system on it: never anything that erases
-    lines.push("MU300_MODE=update");
+    lines.push("OPENF50_MODE=update");
   }
   // the system that boots must be on the filesystem when this run ends, or the installer refuses the setting
   const have = keep && status.linux && status.linux.systems ? Object.keys(status.linux.systems) : [];
   const soFar = new Set([...have, ...c.systems.slice(0, run + 1).map(osOf)]);
-  if (soFar.has(c.bootOs)) lines.push(`MU300_BOOT_OS=${c.bootOs}`);
-  lines.push(`MU300_BOOT=${c.defaultLinux ? "linux" : "android"}`, `MU300_BOOT_ATTEMPTS=${c.attempts}`,
-    `MU300_HOTSPOT=${c.hotspot ? "yes" : "no"}`, `MU300_GPU=${c.gpu ? "yes" : "no"}`);
-  if (ctx.adbKeyLine) lines.push(`MU300_ADB_KEY=${ctx.adbKeyLine}`);
+  if (soFar.has(c.bootOs)) lines.push(`OPENF50_BOOT_OS=${c.bootOs}`);
+  lines.push(`OPENF50_BOOT=${c.defaultLinux ? "linux" : "android"}`, `OPENF50_BOOT_ATTEMPTS=${c.attempts}`,
+    `OPENF50_HOTSPOT=${c.hotspot ? "yes" : "no"}`, `OPENF50_GPU=${c.gpu ? "yes" : "no"}`);
+  if (ctx.adbKeyLine) lines.push(`OPENF50_ADB_KEY=${ctx.adbKeyLine}`);
   return lines.join("\n") + "\n";
 }
 
 // ---- the installer's lines
 
-// MU300-PLAN key=value lines -> { key: value }
+// OPENF50-PLAN key=value lines -> { key: value }
 export function parsePlan(lines) {
   const plan = {};
   for (const l of lines) {
-    const m = /^MU300-PLAN ([a-z_]+)=(.*)$/.exec(l);
+    const m = /^OPENF50-PLAN ([a-z_]+)=(.*)$/.exec(l);
     if (m) plan[m[1]] = m[2];
   }
   return plan;
@@ -193,10 +193,10 @@ export function parsePlan(lines) {
 // lines) | { type: "text", text }
 export function classifyLine(line) {
   let m;
-  if ((m = /^MU300-STEP (\d+)\/(\d+) ([a-z-]+)$/.exec(line))) return { type: "step", n: Number(m[1]), of: Number(m[2]), name: m[3] };
-  if ((m = /^MU300-PLAN ([a-z_]+)=(.*)$/.exec(line))) return { type: "plan", key: m[1], value: m[2] };
-  if ((m = /^MU300-PROGRESS (\d+) (\d+)$/.exec(line))) return { type: "progress", done: Number(m[1]), total: Number(m[2]) };
-  if ((m = /^MU300-WEB-EXIT (\d+|interrupted)$/.exec(line))) return { type: "exit", rc: m[1] === "interrupted" ? "interrupted" : Number(m[1]) };
+  if ((m = /^OPENF50-STEP (\d+)\/(\d+) ([a-z-]+)$/.exec(line))) return { type: "step", n: Number(m[1]), of: Number(m[2]), name: m[3] };
+  if ((m = /^OPENF50-PLAN ([a-z_]+)=(.*)$/.exec(line))) return { type: "plan", key: m[1], value: m[2] };
+  if ((m = /^OPENF50-PROGRESS (\d+) (\d+)$/.exec(line))) return { type: "progress", done: Number(m[1]), total: Number(m[2]) };
+  if ((m = /^OPENF50-WEB-EXIT (\d+|interrupted)$/.exec(line))) return { type: "exit", rc: m[1] === "interrupted" ? "interrupted" : Number(m[1]) };
   if (line.startsWith("! ")) return { type: "error", text: line.slice(2) };
   return { type: "text", text: line };
 }

@@ -118,7 +118,7 @@ void wcn_reset_process(void)
 }
 
 /*
- * MU300: the chip reset for sprd_wlan_combo's recovery watchdog (issue #94). Our builds are not
+ * OPENF50: the chip reset for sprd_wlan_combo's recovery watchdog (issue #94). Our builds are not
  * TARGET_BUILD_VARIANT=user, so a firmware assert takes the "dump" path (reset_dump defaults to dump):
  * wcn_dump_process() sets the card-dump flag and nothing ever clears it, and every mbuf_link_alloc() fails from
  * then on. This is procfs "rebootwcn" (the non-integrated branch) followed by wcn_reset_process(), which also
@@ -127,7 +127,7 @@ void wcn_reset_process(void)
  * The chip powers on again at the next start_marlin(), i.e. when Wi-Fi is reopened. Process context; may block.
  */
 /*
- * MU300: mdbg_proc->mutex with a deadline. A dump holds it for seconds (several MB over PCIe), and a path that
+ * OPENF50: mdbg_proc->mutex with a deadline. A dump holds it for seconds (several MB over PCIe), and a path that
  * never lets go must not leave rebootwcn's writer or the recovery work in D state for good.
  */
 #define MDBG_LOCK_WAIT_MS	30000U
@@ -144,7 +144,7 @@ static bool mdbg_lock_bounded(unsigned int ms)
 	return true;
 }
 
-bool wcn_mu300_recover(void)
+bool wcn_openf50_recover(void)
 {
 	bool done = false;
 
@@ -175,7 +175,7 @@ bool wcn_mu300_recover(void)
 
 	return done;
 }
-EXPORT_SYMBOL_GPL(wcn_mu300_recover);
+EXPORT_SYMBOL_GPL(wcn_openf50_recover);
 
 void wcn_dump_process(enum wcn_source_type type)
 {
@@ -246,7 +246,7 @@ void __wcn_assert_interface(enum wcn_source_type type, char *str)
 	if (!(g_match_config && g_match_config->unisoc_wcn_integrated)) {
 		if (mdbg_proc->marlin_powerdown_flag) {
 			WCN_ERR("fw assert hanppend in WCN Powerdown!!\n");
-			/* MU300: the vendor returned here with mdbg_proc->mutex held, for good */
+			/* OPENF50: the vendor returned here with mdbg_proc->mutex held, for good */
 			goto out;
 		}
 	}
@@ -1009,7 +1009,7 @@ static ssize_t mdbg_proc_write(struct file *filp,
 		}
 	} else {
 		if (strncmp(mdbg_proc->write_buf, "dumpmem", 7) == 0) {
-			/* MU300: the lock first and with a deadline (see mdbg_lock_bounded), then the dump flag */
+			/* OPENF50: the lock first and with a deadline (see mdbg_lock_bounded), then the dump flag */
 			if (!mdbg_lock_bounded(MDBG_LOCK_WAIT_MS)) {
 				WCN_ERR("dumpmem: a dump or reset holds the WCN for %u s, try again\n",
 					MDBG_LOCK_WAIT_MS / 1000);
@@ -1046,7 +1046,7 @@ static ssize_t mdbg_proc_write(struct file *filp,
 		}
 		if (strncmp(mdbg_proc->write_buf, "rebootwcn", 9) == 0) {
 			/*
-			 * MU300: under mdbg_proc->mutex, as the assert path and wcn_mu300_recover() reset the chip,
+			 * OPENF50: under mdbg_proc->mutex, as the assert path and wcn_openf50_recover() reset the chip,
 			 * but never stuck in D state behind it: -EBUSY if a dump or reset holds it for 30 s.
 			 */
 			if (!mdbg_lock_bounded(MDBG_LOCK_WAIT_MS)) {

@@ -1,5 +1,5 @@
-"""mu300-traffic: the mobile data count (the panel's Data usage page). A fake / with sipa_eth0's counters, the boot
-id and the uptime; the clock and the UTC offset are fixed per call (MU300_TRAFFIC_NOW, MU300_TRAFFIC_TZOFF). Every
+"""openf50-traffic: the mobile data count (the panel's Data usage page). A fake / with sipa_eth0's counters, the boot
+id and the uptime; the clock and the UTC offset are fixed per call (OPENF50_TRAFFIC_NOW, OPENF50_TRAFFIC_TZOFF). Every
 byte counted once: the first reading is a base, a reboot or a re-created interface counts its new counters, a
 counter that went down starts over; days split at local midnight by time, measured with the uptime (a clock jump
 does not stretch an interval); bytes wait for NTP and are dated by their uptime; the billing cycle, the cap, its
@@ -14,7 +14,7 @@ from datetime import datetime, timedelta, timezone
 
 from helpers import BIN, ShellTest
 
-TOOL = BIN / 'mu300-traffic'
+TOOL = BIN / 'openf50-traffic'
 TZ3 = timezone(timedelta(hours=3))
 
 
@@ -28,9 +28,9 @@ class TrafficBase(ShellTest):
         super().setUp()
         self.root = self.tmp / 'root'
         (self.root / 'proc/sys/kernel/random').mkdir(parents=True)
-        (self.root / 'mnt/mu300-disk/.mu300').mkdir(parents=True)
-        (self.root / 'run/mu300').mkdir(parents=True)
-        self.store = self.root / 'mnt/mu300-disk/.mu300/traffic'
+        (self.root / 'mnt/openf50-disk/.openf50').mkdir(parents=True)
+        (self.root / 'run/openf50').mkdir(parents=True)
+        self.store = self.root / 'mnt/openf50-disk/.openf50/traffic'
         self.stub('logger', 'shift 2; echo "$*" >> "$STUBLOG/log"')
         for c in ('ifdown', 'ifup', 'systemctl'):
             self.stub(c, f'echo "{c} $*" >> "$STUBLOG/calls"')
@@ -40,13 +40,13 @@ class TrafficBase(ShellTest):
 
     def fresh(self):
         """a new device: nothing counted, no live ledger, no settings"""
-        for p in (self.store, self.root / 'run/mu300/traffic'):
+        for p in (self.store, self.root / 'run/openf50/traffic'):
             subprocess.run(['rm', '-rf', str(p)])
         for f in ('log', 'calls'):
             (self.tmp / f).unlink(missing_ok=True)
 
     def synced(self, yes):
-        f = self.root / 'run/mu300/clock-synced'
+        f = self.root / 'run/openf50/clock-synced'
         if yes:
             f.write_text('')
         else:
@@ -65,8 +65,8 @@ class TrafficBase(ShellTest):
         subprocess.run(['rm', '-rf', str(self.root / 'sys/class/net' / dev)])
 
     def run_tool(self, shell, *args, now=None, off=None, ok=True, **env):
-        r = self.script(shell, TOOL, *args, MU300_SYSROOT=self.root, MU300_TRAFFIC_NOW=now or self.now,
-                        MU300_TRAFFIC_TZOFF=self.off if off is None else off, **env)
+        r = self.script(shell, TOOL, *args, OPENF50_SYSROOT=self.root, OPENF50_TRAFFIC_NOW=now or self.now,
+                        OPENF50_TRAFFIC_TZOFF=self.off if off is None else off, **env)
         if ok:
             self.assertEqual(r.returncode, 0, r.stderr)
         return r
@@ -117,7 +117,7 @@ class Counting(TrafficBase):
             self.sample(shell, 1000, 100, 100, self.now)
             self.sample(shell, 9000, 900, 160, self.now + 60)      # 8000/800 in the first boot
             # a reboot: the live ledger is gone with /run, the disk copy is that of the last save
-            subprocess.run(['rm', '-rf', str(self.root / 'run/mu300/traffic')])
+            subprocess.run(['rm', '-rf', str(self.root / 'run/openf50/traffic')])
             self.sample(shell, 500, 50, 40, self.now + 600, boot='bbbb-2', idx=9)
             self.sample(shell, 700, 70, 100, self.now + 660, boot='bbbb-2', idx=9)
             self.assertEqual(self.days(shell, self.now + 660), {'2026-10-10': (8000 + 700, 800 + 70)})
@@ -228,7 +228,7 @@ class Days(TrafficBase):
             self.synced(False)
             self.sample(shell, 0, 0, 30, at(2025, 1, 1))
             self.sample(shell, 900, 0, 90, at(2025, 1, 1) + 60)
-            subprocess.run(['rm', '-rf', str(self.root / 'run/mu300/traffic')])
+            subprocess.run(['rm', '-rf', str(self.root / 'run/openf50/traffic')])
             self.synced(True)
             self.sample(shell, 100, 0, 50, self.now, boot='bbbb-2', idx=8)
             self.assertEqual(self.days(shell), {'2026-10-10': (1000, 0)})
@@ -246,7 +246,7 @@ class Days(TrafficBase):
             self.fresh()
             old = ''.join(f'd 2024-0{m}-01 {m} 0\n' for m in range(1, 8))
             self.store.mkdir(parents=True)
-            (self.store / 'ledger').write_text('mu300-traffic 1\nbase aaaa-1 7 sipa_eth0 0 0 100\n' + old)
+            (self.store / 'ledger').write_text('openf50-traffic 1\nbase aaaa-1 7 sipa_eth0 0 0 100\n' + old)
             self.sample(shell, 1, 0, 160, self.now)     # 2026-10-10: 800 days back is 2024-08-01
             self.assertNotIn('2024-07-01', self.ledger())
             self.assertNotIn('d 2024-01-01', self.ledger())
@@ -255,7 +255,7 @@ class Days(TrafficBase):
         for shell in self.each_shell():
             self.fresh()
             self.store.mkdir(parents=True)
-            (self.store / 'ledger').write_text('mu300-traffic 1\nbase aaaa-1 7 sipa_eth0 0 0 100\n'
+            (self.store / 'ledger').write_text('openf50-traffic 1\nbase aaaa-1 7 sipa_eth0 0 0 100\n'
                                                'd 2026-10-09 12 x\nd 2026-10-08 5 5\ngarbage\n')
             self.sample(shell, 1, 0, 160, self.now)
             self.assertEqual(self.days(shell), {'2026-10-08': (5, 5), '2026-10-10': (1, 0)})
@@ -284,7 +284,7 @@ class Cycle(TrafficBase):
         for shell in self.each_shell():
             self.fresh()
             self.store.mkdir(parents=True)
-            (self.store / 'ledger').write_text('mu300-traffic 1\nbase aaaa-1 7 sipa_eth0 0 0 100\n'
+            (self.store / 'ledger').write_text('openf50-traffic 1\nbase aaaa-1 7 sipa_eth0 0 0 100\n'
                                                'd 2026-08-20 1 0\nd 2026-09-14 2 0\nd 2026-09-15 4 0\n'
                                                'd 2026-10-09 8 0\n')
             self.counters(0, 0, 100)
@@ -358,7 +358,7 @@ class Cap(TrafficBase):
     def test_warning_and_cut_once(self):
         for shell in self.each_shell():
             self.fresh()
-            (self.root / 'run/mu300-mobile-data-down').unlink(missing_ok=True)
+            (self.root / 'run/openf50-mobile-data-down').unlink(missing_ok=True)
             self.set(shell, 'cap', '1000')
             self.set(shell, 'warn', '80')
             self.set(shell, 'cut', 'on')
@@ -373,7 +373,7 @@ class Cap(TrafficBase):
             self.assertEqual(self.calls(), ['ifdown wan'])
             self.assertIn('monthly cap is reached', self.log())
             # mobile-data down marks it; the next rounds do nothing more
-            (self.root / 'run/mu300-mobile-data-down').write_text('')
+            (self.root / 'run/openf50-mobile-data-down').write_text('')
             self.round(shell, 1010, 280)
             self.assertEqual(self.calls(), ['ifdown wan'])
             self.assertEqual(self.log().count('the monthly cap is reached ('), 1)
@@ -381,15 +381,15 @@ class Cap(TrafficBase):
     def test_turned_back_on_by_hand_it_stays_on_until_a_reboot(self):
         for shell in self.each_shell():
             self.fresh()
-            (self.root / 'run/mu300-mobile-data-down').unlink(missing_ok=True)
+            (self.root / 'run/openf50-mobile-data-down').unlink(missing_ok=True)
             self.set(shell, 'cap', '1000')
             self.set(shell, 'cut', 'on')
             self.round(shell, 0, 100)
             self.round(shell, 2000, 160)
             self.assertEqual(self.calls(), ['ifdown wan'])
-            (self.root / 'run/mu300-mobile-data-down').write_text('')
+            (self.root / 'run/openf50-mobile-data-down').write_text('')
             self.round(shell, 2000, 220)
-            (self.root / 'run/mu300-mobile-data-down').unlink()     # the user: data up
+            (self.root / 'run/openf50-mobile-data-down').unlink()     # the user: data up
             self.round(shell, 2100, 280)
             self.round(shell, 2200, 340)
             self.assertEqual(self.calls(), ['ifdown wan'])
@@ -398,15 +398,15 @@ class Cap(TrafficBase):
     def test_a_reboot_cuts_again_and_the_next_cycle_restores(self):
         for shell in self.each_shell():
             self.fresh()
-            (self.root / 'run/mu300-mobile-data-down').unlink(missing_ok=True)
+            (self.root / 'run/openf50-mobile-data-down').unlink(missing_ok=True)
             self.set(shell, 'cap', '1000')
             self.set(shell, 'cut', 'on')
             self.round(shell, 0, 100)
             self.round(shell, 2000, 160)
-            subprocess.run(['rm', '-rf', str(self.root / 'run/mu300/traffic')])
+            subprocess.run(['rm', '-rf', str(self.root / 'run/openf50/traffic')])
             self.round(shell, 10, 30, now=self.now + 600, boot='bbbb-2', idx=9)    # netifd dialled at boot
             self.assertEqual(self.calls(), ['ifdown wan', 'ifdown wan'])
-            (self.root / 'run/mu300-mobile-data-down').write_text('')
+            (self.root / 'run/openf50-mobile-data-down').write_text('')
             self.round(shell, 10, 90, now=at(2026, 11, 1, 0, 1), boot='bbbb-2', idx=9)
             self.assertEqual(self.calls(), ['ifdown wan', 'ifdown wan', 'ifup wan'])
             self.assertIn('back on', self.log())
@@ -414,12 +414,12 @@ class Cap(TrafficBase):
     def test_raising_the_cap_or_cut_off_restores(self):
         for shell in self.each_shell():
             self.fresh()
-            (self.root / 'run/mu300-mobile-data-down').unlink(missing_ok=True)
+            (self.root / 'run/openf50-mobile-data-down').unlink(missing_ok=True)
             self.set(shell, 'cap', '1000')
             self.set(shell, 'cut', 'on')
             self.round(shell, 0, 100)
             self.round(shell, 2000, 160)
-            (self.root / 'run/mu300-mobile-data-down').write_text('')
+            (self.root / 'run/openf50-mobile-data-down').write_text('')
             self.set(shell, 'cap', '1G')
             self.round(shell, 2000, 220)
             self.assertEqual(self.calls(), ['ifdown wan', 'ifup wan'])
@@ -437,12 +437,12 @@ class Cap(TrafficBase):
         (self.root / 'etc/openwrt_release').unlink()
         for shell in self.each_shell():
             self.fresh()
-            (self.root / 'run/mu300-mobile-data-down').unlink(missing_ok=True)
+            (self.root / 'run/openf50-mobile-data-down').unlink(missing_ok=True)
             self.set(shell, 'cap', '1000')
             self.set(shell, 'cut', 'on')
             self.round(shell, 0, 100)
             self.round(shell, 2000, 160)
-            self.assertEqual(self.calls(), ['systemctl stop mu300-mobile-data.service'])
+            self.assertEqual(self.calls(), ['systemctl stop openf50-mobile-data.service'])
 
     def test_text_view(self):
         for shell in self.each_shell():
@@ -458,7 +458,7 @@ class Cap(TrafficBase):
 
 class Service(TrafficBase):
     def start(self, shell, **env):
-        e = self.env(MU300_SYSROOT=self.root, MU300_TRAFFIC_NOW=self.now, MU300_TRAFFIC_TZOFF=self.off, **env)
+        e = self.env(OPENF50_SYSROOT=self.root, OPENF50_TRAFFIC_NOW=self.now, OPENF50_TRAFFIC_TZOFF=self.off, **env)
         return subprocess.Popen(shell + [str(TOOL), 'run'], env=e, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                                 text=True)
 
@@ -478,7 +478,7 @@ class Service(TrafficBase):
             (self.store / 'conf').write_text('INTERVAL=10\nCHECKPOINT=1800\n')
             p = self.start(shell)
             try:
-                live = self.root / 'run/mu300/traffic/ledger'
+                live = self.root / 'run/openf50/traffic/ledger'
                 self.assertTrue(self.wait_for(lambda: (self.store / 'ledger').exists()))
                 first = (self.store / 'ledger').read_text()
                 self.counters(5000, 500, 200)
@@ -493,14 +493,14 @@ class Service(TrafficBase):
             self.assertIn('base aaaa-1 7 sipa_eth0 1000 100 100', first)
             self.assertIn('d 2026-10-10 4000 400', (self.store / 'ledger').read_text())
             self.assertEqual(live.read_text(), (self.store / 'ledger').read_text())
-            self.assertFalse((self.root / 'run/mu300/traffic/pid').exists())
+            self.assertFalse((self.root / 'run/openf50/traffic/pid').exists())
 
     def test_one_service_at_a_time(self):
         for shell in self.each_shell():
             self.fresh()
             self.counters(0, 0, 100)
-            (self.root / 'run/mu300/traffic').mkdir(parents=True)
-            (self.root / 'run/mu300/traffic/pid').write_text(f'{os.getpid()}\n')
+            (self.root / 'run/openf50/traffic').mkdir(parents=True)
+            (self.root / 'run/openf50/traffic/pid').write_text(f'{os.getpid()}\n')
             r = self.run_tool(shell, 'run', ok=False)
             self.assertNotEqual(r.returncode, 0)
             self.assertIn('already running', r.stderr)
@@ -509,7 +509,7 @@ class Service(TrafficBase):
         for shell in self.each_shell():
             self.fresh()
             self.counters(0, 0, 100)
-            lock = self.root / 'run/mu300/traffic/lock'
+            lock = self.root / 'run/openf50/traffic/lock'
             lock.mkdir(parents=True)
             (lock / 'pid').write_text('999999\n')
             self.run_tool(shell, 'save')
@@ -521,7 +521,7 @@ class Service(TrafficBase):
             self.set(shell, 'cap', '1000')
             self.sample(shell, 0, 0, 100, self.now)
             self.sample(shell, 950, 0, 160, self.now + 60)
-            s = (self.root / 'run/mu300/traffic/summary').read_text()
+            s = (self.root / 'run/openf50/traffic/summary').read_text()
             for line in ('level=warn', 'used=950', 'cap=1000', 'today_rx=950', 'clock=1', 'cycle_start=2026-10-01'):
                 self.assertIn(line + '\n', s)
 
@@ -542,8 +542,8 @@ class Json(TrafficBase):
             self.fresh()
             subprocess.run(['rm', '-rf', str(self.root / 'mnt')])
             self.sample(shell, 0, 0, 100, self.now)
-            self.assertTrue((self.root / 'etc/mu300/traffic/ledger').exists())
-            (self.root / 'mnt/mu300-disk/.mu300').mkdir(parents=True)
+            self.assertTrue((self.root / 'etc/openf50/traffic/ledger').exists())
+            (self.root / 'mnt/openf50-disk/.openf50').mkdir(parents=True)
 
 
 if __name__ == '__main__':

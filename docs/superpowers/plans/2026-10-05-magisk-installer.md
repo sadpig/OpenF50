@@ -4,7 +4,7 @@
 
 **Goal:** A Magisk zip per (system, kernel), built by CI for every release, that installs Linux from Android on the F50 or the U30 Air with no computer: the boot image and the vendor files are made on the device from the device's own data, the device stays bootable at every step, and Android may run from slot a or slot b.
 
-**Architecture:** The boot image layout lives in one place on the device: `mu300-update` (sourced with `MU300_LIB=1`) gets `bootimg_from_stock` next to its existing `write_boot`. `tools/android-boot-image.sh` makes what only the device can make (misc blocks, the Android subset, the device ramdisk segment via busybox `cpio` + `magiskboot compress=lz4_legacy`). `android/magisk/installer/mu300-install.sh` runs the whole installation as a child of Magisk's busybox, deciding from what is on the device and an optional `mu300-install.conf`, and drives the unchanged `tools/android-install.sh` with Android's own shell. Before that, init and the userspace learn which slot Linux is on (`etc/mu300-linux-slot`, `/run/mu300/linux-slot`). `tools/make-magisk-zips.sh` packs eight zips from a release's published assets; `.github/workflows/magisk.yml` runs it on every published release.
+**Architecture:** The boot image layout lives in one place on the device: `openf50-update` (sourced with `OPENF50_LIB=1`) gets `bootimg_from_stock` next to its existing `write_boot`. `tools/android-boot-image.sh` makes what only the device can make (misc blocks, the Android subset, the device ramdisk segment via busybox `cpio` + `magiskboot compress=lz4_legacy`). `android/magisk/installer/openf50-install.sh` runs the whole installation as a child of Magisk's busybox, deciding from what is on the device and an optional `openf50-install.conf`, and drives the unchanged `tools/android-install.sh` with Android's own shell. Before that, init and the userspace learn which slot Linux is on (`etc/openf50-linux-slot`, `/run/openf50/linux-slot`). `tools/make-magisk-zips.sh` packs eight zips from a release's published assets; `.github/workflows/magisk.yml` runs it on every published release.
 
 **Tech Stack:** POSIX sh (dash, bash, busybox ash, Android mksh + toybox, Magisk's busybox ash in standalone mode), Python 3 `unittest` (standard library plus `lz4`), Info-ZIP `zip`/`unzip`, GitHub Actions + `gh`.
 
@@ -13,11 +13,11 @@
 ## Global Constraints
 
 - No file from any device in a zip or a release asset. `tools/make-magisk-zips.sh` audits every zip against an exact allow-list of entry names; a zip with anything else fails the build.
-- Android's own boot partition (`boot_<android slot>`), `vbmeta`, the GPT and `userdata` are never written. `misc` is written last, only after `MU300-INSTALL-OK` and a verified boot image, and is read back.
-- An ext4 on the card whose label is not `mu300sd` is never formatted; `mmcblk0` is never the card (the existing `sd_check`/`sd_prepare` stay as they are). The Magisk path formats a card only with `MU300_SD_ERASE=yes`.
+- Android's own boot partition (`boot_<android slot>`), `vbmeta`, the GPT and `userdata` are never written. `misc` is written last, only after `OPENF50-INSTALL-OK` and a verified boot image, and is read back.
+- An ext4 on the card whose label is not `openf50sd` is never formatted; `mmcblk0` is never the card (the existing `sd_check`/`sd_prepare` stay as they are). The Magisk path formats a card only with `OPENF50_SD_ERASE=yes`.
 - The safety timer in `boot/init` stays `sleep 300`.
 - `customize.sh` never runs `set -e`, `set -u` or `exit`: the installation is a child process.
-- `tools/android-install.sh` and `tools/android-mount-mu300root.sh` run with Android's shell and toolbox: `env -u ASH_STANDALONE PATH=/system/bin:/system/xbin:/vendor/bin /system/bin/sh ...` (Magisk's standalone busybox has an ext2-only `mke2fs` and a `losetup` without `-S`).
+- `tools/android-install.sh` and `tools/android-mount-openf50root.sh` run with Android's shell and toolbox: `env -u ASH_STANDALONE PATH=/system/bin:/system/xbin:/vendor/bin /system/bin/sh ...` (Magisk's standalone busybox has an ext2-only `mke2fs` and a `losetup` without `-S`).
 - Android's `mksh` has 32-bit arithmetic: byte counts are computed in the installer (Magisk's busybox ash, 64-bit), and handed to `android-install.sh` in sectors as `install.sh` does.
 - Every user-facing message of the installer goes through `t '...'` and gets a line in `i18n/tr.tsv` and `i18n/zh.tsv`; `python3 tools/check-i18n.py` prints nothing missing. (`customize.sh`'s three fallback lines stay English: they run before the language is known.)
 - Scripts parse under dash, bash and busybox ash (`tests/test_static.py`); comments are plain sentences that say why, as in the surrounding files.
@@ -27,7 +27,7 @@
 
 ## Review Focus
 
-- Linux on slot a with a rootfs whose `mu300-next-boot` predates this work: it must find no block files and write nothing, never the slot-a block (which then means "Linux, successful"). Pinned in Task 2 (`test_legacy_names_only_for_slot_b`) and Task 3 (`test_slot_a_never_falls_back_to_legacy_names`).
+- Linux on slot a with a rootfs whose `openf50-next-boot` predates this work: it must find no block files and write nothing, never the slot-a block (which then means "Linux, successful"). Pinned in Task 2 (`test_legacy_names_only_for_slot_b`) and Task 3 (`test_slot_a_never_falls_back_to_legacy_names`).
 - `ASH_STANDALONE` leaking into `android-install.sh` (busybox `mke2fs` would make ext2). Pinned in Task 8 (`test_android_side_runs_with_android_tools`).
 - `misc` changing between the plan and the arming (a second installer, an OTA): the arming must refuse. Pinned in Task 8 (`test_misc_changed_meanwhile_is_not_armed`).
 - A conf value like `$(reboot)` or `` `id` `` must never run. Pinned in Task 7 (`test_conf_is_never_executed`).
@@ -43,7 +43,7 @@
 - Test: `tests/test_boot_image.py` (new class `SlotBlocks`)
 
 **Interfaces:**
-- Produces: in every device ramdisk segment `etc/mu300-linux-slot` (`a` or `b`) and four blocks: `etc/misc-bc-slot-a.bin` (Android on a), `etc/misc-bc-slot-b-trial.bin` (Linux trial on b), `etc/misc-bc-slot-b.bin` (Android on b), `etc/misc-bc-slot-a-trial.bin` (Linux trial on a). The manifest gains `misc_slot_b_hex`, `misc_slot_a_trial_hex`, `linux_slot`. `--linux-slot a|b`, default `b`. Tasks 2, 5 rely on these names and bytes.
+- Produces: in every device ramdisk segment `etc/openf50-linux-slot` (`a` or `b`) and four blocks: `etc/misc-bc-slot-a.bin` (Android on a), `etc/misc-bc-slot-b-trial.bin` (Linux trial on b), `etc/misc-bc-slot-b.bin` (Android on b), `etc/misc-bc-slot-a-trial.bin` (Linux trial on a). The manifest gains `misc_slot_b_hex`, `misc_slot_a_trial_hex`, `linux_slot`. `--linux-slot a|b`, default `b`. Tasks 2, 5 rely on these names and bytes.
 
 - [ ] **Step 1: Write the failing test** — add to `tests/test_boot_image.py`:
 
@@ -53,7 +53,7 @@ import zlib
 
 
 def fake_stock(path, size=4 << 20, vbmeta_offset=1 << 20, vbmeta=b'V' * 2304):
-    """An Android boot image header v4 with an AVB footer, as far as build-boot-image.py and mu300-update read it."""
+    """An Android boot image header v4 with an AVB footer, as far as build-boot-image.py and openf50-update read it."""
     img = bytearray(size)
     img[0:8] = b'ANDROID!'
     struct.pack_into('<I', img, 40, 4)
@@ -114,8 +114,8 @@ class SlotBlocks(Fixtures):
             self.assertEqual(files[name][1], data, name)
 
     def test_slot_default_and_choice(self):
-        self.assertEqual(self.image()['etc/mu300-linux-slot'][1], b'b\n')
-        self.assertEqual(self.image('--linux-slot', 'a')['etc/mu300-linux-slot'][1], b'a\n')
+        self.assertEqual(self.image()['etc/openf50-linux-slot'][1], b'b\n')
+        self.assertEqual(self.image('--linux-slot', 'a')['etc/openf50-linux-slot'][1], b'a\n')
 
     def test_generic_has_no_slot(self):
         r, _ = self.build('--linux-slot', 'a')
@@ -146,7 +146,7 @@ Expected: FAIL (`KeyError: 'etc/misc-bc-slot-b.bin'`, and `--linux-slot` unknown
 ```python
     ap.add_argument('--linux-slot', choices=['a', 'b'],
                     help='the slot this image goes to (default b; a when Android runs from slot b): written to '
-                         '/etc/mu300-linux-slot, which init uses when the kernel command line does not say')
+                         '/etc/openf50-linux-slot, which init uses when the kernel command line does not say')
 ```
 
 in the `if a.generic_ramdisk:` checks next to the `--device` refusal add
@@ -160,7 +160,7 @@ in the `if a.generic_ramdisk:` checks next to the `--device` refusal add
     files['etc/misc-bc-slot-b-trial.bin'] = (linux_b_bc, stat.S_IFREG | 0o644)
     files['etc/misc-bc-slot-b.bin'] = (android_b_bc, stat.S_IFREG | 0o644)
     files['etc/misc-bc-slot-a-trial.bin'] = (linux_a_bc, stat.S_IFREG | 0o644)
-    files['etc/mu300-linux-slot'] = (linux_slot.encode() + b'\n', stat.S_IFREG | 0o644)
+    files['etc/openf50-linux-slot'] = (linux_slot.encode() + b'\n', stat.S_IFREG | 0o644)
 ```
 
 At the end, `slot_b_bc` becomes `linux_b_bc` in the `.misc-slot-b-trial.bin` side file (install.sh pushes it), and
@@ -188,12 +188,12 @@ git commit -m "build-boot-image: every image carries the misc blocks for Linux o
 ### Task 2: `boot/init` on either slot
 
 **Files:**
-- Modify: `boot/init` (new block between `# --- slot begin` / `# --- slot end`; `find_partitions`, `write_misc_bc`, every `restore_slot_a`, the `/run/mu300` publishing, the vendor daemons' command line)
+- Modify: `boot/init` (new block between `# --- slot begin` / `# --- slot end`; `find_partitions`, `write_misc_bc`, every `restore_slot_a`, the `/run/openf50` publishing, the vendor daemons' command line)
 - Test: `tests/test_boot_init.py` (new class `Slot`), `tests/test_static.py` (`Rules`)
 
 **Interfaces:**
-- Consumes: `etc/mu300-linux-slot`, the four `etc/misc-bc-slot-*.bin` (Task 1).
-- Produces: `LINUX_SLOT`/`ANDROID_SLOT` in init; `/run/mu300/linux-slot`, `/run/mu300/misc-bc-android.bin`, `/run/mu300/misc-bc-linux-trial.bin`; the legacy `/run/mu300/misc-bc-slot-a.bin` and `misc-bc-slot-b-trial.bin` only when Linux is on b. The persistent log goes to `boot_$LINUX_SLOT`. Task 3 reads these.
+- Consumes: `etc/openf50-linux-slot`, the four `etc/misc-bc-slot-*.bin` (Task 1).
+- Produces: `LINUX_SLOT`/`ANDROID_SLOT` in init; `/run/openf50/linux-slot`, `/run/openf50/misc-bc-android.bin`, `/run/openf50/misc-bc-linux-trial.bin`; the legacy `/run/openf50/misc-bc-slot-a.bin` and `misc-bc-slot-b-trial.bin` only when Linux is on b. The persistent log goes to `boot_$LINUX_SLOT`. Task 3 reads these.
 
 - [ ] **Step 1: Write the failing tests** — append to `tests/test_boot_init.py`:
 
@@ -212,9 +212,9 @@ class Slot(ShellTest):
         etc.mkdir(exist_ok=True)
         for n in ('slot-a', 'slot-b-trial', 'slot-b', 'slot-a-trial'):
             (etc / f'misc-bc-{n}.bin').write_text(n)
-        (etc / 'mu300-linux-slot').unlink(missing_ok=True)
+        (etc / 'openf50-linux-slot').unlink(missing_ok=True)
         if image:
-            (etc / 'mu300-linux-slot').write_text(image + '\n')
+            (etc / 'openf50-linux-slot').write_text(image + '\n')
         srcs = []
         for name, text in (('cmdline', cmdline), ('bootargs', bootargs)):
             if text is not None:
@@ -224,7 +224,7 @@ class Slot(ShellTest):
                 f'write_misc_bc() {{ echo "write $1" >> "{self.tmp}/log"; }}\n' + self.block() + f'\n{call}\n'
                 'echo "linux=$LINUX_SLOT android=$ANDROID_SLOT"')
         (self.tmp / 'log').write_text('')
-        r = self.sh(shell, code, MU300_CMDLINE_SRC=' '.join(srcs) or f'{self.tmp}/none', MU300_ETC=etc, MU300_RUN=run)
+        r = self.sh(shell, code, OPENF50_CMDLINE_SRC=' '.join(srcs) or f'{self.tmp}/none', OPENF50_ETC=etc, OPENF50_RUN=run)
         self.assertEqual(r.stderr, '')
         return r.stdout.strip(), (self.tmp / 'log').read_text(), run
 
@@ -233,9 +233,9 @@ class Slot(ShellTest):
             out, log, run = self.run_slot(shell, cmdline='console=x androidboot.slot_suffix=_a loglevel=5')
             self.assertEqual(out, 'linux=a android=b')
             self.assertIn('stage=linux-slot slot=a source=', log)
-            self.assertEqual((run / 'mu300' / 'linux-slot').read_text(), 'a\n')
-            self.assertEqual((run / 'mu300' / 'misc-bc-android.bin').read_text(), 'slot-b')
-            self.assertEqual((run / 'mu300' / 'misc-bc-linux-trial.bin').read_text(), 'slot-a-trial')
+            self.assertEqual((run / 'openf50' / 'linux-slot').read_text(), 'a\n')
+            self.assertEqual((run / 'openf50' / 'misc-bc-android.bin').read_text(), 'slot-b')
+            self.assertEqual((run / 'openf50' / 'misc-bc-linux-trial.bin').read_text(), 'slot-a-trial')
 
     def test_bootargs_when_the_kernel_replaced_the_cmdline(self):
         for shell in self.each_shell():
@@ -263,15 +263,15 @@ class Slot(ShellTest):
             self.assertIn(f'write {self.tmp}/etc/misc-bc-slot-a.bin', log)
 
     def test_legacy_names_only_for_slot_b(self):
-        # an older mu300-next-boot writes misc-bc-slot-a.bin for "android": with Linux on a that block would boot
+        # an older openf50-next-boot writes misc-bc-slot-a.bin for "android": with Linux on a that block would boot
         # Linux, marked successful, for ever - so with Linux on a the old names must not exist at all
         for shell in self.each_shell():
             _, _, run = self.run_slot(shell, cmdline='androidboot.slot_suffix=_b')
-            self.assertEqual((run / 'mu300' / 'misc-bc-slot-a.bin').read_text(), 'slot-a')
-            self.assertEqual((run / 'mu300' / 'misc-bc-slot-b-trial.bin').read_text(), 'slot-b-trial')
+            self.assertEqual((run / 'openf50' / 'misc-bc-slot-a.bin').read_text(), 'slot-a')
+            self.assertEqual((run / 'openf50' / 'misc-bc-slot-b-trial.bin').read_text(), 'slot-b-trial')
             _, _, run = self.run_slot(shell, cmdline='androidboot.slot_suffix=_a')
-            self.assertFalse((run / 'mu300' / 'misc-bc-slot-a.bin').exists())
-            self.assertFalse((run / 'mu300' / 'misc-bc-slot-b-trial.bin').exists())
+            self.assertFalse((run / 'openf50' / 'misc-bc-slot-a.bin').exists())
+            self.assertFalse((run / 'openf50' / 'misc-bc-slot-b-trial.bin').exists())
 ```
 
 (add `import shutil` at the top) and to class `Rules` in `tests/test_static.py`:
@@ -296,17 +296,17 @@ Expected: FAIL (`boot/init has no slot block`).
 # Which slot this Linux runs from, and so which one is Android's (after an OTA Android often runs from b, and the
 # Magisk installer then puts Linux on a). LK names the slot it booted on the command line; the mainline kernel
 # replaces that line, so the bootargs LK put in the device tree come next, as for the vendor daemons below. Then
-# the slot the image was built for (etc/mu300-linux-slot, from the installer), and b: every image before this one
+# the slot the image was built for (etc/openf50-linux-slot, from the installer), and b: every image before this one
 # was built for b.
 # --- slot begin
 linux_slot_detect() {
     LINUX_SLOT=; _src=default
-    for _f in ${MU300_CMDLINE_SRC:-/proc/cmdline /proc/device-tree/chosen/bootargs}; do
+    for _f in ${OPENF50_CMDLINE_SRC:-/proc/cmdline /proc/device-tree/chosen/bootargs}; do
         [ -r "$_f" ] || continue
         LINUX_SLOT=$(tr '\000' ' ' < "$_f" | sed -n 's/.*androidboot\.slot_suffix=_\([ab]\).*/\1/p')
         [ -n "$LINUX_SLOT" ] && { _src=$_f; break; }
     done
-    _img=$(cat "${MU300_ETC:-/etc}/mu300-linux-slot" 2>/dev/null)
+    _img=$(cat "${OPENF50_ETC:-/etc}/openf50-linux-slot" 2>/dev/null)
     case $_img in a|b) ;; *) _img= ;; esac
     if [ -z "$LINUX_SLOT" ]; then
         LINUX_SLOT=${_img:-b}
@@ -316,12 +316,12 @@ linux_slot_detect() {
     if [ "$LINUX_SLOT" = a ]; then ANDROID_SLOT=b; else ANDROID_SLOT=a; fi
     log "stage=linux-slot slot=$LINUX_SLOT source=$_src"
 }
-restore_android() { write_misc_bc "${MU300_ETC:-/etc}/misc-bc-slot-$ANDROID_SLOT.bin" misc-restored; }
-# what userspace needs to choose the next boot (mu300-next-boot): the slot and the two blocks of this pair. The old
-# names, which an older mu300-next-boot reads, only where they mean what it thinks: Linux on b. With Linux on a its
+restore_android() { write_misc_bc "${OPENF50_ETC:-/etc}/misc-bc-slot-$ANDROID_SLOT.bin" misc-restored; }
+# what userspace needs to choose the next boot (openf50-next-boot): the slot and the two blocks of this pair. The old
+# names, which an older openf50-next-boot reads, only where they mean what it thinks: Linux on b. With Linux on a its
 # "android" would write the slot-a block - Linux, marked successful - and without the files it fails instead.
 publish_slot() {
-    _r=${MU300_RUN:-/run}/mu300 _e=${MU300_ETC:-/etc}
+    _r=${OPENF50_RUN:-/run}/openf50 _e=${OPENF50_ETC:-/etc}
     mkdir -p "$_r"
     echo "$LINUX_SLOT" > "$_r/linux-slot"
     cp "$_e/misc-bc-slot-$ANDROID_SLOT.bin" "$_r/misc-bc-android.bin"
@@ -336,7 +336,7 @@ linux_slot_detect
   * in `find_partitions`, `grep -qx PARTNAME=boot_b` becomes `grep -qx "PARTNAME=boot_$LINUX_SLOT"` (the variable `bootb` keeps its name: it is the Linux slot's partition), and the comment above it says "misc and the Linux slot's boot partition";
   * `write_misc_bc` gets as its first line `[ -s "$1" ] || { log "stage=misc-block-missing $1"; return 1; }` (an image from before Task 1 has no `misc-bc-slot-b.bin`);
   * delete `restore_slot_a() { ... }` and replace every call `restore_slot_a` with `restore_android`;
-  * `mkdir -p /run/mu300 && cp /etc/misc-bc-slot-a.bin /etc/misc-bc-slot-b-trial.bin /run/mu300/` becomes `publish_slot`;
+  * `mkdir -p /run/openf50 && cp /etc/misc-bc-slot-a.bin /etc/misc-bc-slot-b-trial.bin /run/openf50/` becomes `publish_slot`;
   * the vendor daemons' command line (`sed 's/androidboot.slot_suffix=_b/androidboot.slot_suffix=_a/'`) becomes
     `sed "s/androidboot.slot_suffix=_$LINUX_SLOT/androidboot.slot_suffix=_$ANDROID_SLOT/"`, and its comment "LK boots
     us from slot b; the modem images Android uses (and keeps updated) are the _a copies" becomes "the modem images
@@ -359,18 +359,18 @@ git commit -m "init: Linux may run from slot a with Android on b; the booted slo
 ### Task 3: The running system and the tools on either slot
 
 **Files:**
-- Modify: `rootfs/overlay/opt/mu300/bin/mu300-next-boot`, `rootfs/overlay/opt/mu300/bin/mu300-update` (`linux_slot`, `boot_update`, `rollback_boot`), `rootfs/overlay/opt/mu300/bin/early-recorder`, `rootfs/overlay/opt/mu300/bin/android-vendor-start`, `tools/collect-logs.sh`, `android/magisk/mu300-linux-switch/switch.sh`, `android/magisk/README.md`
+- Modify: `rootfs/overlay/opt/openf50/bin/openf50-next-boot`, `rootfs/overlay/opt/openf50/bin/openf50-update` (`linux_slot`, `boot_update`, `rollback_boot`), `rootfs/overlay/opt/openf50/bin/early-recorder`, `rootfs/overlay/opt/openf50/bin/android-vendor-start`, `tools/collect-logs.sh`, `android/magisk/openf50-linux-switch/switch.sh`, `android/magisk/README.md`
 - Test: `tests/test_device_scripts.py` (new class `NextBoot`), `tests/test_update.py` (`test_linux_slot`), `tests/test_magisk_switch.py` (new)
 
 **Interfaces:**
-- Consumes: `/run/mu300/linux-slot`, `misc-bc-android.bin`, `misc-bc-linux-trial.bin` (Task 2).
-- Produces: `linux_slot` in `mu300-update` (prints `a` or `b`, `b` without the file; honours `MU300_SYSROOT`). `mu300-next-boot` honours `MU300_RUN` (default `/run/mu300`) and `MU300_CONF` (default `/etc/mu300/default-boot`) for tests. `switch.sh` arms the slot opposite Android and honours `MU300_BY_NAME`, `MU300_SLOT_SUFFIX`, `MU300_BUSYBOX` for tests.
+- Consumes: `/run/openf50/linux-slot`, `misc-bc-android.bin`, `misc-bc-linux-trial.bin` (Task 2).
+- Produces: `linux_slot` in `openf50-update` (prints `a` or `b`, `b` without the file; honours `OPENF50_SYSROOT`). `openf50-next-boot` honours `OPENF50_RUN` (default `/run/openf50`) and `OPENF50_CONF` (default `/etc/openf50/default-boot`) for tests. `switch.sh` arms the slot opposite Android and honours `OPENF50_BY_NAME`, `OPENF50_SLOT_SUFFIX`, `OPENF50_BUSYBOX` for tests.
 
 - [ ] **Step 1: Write the failing tests** — `tests/test_device_scripts.py`:
 
 ```python
 class NextBoot(ShellTest):
-    """mu300-next-boot (bash) re-arms the Linux slot with tries N+1 in the slot byte of whichever slot Linux is on."""
+    """openf50-next-boot (bash) re-arms the Linux slot with tries N+1 in the slot byte of whichever slot Linux is on."""
 
     def setUp(self):
         super().setUp()
@@ -390,8 +390,8 @@ class NextBoot(ShellTest):
     def nb(self, *args):
         if not shutil.which('bash'):
             self.skipTest('no bash')
-        return subprocess.run(['bash', str(BIN / 'mu300-next-boot'), *args], capture_output=True, text=True,
-                              env=self.env(MU300_RUN=self.run_dir, MU300_CONF=self.tmp / 'default-boot'))
+        return subprocess.run(['bash', str(BIN / 'openf50-next-boot'), *args], capture_output=True, text=True,
+                              env=self.env(OPENF50_RUN=self.run_dir, OPENF50_CONF=self.tmp / 'default-boot'))
 
     def bc(self):
         return self.misc.read_bytes()[0x800:0x820]
@@ -437,7 +437,7 @@ class NextBoot(ShellTest):
 
 ```python
     def test_linux_slot(self):
-        f = self.root / 'run/mu300/linux-slot'
+        f = self.root / 'run/openf50/linux-slot'
         for shell in self.each_shell():
             f.unlink(missing_ok=True)
             self.assertEqual(self.up(shell, 'linux_slot').stdout.strip(), 'b')
@@ -446,22 +446,22 @@ class NextBoot(ShellTest):
                 self.assertEqual(self.up(shell, 'linux_slot').stdout.strip(), want, v)
 ```
 
-`tests/test_magisk_switch.py` (new): runs `switch.sh --dry-run` with `MU300_BY_NAME` pointing at a directory of files
+`tests/test_magisk_switch.py` (new): runs `switch.sh --dry-run` with `OPENF50_BY_NAME` pointing at a directory of files
 (`misc` built with `fake_misc` from `test_boot_image`, `boot_a`/`boot_b` with different first 64 KiB, both starting
-with `ANDROID!`), `MU300_BUSYBOX=$(which busybox)` (skip without busybox), `MU300_SLOT_SUFFIX=_a` and `_b`, a stub
+with `ANDROID!`), `OPENF50_BUSYBOX=$(which busybox)` (skip without busybox), `OPENF50_SLOT_SUFFIX=_a` and `_b`, a stub
 `id` printing `0`, and asserts that the printed `misc  new:` line equals `linux_b_trial` resp. `linux_a_trial` from
 `bootloader_control`, and that with identical boot images it refuses.
 
 - [ ] **Step 2: Run them to make sure they fail**
 
 Run: `cd tests && python3 -m unittest test_device_scripts.NextBoot test_update.Update.test_linux_slot test_magisk_switch -v`
-Expected: FAIL (`MU300_RUN` ignored: the script reads `/run/mu300`; `linux_slot: not found`).
+Expected: FAIL (`OPENF50_RUN` ignored: the script reads `/run/openf50`; `linux_slot: not found`).
 
-- [ ] **Step 3: `mu300-next-boot`** — replace the `CONF=`/`BC_A=`/`BC_B=`/`MISC=` lines:
+- [ ] **Step 3: `openf50-next-boot`** — replace the `CONF=`/`BC_A=`/`BC_B=`/`MISC=` lines:
 
 ```bash
-CONF=${MU300_CONF:-/etc/mu300/default-boot}
-RUN=${MU300_RUN:-/run/mu300}
+CONF=${OPENF50_CONF:-/etc/openf50/default-boot}
+RUN=${OPENF50_RUN:-/run/openf50}
 # The initramfs says which slot Linux runs from (Android may be on either). The blocks it publishes are the pair of
 # that slot; an initramfs from before that publishes only the old names, and only ever for Linux on b.
 LINUX_SLOT=$(cat "$RUN/linux-slot" 2>/dev/null || echo b)
@@ -485,11 +485,11 @@ MISC=$(cat "$RUN/misc-dev" 2>/dev/null || readlink -f /dev/block/by-name/misc)
 Messages "slot b armed" → "slot $LINUX_SLOT armed", "next boot: android (slot a)" → "next boot: android"; the
 comment over `make_bc_b` says "byte 12 (slot a) or 14 (slot b)".
 
-- [ ] **Step 4: `mu300-update`** — next to `part_dev`:
+- [ ] **Step 4: `openf50-update`** — next to `part_dev`:
 
 ```sh
 # the slot Linux runs from (the initramfs publishes it; Android may be on either). Without the file: b, as always.
-linux_slot() { _s=$(cat "${MU300_SYSROOT:-}/run/mu300/linux-slot" 2>/dev/null); case $_s in a|b) echo "$_s" ;; *) echo b ;; esac; }
+linux_slot() { _s=$(cat "${OPENF50_SYSROOT:-}/run/openf50/linux-slot" 2>/dev/null); case $_s in a|b) echo "$_s" ;; *) echo b ;; esac; }
 ```
 
 and in `boot_update` and `rollback_boot` `part_dev boot_b` becomes `part_dev "boot_$(linux_slot)"`; the messages
@@ -500,15 +500,15 @@ and in `boot_update` and `rollback_boot` `part_dev boot_b` becomes `part_dev "bo
 `early-recorder`, before `BOOTB=`:
 
 ```sh
-S=$(cat /run/mu300/linux-slot 2>/dev/null); case $S in a|b) ;; *) S=b ;; esac
+S=$(cat /run/openf50/linux-slot 2>/dev/null); case $S in a|b) ;; *) S=b ;; esac
 ```
 and `boot_b` → `boot_$S` in both lookups (`readlink` and the `PARTNAME=` grep); the header comment says "the Linux slot's boot partition".
 
 `android-vendor-start`, replacing the `sed 's/..._b/..._a/'` line:
 
 ```sh
-L=$(cat /run/mu300/linux-slot 2>/dev/null); case $L in a) AS=b ;; *) L=b; AS=a ;; esac
-tr -d '\000' < $src | sed "s/androidboot.slot_suffix=_$L/androidboot.slot_suffix=_$AS/" > /run/mu300-cmdline.android
+L=$(cat /run/openf50/linux-slot 2>/dev/null); case $L in a) AS=b ;; *) L=b; AS=a ;; esac
+tr -d '\000' < $src | sed "s/androidboot.slot_suffix=_$L/androidboot.slot_suffix=_$AS/" > /run/openf50-cmdline.android
 ```
 
 `tools/collect-logs.sh`: the persistent log is in the slot Android is not on:
@@ -519,11 +519,11 @@ case $slot in _b) LS=a ;; *) LS=b ;; esac
 ```
 and `boot_b` in the `dd` line becomes `boot_$LS`.
 
-`android/magisk/mu300-linux-switch/switch.sh`: take kanoqwq's 35a1c55 version of the slot logic (`git show
-35a1c55:android/magisk/mu300-linux-switch/switch.sh`): `by_name=${MU300_BY_NAME:-/dev/block/by-name}`,
-`slot=${MU300_SLOT_SUFFIX:-$(getprop ro.boot.slot_suffix)}`, the `case $slot in _a) ... _b) ...` that sets
+`android/magisk/openf50-linux-switch/switch.sh`: take kanoqwq's 35a1c55 version of the slot logic (`git show
+35a1c55:android/magisk/openf50-linux-switch/switch.sh`): `by_name=${OPENF50_BY_NAME:-/dev/block/by-name}`,
+`slot=${OPENF50_SLOT_SUFFIX:-$(getprop ro.boot.slot_suffix)}`, the `case $slot in _a) ... _b) ...` that sets
 `android_boot`, `linux_boot`, `linux_slot`, `a_arm`, `b_arm`, the awk `suffix` variable, the identical-image refusal
-and the status lines. Add `MU300_BUSYBOX` to the front of the busybox search list. Do not take the Chinese strings
+and the status lines. Add `OPENF50_BUSYBOX` to the front of the busybox search list. Do not take the Chinese strings
 (this module's text is English, as now) nor `--no-reboot` (the installer of Task 8 arms `misc` itself).
 `android/magisk/README.md`: "slot b" → "the slot Android is not on" where it describes what is written, and "It
 refuses ... when Android is not running from slot a" goes.
@@ -533,23 +533,23 @@ refuses ... when Android is not running from slot a" goes.
 - [ ] **Step 7: Commit**
 
 ```bash
-git add rootfs/overlay/opt/mu300/bin tools/collect-logs.sh android/magisk tests
+git add rootfs/overlay/opt/openf50/bin tools/collect-logs.sh android/magisk tests
 git commit -m "next-boot, update, the recorder, the vendor chroot, collect-logs and the switch follow the slot Linux runs from"
 ```
 
 ---
 
-### Task 4: `mu300-update` builds a boot image from Android's own
+### Task 4: `openf50-update` builds a boot image from Android's own
 
 **Files:**
-- Modify: `rootfs/overlay/opt/mu300/bin/mu300-update` (new `part_size`, `bootimg_from_stock`, `kernel_modules_into_systems`; `boot_update` uses the latter)
+- Modify: `rootfs/overlay/opt/openf50/bin/openf50-update` (new `part_size`, `bootimg_from_stock`, `kernel_modules_into_systems`; `boot_update` uses the latter)
 - Test: `tests/test_update.py` (new class `FromStock`)
 
 **Interfaces:**
-- Produces (sourced with `MU300_LIB=1`):
+- Produces (sourced with `OPENF50_LIB=1`):
   * `part_size DEV_OR_FILE` → bytes (`blockdev --getsize64`, else the file size).
   * `bootimg_from_stock STOCK KERNEL RAMDISK DIR` → `DIR/new` (header page, kernel, ramdisk, page-aligned), `DIR/vbmeta`, `DIR/newfooter`: exactly what `write_boot DEV PSIZE DIR/new DIR/vbmeta DIR/newfooter` takes. Status 1 with a message on stderr when STOCK is not header v4 with an `AVBf` footer, or the result reaches `PERSIST_LOG`.
-  * `kernel_modules_into_systems BUNDLE_DIR` → copies `BUNDLE_DIR/modules/*.ko` into every system under `$DISK` (Ubuntu: `lib/modules/<release>/extra` plus `modules.builtin*` and an empty `modules.order`; OpenWrt: `lib/modules/<release>`), runs `depmod` for Ubuntu unless `MU300_NO_DEPMOD=1`. Status 1 on a bad `kernel.release`.
+  * `kernel_modules_into_systems BUNDLE_DIR` → copies `BUNDLE_DIR/modules/*.ko` into every system under `$DISK` (Ubuntu: `lib/modules/<release>/extra` plus `modules.builtin*` and an empty `modules.order`; OpenWrt: `lib/modules/<release>`), runs `depmod` for Ubuntu unless `OPENF50_NO_DEPMOD=1`. Status 1 on a bad `kernel.release`.
 
 - [ ] **Step 1: Write the failing tests** — `tests/test_update.py`:
 
@@ -622,19 +622,19 @@ class FromStock(UpdateBase):
         b = self.tmp / 'bundle'
         (b / 'modules').mkdir(parents=True)
         (b / 'modules' / 'a.ko').write_bytes(b'a')
-        (b / 'kernel.release').write_text('6.18.55-mu300\n')
+        (b / 'kernel.release').write_text('6.18.55-openf50\n')
         (b / 'modules.builtin').write_text('kernel/x.ko\n')
         (self.disk / 'openwrt').mkdir()
         for shell in self.each_shell():
-            r = self.up(shell, f'kernel_modules_into_systems "{b}"', MU300_NO_DEPMOD=1)
+            r = self.up(shell, f'kernel_modules_into_systems "{b}"', OPENF50_NO_DEPMOD=1)
             self.assertEqual(r.returncode, 0, r.stderr)
-            self.assertEqual((self.disk / 'ubuntu/lib/modules/6.18.55-mu300/extra/a.ko').read_bytes(), b'a')
-            self.assertTrue((self.disk / 'ubuntu/lib/modules/6.18.55-mu300/modules.builtin').exists())
-            self.assertEqual((self.disk / 'ubuntu/lib/modules/6.18.55-mu300/modules.order').read_bytes(), b'')
-            self.assertEqual((self.disk / 'openwrt/lib/modules/6.18.55-mu300/a.ko').read_bytes(), b'a')
+            self.assertEqual((self.disk / 'ubuntu/lib/modules/6.18.55-openf50/extra/a.ko').read_bytes(), b'a')
+            self.assertTrue((self.disk / 'ubuntu/lib/modules/6.18.55-openf50/modules.builtin').exists())
+            self.assertEqual((self.disk / 'ubuntu/lib/modules/6.18.55-openf50/modules.order').read_bytes(), b'')
+            self.assertEqual((self.disk / 'openwrt/lib/modules/6.18.55-openf50/a.ko').read_bytes(), b'a')
         (b / 'kernel.release').write_text('../evil\n')
         for shell in self.each_shell():
-            self.assertNotEqual(self.up(shell, f'kernel_modules_into_systems "{b}"', MU300_NO_DEPMOD=1).returncode, 0)
+            self.assertNotEqual(self.up(shell, f'kernel_modules_into_systems "{b}"', OPENF50_NO_DEPMOD=1).returncode, 0)
 ```
 
 (`shutil` imported at the top. `Update.setUp` makes `disk/ubuntu/etc`; `lib/modules` is created by the function.)
@@ -644,7 +644,7 @@ class FromStock(UpdateBase):
 Run: `cd tests && python3 -m unittest test_update.FromStock -v`
 Expected: FAIL (`bootimg_from_stock: not found`).
 
-- [ ] **Step 3: The functions** — in `mu300-update`, after `write_boot`:
+- [ ] **Step 3: The functions** — in `openf50-update`, after `write_boot`:
 
 ```sh
 part_size() { blockdev --getsize64 "$1" 2>/dev/null || fsize "$1"; }   # part_size DEV: bytes (a file in tests)
@@ -683,7 +683,7 @@ bootimg_from_stock() {  # bootimg_from_stock STOCK KERNEL RAMDISK DIR
 
 # A kernel the systems were not built with (a mainline bundle) brings its modules along: they go into every system
 # on the Linux filesystem, next to the ones of the other kernel, which stay for a switch back. Ubuntu keeps them under
-# extra/ and indexes them (depmod; MU300_NO_DEPMOD=1 leaves that to its next boot, as the Magisk installer must: the
+# extra/ and indexes them (depmod; OPENF50_NO_DEPMOD=1 leaves that to its next boot, as the Magisk installer must: the
 # depmod Android has is busybox's); OpenWrt keeps them flat and loads by path.
 kernel_modules_into_systems() {  # kernel_modules_into_systems BUNDLE_DIR (unpacked)
     _krel=$(cat "$1/kernel.release" 2>/dev/null)
@@ -694,7 +694,7 @@ kernel_modules_into_systems() {  # kernel_modules_into_systems BUNDLE_DIR (unpac
         if [ "$_os" = ubuntu ]; then
             for _f in modules.builtin modules.builtin.modinfo; do [ ! -f "$1/$_f" ] || cp "$1/$_f" "$DISK/$_os/lib/modules/$_krel/"; done
             [ -e "$DISK/$_os/lib/modules/$_krel/modules.order" ] || : > "$DISK/$_os/lib/modules/$_krel/modules.order"
-            if [ -z "${MU300_NO_DEPMOD:-}" ] && command -v depmod >/dev/null; then depmod -b "$DISK/$_os" "$_krel" 2>/dev/null || true; fi
+            if [ -z "${OPENF50_NO_DEPMOD:-}" ] && command -v depmod >/dev/null; then depmod -b "$DISK/$_os" "$_krel" 2>/dev/null || true; fi
         fi
     done
     printf 'boot: %s modules for %s installed into: %s\n' "$(ls "$1/modules" | wc -l | tr -d ' ')" "$_krel" "$(installed_systems)"
@@ -708,8 +708,8 @@ kernel_modules_into_systems() {  # kernel_modules_into_systems BUNDLE_DIR (unpac
 - [ ] **Step 6: Commit**
 
 ```bash
-git add rootfs/overlay/opt/mu300/bin/mu300-update tests/test_update.py
-git commit -m "mu300-update: a boot image from Android's own header and AVB data, and the kernel modules step as a function of its own"
+git add rootfs/overlay/opt/openf50/bin/openf50-update tests/test_update.py
+git commit -m "openf50-update: a boot image from Android's own header and AVB data, and the kernel modules step as a function of its own"
 ```
 
 ---
@@ -721,7 +721,7 @@ git commit -m "mu300-update: a boot image from Android's own header and AVB data
 - Test: `tests/test_android_boot_image.py` (new)
 
 **Interfaces:**
-- Consumes: `mu300-update` sourced first (`bootimg_from_stock`, `fsize`); `MAGISKBOOT` (path of `magiskboot`); `MU300_ANDROID_ROOT` (default `/`) and `MU300_FW_DIRS` (default `/odm/firmware /vendor/firmware /vendor/etc`) for tests.
+- Consumes: `openf50-update` sourced first (`bootimg_from_stock`, `fsize`); `MAGISKBOOT` (path of `magiskboot`); `OPENF50_ANDROID_ROOT` (default `/`) and `OPENF50_FW_DIRS` (default `/odm/firmware /vendor/firmware /vendor/etc`) for tests.
 - Produces (sourced):
   * `crc32_hex HEX`, `bc_block LIVE a|b A_META B_META`, `bc_valid LIVE`, `bc_files LIVE DIR` (writes the four files of Task 1 with the same bytes),
   * `collect_firmware DIR` (prints the missing names and fails), `collect_subset LIST DIR`, `collect_gpu LIST DIR` (all or nothing),
@@ -830,7 +830,7 @@ class DeviceSide(ShellTest):
         self.stub('magiskboot', MAGISKBOOT)
 
     def lib(self, shell, code, **env):
-        pre = f'MU300_LIB=1 . "{BIN}/mu300-update"; . "{LIB}"; '
+        pre = f'OPENF50_LIB=1 . "{BIN}/openf50-update"; . "{LIB}"; '
         return self.sh(shell, pre + code, MAGISKBOOT=self.stubs / 'magiskboot', **env)
 
     def test_blocks_equal_the_python_builders(self):
@@ -856,7 +856,7 @@ class DeviceSide(ShellTest):
         for shell in self.each_shell():
             s, fw = self.tmp / 'subset', self.tmp / 'fw'
             r = self.lib(shell, f'collect_subset "{TOP}/android-vendor/subset-files.txt" "{s}" && collect_firmware "{fw}"',
-                         MU300_ANDROID_ROOT=root, MU300_FW_DIRS=f'{root}/odm/firmware {root}/vendor/firmware')
+                         OPENF50_ANDROID_ROOT=root, OPENF50_FW_DIRS=f'{root}/odm/firmware {root}/vendor/firmware')
             self.assertEqual(r.returncode, 0, r.stderr)
             self.assertTrue((s / 'vendor/bin/modem_control').is_file())
             self.assertEqual(os.readlink(s / 'system/bin/linker64'), '/apex/com.android.runtime/bin/linker64')
@@ -864,7 +864,7 @@ class DeviceSide(ShellTest):
             self.assertEqual(sorted(os.listdir(fw)), sorted(os.listdir(root / 'vendor/firmware')))
             shutil.rmtree(fw)
             (root / 'vendor/firmware/gnssmodem.bin').rename(root / 'gnss.bak')
-            r = self.lib(shell, f'collect_firmware "{fw}"', MU300_FW_DIRS=f'{root}/vendor/firmware')
+            r = self.lib(shell, f'collect_firmware "{fw}"', OPENF50_FW_DIRS=f'{root}/vendor/firmware')
             self.assertNotEqual(r.returncode, 0)
             self.assertIn('gnssmodem.bin', r.stdout)
             (root / 'gnss.bak').rename(root / 'vendor/firmware/gnssmodem.bin')
@@ -879,16 +879,16 @@ class DeviceSide(ShellTest):
                 out = self.tmp / f'v-{os_name}.tar.gz'
                 r = self.lib(shell, f'collect_subset "{TOP}/android-vendor/subset-files.txt" "{self.tmp}/s" && '
                                     f'collect_firmware "{self.tmp}/fw" && vendor_overlay {os_name} "{self.tmp}/fw" "{self.tmp}/s" "" "{out}"',
-                             MU300_ANDROID_ROOT=root, MU300_FW_DIRS=f'{root}/vendor/firmware')
+                             OPENF50_ANDROID_ROOT=root, OPENF50_FW_DIRS=f'{root}/vendor/firmware')
                 self.assertEqual(r.returncode, 0, r.stderr)
                 names = subprocess.run(['tar', '-tzf', str(out)], capture_output=True, text=True).stdout.split()
                 names = [n.lstrip('./') for n in names]
                 self.assertIn(f'{fwdir}/wcnmodem.bin', names)
-                self.assertIn('opt/mu300/android/vendor/bin/modem_control', names)
-                self.assertTrue(any(n.startswith('opt/mu300/android/dev-properties/') for n in names))
-                self.assertFalse([n for n in names if n.startswith('opt/mu300/android/dev/')])
+                self.assertIn('opt/openf50/android/vendor/bin/modem_control', names)
+                self.assertTrue(any(n.startswith('opt/openf50/android/dev-properties/') for n in names))
+                self.assertFalse([n for n in names if n.startswith('opt/openf50/android/dev/')])
                 # no entry for a directory the system already has: Ubuntu's lib is a link to usr/lib
-                self.assertFalse([n for n in names if n.rstrip('/') in ('lib', 'usr', 'usr/lib', 'opt', 'opt/mu300')])
+                self.assertFalse([n for n in names if n.rstrip('/') in ('lib', 'usr', 'usr/lib', 'opt', 'opt/openf50')])
                 shutil.rmtree(self.tmp / 's'); shutil.rmtree(self.tmp / 'fw')
 
     @unittest.skipIf(not HAVE_LZ4, 'no lz4')
@@ -901,7 +901,7 @@ class DeviceSide(ShellTest):
 1. with Python: a generic segment (`--generic-ramdisk`) into `bundle/ramdisk-generic.lz4`, `bundle/Image`; then
    `build-boot-image.py --stock-boot --misc-head --kernel bundle/Image --append-ramdisk bundle/ramdisk-generic.lz4
    --device f50 --linux-slot b --android-subset <collected subset> ...`;
-2. with the library: `etc/mu300-device` (`f50`), `etc/mu300-linux-slot` (`b`), `bc_files`, the collected subset as
+2. with the library: `etc/openf50-device` (`f50`), `etc/openf50-linux-slot` (`b`), `bc_files`, the collected subset as
    `android/`, `device_segment`, `linux_boot_image`;
 and asserts that `cpio_all(unlz4_legacy(ramdisk))` of both images agree on every regular file and symlink (names,
 contents, the executable bit), ignoring directory entries, and that the header page, the vbmeta and the footer
@@ -917,8 +917,8 @@ Expected: FAIL (`android-boot-image.sh` missing; `subset-files.txt` missing).
 ```sh
 # Device side of the Magisk installer: what only the device can make for its Linux boot image and its systems - the
 # misc blocks, the Android files modem_control needs, the firmware, the device ramdisk segment - and the image
-# itself, built from Android's own boot image the way mu300-update rebuilds ours. Sourced after
-# rootfs/overlay/opt/mu300/bin/mu300-update (MU300_LIB=1), whose bootimg_from_stock and byte helpers it uses.
+# itself, built from Android's own boot image the way openf50-update rebuilds ours. Sourced after
+# rootfs/overlay/opt/openf50/bin/openf50-update (OPENF50_LIB=1), whose bootimg_from_stock and byte helpers it uses.
 # Writes only into the directories it is given. The files it collects are proprietary: they stay on this device.
 LZ4_MAGIC=02214c18
 FIRMWARE='wcnmodem.bin gnssmodem.bin wifi_board_config.ini wifi_board_config_ab.ini bt_configure_pskey.ini bt_configure_rf.ini'
@@ -931,7 +931,7 @@ hex_to_bytes() {  # hex_to_bytes HEX: the bytes (octal escapes: dash's printf ha
     done
 }
 # CRC-32 (zlib) of the bytes of HEX, little endian as the block stores it: gzip ends every stream with exactly that
-# value, which saves an implementation (mu300-next-boot does the same)
+# value, which saves an implementation (openf50-next-boot does the same)
 crc32_hex() { hex_to_bytes "$1" | gzip -c | tail -c 8 | head -c 4 | od -An -tx1 -v | tr -d ' \n'; }
 
 # bc_block LIVE a|b A_META B_META: the live bootloader_control (64 hex digits) with that slot suffix, slot a's and
@@ -958,7 +958,7 @@ collect_firmware() {  # collect_firmware DIR: the Wi-Fi/Bluetooth/GNSS firmware 
     mkdir -p "$1"; _miss=
     for _f in $FIRMWARE; do
         _ok=
-        for _d in ${MU300_FW_DIRS:-/odm/firmware /vendor/firmware /vendor/etc}; do
+        for _d in ${OPENF50_FW_DIRS:-/odm/firmware /vendor/firmware /vendor/etc}; do
             if [ -s "$_d/$_f" ] && cp "$_d/$_f" "$1/$_f"; then _ok=1; break; fi
         done
         [ -n "$_ok" ] || _miss="$_miss $_f"
@@ -970,7 +970,7 @@ collect_firmware() {  # collect_firmware DIR: the Wi-Fi/Bluetooth/GNSS firmware 
 # two the modem cannot start without are checked.
 collect_subset() {
     rm -rf "$2"; mkdir -p "$2"
-    (cd "${MU300_ANDROID_ROOT:-/}" && tar -chf - $(grep -v '^#' "$1") 2>/dev/null) | tar -xf - -C "$2" 2>/dev/null
+    (cd "${OPENF50_ANDROID_ROOT:-/}" && tar -chf - $(grep -v '^#' "$1") 2>/dev/null) | tar -xf - -C "$2" 2>/dev/null
     mkdir -p "$2/system/bin" "$2/linkerconfig"
     ln -sfn /apex/com.android.runtime/bin/linker64 "$2/system/bin/linker64"
     : > "$2/linkerconfig/ld.config.txt"
@@ -981,28 +981,28 @@ collect_subset() {
 collect_gpu() {
     rm -rf "$2"; mkdir -p "$2"
     for _p in $(grep -v '^#' "$1"); do
-        [ -e "${MU300_ANDROID_ROOT:-}/$_p" ] || { rm -rf "$2"; return 1; }
+        [ -e "${OPENF50_ANDROID_ROOT:-}/$_p" ] || { rm -rf "$2"; return 1; }
     done
-    (cd "${MU300_ANDROID_ROOT:-/}" && tar -chf - $(grep -v '^#' "$1")) | tar -xf - -C "$2" || { rm -rf "$2"; return 1; }
+    (cd "${OPENF50_ANDROID_ROOT:-/}" && tar -chf - $(grep -v '^#' "$1")) | tar -xf - -C "$2" || { rm -rf "$2"; return 1; }
 }
 # vendor_overlay OS FW SUBSET GPU OUT: what tools/vendor-overlay.py makes on a computer, for android-install.sh to
-# unpack over the system: the firmware, the subset under opt/mu300/android with its property area moved out of
+# unpack over the system: the firmware, the subset under opt/openf50/android with its property area moved out of
 # dev/ (a devtmpfs is mounted there), the GPU files where the subset has none. Only leaf directories are named, so
 # no entry replaces a directory the system has (Ubuntu's lib is a link to usr/lib).
 vendor_overlay() {
     _o=$5.d; rm -rf "$_o"
     case $1 in ubuntu) _fw=usr/lib/firmware ;; openwrt) _fw=lib/firmware ;; *) return 1 ;; esac
-    mkdir -p "$_o/$_fw" "$_o/opt/mu300/android" || return 1
-    cp "$2"/* "$_o/$_fw/" && cp -a "$3"/. "$_o/opt/mu300/android/" || return 1
-    mv "$_o/opt/mu300/android/dev/__properties__" "$_o/opt/mu300/android/dev-properties" &&
-        rm -rf "$_o/opt/mu300/android/dev" || return 1
+    mkdir -p "$_o/$_fw" "$_o/opt/openf50/android" || return 1
+    cp "$2"/* "$_o/$_fw/" && cp -a "$3"/. "$_o/opt/openf50/android/" || return 1
+    mv "$_o/opt/openf50/android/dev/__properties__" "$_o/opt/openf50/android/dev-properties" &&
+        rm -rf "$_o/opt/openf50/android/dev" || return 1
     if [ -n "$4" ]; then
         (cd "$4" && find . ! -type d | sed 's|^\./||') | while read -r _f; do
-            [ -e "$_o/opt/mu300/android/$_f" ] || [ -L "$_o/opt/mu300/android/$_f" ] && continue
-            mkdir -p "$_o/opt/mu300/android/$(dirname "$_f")" && cp -a "$4/$_f" "$_o/opt/mu300/android/$_f"
+            [ -e "$_o/opt/openf50/android/$_f" ] || [ -L "$_o/opt/openf50/android/$_f" ] && continue
+            mkdir -p "$_o/opt/openf50/android/$(dirname "$_f")" && cp -a "$4/$_f" "$_o/opt/openf50/android/$_f"
         done
     fi
-    tar -czf "$5" -C "$_o" "$_fw" opt/mu300/android && rm -rf "$_o"
+    tar -czf "$5" -C "$_o" "$_fw" opt/openf50/android && rm -rf "$_o"
 }
 
 # device_segment DIR OUT: DIR as a newc cpio owned by root, compressed to LZ4 legacy by magiskboot - the format the
@@ -1014,7 +1014,7 @@ device_segment() {
     [ "$(od -An -tx1 -N4 "$2" | tr -d ' \n')" = "$LZ4_MAGIC" ]
 }
 # linux_boot_image STOCK BUNDLE DEVSEG OUT: the device segment first, then the bundle's generic one (init, busybox,
-# modules); nothing in a generic segment has the name of a device-segment file, and mu300-update wants an LZ4 frame
+# modules); nothing in a generic segment has the name of a device-segment file, and openf50-update wants an LZ4 frame
 # first. Then the header and AVB data of Android's own image around it.
 linux_boot_image() {
     [ "$(od -An -tx1 -N4 "$2/ramdisk-generic.lz4" | tr -d ' \n')" = "$LZ4_MAGIC" ] || return 1
@@ -1043,7 +1043,7 @@ git commit -m "android-boot-image: the misc blocks, the Android files and the de
 - Test: `tests/test_installer.py` (new class `Region`)
 
 **Interfaces:**
-- Produces: `region_probe` → `last_end disk` (sectors), `OFF SIZE` (bytes), status 1 when the device gave no answer; `region_find_existing` → `existing=yes|no`, and `OFF SIZE` of an existing `mu300root` (also at the old fixed offset 27762098176); `region_dirty` → `DIRTY` (0-16 samples with data). Same `su_do` contract as the other functions: a command string run on the device, its output back. Task 7 calls them with an `su_do` that runs on the device itself.
+- Produces: `region_probe` → `last_end disk` (sectors), `OFF SIZE` (bytes), status 1 when the device gave no answer; `region_find_existing` → `existing=yes|no`, and `OFF SIZE` of an existing `openf50root` (also at the old fixed offset 27762098176); `region_dirty` → `DIRTY` (0-16 samples with data). Same `su_do` contract as the other functions: a command string run on the device, its output back. Task 7 calls them with an `su_do` that runs on the device itself.
 
 - [ ] **Step 1: Write the failing test** — `tests/test_installer.py`:
 
@@ -1063,7 +1063,7 @@ class Region(ShellTest):
             if ext4_at is not None:
                 f.seek(ext4_at + 1024 + 4); f.write(struct.pack('<I', 1000))
                 f.seek(ext4_at + 1080); f.write(b'\x53\xef')
-                f.seek(ext4_at + 1144); f.write(b'mu300root')
+                f.seek(ext4_at + 1144); f.write(b'openf50root')
         return emmc
 
     def run_region(self, shell, call):
@@ -1117,7 +1117,7 @@ region_find_existing() {
     for cand in $OFF 27762098176; do
         m=$(su_do "dd if=/dev/block/mmcblk0 bs=1 skip=$((cand + 1080)) count=2 2>/dev/null | od -An -tx1" | tr -d ' ')
         l=$(su_do "dd if=/dev/block/mmcblk0 bs=1 skip=$((cand + 1144)) count=16 2>/dev/null" | LC_ALL=C tr -d '\000')
-        if [ "$m" = 53ef ] && [ "$l" = mu300root ]; then
+        if [ "$m" = 53ef ] && [ "$l" = openf50root ]; then
             blocks=$(su_do "dd if=/dev/block/mmcblk0 bs=1 skip=$((cand + 1028)) count=4 2>/dev/null | od -An -tu4" | tr -d ' ')
             OFF=$cand; SIZE=$((blocks * 4096)); existing=yes; return 0
         fi
@@ -1153,28 +1153,28 @@ git commit -m "storage.sh: the free eMMC region, an existing installation in it 
 ### Task 7: The Magisk installer, part 1 — what is on the device and what to do
 
 **Files:**
-- Create: `android/magisk/installer/mu300-install.sh`
+- Create: `android/magisk/installer/openf50-install.sh`
 - Create: `tests/fakedevice.py` (the fake device shared by Tasks 7, 8, 10)
 - Test: `tests/test_magisk_installer.py` (new)
 
 **Interfaces:**
-- Consumes: `tools/storage.sh` (`sd_probe`, `sd_existing`, Task 6's region functions), `tools/i18n.sh` (`t`), the zip's `mu300/manifest`.
-- Produces, with `MU300_LIB=1` (functions only):
-  * `android_lang`, `conf_find`, `conf_load FILE`, `conf_check` — sets the `MU300_*` answers,
+- Consumes: `tools/storage.sh` (`sd_probe`, `sd_existing`, Task 6's region functions), `tools/i18n.sh` (`t`), the zip's `openf50/manifest`.
+- Produces, with `OPENF50_LIB=1` (functions only):
+  * `android_lang`, `conf_find`, `conf_load FILE`, `conf_check` — sets the `OPENF50_*` answers,
   * `detect_device` → `DEVICE`; `slot_setup` → `ANDROID_SLOT LINUX_SLOT BOOT_ANDROID BOOT_LINUX MISC LIVE_BC`,
   * `manifest_load FILE` → `TAG SYSTEM OS UBUNTU KERNEL KERNEL_ASSET ROOTFS_ASSET SHA256_KERNEL SHA256_ROOTFS`,
-  * `payload_unpack` → `$T/mu300-$OS.tar.gz`, `$W/kernel/` (unpacked bundle) `KB=$W/kernel`,
-  * `plan_storage`, `inspect_target`, `plan_choices` → the variables `install.sh` writes into `mu300-install.env` (`SD_MODE SD_DEV OFF SIZE INT_OFF INT_SIZE INTERNAL_EXISTS FORMAT UPDATE WIPE_LEGACY OSES BOOT_OS DEFAULT_LINUX BOOT_ATTEMPTS IMPORT_HOTSPOT KERNEL GPU`),
+  * `payload_unpack` → `$T/openf50-$OS.tar.gz`, `$W/kernel/` (unpacked bundle) `KB=$W/kernel`,
+  * `plan_storage`, `inspect_target`, `plan_choices` → the variables `install.sh` writes into `openf50-install.env` (`SD_MODE SD_DEV OFF SIZE INT_OFF INT_SIZE INTERNAL_EXISTS FORMAT UPDATE WIPE_LEGACY OSES BOOT_OS DEFAULT_LINUX BOOT_ATTEMPTS IMPORT_HOTSPOT KERNEL GPU`),
   * `plan_print`, `write_example`.
 - Exit codes of the script: 0 installed, 3 dry run, 1 refused or failed.
-- Test hooks (all default to the real device): `MU300_DIR`, `MU300_TMP`, `MU300_BY_NAME`, `MU300_SDCARD`, `MU300_DEVICE_SH` (the shell `su_do` uses), `MU300_ANDROID_SH`, `MU300_ANDROID_PATH`, `MAGISKBIN`, `MAGISKBOOT`, `MU300_UBB`.
+- Test hooks (all default to the real device): `OPENF50_DIR`, `OPENF50_TMP`, `OPENF50_BY_NAME`, `OPENF50_SDCARD`, `OPENF50_DEVICE_SH` (the shell `su_do` uses), `OPENF50_ANDROID_SH`, `OPENF50_ANDROID_PATH`, `MAGISKBIN`, `MAGISKBOOT`, `OPENF50_UBB`.
 
 - [ ] **Step 1: The fake device** — `tests/fakedevice.py`:
 
 ```python
 """A fake F50 for the Magisk installer: block devices are files, sysfs a directory tree, Android's tools stubs.
-The device shell (MU300_DEVICE_SH) rewrites the absolute device paths in the commands storage.sh sends, the way
-tests/test_installer.py's Region does; android-install.sh and the mount helper are replaced by MU300_ANDROID_SH,
+The device shell (OPENF50_DEVICE_SH) rewrites the absolute device paths in the commands storage.sh sends, the way
+tests/test_installer.py's Region does; android-install.sh and the mount helper are replaced by OPENF50_ANDROID_SH,
 which records what it was given and acts on a directory standing in for the Linux filesystem."""
 import os
 import shutil
@@ -1186,18 +1186,18 @@ from helpers import TOP
 from test_boot_image import LIVE_A, fake_misc, fake_stock, with_slots
 
 ANDROID_SH = r'''#!/bin/sh
-# stand-in for /system/bin/sh running android-install.sh or android-mount-mu300root.sh
+# stand-in for /system/bin/sh running android-install.sh or android-mount-openf50root.sh
 log=$FAKE/android-sh.log
 echo "ASH_STANDALONE=${ASH_STANDALONE:-} PATH=$PATH $*" >> "$log"
 case $1 in
     -c) shift; exec "$FAKE/devsh" -c "$@" ;;
     */android-install.sh)
-        cp "$MU300_TMP/mu300-install.env" "$FAKE/install.env"
+        cp "$OPENF50_TMP/openf50-install.env" "$FAKE/install.env"
         [ "${FAKE_INSTALL_FAILS:-0}" = 1 ] && { echo "[device] failing as asked"; exit 1; }
-        . "$MU300_TMP/mu300-install.env"
+        . "$OPENF50_TMP/openf50-install.env"
         for os in $OSES; do mkdir -p "$FAKE/fs/$os/etc"; done
-        echo MU300-INSTALL-OK ;;
-    */android-mount-mu300root.sh)
+        echo OPENF50-INSTALL-OK ;;
+    */android-mount-openf50root.sh)
         if [ "$2" = -u ]; then rm -f "$3"; echo UNMOUNTED; else ln -s "$FAKE/fs" "$2"; echo "MOUNTED fake on $2"; fi ;;
 esac
 '''
@@ -1244,7 +1244,7 @@ class FakeDevice:
             (c / 'device/type').write_text('SD\n')
             (c / 'size').write_text(f'{32 << 21}\n')
             (r / 'dev/block/mmcblk1').write_bytes(card)
-        (r / 'props').write_text(f'ro.product.model={model}\nro.product.device=mu300\nro.boot.slot_suffix={slot}\n'
+        (r / 'props').write_text(f'ro.product.model={model}\nro.product.device=openf50\nro.boot.slot_suffix={slot}\n'
                                  'persist.sys.locale=en-US\n')
         (r / 'volumes').write_text('private mounted null\n')
         for name, body in (('android-sh', ANDROID_SH), ('devsh', DEVSH), ('ubb', UBB)):
@@ -1252,23 +1252,23 @@ class FakeDevice:
         for name, body in (('getprop', GETPROP), ('sm', SM)):
             (stubs / name).write_text(body); (stubs / name).chmod(0o755)
 
-    def env(self, mu300_dir, magiskboot):
+    def env(self, openf50_dir, magiskboot):
         r = self.root
-        return {'FAKE': r, 'MU300_DIR': mu300_dir, 'MU300_TMP': r / 'tmp', 'MU300_BY_NAME': r / 'dev/block/by-name',
-                'MU300_SDCARD': r / 'sdcard', 'MU300_DEVICE_SH': r / 'devsh', 'MU300_ANDROID_SH': r / 'android-sh',
-                'MU300_ANDROID_PATH': os.environ['PATH'], 'MU300_ANDROID_ROOT': r / 'android',
-                'MU300_FW_DIRS': f'{r}/android/vendor/firmware', 'MAGISKBIN': r / 'magisk',
-                'MAGISKBOOT': magiskboot, 'MU300_UBB': r / 'ubb', 'MU300_SKIP_ROOT_CHECK': 1,
+        return {'FAKE': r, 'OPENF50_DIR': openf50_dir, 'OPENF50_TMP': r / 'tmp', 'OPENF50_BY_NAME': r / 'dev/block/by-name',
+                'OPENF50_SDCARD': r / 'sdcard', 'OPENF50_DEVICE_SH': r / 'devsh', 'OPENF50_ANDROID_SH': r / 'android-sh',
+                'OPENF50_ANDROID_PATH': os.environ['PATH'], 'OPENF50_ANDROID_ROOT': r / 'android',
+                'OPENF50_FW_DIRS': f'{r}/android/vendor/firmware', 'MAGISKBIN': r / 'magisk',
+                'MAGISKBOOT': magiskboot, 'OPENF50_UBB': r / 'ubb', 'OPENF50_SKIP_ROOT_CHECK': 1,
                 # as under Magisk: what the installer starts on Android's side must not inherit it
                 'ASH_STANDALONE': 1}
 ```
 
-`tests/test_magisk_installer.py` builds a fake zip directory (`mu300/` laid out as Task 10 lays it out: copy the
+`tests/test_magisk_installer.py` builds a fake zip directory (`openf50/` laid out as Task 10 lays it out: copy the
 scripts, `i18n/`, the two lists, a `manifest` and a `payload/` with a tiny kernel bundle tarball - `Image`,
 `ramdisk-generic.lz4` built with `build-boot-image.py --generic-ramdisk`, `modules/`, `kernel.release`, `devices`
 (`f50 u30air`), `features` (`sdcard`) - and a tiny rootfs tarball), a fake Android `/` with `fake_android_root`
 from Task 5, a `magisk/busybox` that is a symlink to the host's `busybox` (skip the class without it), and runs
-`busybox sh mu300/install.sh` with `FakeDevice.env(...)`. The zip itself is a real zip (`zipfile`) holding
+`busybox sh openf50/install.sh` with `FakeDevice.env(...)`. The zip itself is a real zip (`zipfile`) holding
 `payload/*` so `payload_unpack` runs `unzip -p` for real.
 
 - [ ] **Step 2: Write the failing tests** — `tests/test_magisk_installer.py`, first part:
@@ -1276,78 +1276,78 @@ from Task 5, a `magisk/busybox` that is a symlink to the host's `busybox` (skip 
 ```python
 class Conf(ShellTest):
     def load(self, shell, text):
-        f = self.tmp / 'mu300-install.conf'
+        f = self.tmp / 'openf50-install.conf'
         f.write_bytes(text.encode())
-        return self.sh(shell, f'MU300_LIB=1 MU300_DIR="{INSTALLER_DIR}" . "{INSTALLER}"; conf_load "{f}"; '
-                              'echo "S=$MU300_STORAGE E=$MU300_SD_ERASE B=$MU300_BOOT P=$MU300_PASSWORD"')
+        return self.sh(shell, f'OPENF50_LIB=1 OPENF50_DIR="{INSTALLER_DIR}" . "{INSTALLER}"; conf_load "{f}"; '
+                              'echo "S=$OPENF50_STORAGE E=$OPENF50_SD_ERASE B=$OPENF50_BOOT P=$OPENF50_PASSWORD"')
 
     def test_values_quotes_crlf_comments(self):
         for shell in self.each_shell():
-            r = self.load(shell, '# a comment\r\nMU300_STORAGE=sd\r\nMU300_SD_ERASE="yes"\n  MU300_BOOT = android\n'
-                                 "MU300_PASSWORD='p a$s'\n")
+            r = self.load(shell, '# a comment\r\nOPENF50_STORAGE=sd\r\nOPENF50_SD_ERASE="yes"\n  OPENF50_BOOT = android\n'
+                                 "OPENF50_PASSWORD='p a$s'\n")
             self.assertIn("S=sd E=yes B=android P=p a$s", r.stdout)
 
     def test_unknown_keys_are_reported_not_set(self):
         for shell in self.each_shell():
-            r = self.load(shell, 'PATH=/nowhere\nMU300_STORAGE=internal\n')
+            r = self.load(shell, 'PATH=/nowhere\nOPENF50_STORAGE=internal\n')
             self.assertIn('S=internal', r.stdout)
             self.assertIn('PATH', r.stdout + r.stderr)   # reported
             self.assertNotEqual(r.returncode, 127)       # PATH was not replaced
 
     def test_conf_is_never_executed(self):
         for shell in self.each_shell():
-            r = self.load(shell, f'MU300_BOOT=$(touch {self.tmp}/ran)\nMU300_STORAGE=`touch {self.tmp}/ran2`\n')
+            r = self.load(shell, f'OPENF50_BOOT=$(touch {self.tmp}/ran)\nOPENF50_STORAGE=`touch {self.tmp}/ran2`\n')
             self.assertFalse((self.tmp / 'ran').exists())
             self.assertFalse((self.tmp / 'ran2').exists())
 
     def test_check_refuses_bad_values(self):
         for shell in self.each_shell():
-            for bad in ('MU300_STORAGE=usb', 'MU300_BOOT_ATTEMPTS=9', 'MU300_PASSWORD=short', 'MU300_MODE=maybe'):
+            for bad in ('OPENF50_STORAGE=usb', 'OPENF50_BOOT_ATTEMPTS=9', 'OPENF50_PASSWORD=short', 'OPENF50_MODE=maybe'):
                 f = self.tmp / 'c.conf'; f.write_text(bad + '\n')
-                r = self.sh(shell, f'MU300_LIB=1 MU300_DIR="{INSTALLER_DIR}" . "{INSTALLER}"; conf_load "{f}"; conf_check')
+                r = self.sh(shell, f'OPENF50_LIB=1 OPENF50_DIR="{INSTALLER_DIR}" . "{INSTALLER}"; conf_load "{f}"; conf_check')
                 self.assertNotEqual(r.returncode, 0, bad)
 
 
 class Plan(InstallerCase):          # InstallerCase: the fake zip + FakeDevice, run(), in this file
     def test_defaults_internal_region(self):
-        r = self.run_installer(conf='MU300_DRY_RUN=1\n')
+        r = self.run_installer(conf='OPENF50_DRY_RUN=1\n')
         self.assertEqual(r.returncode, 3, r.stdout + r.stderr)
         self.assertIn('internal', r.stdout)
         self.assertTrue(self.nothing_written())
 
-    def test_card_with_mu300sd_is_the_default(self):
-        self.device(card=fake_ext4_bytes('mu300sd'))
-        r = self.run_installer(conf='MU300_DRY_RUN=1\n')
+    def test_card_with_openf50sd_is_the_default(self):
+        self.device(card=fake_ext4_bytes('openf50sd'))
+        r = self.run_installer(conf='OPENF50_DRY_RUN=1\n')
         self.assertEqual(r.returncode, 3)
         self.assertIn('/mmcblk1', r.stdout)
 
     def test_card_is_never_erased_without_consent(self):
         self.device(card=bytes(1 << 20), region=False)
-        r = self.run_installer(conf='MU300_STORAGE=sd\n')
+        r = self.run_installer(conf='OPENF50_STORAGE=sd\n')
         self.assertEqual(r.returncode, 1)
-        self.assertIn('MU300_SD_ERASE=yes', r.stdout)
+        self.assertIn('OPENF50_SD_ERASE=yes', r.stdout)
         self.assertTrue(self.nothing_written())
 
     def test_foreign_ext4_card_is_refused_even_with_consent(self):
         self.device(card=fake_ext4_bytes('photos'))
-        r = self.run_installer(conf='MU300_STORAGE=sd\nMU300_SD_ERASE=yes\n')
+        r = self.run_installer(conf='OPENF50_STORAGE=sd\nOPENF50_SD_ERASE=yes\n')
         self.assertEqual(r.returncode, 1)
 
     def test_no_room_no_card(self):
         self.device(region=False)
         r = self.run_installer()
         self.assertEqual(r.returncode, 1)
-        self.assertIn('MU300_STORAGE=sd', r.stdout)      # the way out is named
+        self.assertIn('OPENF50_STORAGE=sd', r.stdout)      # the way out is named
         self.assertTrue(self.nothing_written())
 
     def test_unknown_model(self):
         self.device(model='Pixel 7')
         self.assertEqual(self.run_installer().returncode, 1)
-        self.assertEqual(self.run_installer(conf='MU300_DEVICE=f50\nMU300_DRY_RUN=1\n').returncode, 3)
+        self.assertEqual(self.run_installer(conf='OPENF50_DEVICE=f50\nOPENF50_DRY_RUN=1\n').returncode, 3)
 
     def test_android_on_slot_b_puts_linux_on_a(self):
         self.device(slot='_b')
-        r = self.run_installer(conf='MU300_DRY_RUN=1\n')
+        r = self.run_installer(conf='OPENF50_DRY_RUN=1\n')
         self.assertEqual(r.returncode, 3)
         self.assertIn('boot_a', r.stdout)
 
@@ -1364,24 +1364,24 @@ class Plan(InstallerCase):          # InstallerCase: the fake zip + FakeDevice, 
         self.assertIn('26.04', r.stdout)
 
     def test_example_conf_written(self):
-        self.run_installer(conf='MU300_DRY_RUN=1\n')
-        ex = (self.fake.root / 'sdcard/mu300-install.conf.example').read_text()
-        for k in ('MU300_STORAGE', 'MU300_SD_ERASE', 'MU300_BOOT', 'MU300_PASSWORD', 'MU300_DRY_RUN'):
+        self.run_installer(conf='OPENF50_DRY_RUN=1\n')
+        ex = (self.fake.root / 'sdcard/openf50-install.conf.example').read_text()
+        for k in ('OPENF50_STORAGE', 'OPENF50_SD_ERASE', 'OPENF50_BOOT', 'OPENF50_PASSWORD', 'OPENF50_DRY_RUN'):
             self.assertIn(k, ex)
 ```
 
 (`nothing_written()` compares sha256 of `boot_a`, `boot_b`, `misc` with the values taken before the run, size and
-`st_mtime_ns` of `mmcblk0` and `mmcblk1` (they may be large sparse files), and checks that `$MU300_TMP/mu300-magisk`
-is gone. `INSTALLER_DIR` is a directory laid out like the zip's `mu300/`, made once per module by `stage_mu300()`,
+`st_mtime_ns` of `mmcblk0` and `mmcblk1` (they may be large sparse files), and checks that `$OPENF50_TMP/openf50-magisk`
+is gone. `INSTALLER_DIR` is a directory laid out like the zip's `openf50/`, made once per module by `stage_openf50()`,
 which copies the files exactly as Task 10's `stage` does; `INSTALLER` is its `install.sh`.)
 
 - [ ] **Step 3: Run them to make sure they fail** — `cd tests && python3 -m unittest test_magisk_installer -v` → FAIL (installer missing).
 
-- [ ] **Step 4: Write `android/magisk/installer/mu300-install.sh`, part 1**
+- [ ] **Step 4: Write `android/magisk/installer/openf50-install.sh`, part 1**
 
 ```sh
 #!/system/bin/sh
-# MU300 Linux from a Magisk zip: the whole installation, on the device, with no computer. customize.sh runs this as
+# OPENF50 Linux from a Magisk zip: the whole installation, on the device, with no computer. customize.sh runs this as
 # a child of Magisk's busybox (nothing here can change Magisk's own shell) and turns its exit status into the
 # result: 0 installed, 3 dry run (nothing written), anything else refused or failed - the messages say what was and
 # was not written.
@@ -1390,30 +1390,30 @@ which copies the files exactly as Task 10's `stage` does; `INSTALLER` is its `in
 # Android files - is read from this device here; the zip carries none of it. Nothing is written to the eMMC or the
 # card before the systems are installed, and misc is armed last.
 #
-# MU300_LIB=1 defines the functions and runs nothing (tests/, which also set MU300_DIR to a directory laid out like
-# the zip's mu300/). The MU300_* paths below point at a fake device there.
+# OPENF50_LIB=1 defines the functions and runs nothing (tests/, which also set OPENF50_DIR to a directory laid out like
+# the zip's openf50/). The OPENF50_* paths below point at a fake device there.
 set -eu
-D=${MU300_DIR:-$(cd "$(dirname "$0")" && pwd)}
-# mu300-update first: it defines a say and a die of its own, which the ones below replace. MU300_LIB=1 while it is
+D=${OPENF50_DIR:-$(cd "$(dirname "$0")" && pwd)}
+# openf50-update first: it defines a say and a die of its own, which the ones below replace. OPENF50_LIB=1 while it is
 # read makes it define its functions only; the caller's value comes back afterwards.
-_mu300_lib=${MU300_LIB:-}
-MU300_LIB=1
-. "$D/mu300-update"
+_openf50_lib=${OPENF50_LIB:-}
+OPENF50_LIB=1
+. "$D/openf50-update"
 . "$D/android-boot-image.sh"
-MU300_LIB=$_mu300_lib
+OPENF50_LIB=$_openf50_lib
 TOP=$D                                   # i18n.sh reads $TOP/i18n
-BY=${MU300_BY_NAME:-/dev/block/by-name}
-SDCARD=${MU300_SDCARD:-/sdcard}
-T=${MU300_TMP:-/data/local/tmp}
-W=$T/mu300-magisk
+BY=${OPENF50_BY_NAME:-/dev/block/by-name}
+SDCARD=${OPENF50_SDCARD:-/sdcard}
+T=${OPENF50_TMP:-/data/local/tmp}
+W=$T/openf50-magisk
 MAGISKBIN=${MAGISKBIN:-/data/adb/magisk}
 MAGISKBOOT=${MAGISKBOOT:-$MAGISKBIN/magiskboot}
-UBB=${MU300_UBB:-$D/busybox}             # the release's static busybox: its mkpasswd
-DEVSH=${MU300_DEVICE_SH:-/system/bin/sh}
-ANDROID_SH=${MU300_ANDROID_SH:-/system/bin/sh}
-APATH=${MU300_ANDROID_PATH:-/system/bin:/system/xbin:/vendor/bin}
+UBB=${OPENF50_UBB:-$D/busybox}             # the release's static busybox: its mkpasswd
+DEVSH=${OPENF50_DEVICE_SH:-/system/bin/sh}
+ANDROID_SH=${OPENF50_ANDROID_SH:-/system/bin/sh}
+APATH=${OPENF50_ANDROID_PATH:-/system/bin:/system/xbin:/vendor/bin}
 NEED_OPENWRT=$((800 * 1024 * 1024)); NEED_UBUNTU=$((1600 * 1024 * 1024)); NEED_BOTH=$((2400 * 1024 * 1024))
-MU300_LANG=${MU300_LANG:-}
+OPENF50_LANG=${OPENF50_LANG:-}
 . "$D/i18n.sh"
 . "$D/storage.sh"
 
@@ -1434,11 +1434,11 @@ android_lang() {  # the language of the Android locale: tr, zh or en
     case ${_l%%,*} in tr|tr-*|tr_*) echo tr ;; zh|zh-*|zh_*) echo zh ;; *) echo en ;; esac
 }
 
-# ---- answers: mu300-install.conf, read line by line, never sourced (it is a text file anyone with storage access
+# ---- answers: openf50-install.conf, read line by line, never sourced (it is a text file anyone with storage access
 # can write, and this runs as root). Only these keys are taken.
-CONF_KEYS='MU300_STORAGE MU300_SD_ERASE MU300_REGION_OVERWRITE MU300_MODE MU300_BOOT_OS MU300_BOOT MU300_BOOT_ATTEMPTS MU300_HOTSPOT MU300_GPU MU300_PASSWORD MU300_DEVICE MU300_LANG MU300_DRY_RUN'
+CONF_KEYS='OPENF50_STORAGE OPENF50_SD_ERASE OPENF50_REGION_OVERWRITE OPENF50_MODE OPENF50_BOOT_OS OPENF50_BOOT OPENF50_BOOT_ATTEMPTS OPENF50_HOTSPOT OPENF50_GPU OPENF50_PASSWORD OPENF50_DEVICE OPENF50_LANG OPENF50_DRY_RUN'
 CONF_FILE=; CONF_SET=
-conf_find() { for _f in "$SDCARD/mu300-install.conf" "$SDCARD/Download/mu300-install.conf"; do [ -f "$_f" ] && { echo "$_f"; return 0; }; done; return 0; }
+conf_find() { for _f in "$SDCARD/openf50-install.conf" "$SDCARD/Download/openf50-install.conf"; do [ -f "$_f" ] && { echo "$_f"; return 0; }; done; return 0; }
 conf_load() {
     [ -n "$1" ] && [ -f "$1" ] || return 0
     CONF_FILE=$1
@@ -1450,35 +1450,35 @@ conf_load() {
         case $_v in \"*\") _v=${_v#\"}; _v=${_v%\"} ;; \'*\') _v=${_v#\'}; _v=${_v%\'} ;; esac
         case " $CONF_KEYS " in
             *" $_k "*) eval "$_k=\$_v"; CONF_SET="$CONF_SET $_k" ;;    # $_k is one of CONF_KEYS: the eval is safe
-            *) warn "$(t 'mu300-install.conf: {1} is not a setting of this installer; ignored' "$_k")" ;;
+            *) warn "$(t 'openf50-install.conf: {1} is not a setting of this installer; ignored' "$_k")" ;;
         esac
     done < "$1"
 }
 conf_check() {  # every answer has a value this installer knows, or it stops before anything happens
-    _bad() { die "$(t 'mu300-install.conf: {1}={2} is not valid' "$1" "$2")"; }
-    case ${MU300_STORAGE:-} in ''|internal|sd) ;; *) _bad MU300_STORAGE "$MU300_STORAGE" ;; esac
-    case ${MU300_MODE:-} in ''|update|wipe) ;; *) _bad MU300_MODE "$MU300_MODE" ;; esac
-    case ${MU300_BOOT_OS:-} in ''|ubuntu|openwrt) ;; *) _bad MU300_BOOT_OS "$MU300_BOOT_OS" ;; esac
-    case ${MU300_BOOT:-} in ''|linux|android) ;; *) _bad MU300_BOOT "$MU300_BOOT" ;; esac
-    case ${MU300_BOOT_ATTEMPTS:-} in ''|[1-6]) ;; *) _bad MU300_BOOT_ATTEMPTS "$MU300_BOOT_ATTEMPTS" ;; esac
-    for _k in MU300_SD_ERASE MU300_REGION_OVERWRITE; do
+    _bad() { die "$(t 'openf50-install.conf: {1}={2} is not valid' "$1" "$2")"; }
+    case ${OPENF50_STORAGE:-} in ''|internal|sd) ;; *) _bad OPENF50_STORAGE "$OPENF50_STORAGE" ;; esac
+    case ${OPENF50_MODE:-} in ''|update|wipe) ;; *) _bad OPENF50_MODE "$OPENF50_MODE" ;; esac
+    case ${OPENF50_BOOT_OS:-} in ''|ubuntu|openwrt) ;; *) _bad OPENF50_BOOT_OS "$OPENF50_BOOT_OS" ;; esac
+    case ${OPENF50_BOOT:-} in ''|linux|android) ;; *) _bad OPENF50_BOOT "$OPENF50_BOOT" ;; esac
+    case ${OPENF50_BOOT_ATTEMPTS:-} in ''|[1-6]) ;; *) _bad OPENF50_BOOT_ATTEMPTS "$OPENF50_BOOT_ATTEMPTS" ;; esac
+    for _k in OPENF50_SD_ERASE OPENF50_REGION_OVERWRITE; do
         eval "_v=\${$_k:-}"; case $_v in ''|yes) ;; *) _bad "$_k" "$_v" ;; esac
     done
-    for _k in MU300_HOTSPOT MU300_GPU; do
+    for _k in OPENF50_HOTSPOT OPENF50_GPU; do
         eval "_v=\${$_k:-}"; case $_v in ''|yes|no) ;; *) _bad "$_k" "$_v" ;; esac
     done
-    case ${MU300_DEVICE:-} in ''|f50|u30air) ;; *) _bad MU300_DEVICE "$MU300_DEVICE" ;; esac
-    case ${MU300_LANG:-} in ''|en|tr|zh) ;; *) _bad MU300_LANG "$MU300_LANG" ;; esac
-    case ${MU300_DRY_RUN:-} in ''|1) ;; *) _bad MU300_DRY_RUN "$MU300_DRY_RUN" ;; esac
-    if [ -n "${MU300_PASSWORD:-}" ] && [ ${#MU300_PASSWORD} -lt 6 ]; then
-        die "$(t 'mu300-install.conf: MU300_PASSWORD must have at least 6 characters')"
+    case ${OPENF50_DEVICE:-} in ''|f50|u30air) ;; *) _bad OPENF50_DEVICE "$OPENF50_DEVICE" ;; esac
+    case ${OPENF50_LANG:-} in ''|en|tr|zh) ;; *) _bad OPENF50_LANG "$OPENF50_LANG" ;; esac
+    case ${OPENF50_DRY_RUN:-} in ''|1) ;; *) _bad OPENF50_DRY_RUN "$OPENF50_DRY_RUN" ;; esac
+    if [ -n "${OPENF50_PASSWORD:-}" ] && [ ${#OPENF50_PASSWORD} -lt 6 ]; then
+        die "$(t 'openf50-install.conf: OPENF50_PASSWORD must have at least 6 characters')"
     fi
 }
-src_of() { case " $CONF_SET " in *" $1 "*) t 'mu300-install.conf' ;; *) t 'default' ;; esac; }   # where a value came from
+src_of() { case " $CONF_SET " in *" $1 "*) t 'openf50-install.conf' ;; *) t 'default' ;; esac; }   # where a value came from
 
 # ---- the device, its slots and the zip
 env_check() {
-    [ -n "${MU300_SKIP_ROOT_CHECK:-}" ] || [ "$(id -u)" = 0 ] || die "$(t 'this installer needs root')"
+    [ -n "${OPENF50_SKIP_ROOT_CHECK:-}" ] || [ "$(id -u)" = 0 ] || die "$(t 'this installer needs root')"
     [ -x "$MAGISKBOOT" ] || die "$(t "Magisk's magiskboot was not found; install this zip with Magisk 26 or newer")"
     chmod 755 "$UBB" 2>/dev/null || true
 }
@@ -1490,8 +1490,8 @@ detect_device() {
         *MU300*|*F50*|*mu300*) DEVICE=f50 ;;
         *) DEVICE= ;;
     esac
-    [ -z "${MU300_DEVICE:-}" ] || DEVICE=$MU300_DEVICE
-    [ -n "$DEVICE" ] || die "$(t 'This does not look like a ZTE F50/MU300 or U30 Air. If it is one, set MU300_DEVICE=f50 or u30air in mu300-install.conf.')"
+    [ -z "${OPENF50_DEVICE:-}" ] || DEVICE=$OPENF50_DEVICE
+    [ -n "$DEVICE" ] || die "$(t 'This does not look like a ZTE F50/OPENF50 or U30 Air. If it is one, set OPENF50_DEVICE=f50 or u30air in openf50-install.conf.')"
 }
 hex_at() { dd if="$1" bs=1 skip="$2" count="$3" 2>/dev/null | od -An -tx1 -v | tr -d ' \n'; }
 slot_setup() {
@@ -1521,9 +1521,9 @@ payload_unpack() {  # the two payload files out of the zip, checked against the 
     [ "$_free" -ge "$_need" ] || die "$(t 'not enough free space in {1}: {2} needed, {3} free' "$T" "$(gib "$_need")" "$(gib "$_free")")"
     rm -rf "$W"; mkdir -p "$W/kernel"
     say "$(t 'Unpacking {1} and {2}' "$ROOTFS_ASSET" "$KERNEL_ASSET")"
-    unzip -p "$ZIPFILE" "payload/$ROOTFS_ASSET" > "$T/mu300-$OS.tar.gz" &&
+    unzip -p "$ZIPFILE" "payload/$ROOTFS_ASSET" > "$T/openf50-$OS.tar.gz" &&
         unzip -p "$ZIPFILE" "payload/$KERNEL_ASSET" > "$W/kernel.tar.gz" || die "$(t 'could not unpack the zip')"
-    [ "$(sha256sum "$T/mu300-$OS.tar.gz" | cut -d' ' -f1)" = "$SHA256_ROOTFS" ] &&
+    [ "$(sha256sum "$T/openf50-$OS.tar.gz" | cut -d' ' -f1)" = "$SHA256_ROOTFS" ] &&
         [ "$(sha256sum "$W/kernel.tar.gz" | cut -d' ' -f1)" = "$SHA256_KERNEL" ] ||
         die "$(t 'the zip is damaged (checksum mismatch); download it again')"
     tar -xzf "$W/kernel.tar.gz" -C "$W/kernel" && rm -f "$W/kernel.tar.gz" || die "$(t 'could not unpack the kernel bundle')"
@@ -1532,20 +1532,20 @@ payload_unpack() {  # the two payload files out of the zip, checked against the 
 }
 cleanup() {  # every exit: the staging directory holds this device's proprietary files
     [ -n "${MOUNTED:-}" ] && umount_target "$MOUNTED" >/dev/null 2>&1
-    rm -rf "$W" "$T/mu300-${OS:-none}.tar.gz" "$T/mu300-vendor-${OS:-none}.tar.gz" "$T/mu300-install.env" 2>/dev/null
-    rm -rf "$T/mu300root-magisk" 2>/dev/null
+    rm -rf "$W" "$T/openf50-${OS:-none}.tar.gz" "$T/openf50-vendor-${OS:-none}.tar.gz" "$T/openf50-install.env" 2>/dev/null
+    rm -rf "$T/openf50root-magisk" 2>/dev/null
 }
 
 # ---- what to do
 mount_target() {  # mount_target DIR: the Linux filesystem of the plan, with Android's mount helper
-    cp "$D/android-mount-mu300root.sh" "$T/" || return 1
+    cp "$D/android-mount-openf50root.sh" "$T/" || return 1
     if [ "$SD_MODE" = 1 ]; then
-        asw MU300_SD_DEV="$SD_DEV" "$ANDROID_SH" "$T/android-mount-mu300root.sh" "$1"
+        asw OPENF50_SD_DEV="$SD_DEV" "$ANDROID_SH" "$T/android-mount-openf50root.sh" "$1"
     else
-        asw MU300_OFF="$INT_OFF" MU300_SIZE="$INT_SIZE" "$ANDROID_SH" "$T/android-mount-mu300root.sh" "$1"
+        asw OPENF50_OFF="$INT_OFF" OPENF50_SIZE="$INT_SIZE" "$ANDROID_SH" "$T/android-mount-openf50root.sh" "$1"
     fi | grep -q '^MOUNTED' && MOUNTED=$1
 }
-umount_target() { asw "$ANDROID_SH" "$T/android-mount-mu300root.sh" -u "$1" >/dev/null; MOUNTED=; }
+umount_target() { asw "$ANDROID_SH" "$T/android-mount-openf50root.sh" -u "$1" >/dev/null; MOUNTED=; }
 need_for() { case $1 in openwrt) echo $NEED_OPENWRT ;; ubuntu) echo $NEED_UBUNTU ;; *) echo $NEED_BOTH ;; esac; }
 plan_storage() {
     region_probe || die "$(t 'could not read the partition table')"
@@ -1553,37 +1553,37 @@ plan_storage() {
     INT_OFF=$OFF; INT_SIZE=$SIZE; int_existing=$existing
     sd_probe; sd_ex=no
     [ -n "$SD_DEV" ] && sd_ex=$(sd_existing)
-    case ${MU300_STORAGE:-} in
-        sd) [ -n "$SD_DEV" ] || die "$(t 'MU300_STORAGE=sd, but there is no usable SD card in the device')"; SD_MODE=1 ;;
+    case ${OPENF50_STORAGE:-} in
+        sd) [ -n "$SD_DEV" ] || die "$(t 'OPENF50_STORAGE=sd, but there is no usable SD card in the device')"; SD_MODE=1 ;;
         internal) SD_MODE=0 ;;
         *)  # an installation where it is (the card first, as init looks there first), else inside when it fits
             if [ "$sd_ex" = yes ]; then SD_MODE=1
             elif [ "$int_existing" = yes ] || [ "$INT_SIZE" -ge "$(need_for "$OS")" ]; then SD_MODE=0
             elif [ -n "$SD_DEV" ]; then
-                die "$(t 'There is too little free space inside for Linux. The SD card ({1}, {2}) can hold it: put MU300_STORAGE=sd and MU300_SD_ERASE=yes into /sdcard/mu300-install.conf (everything on the card is erased).' "$SD_DEV" "$(gib "$SD_BYTES")")"
+                die "$(t 'There is too little free space inside for Linux. The SD card ({1}, {2}) can hold it: put OPENF50_STORAGE=sd and OPENF50_SD_ERASE=yes into /sdcard/openf50-install.conf (everything on the card is erased).' "$SD_DEV" "$(gib "$SD_BYTES")")"
             else
-                die "$(t 'There is too little free space inside for Linux and no SD card. Insert a card (MU300_STORAGE=sd, MU300_SD_ERASE=yes in /sdcard/mu300-install.conf), or make room with the installer for computers.')"
+                die "$(t 'There is too little free space inside for Linux and no SD card. Insert a card (OPENF50_STORAGE=sd, OPENF50_SD_ERASE=yes in /sdcard/openf50-install.conf), or make room with the installer for computers.')"
             fi ;;
     esac
     if [ "$SD_MODE" = 1 ]; then
-        [ "$sd_ex" != foreign ] || die "$(t 'the SD card ({1}) holds another Linux (ext4) filesystem, and the installer never formats one that is not its own (mu300sd).' "$SD_DEV")"
+        [ "$sd_ex" != foreign ] || die "$(t 'the SD card ({1}) holds another Linux (ext4) filesystem, and the installer never formats one that is not its own (openf50sd).' "$SD_DEV")"
         existing=$([ "$sd_ex" = yes ] && echo yes || echo no); TARGET_SIZE=$SD_BYTES
-        if [ "$existing" = no ] && [ "${MU300_SD_ERASE:-}" != yes ]; then
-            die "$(t 'Installing to the SD card ({1}, {2}) erases everything on it. To allow that, put MU300_SD_ERASE=yes into /sdcard/mu300-install.conf.' "$SD_DEV" "$(gib "$SD_BYTES")")"
+        if [ "$existing" = no ] && [ "${OPENF50_SD_ERASE:-}" != yes ]; then
+            die "$(t 'Installing to the SD card ({1}, {2}) erases everything on it. To allow that, put OPENF50_SD_ERASE=yes into /sdcard/openf50-install.conf.' "$SD_DEV" "$(gib "$SD_BYTES")")"
         fi
     else
         existing=$int_existing; TARGET_SIZE=$INT_SIZE; DIRTY=0
-        [ "$INT_SIZE" -ge $((700 * 1024 * 1024)) ] || die "$(t 'There is too little free space inside for Linux and no SD card. Insert a card (MU300_STORAGE=sd, MU300_SD_ERASE=yes in /sdcard/mu300-install.conf), or make room with the installer for computers.')"
+        [ "$INT_SIZE" -ge $((700 * 1024 * 1024)) ] || die "$(t 'There is too little free space inside for Linux and no SD card. Insert a card (OPENF50_STORAGE=sd, OPENF50_SD_ERASE=yes in /sdcard/openf50-install.conf), or make room with the installer for computers.')"
         if [ "$existing" = no ]; then
             region_dirty
-            [ "$DIRTY" = 0 ] || [ "${MU300_REGION_OVERWRITE:-}" = yes ] ||
-                die "$(t 'The free space behind the partitions is not empty ({1} of 16 samples hold data); it may be used by this firmware. To use it anyway, put MU300_REGION_OVERWRITE=yes into /sdcard/mu300-install.conf.' "$DIRTY")"
+            [ "$DIRTY" = 0 ] || [ "${OPENF50_REGION_OVERWRITE:-}" = yes ] ||
+                die "$(t 'The free space behind the partitions is not empty ({1} of 16 samples hold data); it may be used by this firmware. To use it anyway, put OPENF50_REGION_OVERWRITE=yes into /sdcard/openf50-install.conf.' "$DIRTY")"
         fi
     fi
     INTERNAL_EXISTS=0; [ "$int_existing" = yes ] && INTERNAL_EXISTS=1
     FORMAT=0; UPDATE=0
     if [ "$existing" = yes ]; then
-        case ${MU300_MODE:-update} in update) UPDATE=1 ;; wipe) FORMAT=1 ;; esac
+        case ${OPENF50_MODE:-update} in update) UPDATE=1 ;; wipe) FORMAT=1 ;; esac
     else
         FORMAT=1
     fi
@@ -1591,25 +1591,25 @@ plan_storage() {
 inspect_target() {  # which systems the existing filesystem holds, and its Ubuntu release
     HAVE_SYSTEMS=; HAVE_UBUNTU=
     [ "$existing" = yes ] && [ "$FORMAT" = 0 ] || return 0
-    mount_target "$T/mu300root-magisk" || die "$(t 'could not mount the existing Linux filesystem')"
-    for _os in ubuntu openwrt; do [ -d "$T/mu300root-magisk/$_os" ] && HAVE_SYSTEMS="$HAVE_SYSTEMS $_os"; done
-    HAVE_UBUNTU=$(sed -n 's/^VERSION_ID="\(.*\)"/\1/p' "$T/mu300root-magisk/ubuntu/usr/lib/os-release" 2>/dev/null | head -n1)
-    umount_target "$T/mu300root-magisk"
+    mount_target "$T/openf50root-magisk" || die "$(t 'could not mount the existing Linux filesystem')"
+    for _os in ubuntu openwrt; do [ -d "$T/openf50root-magisk/$_os" ] && HAVE_SYSTEMS="$HAVE_SYSTEMS $_os"; done
+    HAVE_UBUNTU=$(sed -n 's/^VERSION_ID="\(.*\)"/\1/p' "$T/openf50root-magisk/ubuntu/usr/lib/os-release" 2>/dev/null | head -n1)
+    umount_target "$T/openf50root-magisk"
 }
 plan_choices() {
     _after=$(printf '%s\n' $HAVE_SYSTEMS "$OS" | sort -u | tr '\n' ' ')
     case $_after in *ubuntu*openwrt*|*openwrt*ubuntu*) _need=$NEED_BOTH ;; *) _need=$(need_for "$OS") ;; esac
     [ "$TARGET_SIZE" -ge "$_need" ] || die "$(t 'that choice needs about {1} MiB and this device has {2} MiB of free space' "$((_need / 1048576))" "$((TARGET_SIZE / 1048576))")"
     if [ "$KERNEL" = 5.4 ] && case " $HAVE_SYSTEMS " in *" ubuntu "*) [ "$HAVE_UBUNTU" = 26.04 ] ;; *) false ;; esac; then
-        die "$(t 'Ubuntu 26.04 is installed, and it needs a mainline kernel (6.18 or 7.2): use a zip with one of those kernels, or MU300_MODE=wipe.')"
+        die "$(t 'Ubuntu 26.04 is installed, and it needs a mainline kernel (6.18 or 7.2): use a zip with one of those kernels, or OPENF50_MODE=wipe.')"
     fi
     [ "$SD_MODE" = 0 ] || grep -qx sdcard "$KB/features" 2>/dev/null || die "$(t 'this kernel cannot read the SD card; use a newer zip')"
-    BOOT_OS=${MU300_BOOT_OS:-$OS}
-    case " $_after " in *" $BOOT_OS "*) ;; *) die "$(t 'MU300_BOOT_OS={1}, but {1} is not installed' "$BOOT_OS")" ;; esac
-    DEFAULT_LINUX=1; [ "${MU300_BOOT:-linux}" = android ] && DEFAULT_LINUX=0
-    BOOT_ATTEMPTS=${MU300_BOOT_ATTEMPTS:-5}
-    IMPORT_HOTSPOT=1; [ "${MU300_HOTSPOT:-yes}" = no ] && IMPORT_HOTSPOT=0
-    GPU=${MU300_GPU:-yes}
+    BOOT_OS=${OPENF50_BOOT_OS:-$OS}
+    case " $_after " in *" $BOOT_OS "*) ;; *) die "$(t 'OPENF50_BOOT_OS={1}, but {1} is not installed' "$BOOT_OS")" ;; esac
+    DEFAULT_LINUX=1; [ "${OPENF50_BOOT:-linux}" = android ] && DEFAULT_LINUX=0
+    BOOT_ATTEMPTS=${OPENF50_BOOT_ATTEMPTS:-5}
+    IMPORT_HOTSPOT=1; [ "${OPENF50_HOTSPOT:-yes}" = no ] && IMPORT_HOTSPOT=0
+    GPU=${OPENF50_GPU:-yes}
     WIPE_LEGACY=0; [ "$OS" = ubuntu ] && [ "$FORMAT" = 0 ] && WIPE_LEGACY=1
 }
 plan_print() {
@@ -1617,34 +1617,34 @@ plan_print() {
     say "$(t 'Plan')"
     echo "  $(t 'system:         {1} (zip {2}, kernel {3})' "$OS${UBUNTU:+ $UBUNTU}" "$TAG" "$KERNEL")"
     if [ "$SD_MODE" = 1 ]; then
-        echo "  $(t 'storage:        SD card {1}, {2} ({3})' "$SD_DEV" "$(gib "$TARGET_SIZE")" "$(src_of MU300_STORAGE)")"
+        echo "  $(t 'storage:        SD card {1}, {2} ({3})' "$SD_DEV" "$(gib "$TARGET_SIZE")" "$(src_of OPENF50_STORAGE)")"
     else
-        echo "  $(t 'storage:        internal, offset {1}, {2} ({3})' "$INT_OFF" "$(gib "$TARGET_SIZE")" "$(src_of MU300_STORAGE)")"
+        echo "  $(t 'storage:        internal, offset {1}, {2} ({3})' "$INT_OFF" "$(gib "$TARGET_SIZE")" "$(src_of OPENF50_STORAGE)")"
     fi
     echo "  $(t 'filesystem:     {1}' "$([ "$FORMAT" = 1 ] && t 'CREATE new ext4 (erases what is there)' || t 'keep: settings and data of {1} are kept' "$OS")")"
     [ -z "$HAVE_SYSTEMS" ] || echo "  $(t 'already there:  {1}' "$HAVE_SYSTEMS")"
-    echo "  $(t 'boots:          {1} ({2})' "$BOOT_OS" "$(src_of MU300_BOOT_OS)")"
+    echo "  $(t 'boots:          {1} ({2})' "$BOOT_OS" "$(src_of OPENF50_BOOT_OS)")"
     echo "  $(t 'default boot:   {1}' "$([ "$DEFAULT_LINUX" = 1 ] && t 'Linux (Android after {1} failed boots in a row)' "$BOOT_ATTEMPTS" || t 'Android, Linux on demand')")"
     echo "  $(t 'writes:         {1}, boot_{2}, 32 bytes of misc (boot_{3}, the partition table and userdata are not touched)' "$([ "$SD_MODE" = 1 ] && echo "$SD_DEV" || t 'the Linux region')" "$LINUX_SLOT" "$ANDROID_SLOT")"
 }
 write_example() {  # every setting, what it does and the value this run uses: nobody has to type it from a README
     {
-        echo "# MU300 Linux Magisk installer settings. Copy to $SDCARD/mu300-install.conf, edit, install the zip again."
+        echo "# OPENF50 Linux Magisk installer settings. Copy to $SDCARD/openf50-install.conf, edit, install the zip again."
         echo "# Values of the last run ($TAG, $(date '+%Y-%m-%d %H:%M')) are shown; a line starting with # is not used."
-        echo "#MU300_STORAGE=$([ "${SD_MODE:-0}" = 1 ] && echo sd || echo internal)        # internal or sd"
-        echo "#MU300_SD_ERASE=yes            # allow erasing the SD card for Linux"
-        echo "#MU300_REGION_OVERWRITE=yes    # use internal free space that holds data"
-        echo "#MU300_MODE=update             # update (keep settings and data) or wipe"
-        echo "#MU300_BOOT_OS=${BOOT_OS:-$OS}           # ubuntu or openwrt: which system boots"
-        echo "#MU300_BOOT=linux              # linux (default boot, Android after failed boots) or android"
-        echo "#MU300_BOOT_ATTEMPTS=${BOOT_ATTEMPTS:-5}          # 1-6 failed boots in a row before Android"
-        echo "#MU300_HOTSPOT=yes             # copy Android's hotspot name and password"
-        echo "#MU300_GPU=yes                 # Mali GPU (OpenCL) files"
-        echo "#MU300_PASSWORD=               # 6+ characters; empty: generated"
-        echo "#MU300_DEVICE=${DEVICE:-f50}              # f50 or u30air, only when the model is not recognised"
-        echo "#MU300_LANG=${MU300_LANG:-en}                # en, tr or zh"
-        echo "#MU300_DRY_RUN=1               # only show what would be done"
-    } > "$SDCARD/mu300-install.conf.example" 2>/dev/null || true
+        echo "#OPENF50_STORAGE=$([ "${SD_MODE:-0}" = 1 ] && echo sd || echo internal)        # internal or sd"
+        echo "#OPENF50_SD_ERASE=yes            # allow erasing the SD card for Linux"
+        echo "#OPENF50_REGION_OVERWRITE=yes    # use internal free space that holds data"
+        echo "#OPENF50_MODE=update             # update (keep settings and data) or wipe"
+        echo "#OPENF50_BOOT_OS=${BOOT_OS:-$OS}           # ubuntu or openwrt: which system boots"
+        echo "#OPENF50_BOOT=linux              # linux (default boot, Android after failed boots) or android"
+        echo "#OPENF50_BOOT_ATTEMPTS=${BOOT_ATTEMPTS:-5}          # 1-6 failed boots in a row before Android"
+        echo "#OPENF50_HOTSPOT=yes             # copy Android's hotspot name and password"
+        echo "#OPENF50_GPU=yes                 # Mali GPU (OpenCL) files"
+        echo "#OPENF50_PASSWORD=               # 6+ characters; empty: generated"
+        echo "#OPENF50_DEVICE=${DEVICE:-f50}              # f50 or u30air, only when the model is not recognised"
+        echo "#OPENF50_LANG=${OPENF50_LANG:-en}                # en, tr or zh"
+        echo "#OPENF50_DRY_RUN=1               # only show what would be done"
+    } > "$SDCARD/openf50-install.conf.example" 2>/dev/null || true
 }
 ```
 
@@ -1654,8 +1654,8 @@ and at the end of the file the entry point (Task 8 adds the build and install ca
 main() {
     conf_load "$(conf_find)"
     conf_check
-    [ -n "$MU300_LANG" ] || MU300_LANG=$(android_lang)
-    echo "MU300 Linux $(sed -n 's/^TAG=//p' "$D/manifest")"
+    [ -n "$OPENF50_LANG" ] || OPENF50_LANG=$(android_lang)
+    echo "OPENF50 Linux $(sed -n 's/^TAG=//p' "$D/manifest")"
     [ -z "$CONF_FILE" ] || say "$(t 'settings from {1}:{2}' "$CONF_FILE" "$CONF_SET")"
     env_check
     manifest_load "$D/manifest"
@@ -1668,15 +1668,15 @@ main() {
     plan_choices
     plan_print
     write_example
-    if [ "${MU300_DRY_RUN:-}" = 1 ]; then say "$(t 'Dry run: nothing was written.')"; exit 3; fi
+    if [ "${OPENF50_DRY_RUN:-}" = 1 ]; then say "$(t 'Dry run: nothing was written.')"; exit 3; fi
 }
-[ -z "${MU300_LIB:-}" ] || return 0
+[ -z "${OPENF50_LIB:-}" ] || return 0
 main "$@"
 ```
 
 - [ ] **Step 5: Translations** — add a `tr` and a `zh` line for every new `t '...'` message (the keys as written; the
-words `MU300_STORAGE=sd`, `MU300_SD_ERASE=yes` etc. and paths stay as they are). Add
-`'android/magisk/installer/mu300-install.sh'` to `SOURCES` in `tools/check-i18n.py`. Run `python3 tools/check-i18n.py`
+words `OPENF50_STORAGE=sd`, `OPENF50_SD_ERASE=yes` etc. and paths stay as they are). Add
+`'android/magisk/installer/openf50-install.sh'` to `SOURCES` in `tools/check-i18n.py`. Run `python3 tools/check-i18n.py`
 → nothing missing.
 
 - [ ] **Step 6: Run the tests** — `cd tests && python3 -m unittest test_magisk_installer test_i18n test_static -v` → PASS.
@@ -1685,7 +1685,7 @@ words `MU300_STORAGE=sd`, `MU300_SD_ERASE=yes` etc. and paths stay as they are).
 
 ```bash
 git add android/magisk/installer tests/fakedevice.py tests/test_magisk_installer.py tools/check-i18n.py i18n
-git commit -m "magisk installer: finds the device, its slots and where Linux goes, from what is there and mu300-install.conf; a dry run writes nothing"
+git commit -m "magisk installer: finds the device, its slots and where Linux goes, from what is there and openf50-install.conf; a dry run writes nothing"
 ```
 
 ---
@@ -1693,7 +1693,7 @@ git commit -m "magisk installer: finds the device, its slots and where Linux goe
 ### Task 8: The Magisk installer, part 2 — build, install, write, arm
 
 **Files:**
-- Modify: `android/magisk/installer/mu300-install.sh` (new functions, `main` continues)
+- Modify: `android/magisk/installer/openf50-install.sh` (new functions, `main` continues)
 - Test: `tests/test_magisk_installer.py` (new class `Install`)
 
 **Interfaces:**
@@ -1712,8 +1712,8 @@ class Install(InstallerCase):
         img = (by / 'boot_b').read_bytes()
         self.assertEqual(img[:8], b'ANDROID!')
         files = cpio_all(unlz4_legacy(ramdisk_of(img)))
-        self.assertEqual(files['etc/mu300-linux-slot'][1], b'b\n')
-        self.assertEqual(files['etc/mu300-device'][1], b'f50\n')
+        self.assertEqual(files['etc/openf50-linux-slot'][1], b'b\n')
+        self.assertEqual(files['etc/openf50-device'][1], b'f50\n')
         self.assertIn('android/vendor/bin/modem_control', files)
         self.assertIn('init', files)                                           # from the bundle's generic segment
         bc = (by / 'misc').read_bytes()[0x800:0x820]
@@ -1722,9 +1722,9 @@ class Install(InstallerCase):
         for line in ('FORMAT=1', 'OSES="openwrt"', 'SD_MODE=0', 'DEFAULT_LINUX=1', 'BOOT_ATTEMPTS=5', 'KERNEL=6.18'):
             self.assertIn(line, env)
         self.assertRegex(env, r"PWHASH='\$6\$[./0-9A-Za-z]{16}\$")
-        pw = (self.fake.root / 'sdcard/mu300-linux-password.txt').read_text()
+        pw = (self.fake.root / 'sdcard/openf50-linux-password.txt').read_text()
         self.assertRegex(pw, r'[a-km-zA-HJ-NP-Z2-9]{12}')
-        self.assertFalse((self.fake.root / 'tmp/mu300-magisk').exists())      # proprietary staging gone
+        self.assertFalse((self.fake.root / 'tmp/openf50-magisk').exists())      # proprietary staging gone
 
     def test_slot_b_android(self):
         self.device(slot='_b')
@@ -1732,7 +1732,7 @@ class Install(InstallerCase):
         by = self.fake.root / 'dev/block/by-name'
         self.assertEqual(sha(by / 'boot_b'), self.before['boot_b'])            # Android's partition untouched
         files = cpio_all(unlz4_legacy(ramdisk_of((by / 'boot_a').read_bytes())))
-        self.assertEqual(files['etc/mu300-linux-slot'][1], b'a\n')
+        self.assertEqual(files['etc/openf50-linux-slot'][1], b'a\n')
         self.assertEqual((by / 'misc').read_bytes()[0x800:0x820], files['etc/misc-bc-slot-a-trial.bin'][1])
 
     def test_android_side_runs_with_android_tools(self):
@@ -1760,9 +1760,9 @@ class Install(InstallerCase):
             self.assertTrue(self.nothing_written())
 
     def test_password_from_conf_is_used_and_removed(self):
-        r = self.run_installer(conf='MU300_PASSWORD=correct horse\n')
+        r = self.run_installer(conf='OPENF50_PASSWORD=correct horse\n')
         self.assertEqual(r.returncode, 0)
-        conf = (self.fake.root / 'sdcard/mu300-install.conf').read_text()
+        conf = (self.fake.root / 'sdcard/openf50-install.conf').read_text()
         self.assertNotIn('correct horse', conf)
 
     def test_mainline_modules_into_every_system(self):
@@ -1781,7 +1781,7 @@ class Password(ShellTest):
         spec = importlib.util.spec_from_file_location('s', TOP / 'tools' / 'sha512crypt.py')
         m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
         for shell in self.each_shell():
-            r = self.sh(shell, f'MU300_LIB=1 MU300_UBB="busybox" . "{INSTALLER}"; password_hash "s3cret pw"')
+            r = self.sh(shell, f'OPENF50_LIB=1 OPENF50_UBB="busybox" . "{INSTALLER}"; password_hash "s3cret pw"')
             h = r.stdout.strip()
             salt = h.split('$')[2]
             self.assertEqual(h, m.sha512_crypt('s3cret pw', salt))
@@ -1790,7 +1790,7 @@ class Password(ShellTest):
         for shell in self.each_shell():
             seen = set()
             for _ in range(20):
-                r = self.sh(shell, f'MU300_LIB=1 . "{INSTALLER}"; random_chars "$PW_ALPHABET" 12')
+                r = self.sh(shell, f'OPENF50_LIB=1 . "{INSTALLER}"; random_chars "$PW_ALPHABET" 12')
                 self.assertRegex(r.stdout.strip(), r'^[a-km-zA-HJ-NP-Z2-9]{12}$')
                 seen.add(r.stdout)
             self.assertEqual(len(seen), 20)
@@ -1798,11 +1798,11 @@ class Password(ShellTest):
 
 (`sha`, `ramdisk_of`, `cpio_all`, `busybox_has`, `InstallerCase.reset/device/corrupt_payload/no_magiskboot/
 existing_filesystem/fake_install_hook` are helpers in this file; `fake_install_hook` adds a line to the fake
-`android-sh` before it prints `MU300-INSTALL-OK`.)
+`android-sh` before it prints `OPENF50-INSTALL-OK`.)
 
 - [ ] **Step 2: Run them to make sure they fail** — `cd tests && python3 -m unittest test_magisk_installer.Install test_magisk_installer.Password -v` → FAIL (exit 3 never reached / functions missing).
 
-- [ ] **Step 3: The functions** — add to `mu300-install.sh` before `main`:
+- [ ] **Step 3: The functions** — add to `openf50-install.sh` before `main`:
 
 ```sh
 # ---- the password: never empty, never the image's. 12 characters without look-alikes, unless the conf gives one.
@@ -1830,18 +1830,18 @@ $(t 'Wi-Fi and Bluetooth need them; without them the system installs and boots b
         if collect_gpu "$D/gpu-files.txt" "$W/gpu"; then _gpu=$W/gpu
         else warn "$(t 'the Mali GPU files are incomplete on this device; installing without them')"; fi
     fi
-    vendor_overlay "$OS" "$W/fw" "$W/subset" "$_gpu" "$T/mu300-vendor-$OS.tar.gz" || die "$(t 'could not pack the vendor files')"
+    vendor_overlay "$OS" "$W/fw" "$W/subset" "$_gpu" "$T/openf50-vendor-$OS.tar.gz" || die "$(t 'could not pack the vendor files')"
 }
 build_boot() {
     mkdir -p "$W/ramdisk/etc" "$W/boot"
-    echo "$DEVICE" > "$W/ramdisk/etc/mu300-device"
-    echo "$LINUX_SLOT" > "$W/ramdisk/etc/mu300-linux-slot"
+    echo "$DEVICE" > "$W/ramdisk/etc/openf50-device"
+    echo "$LINUX_SLOT" > "$W/ramdisk/etc/openf50-linux-slot"
     bc_files "$LIVE_BC" "$W/ramdisk/etc" || die "$(t 'could not build the boot control blocks')"
     cp -a "$W/subset" "$W/ramdisk/android"
     # Linux on slot a needs an init that knows it (Tasks 1-3); the init comes from the bundle's generic segment
     if [ "$LINUX_SLOT" = a ]; then
         "$MAGISKBOOT" decompress "$KB/ramdisk-generic.lz4" "$W/generic.cpio" >/dev/null 2>&1 &&
-            grep -q 'mu300-linux-slot' "$W/generic.cpio" ||
+            grep -q 'openf50-linux-slot' "$W/generic.cpio" ||
             die "$(t 'Android runs from slot b, and the kernel of this zip cannot boot Linux from slot a yet; use a newer zip')"
         rm -f "$W/generic.cpio"
     fi
@@ -1850,7 +1850,7 @@ build_boot() {
     say "$(t 'boot image for slot {1}: kernel {2}, {3} bytes' "$LINUX_SLOT" "$(cat "$KB/kernel.release" 2>/dev/null || echo 5.4)" "$(( $(fsize "$W/boot/new") + $(fsize "$W/boot/vbmeta") ))")"
 }
 build_password() {
-    PW=${MU300_PASSWORD:-}
+    PW=${OPENF50_PASSWORD:-}
     [ -n "$PW" ] || PW=$(random_chars "$PW_ALPHABET" 12) || die "$(t 'could not generate a password')"
     PWHASH=$(password_hash "$PW") || die "$(t 'could not hash the password')"
 }
@@ -1863,15 +1863,15 @@ write_env() {  # the file android-install.sh reads; the same fields install.sh w
 }
 install_systems() {
     say "$(t 'Installing {1} (this takes a few minutes)' "$OS")"
-    cp "$D/android-install.sh" "$D/android-mount-mu300root.sh" "$T/" || die "$(t 'could not copy the installer files')"
-    write_env "$T/mu300-install.env"
+    cp "$D/android-install.sh" "$D/android-mount-openf50root.sh" "$T/" || die "$(t 'could not copy the installer files')"
+    write_env "$T/openf50-install.env"
     asw "$ANDROID_SH" "$T/android-install.sh" 2>&1 | tee "$W/device-install.log"
-    grep -q MU300-INSTALL-OK "$W/device-install.log" || die "$(t 'installation on the device failed; boot_{1} and misc were not changed' "$LINUX_SLOT")"
+    grep -q OPENF50-INSTALL-OK "$W/device-install.log" || die "$(t 'installation on the device failed; boot_{1} and misc were not changed' "$LINUX_SLOT")"
     if [ -s "$KB/kernel.release" ]; then        # a mainline bundle: its modules into every system on the filesystem
-        mount_target "$T/mu300root-magisk" || die "$(t 'could not mount the Linux filesystem for the kernel modules')"
-        DISK=$T/mu300root-magisk MU300_NO_DEPMOD=1 kernel_modules_into_systems "$KB" ||
-            { umount_target "$T/mu300root-magisk"; die "$(t 'could not install the kernel modules')"; }
-        sync; umount_target "$T/mu300root-magisk"
+        mount_target "$T/openf50root-magisk" || die "$(t 'could not mount the Linux filesystem for the kernel modules')"
+        DISK=$T/openf50root-magisk OPENF50_NO_DEPMOD=1 kernel_modules_into_systems "$KB" ||
+            { umount_target "$T/openf50root-magisk"; die "$(t 'could not install the kernel modules')"; }
+        sync; umount_target "$T/openf50root-magisk"
     fi
 }
 install_boot() {
@@ -1888,16 +1888,16 @@ arm_linux() {  # the Linux slot's trial block, built from the misc block read at
 report() {
     _ip=192.168.77.1; [ "$DEVICE" = u30air ] && _ip=192.168.78.1
     _users=$([ "$OS" = ubuntu ] && echo ubuntu || echo root)
-    ( umask 077; printf 'MU300 Linux %s, %s\nuser: %s\npassword: %s\nDelete this file after the first login.\n' \
-        "$TAG" "$(date '+%Y-%m-%d %H:%M')" "$_users" "$PW" > "$SDCARD/mu300-linux-password.txt" ) 2>/dev/null || true
-    if [ -n "$CONF_FILE" ] && grep -q '^[[:space:]]*MU300_PASSWORD=' "$CONF_FILE"; then
-        sed -i 's/^[[:space:]]*MU300_PASSWORD=.*/# MU300_PASSWORD was used by the installer and removed/' "$CONF_FILE" 2>/dev/null || true
+    ( umask 077; printf 'OPENF50 Linux %s, %s\nuser: %s\npassword: %s\nDelete this file after the first login.\n' \
+        "$TAG" "$(date '+%Y-%m-%d %H:%M')" "$_users" "$PW" > "$SDCARD/openf50-linux-password.txt" ) 2>/dev/null || true
+    if [ -n "$CONF_FILE" ] && grep -q '^[[:space:]]*OPENF50_PASSWORD=' "$CONF_FILE"; then
+        sed -i 's/^[[:space:]]*OPENF50_PASSWORD=.*/# OPENF50_PASSWORD was used by the installer and removed/' "$CONF_FILE" 2>/dev/null || true
     fi
     echo
     say "$(t 'Done. Reboot to start {1}.' "$BOOT_OS")"
-    echo "  $(t 'password for {1}: {2}   (also in {3}; delete that file after the first login)' "$_users" "$PW" "$SDCARD/mu300-linux-password.txt")"
+    echo "  $(t 'password for {1}: {2}   (also in {3}; delete that file after the first login)' "$_users" "$PW" "$SDCARD/openf50-linux-password.txt")"
     echo "  $(t 'USB network: {1}   SSH: {2}' "$_ip" "$_users@$_ip")"
-    echo "  $(t 'switch systems: mu300-os ubuntu|openwrt   back to Android: mu300-next-boot android')"
+    echo "  $(t 'switch systems: openf50-os ubuntu|openwrt   back to Android: openf50-next-boot android')"
     echo "  $(t 'If Linux does not start, the device returns to Android by itself.')"
 }
 ```
@@ -1942,7 +1942,7 @@ git commit -m "magisk installer: builds the boot image and the vendor files on t
 
 ```python
 """The zip: customize.sh in a fake Magisk installer environment, and tools/make-magisk-zips.sh on a fake release
-(and, in the Magisk workflow, on the real one: MU300_MAGISK_ZIPS=<dir of zips>)."""
+(and, in the Magisk workflow, on the real one: OPENF50_MAGISK_ZIPS=<dir of zips>)."""
 
 MAGISK_ENV = r'''
 ui_print() { echo "$1"; }
@@ -1955,7 +1955,7 @@ BOOTMODE=true; MAGISK_VER_CODE=30700
 
 class Customize(ShellTest):
     def zip_with(self, install_sh):
-        ...  # a zip holding mu300/install.sh (the given body), module.prop, action.sh, switch.sh, system/bin/mu300-linux
+        ...  # a zip holding openf50/install.sh (the given body), module.prop, action.sh, switch.sh, system/bin/openf50-linux
 
     def run_customize(self, shell, install_sh, bootmode='true'):
         z = self.zip_with(install_sh)
@@ -2000,13 +2000,13 @@ In `tests/test_static.py`:
         self.assertIn('SKIPUNZIP=1', code)
 
     def test_installer_never_writes_androids_boot_partition(self):
-        s = (TOP / 'android' / 'magisk' / 'installer' / 'mu300-install.sh').read_text()
+        s = (TOP / 'android' / 'magisk' / 'installer' / 'openf50-install.sh').read_text()
         self.assertNotRegex(s, r'of="?\$BOOT_ANDROID')
         self.assertNotRegex(s, r'write_boot "?\$BOOT_ANDROID')
 ```
 
 and add `android/magisk/installer/*.sh`, `android/magisk/installer/update-binary` and
-`android/magisk/mu300-linux-switch/*.sh` to the candidates in `shell_scripts()`.
+`android/magisk/openf50-linux-switch/*.sh` to the candidates in `shell_scripts()`.
 
 - [ ] **Step 2: Run them to make sure they fail** — `cd tests && python3 -m unittest test_magisk_zip.Customize test_static -v` → FAIL (customize.sh missing).
 
@@ -2015,34 +2015,34 @@ and add `android/magisk/installer/*.sh`, `android/magisk/installer/update-binary
 `android/magisk/installer/customize.sh`:
 
 ```sh
-# MU300 Linux installer zip. Magisk sources this file into its own installer shell, so it changes none of that
-# shell's options and never exits: the installation runs as a child process (mu300/install.sh) under Magisk's
+# OPENF50 Linux installer zip. Magisk sources this file into its own installer shell, so it changes none of that
+# shell's options and never exits: the installation runs as a child process (openf50/install.sh) under Magisk's
 # busybox, and its exit status decides - 0 installed, 3 dry run, anything else not installed. Only after success
-# does this zip become the "MU300 Linux" switch module (Action button, su -c mu300-linux). The three messages here
+# does this zip become the "OPENF50 Linux" switch module (Action button, su -c openf50-linux). The three messages here
 # stay English: they are shown before the installer knows the language.
 SKIPUNZIP=1
 if ! $BOOTMODE; then
     abort "! Install this zip in the Magisk app or with: magisk --install-module <zip> (not from recovery)"
 fi
 [ "${MAGISK_VER_CODE:-0}" -ge 26000 ] || abort "! This zip needs Magisk 26.0 or newer"
-mu300_dir=$TMPDIR/mu300
-rm -rf "$mu300_dir"
-unzip -o -q "$ZIPFILE" 'mu300/*' -d "$TMPDIR" >&2 || abort "! The zip could not be unpacked"
-MU300_DIR=$mu300_dir ZIPFILE=$ZIPFILE MAGISKBIN=${MAGISKBIN:-/data/adb/magisk} \
-    "${MAGISKBIN:-/data/adb/magisk}/busybox" sh "$mu300_dir/install.sh"
-mu300_rc=$?
-rm -rf "$mu300_dir"
-case $mu300_rc in
+openf50_dir=$TMPDIR/openf50
+rm -rf "$openf50_dir"
+unzip -o -q "$ZIPFILE" 'openf50/*' -d "$TMPDIR" >&2 || abort "! The zip could not be unpacked"
+OPENF50_DIR=$openf50_dir ZIPFILE=$ZIPFILE MAGISKBIN=${MAGISKBIN:-/data/adb/magisk} \
+    "${MAGISKBIN:-/data/adb/magisk}/busybox" sh "$openf50_dir/install.sh"
+openf50_rc=$?
+rm -rf "$openf50_dir"
+case $openf50_rc in
     0) ;;
     3) abort "- Dry run: nothing was written, the module was not installed" ;;
-    *) abort "! MU300 Linux was not installed; the messages above say why and what was not changed" ;;
+    *) abort "! OPENF50 Linux was not installed; the messages above say why and what was not changed" ;;
 esac
 unzip -o -q "$ZIPFILE" module.prop action.sh switch.sh 'system/*' -d "$MODPATH" >&2 || abort "! The switch module could not be installed"
 set_perm_recursive "$MODPATH" 0 0 0755 0644
 set_perm "$MODPATH/switch.sh" 0 0 0755
 set_perm "$MODPATH/action.sh" 0 0 0755
-set_perm "$MODPATH/system/bin/mu300-linux" 0 0 0755
-unset mu300_dir mu300_rc
+set_perm "$MODPATH/system/bin/openf50-linux" 0 0 0755
+unset openf50_dir openf50_rc
 ```
 
 `android/magisk/installer/update-binary`: Magisk's standard module installer, as Magisk ships it in
@@ -2089,8 +2089,8 @@ exit 0
 `android/magisk/installer/module.prop.in` (Task 10 fills `@TAG@`, `@CODE@`, `@SYSTEM@`, `@KERNEL@`):
 
 ```
-id=mu300_linux_switch
-name=MU300 Linux
+id=openf50_linux_switch
+name=OPENF50 Linux
 version=@TAG@
 versionCode=@CODE@
 author=dikeckaan
@@ -2112,27 +2112,27 @@ git commit -m "magisk installer: customize.sh runs the installation as a child a
 
 **Files:**
 - Create: `tools/make-magisk-zips.sh`
-- Test: `tests/test_magisk_zip.py` (class `Builder`, and class `ReleaseZips` for `MU300_MAGISK_ZIPS`)
+- Test: `tests/test_magisk_zip.py` (class `Builder`, and class `ReleaseZips` for `OPENF50_MAGISK_ZIPS`)
 
 **Interfaces:**
-- Consumes: a release directory with `SHA256SUMS`, `mu300-kernel.tar.gz`, `mu300-kernel-6.18.tar.gz`, `mu300-kernel-7.2.tar.gz`, `mu300-openwrt-rootfs.tar.gz`, `mu300-ubuntu-rootfs.tar.gz`, `mu300-ubuntu-26.04-rootfs.tar.gz`, `mu300-update`.
-- Produces: `OUT/mu300-magisk-<tag>-<system>-k<kernel>.zip` for system in `openwrt ubuntu-24.04 ubuntu-26.04`, kernel in `5.4 6.18 7.2`, without `ubuntu-26.04-k5.4`; `OUT/SHA256SUMS-magisk`. Exit 1 on a checksum mismatch or an audit failure.
+- Consumes: a release directory with `SHA256SUMS`, `openf50-kernel.tar.gz`, `openf50-kernel-6.18.tar.gz`, `openf50-kernel-7.2.tar.gz`, `openf50-openwrt-rootfs.tar.gz`, `openf50-ubuntu-rootfs.tar.gz`, `openf50-ubuntu-26.04-rootfs.tar.gz`, `openf50-update`.
+- Produces: `OUT/openf50-magisk-<tag>-<system>-k<kernel>.zip` for system in `openwrt ubuntu-24.04 ubuntu-26.04`, kernel in `5.4 6.18 7.2`, without `ubuntu-26.04-k5.4`; `OUT/SHA256SUMS-magisk`. Exit 1 on a checksum mismatch or an audit failure.
 
 - [ ] **Step 1: Write the failing tests**
 
 ```python
 ALLOWED = {'META-INF/com/google/android/update-binary', 'META-INF/com/google/android/updater-script',
-           'module.prop', 'customize.sh', 'action.sh', 'switch.sh', 'system/bin/mu300-linux',
-           'mu300/install.sh', 'mu300/android-boot-image.sh', 'mu300/mu300-update', 'mu300/android-install.sh',
-           'mu300/android-mount-mu300root.sh', 'mu300/storage.sh', 'mu300/i18n.sh', 'mu300/i18n/tr.tsv',
-           'mu300/i18n/zh.tsv', 'mu300/subset-files.txt', 'mu300/gpu-files.txt', 'mu300/busybox', 'mu300/manifest'}
+           'module.prop', 'customize.sh', 'action.sh', 'switch.sh', 'system/bin/openf50-linux',
+           'openf50/install.sh', 'openf50/android-boot-image.sh', 'openf50/openf50-update', 'openf50/android-install.sh',
+           'openf50/android-mount-openf50root.sh', 'openf50/storage.sh', 'openf50/i18n.sh', 'openf50/i18n/tr.tsv',
+           'openf50/i18n/zh.tsv', 'openf50/subset-files.txt', 'openf50/gpu-files.txt', 'openf50/busybox', 'openf50/manifest'}
 
 
 class Builder(unittest.TestCase):
     def setUp(self):
-        self.tmp = Path(tempfile.mkdtemp(prefix='mu300-zips-'))
+        self.tmp = Path(tempfile.mkdtemp(prefix='openf50-zips-'))
         self.rel = self.tmp / 'v2026.10.06'
-        fake_release(self.rel)            # tiny tarballs with the right names; mu300-kernel.tar.gz has ./busybox
+        fake_release(self.rel)            # tiny tarballs with the right names; openf50-kernel.tar.gz has ./busybox
 
     def build(self):
         return subprocess.run(['sh', str(TOP / 'tools/make-magisk-zips.sh'), str(self.rel), str(self.tmp / 'out')],
@@ -2143,31 +2143,31 @@ class Builder(unittest.TestCase):
         self.assertEqual(r.returncode, 0, r.stderr)
         names = sorted(p.name for p in (self.tmp / 'out').glob('*.zip'))
         self.assertEqual(len(names), 8)
-        self.assertNotIn('mu300-magisk-v2026.10.06-ubuntu-26.04-k5.4.zip', names)
-        self.assertIn('mu300-magisk-v2026.10.06-openwrt-k6.18.zip', names)
+        self.assertNotIn('openf50-magisk-v2026.10.06-ubuntu-26.04-k5.4.zip', names)
+        self.assertIn('openf50-magisk-v2026.10.06-openwrt-k6.18.zip', names)
         sums = (self.tmp / 'out/SHA256SUMS-magisk').read_text().split('\n')
         self.assertEqual(len([s for s in sums if s]), 8)
 
     def test_layout_manifest_and_stored_payload(self):
         self.build()
-        z = zipfile.ZipFile(self.tmp / 'out/mu300-magisk-v2026.10.06-ubuntu-24.04-k7.2.zip')
+        z = zipfile.ZipFile(self.tmp / 'out/openf50-magisk-v2026.10.06-ubuntu-24.04-k7.2.zip')
         names = set(z.namelist())
-        self.assertEqual(names - ALLOWED, {'payload/mu300-kernel-7.2.tar.gz', 'payload/mu300-ubuntu-rootfs.tar.gz'})
+        self.assertEqual(names - ALLOWED, {'payload/openf50-kernel-7.2.tar.gz', 'payload/openf50-ubuntu-rootfs.tar.gz'})
         for i in z.infolist():
             if i.filename.startswith('payload/'):
                 self.assertEqual(i.compress_type, zipfile.ZIP_STORED)
-        m = dict(l.split('=', 1) for l in z.read('mu300/manifest').decode().split('\n') if '=' in l)
+        m = dict(l.split('=', 1) for l in z.read('openf50/manifest').decode().split('\n') if '=' in l)
         self.assertEqual((m['OS'], m['UBUNTU'], m['KERNEL']), ('ubuntu', '24.04', '7.2'))
-        self.assertEqual(m['SHA256_ROOTFS'], hashlib.sha256(z.read('payload/mu300-ubuntu-rootfs.tar.gz')).hexdigest())
+        self.assertEqual(m['SHA256_ROOTFS'], hashlib.sha256(z.read('payload/openf50-ubuntu-rootfs.tar.gz')).hexdigest())
         self.assertIn('versionCode=20261006', z.read('module.prop').decode())
 
     def test_checksum_mismatch_stops(self):
-        with open(self.rel / 'mu300-openwrt-rootfs.tar.gz', 'ab') as f:
+        with open(self.rel / 'openf50-openwrt-rootfs.tar.gz', 'ab') as f:
             f.write(b'x')
         self.assertNotEqual(self.build().returncode, 0)
 
 
-@unittest.skipUnless(os.environ.get('MU300_MAGISK_ZIPS'), 'MU300_MAGISK_ZIPS not set (the Magisk workflow sets it)')
+@unittest.skipUnless(os.environ.get('OPENF50_MAGISK_ZIPS'), 'OPENF50_MAGISK_ZIPS not set (the Magisk workflow sets it)')
 class ReleaseZips(unittest.TestCase):
     """the real zips of a release: the allow-list, the manifest against the payload, and a dry run of each zip's own
     installer on the fake device that must print the plan and write nothing"""
@@ -2193,8 +2193,8 @@ R=$(cd "${1:?usage: tools/make-magisk-zips.sh RELEASE_DIR OUT_DIR [TAG]}" && pwd
 mkdir -p "${2:?usage: tools/make-magisk-zips.sh RELEASE_DIR OUT_DIR [TAG]}"; O=$(cd "$2" && pwd)
 TAG=${3:-$(basename "$R")}
 sha() { (sha256sum "$1" 2>/dev/null || shasum -a 256 "$1") | cut -d' ' -f1; }
-for f in mu300-kernel.tar.gz mu300-kernel-6.18.tar.gz mu300-kernel-7.2.tar.gz mu300-openwrt-rootfs.tar.gz \
-         mu300-ubuntu-rootfs.tar.gz mu300-ubuntu-26.04-rootfs.tar.gz; do
+for f in openf50-kernel.tar.gz openf50-kernel-6.18.tar.gz openf50-kernel-7.2.tar.gz openf50-openwrt-rootfs.tar.gz \
+         openf50-ubuntu-rootfs.tar.gz openf50-ubuntu-26.04-rootfs.tar.gz; do
     want=$(awk -v f="$f" '$2 == f || $2 == "*" f {print $1}' "$R/SHA256SUMS")
     [ -n "$want" ] && [ -f "$R/$f" ] && [ "$(sha "$R/$f")" = "$want" ] ||
         { echo "$f is missing from $R or does not match its SHA256SUMS" >&2; exit 1; }
@@ -2202,34 +2202,34 @@ done
 # Magisk wants an integer that grows: the date in the tag (v2026.10.06 -> 20261006)
 code=$(printf '%s' "$TAG" | tr -cd 0-9 | cut -c1-9); [ -n "$code" ] || code=1
 W=$(mktemp -d); trap 'rm -rf "$W"' EXIT
-tar -xzOf "$R/mu300-kernel.tar.gz" ./busybox > "$W/busybox"
-[ -s "$W/busybox" ] || { echo "mu300-kernel.tar.gz has no busybox" >&2; exit 1; }
+tar -xzOf "$R/openf50-kernel.tar.gz" ./busybox > "$W/busybox"
+[ -s "$W/busybox" ] || { echo "openf50-kernel.tar.gz has no busybox" >&2; exit 1; }
 
 # what every zip holds besides its payload, by name (the audit below compares against this)
 COMMON='META-INF/com/google/android/update-binary META-INF/com/google/android/updater-script module.prop customize.sh
-action.sh switch.sh system/bin/mu300-linux mu300/install.sh mu300/android-boot-image.sh mu300/mu300-update
-mu300/android-install.sh mu300/android-mount-mu300root.sh mu300/storage.sh mu300/i18n.sh mu300/i18n/tr.tsv
-mu300/i18n/zh.tsv mu300/subset-files.txt mu300/gpu-files.txt mu300/busybox mu300/manifest'
+action.sh switch.sh system/bin/openf50-linux openf50/install.sh openf50/android-boot-image.sh openf50/openf50-update
+openf50/android-install.sh openf50/android-mount-openf50root.sh openf50/storage.sh openf50/i18n.sh openf50/i18n/tr.tsv
+openf50/i18n/zh.tsv openf50/subset-files.txt openf50/gpu-files.txt openf50/busybox openf50/manifest'
 stage() {  # stage DIR SYSTEM KERNEL ROOTFS_ASSET KERNEL_ASSET OS UBUNTU
     S=$1
-    mkdir -p "$S/META-INF/com/google/android" "$S/system/bin" "$S/mu300/i18n" "$S/payload"
-    I=$TOP/android/magisk/installer; M=$TOP/android/magisk/mu300-linux-switch
+    mkdir -p "$S/META-INF/com/google/android" "$S/system/bin" "$S/openf50/i18n" "$S/payload"
+    I=$TOP/android/magisk/installer; M=$TOP/android/magisk/openf50-linux-switch
     cp "$I/update-binary" "$I/updater-script" "$S/META-INF/com/google/android/"
     sed -e "s/@TAG@/$TAG/" -e "s/@CODE@/$code/" -e "s/@SYSTEM@/$2/" -e "s/@KERNEL@/$3/" "$I/module.prop.in" > "$S/module.prop"
     cp "$I/customize.sh" "$M/action.sh" "$M/switch.sh" "$S/"
-    cp "$M/system/bin/mu300-linux" "$S/system/bin/"
-    cp "$I/mu300-install.sh" "$S/mu300/install.sh"
-    cp "$TOP/tools/android-boot-image.sh" "$TOP/tools/android-install.sh" "$TOP/tools/android-mount-mu300root.sh" \
-       "$TOP/tools/storage.sh" "$TOP/tools/i18n.sh" "$S/mu300/"
+    cp "$M/system/bin/openf50-linux" "$S/system/bin/"
+    cp "$I/openf50-install.sh" "$S/openf50/install.sh"
+    cp "$TOP/tools/android-boot-image.sh" "$TOP/tools/android-install.sh" "$TOP/tools/android-mount-openf50root.sh" \
+       "$TOP/tools/storage.sh" "$TOP/tools/i18n.sh" "$S/openf50/"
     # the checkout's (in CI the tag's, so the release's own): the installer needs bootimg_from_stock, which an older
-    # release's mu300-update does not have when zips are built locally from one
-    cp "$TOP/rootfs/overlay/opt/mu300/bin/mu300-update" "$S/mu300/mu300-update"
-    cp "$TOP/i18n/tr.tsv" "$TOP/i18n/zh.tsv" "$S/mu300/i18n/"
-    cp "$TOP/android-vendor/subset-files.txt" "$TOP/android-vendor/gpu-files.txt" "$S/mu300/"
-    cp "$W/busybox" "$S/mu300/busybox"
+    # release's openf50-update does not have when zips are built locally from one
+    cp "$TOP/rootfs/overlay/opt/openf50/bin/openf50-update" "$S/openf50/openf50-update"
+    cp "$TOP/i18n/tr.tsv" "$TOP/i18n/zh.tsv" "$S/openf50/i18n/"
+    cp "$TOP/android-vendor/subset-files.txt" "$TOP/android-vendor/gpu-files.txt" "$S/openf50/"
+    cp "$W/busybox" "$S/openf50/busybox"
     cp "$R/$4" "$R/$5" "$S/payload/"
     printf 'TAG=%s\nSYSTEM=%s\nOS=%s\nUBUNTU=%s\nKERNEL=%s\nKERNEL_ASSET=%s\nROOTFS_ASSET=%s\nSHA256_KERNEL=%s\nSHA256_ROOTFS=%s\n' \
-        "$TAG" "$2" "$6" "$7" "$3" "$5" "$4" "$(sha "$R/$5")" "$(sha "$R/$4")" > "$S/mu300/manifest"
+        "$TAG" "$2" "$6" "$7" "$3" "$5" "$4" "$(sha "$R/$5")" "$(sha "$R/$4")" > "$S/openf50/manifest"
 }
 audit() {  # audit ZIP ROOTFS_ASSET KERNEL_ASSET: exactly the names it should hold, the payload stored
     printf '%s\n' $COMMON "payload/$2" "payload/$3" | LC_ALL=C sort > "$W/want"
@@ -2238,15 +2238,15 @@ audit() {  # audit ZIP ROOTFS_ASSET KERNEL_ASSET: exactly the names it should ho
     [ "$(unzip -Zv "$1" 'payload/*' | grep -c 'compression method: *none')" = 2 ] || { echo "$1: the payload is compressed" >&2; return 1; }
 }
 : > "$O/SHA256SUMS-magisk"
-for s in openwrt:mu300-openwrt-rootfs.tar.gz:openwrt: \
-         ubuntu-24.04:mu300-ubuntu-rootfs.tar.gz:ubuntu:24.04 \
-         ubuntu-26.04:mu300-ubuntu-26.04-rootfs.tar.gz:ubuntu:26.04; do
+for s in openwrt:openf50-openwrt-rootfs.tar.gz:openwrt: \
+         ubuntu-24.04:openf50-ubuntu-rootfs.tar.gz:ubuntu:24.04 \
+         ubuntu-26.04:openf50-ubuntu-26.04-rootfs.tar.gz:ubuntu:26.04; do
     name=${s%%:*}; rest=${s#*:}; rootfs=${rest%%:*}; rest=${rest#*:}; os=${rest%%:*}; ubuntu=${rest#*:}
-    for k in 5.4:mu300-kernel.tar.gz 6.18:mu300-kernel-6.18.tar.gz 7.2:mu300-kernel-7.2.tar.gz; do
+    for k in 5.4:openf50-kernel.tar.gz 6.18:openf50-kernel-6.18.tar.gz 7.2:openf50-kernel-7.2.tar.gz; do
         kv=${k%%:*}; kasset=${k#*:}
         # Ubuntu 26.04's programs need system calls 5.4 does not have (install.sh refuses the pair too)
         [ "$ubuntu" = 26.04 ] && [ "$kv" = 5.4 ] && continue
-        zip=mu300-magisk-$TAG-$name-k$kv.zip
+        zip=openf50-magisk-$TAG-$name-k$kv.zip
         S=$W/$name-$kv
         stage "$S" "$name" "$kv" "$rootfs" "$kasset" "$os" "$ubuntu"
         rm -f "$O/$zip"
@@ -2260,19 +2260,19 @@ for s in openwrt:mu300-openwrt-rootfs.tar.gz:openwrt: \
 done
 ```
 
-Write `fake_release` (in `tests/test_magisk_zip.py`) and `ReleaseZips` (for each zip in `MU300_MAGISK_ZIPS`: the
-allow-list, the manifest's hashes against `payload/`, then the dry run: unpack `mu300/`, build a `FakeDevice`, a
-`magiskboot` stub as in Task 5, run `busybox sh mu300/install.sh` with `MU300_DRY_RUN=1` in the fake `sdcard`'s conf
+Write `fake_release` (in `tests/test_magisk_zip.py`) and `ReleaseZips` (for each zip in `OPENF50_MAGISK_ZIPS`: the
+allow-list, the manifest's hashes against `payload/`, then the dry run: unpack `openf50/`, build a `FakeDevice`, a
+`magiskboot` stub as in Task 5, run `busybox sh openf50/install.sh` with `OPENF50_DRY_RUN=1` in the fake `sdcard`'s conf
 and `ZIPFILE` = the zip: exit 3, `Plan` printed, nothing written).
 
 - [ ] **Step 4: Run the tests** — `cd tests && python3 -m unittest test_magisk_zip -v` → PASS (`ReleaseZips` skipped).
 
 - [ ] **Step 5: Try it on a local release** — with a release directory that has every asset (e.g. `release/<newest>/`
-of the main checkout copied into a scratch directory together with its `mu300-update`):
+of the main checkout copied into a scratch directory together with its `openf50-update`):
 
 ```sh
-sh tools/make-magisk-zips.sh /path/to/release/v2026.10.08 /tmp/mu300-zips
-cd tests && MU300_MAGISK_ZIPS=/tmp/mu300-zips python3 -m unittest test_magisk_zip.ReleaseZips -v
+sh tools/make-magisk-zips.sh /path/to/release/v2026.10.08 /tmp/openf50-zips
+cd tests && OPENF50_MAGISK_ZIPS=/tmp/openf50-zips python3 -m unittest test_magisk_zip.ReleaseZips -v
 ```
 Expected: eight zips between ~70 and ~170 MB, `ReleaseZips` PASS.
 
@@ -2303,7 +2303,7 @@ name: Magisk installers
 # The Magisk zips of a release (tools/make-magisk-zips.sh): built from the release's own published assets as soon as
 # it is published (a prerelease too, which is how a release is tried first), tested, and attached to it. For an
 # existing release: Actions > Magisk installers > Run workflow, with its tag. The zips are checked out from the tag,
-# so the installer always matches the init and mu300-update of the release it installs.
+# so the installer always matches the init and openf50-update of the release it installs.
 on:
   release:
     types: [published]
@@ -2340,12 +2340,12 @@ jobs:
         run: |
           mkdir -p "release/$TAG"
           gh release download "$TAG" -R "$GITHUB_REPOSITORY" -D "release/$TAG" \
-            -p SHA256SUMS -p 'mu300-*.tar.gz' -p mu300-update
+            -p SHA256SUMS -p 'openf50-*.tar.gz' -p openf50-update
           (cd "release/$TAG" && sha256sum -c SHA256SUMS)
       - name: Build
         run: sh tools/make-magisk-zips.sh "release/$TAG" out "$TAG"
       - name: Test the zips
-        run: cd tests && MU300_MAGISK_ZIPS="$GITHUB_WORKSPACE/out" python3 -m unittest test_magisk_zip -v
+        run: cd tests && OPENF50_MAGISK_ZIPS="$GITHUB_WORKSPACE/out" python3 -m unittest test_magisk_zip -v
       - name: Attach to the release
         run: gh release upload "$TAG" -R "$GITHUB_REPOSITORY" --clobber out/*.zip out/SHA256SUMS-magisk
 ```
@@ -2354,7 +2354,7 @@ jobs:
 cpio already.
 
 - [ ] **Step 3: `installer.yml`** — add `'android/magisk/**'` to both `paths` lists and
-`android/magisk/installer/mu300-install.sh android/magisk/installer/customize.sh tools/android-boot-image.sh tools/make-magisk-zips.sh`
+`android/magisk/installer/openf50-install.sh android/magisk/installer/customize.sh tools/android-boot-image.sh tools/make-magisk-zips.sh`
 to the `for f in ...; do sh -n "$f"; done` list.
 
 - [ ] **Step 4: Check the YAML** — `python3 -c "import yaml,sys; [yaml.safe_load(open(f)) for f in sys.argv[1:]]" .github/workflows/*.yml`
@@ -2378,9 +2378,9 @@ the attached zips with Task 13 before any user is pointed at them.)
 - Modify: `README.md` (new section "Installing from Android with a Magisk zip" before "Starting Linux from Android without a computer"; that section points at it), `android/magisk/README.md` (the installer zip and the switch module are one module now), `tests/README.md` (the new test files)
 
 - [ ] **Step 1: README section** — the download story of the spec ("What the user gets", points 1-6), the table of
-zips, the `mu300-install.conf` table (keys, values, defaults), "Both systems: two zips", where the password is,
+zips, the `openf50-install.conf` table (keys, values, defaults), "Both systems: two zips", where the password is,
 what is written (the slot Android is not on, 32 bytes of misc, the region or the card), how to get back to Android
-(`mu300-next-boot android`, or failing boots), and that shrinking `userdata` needs the computer installer.
+(`openf50-next-boot android`, or failing boots), and that shrinking `userdata` needs the computer installer.
 
 - [ ] **Step 2: `android/magisk/README.md`** — the release zips install Linux and stay as this module; `build.sh` keeps
 building the switch-only module for computer installs; the slot wording from Task 3.
@@ -2409,30 +2409,30 @@ Task 1-3's init: build a local release with `tools/make-release.sh <tag>` (no `-
 - [ ] **Step 1: Keys** — `adb -s <serial> shell getevent -lp` on both boards; record in `docs/FINDINGS.md` which keys
 exist (settles the volume-key question in the spec).
 
-- [ ] **Step 2: F50, internal, update path** — `adb push mu300-magisk-<tag>-openwrt-k6.18.zip /sdcard/Download/`,
+- [ ] **Step 2: F50, internal, update path** — `adb push openf50-magisk-<tag>-openwrt-k6.18.zip /sdcard/Download/`,
 install it in the Magisk app (scrcpy), default answers. Expected output: plan with `storage: internal`, `keep`,
 `boot_b`, then `Done`. Reboot. OpenWrt boots (`ssh root@192.168.77.1` with the password from the output);
-`cat /run/mu300/linux-slot` → `b`; `mu300-update boot` reports "already up to date" or updates cleanly;
-`mu300-next-boot android`, reboot, Action button in Magisk → Linux again.
+`cat /run/openf50/linux-slot` → `b`; `openf50-update boot` reports "already up to date" or updates cleanly;
+`openf50-next-boot android`, reboot, Action button in Magisk → Linux again.
 
-- [ ] **Step 3: F50, SD card** — without a conf: the Ubuntu 24.04 k5.4 zip with `MU300_STORAGE=sd` only → refused,
+- [ ] **Step 3: F50, SD card** — without a conf: the Ubuntu 24.04 k5.4 zip with `OPENF50_STORAGE=sd` only → refused,
 `misc` unchanged (`dd if=/dev/block/by-name/misc bs=1 skip=2048 count=32 | od -An -tx1` before and after). With
-`MU300_SD_ERASE=yes` too, via `adb shell su -c 'magisk --install-module /sdcard/Download/<zip>'` → installs; boots
-from the card (`cat /run/mu300-root-dev` → `/dev/mmcblk1p1`).
+`OPENF50_SD_ERASE=yes` too, via `adb shell su -c 'magisk --install-module /sdcard/Download/<zip>'` → installs; boots
+from the card (`cat /run/openf50-root-dev` → `/dev/mmcblk1p1`).
 
-- [ ] **Step 4: U30 Air, two systems** — Ubuntu 26.04 k7.2 (internal), then OpenWrt k7.2. `mu300-os openwrt` and back.
+- [ ] **Step 4: U30 Air, two systems** — Ubuntu 26.04 k7.2 (internal), then OpenWrt k7.2. `openf50-os openwrt` and back.
 The device file says `u30air`; USB network on `192.168.78.1`.
 
 - [ ] **Step 5: Failure injection (F50)** — a zip with one byte of `payload/` flipped (`printf x | dd of=<zip> bs=1
-seek=<offset inside payload> conv=notrunc`): refused, nothing written. `MU300_DRY_RUN=1`: exit 3, nothing written.
+seek=<offset inside payload> conv=notrunc`): refused, nothing written. `OPENF50_DRY_RUN=1`: exit 3, nothing written.
 A card with an ext4 labelled `photos`: refused. `mv /data/adb/magisk/magiskboot{,.off}`: refused (move it back).
 
 - [ ] **Step 6: Reboot loop** — OpenWrt on 5.4 installed by the zip: 20 reboots in a row, every one reaches
-`mu300-boot-ok` (the pre-release check from the 2026-09-28 incident).
+`openf50-boot-ok` (the pre-release check from the 2026-09-28 incident).
 
 - [ ] **Step 7: Android on slot b** — only on a board whose slot b holds a complete Android (after an OTA), only after
 `sh tools/backup-full.sh`, with the serial console attached. Install a zip: the plan says `boot_a`; Linux boots;
-`cat /run/mu300/linux-slot` → `a`; `mu300-next-boot android` returns to Android on b. If no such board is available,
+`cat /run/openf50/linux-slot` → `a`; `openf50-next-boot android` returns to Android on b. If no such board is available,
 write in the PR description that the slot-b path is covered by unit tests only.
 
 - [ ] **Step 8: Record** — a `docs/FINDINGS.md` section "Magisk installer on the devices" with what was run and seen

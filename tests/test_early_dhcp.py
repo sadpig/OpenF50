@@ -10,7 +10,7 @@ from helpers import BIN, TOP, ShellTest
 
 
 OPENWRT = TOP / 'openwrt' / 'overlay'
-LUCI_DEFAULTS = TOP / 'openwrt' / 'luci-overlay' / 'etc' / 'uci-defaults' / '91-mu300-luci'
+LUCI_DEFAULTS = TOP / 'openwrt' / 'luci-overlay' / 'etc' / 'uci-defaults' / '91-openf50-luci'
 
 # A uci stand-in that keeps the configuration (JSON in $STUBLOG/uci.json) and logs every call to $STUBLOG/uci.log
 # ("uci ARGS", a batch's lines as "batch: LINE", commits to $STUBLOG/commits). It knows what the defaults scripts use:
@@ -158,20 +158,20 @@ class EarlyUsbOpenWrt(ShellTest):
             body = body.replace(old, new)
         return body
 
-    # --- preinit 06_mu300_early_usb (K11)
+    # --- preinit 06_openf50_early_usb (K11)
     def preinit(self, shell, lan, netmask=None):
         self.stub('uci', f'echo "uci $*" >> "$STUBLOG/uci.log"\n'
                          f'[ "$*" = "-q get network.lan.ipaddr" ] && {"echo " + repr(lan) if lan else "exit 1"}\n'
                          f'[ "$*" = "-q get network.lan.netmask" ] && {"echo " + repr(netmask) if netmask else "exit 1"}\n'
                          'exit 1')
-        self.stub('mu300-lan-ip', 'echo 192.168.78.1')
+        self.stub('openf50-lan-ip', 'echo 192.168.78.1')
         # (not named busybox: that would be the shell under test, first on PATH)
         self.stub('bb', 'echo "busybox $*" >> "$STUBLOG/bb.log"\n'
                              'case $1 in udhcpd) cp "$3" "$STUBLOG/udhcpd.conf" ;; esac')
-        body = self.text('lib/preinit/06_mu300_early_usb', **{'/lib/mu300/usb-host.sh': str(OPENWRT / 'lib' / 'mu300' / 'usb-host.sh'), 
-            '/opt/mu300/bin/busybox': f'{self.stubs}/bb', '/opt/mu300/bin/': f'{self.stubs}/', '/run/': f'{self.tmp}/run/',
+        body = self.text('lib/preinit/06_openf50_early_usb', **{'/lib/openf50/usb-host.sh': str(OPENWRT / 'lib' / 'openf50' / 'usb-host.sh'), 
+            '/opt/openf50/bin/busybox': f'{self.stubs}/bb', '/opt/openf50/bin/': f'{self.stubs}/', '/run/': f'{self.tmp}/run/',
             '/sys/class/net/': f'{self.tmp}/net/'})
-        r = self.sh(shell, 'boot_hook_add() { :; }\n' + body + '\nmu300_early_usb\nwait\n')
+        r = self.sh(shell, 'boot_hook_add() { :; }\n' + body + '\nopenf50_early_usb\nwait\n')
         self.assertEqual(0, r.returncode, r.stderr)
         conf = self.tmp / 'udhcpd.conf'
         return conf.read_text() if conf.exists() else None
@@ -188,7 +188,7 @@ class EarlyUsbOpenWrt(ShellTest):
                 self.assertNotIn('192.168.77', conf)
                 bb = (self.tmp / 'bb.log').read_text()
                 self.assertIn('busybox ifconfig usb0 10.1.2.1 netmask 255.255.255.0 up', bb)
-                self.assertTrue((self.tmp / 'run' / 'mu300-early-udhcpd.pid').read_text().strip().isdigit())
+                self.assertTrue((self.tmp / 'run' / 'openf50-early-udhcpd.pid').read_text().strip().isdigit())
                 self.tearDown(); self.setUp()
 
     def test_preinit_without_a_lan_address_takes_the_device_default(self):
@@ -234,13 +234,13 @@ class EarlyUsbOpenWrt(ShellTest):
     def test_preinit_without_a_gadget_does_nothing(self):
         for shell in self.each_shell():
             self.assertIsNone(self.preinit(shell, '10.1.2.1'))
-            self.assertFalse((self.tmp / 'run' / 'mu300-early-udhcpd.pid').exists())
+            self.assertFalse((self.tmp / 'run' / 'openf50-early-udhcpd.pid').exists())
             self.tearDown(); self.setUp()
 
-    # --- hotplug iface/10-mu300-usb (K9; K10 rejected: the re-enumeration stays)
+    # --- hotplug iface/10-openf50-usb (K9; K10 rejected: the re-enumeration stays)
     def hotplug(self, shell, stamp_age=None, bridge='10.1.2.1/24', port='10.1.2.1/24', rndis_port='yes',
                 rndis_addr='', usb0_port='yes'):
-        (self.tmp / 'run' / 'mu300-early-udhcpd.pid').write_text('4242\n')
+        (self.tmp / 'run' / 'openf50-early-udhcpd.pid').write_text('4242\n')
         (self.tmp / 'uptime').write_text('100.50 90.00\n')
         (self.tmp / 'mounts').write_text(f'configfs {self.tmp}/cfg configfs rw 0 0\n')
         g = self.tmp / 'cfg' / 'usb_gadget' / 'linux'
@@ -262,8 +262,8 @@ class EarlyUsbOpenWrt(ShellTest):
                         f'"-4 -o addr show dev usb0") echo "7: usb0    inet {port} scope global usb0" ;;\n'
                         f'"-4 -o addr show dev rndis0") [ -n "{rndis_addr}" ] && echo "8: rndis0    inet {rndis_addr} scope global rndis0" ;;\n'
                         'esac\nexit 0')
-        body = self.text('etc/hotplug.d/iface/10-mu300-usb', **{
-            '/run/': f'{self.tmp}/run/', '/sys/class/net/': f'{self.tmp}/net/', '/tmp/mu300-usb-rebound': f'{self.tmp}/stamp',
+        body = self.text('etc/hotplug.d/iface/10-openf50-usb', **{
+            '/run/': f'{self.tmp}/run/', '/sys/class/net/': f'{self.tmp}/net/', '/tmp/openf50-usb-rebound': f'{self.tmp}/stamp',
             '/sys/kernel/config': f'{self.tmp}/cfg', '/proc/uptime': f'{self.tmp}/uptime', '/proc/mounts': f'{self.tmp}/mounts'})
         code = ('kill() { echo "kill $*" >> "$STUBLOG/kill.log"; }; sleep() { :; }; logger() { :; }; mount() { :; }\n'
                 'ACTION=ifup INTERFACE=lan\n' + body)
@@ -276,7 +276,7 @@ class EarlyUsbOpenWrt(ShellTest):
             self.netdevs('usb0', 'rndis0')
             g = self.hotplug(shell)
             self.assertEqual('kill 4242\n', (self.tmp / 'kill.log').read_text())
-            self.assertFalse((self.tmp / 'run' / 'mu300-early-udhcpd.pid').exists())
+            self.assertFalse((self.tmp / 'run' / 'openf50-early-udhcpd.pid').exists())
             ip = (self.tmp / 'ip.log').read_text()
             self.assertIn('ip addr del 10.1.2.1/24 dev usb0\n', ip)
             self.assertNotIn('dev rndis0\nip addr del', ip)
@@ -351,25 +351,25 @@ class EarlyUsbOpenWrt(ShellTest):
             self.tearDown(); self.setUp()
 
     def test_other_events_do_nothing(self):
-        body = self.text('etc/hotplug.d/iface/10-mu300-usb', **{'/run/': f'{self.tmp}/run/'})
-        (self.tmp / 'run' / 'mu300-early-udhcpd.pid').write_text('4242\n')
+        body = self.text('etc/hotplug.d/iface/10-openf50-usb', **{'/run/': f'{self.tmp}/run/'})
+        (self.tmp / 'run' / 'openf50-early-udhcpd.pid').write_text('4242\n')
         for shell in self.each_shell():
             for env in ('ACTION=ifdown INTERFACE=lan', 'ACTION=ifup INTERFACE=wan'):
                 r = self.sh(shell, 'kill() { echo "kill $*" >> "$STUBLOG/kill.log"; }\n' + env + '\n' + body)
                 self.assertEqual(0, r.returncode)
                 self.assertFalse((self.tmp / 'kill.log').exists(), env)
 
-    # --- uci-defaults 90-mu300 (K25, K26, K27)
+    # --- uci-defaults 90-openf50 (K25, K26, K27)
     def defaults(self, shell, runs=1, mac='02:50:aa:bb:77:02', lan='192.168.77.1', config=None):
-        """Run 90-mu300 RUNS times against the uci stand-in, on CONFIG (a fresh first boot's when None and there is
+        """Run 90-openf50 RUNS times against the uci stand-in, on CONFIG (a fresh first boot's when None and there is
         none yet): uci.log."""
         (self.tmp / 'inittab').write_text('')
         if mac:
-            (self.tmp / 'run' / 'mu300-usb-host-mac').write_text(mac + '\n')
-        self.stub('mu300-lan-ip', f'echo {lan}')
+            (self.tmp / 'run' / 'openf50-usb-host-mac').write_text(mac + '\n')
+        self.stub('openf50-lan-ip', f'echo {lan}')
         self.uci_standin(config)
-        body = self.text('etc/uci-defaults/90-mu300', **{'/lib/mu300/usb-host.sh': str(OPENWRT / 'lib' / 'mu300' / 'usb-host.sh'), 
-            '/opt/mu300/bin/': f'{self.stubs}/', '/run/': f'{self.tmp}/run/', '/sys/': f'{self.tmp}/sys/',
+        body = self.text('etc/uci-defaults/90-openf50', **{'/lib/openf50/usb-host.sh': str(OPENWRT / 'lib' / 'openf50' / 'usb-host.sh'), 
+            '/opt/openf50/bin/': f'{self.stubs}/', '/run/': f'{self.tmp}/run/', '/sys/': f'{self.tmp}/sys/',
             '/etc/inittab': f'{self.tmp}/inittab', '/usr/lib/lua/luci/i18n/': f'{self.tmp}/i18n/'})
         for _ in range(runs):
             r = self.sh(shell, body)
@@ -392,8 +392,8 @@ class EarlyUsbOpenWrt(ShellTest):
     def test_defaults_pin_the_usb_host_with_broadcast(self):
         for shell in self.each_shell():
             log = self.defaults(shell)
-            for line in ("batch: set dhcp.mu300_usb=host", "batch: set dhcp.mu300_usb.mac='02:50:aa:bb:77:02'",
-                         "batch: set dhcp.mu300_usb.ip='192.168.77.200'", "batch: set dhcp.mu300_usb.broadcast='1'",
+            for line in ("batch: set dhcp.openf50_usb=host", "batch: set dhcp.openf50_usb.mac='02:50:aa:bb:77:02'",
+                         "batch: set dhcp.openf50_usb.ip='192.168.77.200'", "batch: set dhcp.openf50_usb.broadcast='1'",
                          'uci commit dhcp'):
                 self.assertIn(line + '\n', log)
             # Task 30's offloading stays
@@ -403,13 +403,13 @@ class EarlyUsbOpenWrt(ShellTest):
     def test_defaults_never_pin_the_router(self):
         for shell in self.each_shell():
             log = self.defaults(shell, lan='192.168.77.200')
-            self.assertIn("batch: set dhcp.mu300_usb.ip='192.168.77.199'\n", log)
+            self.assertIn("batch: set dhcp.openf50_usb.ip='192.168.77.199'\n", log)
             self.tearDown(); self.setUp()
 
     def test_defaults_without_a_known_host_mac_pin_nothing(self):
         for shell in self.each_shell():
             log = self.defaults(shell, mac=None)
-            self.assertNotIn('mu300_usb', log)
+            self.assertNotIn('openf50_usb', log)
             self.tearDown(); self.setUp()
 
     def test_defaults_add_the_earlyusb_zone_once(self):
@@ -433,7 +433,7 @@ class EarlyUsbOpenWrt(ShellTest):
             self.assertEqual(self.uci('get', 'firewall.@zone[1].device'), 'sipa_eth0 sipa_eth8')   # #67 + #72: both bearers
             self.tearDown(); self.setUp()
 
-    # --- hotplug.d/iface/19-mu300-fw4 (issue #67): the 5.4 kernel's stale flowtable before 20-firewall's reload
+    # --- hotplug.d/iface/19-openf50-fw4 (issue #67): the 5.4 kernel's stale flowtable before 20-firewall's reload
     def fw4_hook(self, shell, kernel='5.4.254', action='ifup', iface='lan', flowtable=True, in_zone=True):
         self.stub('uname', f'echo {kernel}')
         self.stub('fw4', 'echo "fw4 $*" >> "$STUBLOG/fw4.log"; ' + ('exit 0' if in_zone else 'exit 1'))
@@ -442,7 +442,7 @@ class EarlyUsbOpenWrt(ShellTest):
                          + ('printf "table inet fw4 {\\n\\tflowtable ft {\\n\\t}\\n}\\n"' if flowtable else ':')
                          + ' ;; esac')
         self.stub('logger', ':')
-        body = self.text('etc/hotplug.d/iface/19-mu300-fw4', **{'/etc/init.d/firewall enabled': 'true'})
+        body = self.text('etc/hotplug.d/iface/19-openf50-fw4', **{'/etc/init.d/firewall enabled': 'true'})
         r = self.sh(shell, f'ACTION={action} INTERFACE={iface}\n' + body)
         self.assertEqual(0, r.returncode, r.stderr)
         self.assertEqual('', r.stderr)
@@ -473,11 +473,11 @@ class EarlyUsbOpenWrt(ShellTest):
                 self.assertIn("uci set network.@device[0].bridge_empty=1\n", log)
                 self.tearDown(); self.setUp()
 
-    # --- 90-mu300 again after an update (a fresh rootfs, the kept /etc/config)
+    # --- 90-openf50 again after an update (a fresh rootfs, the kept /etc/config)
     USER = {'network.lan.ipaddr': '10.9.8.1', 'network.lan.netmask': '255.255.0.0', 'network.lan.ip6assign': '48',
             'network.wan.apn': 'internet.example', 'system.@system[0].hostname': 'myrouter',
             'system.@system[0].zonename': 'Europe/Berlin', 'system.@system[0].timezone': 'CET-1CEST,M3.5.0,M10.5.0/3',
-            'firewall.@defaults[0].flow_offloading': '0', 'dhcp.mu300_usb.ip': '10.9.8.50'}
+            'firewall.@defaults[0].flow_offloading': '0', 'dhcp.openf50_usb.ip': '10.9.8.50'}
 
     def user_changes(self):
         """What a user changes after the first install: USER, br-lan's members, and a wan6 of their own."""
@@ -493,23 +493,23 @@ class EarlyUsbOpenWrt(ShellTest):
         for shell in self.each_shell():
             log = self.defaults(shell)
             want = {'network.lan.ipaddr': '192.168.77.1', 'network.lan.netmask': '255.255.255.0',
-                    'network.lan.ip6assign': '64', 'network.wan.proto': 'mu300cell', 'network.wan.apn': '',
-                    'system.@system[0].hostname': 'mu300', 'system.@system[0].zonename': 'Europe/Istanbul',
+                    'network.lan.ip6assign': '64', 'network.wan.proto': 'openf50cell', 'network.wan.apn': '',
+                    'system.@system[0].hostname': 'openf50', 'system.@system[0].zonename': 'Europe/Istanbul',
                     'system.@system[0].timezone': '<+03>-3', 'firewall.@defaults[0].flow_offloading': '1',
                     'firewall.@defaults[0].flow_offloading_hw': '0', 'network.@device[0].ports': 'usb0',
-                    'network.@device[0].bridge_empty': '1', 'dhcp.mu300_usb.ip': '192.168.77.200',
-                    'system.mu300.defaults': '1'}
+                    'network.@device[0].bridge_empty': '1', 'dhcp.openf50_usb.ip': '192.168.77.200',
+                    'system.openf50.defaults': '1'}
             for k, v in want.items():
                 self.assertEqual(self.uci('get', k), v, (shell, k))
             self.assertIsNone(self.uci('get', 'network.wan6'))
             # the marker is set and committed after every other commit
             lines = log.splitlines()
-            self.assertEqual(lines[-2:], ["batch: set system.mu300.defaults='1'", 'uci commit system'])
+            self.assertEqual(lines[-2:], ["batch: set system.openf50.defaults='1'", 'uci commit system'])
             self.assertEqual((self.tmp / 'commits').read_text().split()[-2:], ['network', 'system'])
             self.tearDown(); self.setUp()
 
     def test_an_update_keeps_the_users_settings(self):
-        # the first boot after an update runs 90-mu300 again on the kept configuration: what the user set stays,
+        # the first boot after an update runs 90-openf50 again on the kept configuration: what the user set stays,
         # what the system needs is still there
         for shell in self.each_shell():
             self.defaults(shell)                                    # the first install
@@ -520,22 +520,22 @@ class EarlyUsbOpenWrt(ShellTest):
                 self.assertEqual(self.uci('get', k), v, (shell, k))
             self.assertEqual(self.uci('get', 'network.@device[0].ports'), 'usb0 eth9', shell)
             self.assertEqual(self.uci('get', 'network.wan6.proto'), 'dhcpv6', shell)
-            self.assertEqual(self.uci('get', 'dhcp.mu300_usb.mac'), '02:50:aa:bb:77:02', shell)
-            self.assertEqual(self.uci('get', 'network.wan.proto'), 'mu300cell', shell)
+            self.assertEqual(self.uci('get', 'dhcp.openf50_usb.mac'), '02:50:aa:bb:77:02', shell)
+            self.assertEqual(self.uci('get', 'network.wan.proto'), 'openf50cell', shell)
             self.assertEqual(self.uci('get', 'network.@device[0].bridge_empty'), '1', shell)
             self.assertEqual(self.uci('show', 'firewall').count("name='earlyusb'"), 1, shell)
             self.assertEqual((self.tmp / 'inittab').read_text().count('ttyGS0:'), 1, shell)
             self.tearDown(); self.setUp()
 
     def test_an_update_of_an_install_from_before_the_marker(self):
-        # set up by an earlier 90-mu300 (wan proto mu300cell, no marker, no K25 host entry, no earlyusb zone, no
+        # set up by an earlier 90-openf50 (wan proto openf50cell, no marker, no K25 host entry, no earlyusb zone, no
         # flowtable, no bridge_empty): the user's settings stay; it gets what it lacked, and the marker
         old = fresh_openwrt_config()
         for s in old['network']:
             if s['name'] == 'lan':
                 s['opts'].update(ipaddr='10.9.8.1', netmask='255.255.255.0', ip6assign='64')
             if s['name'] == 'wan':
-                s['opts'] = {'proto': 'mu300cell', 'apn': 'internet.example'}
+                s['opts'] = {'proto': 'openf50cell', 'apn': 'internet.example'}
             if s['type'] == 'device':
                 s['opts']['ports'] = ['usb0']
         old['network'] = [s for s in old['network'] if s['name'] != 'wan6']
@@ -544,10 +544,10 @@ class EarlyUsbOpenWrt(ShellTest):
             self.defaults(shell, config=old)
             for k, v in {'network.lan.ipaddr': '10.9.8.1', 'network.lan.ip6assign': '64',
                          'network.wan.apn': 'internet.example', 'system.@system[0].hostname': 'myrouter',
-                         'system.@system[0].zonename': 'Europe/Berlin', 'network.wan.proto': 'mu300cell',
+                         'system.@system[0].zonename': 'Europe/Berlin', 'network.wan.proto': 'openf50cell',
                          'firewall.@defaults[0].flow_offloading': '1', 'network.@device[0].bridge_empty': '1',
                          # the host entry on the LAN as configured, as preinit's early server gives it
-                         'dhcp.mu300_usb.ip': '10.9.8.200', 'system.mu300.defaults': '1'}.items():
+                         'dhcp.openf50_usb.ip': '10.9.8.200', 'system.openf50.defaults': '1'}.items():
                 self.assertEqual(self.uci('get', k), v, (shell, k))
             self.assertEqual(self.uci('show', 'firewall').count("name='earlyusb'"), 1, shell)
             # and from now on it is an update like any other: the flowtable the user turns off stays off
@@ -557,7 +557,7 @@ class EarlyUsbOpenWrt(ShellTest):
             self.tearDown(); self.setUp()
 
     def test_openwrt_luci_first_install_ends_with_ip6assign_60(self):
-        # 90-mu300 then 91-mu300-luci: the panel system's first install asks for a /60 from the ULA (K30); an update
+        # 90-openf50 then 91-openf50-luci: the panel system's first install asks for a /60 from the ULA (K30); an update
         # keeps what the user chose
         for shell in self.each_shell():
             self.defaults(shell)
@@ -596,7 +596,7 @@ class EarlyUsbOpenWrt(ShellTest):
         for shell in self.each_shell():
             self.defaults(shell)
             self.assertEqual(self.uci('get', 'luci.main.lang'), 'en', shell)
-            self.assertEqual(self.uci('get', 'luci.mu300.lang'), '1', shell)
+            self.assertEqual(self.uci('get', 'luci.openf50.lang'), '1', shell)
             self.assertEqual(self.script(shell, LUCI_DEFAULTS).returncode, 0)
             self.assertEqual(self.uci('get', 'luci.main.lang'), 'en', shell)
             for chosen in ('tr', 'auto', 'zh_cn'):
@@ -619,19 +619,19 @@ class EarlyUsbOpenWrt(ShellTest):
             self.assertNotIn('commit luci', log, shell)
             self.tearDown(); self.setUp()
 
-    # --- init.d/mu300-post (K13)
+    # --- init.d/openf50-post (K13)
     def test_post_bridges_usb1(self):
-        text = (OPENWRT / 'etc' / 'init.d' / 'mu300-post').read_text()
+        text = (OPENWRT / 'etc' / 'init.d' / 'openf50-post').read_text()
         self.assertIn('[ -e /sys/class/net/usb1 ] && ip link set usb1 master br-lan', text)
         # K12's gate was shown on macOS only (Windows and Linux hosts not measured): one behaviour for every host,
         # the lease check and the re-enumeration; the fork's one-shot rebind at boot is not started
-        self.assertIn('mu300-usb-reset --if-no-lease 25', text)
+        self.assertIn('openf50-usb-reset --if-no-lease 25', text)
         self.assertNotIn('usb-ready', text)
         self.assertNotIn('--fast-run', text)
 
     def test_overlay_scripts_are_executable(self):
-        # the fork's mu300-post and mu300-usb-reset (Task 26) run the LAN hook directly
-        for rel in ('lib/mu300/usb-host.sh', 'lib/preinit/06_mu300_early_usb', 'etc/hotplug.d/iface/10-mu300-usb', 'etc/uci-defaults/90-mu300'):
+        # the fork's openf50-post and openf50-usb-reset (Task 26) run the LAN hook directly
+        for rel in ('lib/openf50/usb-host.sh', 'lib/preinit/06_openf50_early_usb', 'etc/hotplug.d/iface/10-openf50-usb', 'etc/uci-defaults/90-openf50'):
             self.assertTrue((OPENWRT / rel).stat().st_mode & 0o111, rel)
 
 
@@ -645,7 +645,7 @@ class LanStartHandoff(ShellTest):
         self.stub('ip', 'echo "ip $*" >> "$STUBLOG/ip.log"; exit 0')
         self.stub('dnsmasq', 'echo "dnsmasq $*" >> "$STUBLOG/dnsmasq.log"')
         r = subprocess.run(['bash', str(BIN / 'lan-start')], capture_output=True, text=True,
-                           env=self.env(MU300_LAN_IP='10.1.2.1'), timeout=30)
+                           env=self.env(OPENF50_LAN_IP='10.1.2.1'), timeout=30)
         self.assertEqual(0, r.returncode, r.stderr)
         ip = (self.tmp / 'ip.log').read_text()
         self.assertIn('ip addr flush dev usb0\n', ip)

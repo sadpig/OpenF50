@@ -21,7 +21,7 @@ A separate patch: the trees prepared with 0001-0016 take it as it is.
  }
  
 +/*
-+ * MU300: the ZTE V50's eMMC host is never runtime-suspended. On a V50 under mainline, ext4 found directory entries
++ * OPENF50: the ZTE V50's eMMC host is never runtime-suspended. On a V50 under mainline, ext4 found directory entries
 + * of deleted inodes after reboots, again after an fsck; with its host kept awake from probe on (before the first
 + * autosuspend) the data survived a reboot (kano, 2026-10-14; FINDINGS 95). The V50 is told by its AW9523B LED
 + * controller, which no F50's or U30 Air's device tree has: on those nothing changes. It has no battery to save.
@@ -46,7 +46,7 @@ A separate patch: the trees prepared with 0001-0016 take it as it is.
  	pm_suspend_ignore_children(&pdev->dev, 1);
 +	if (sdhci_sprd_keep_awake(host)) {
 +		pm_runtime_forbid(&pdev->dev);
-+		dev_info(&pdev->dev, "MU300: ZTE V50, eMMC host kept awake\n");
++		dev_info(&pdev->dev, "OPENF50: ZTE V50, eMMC host kept awake\n");
 +	}
  
  	sdhci_enable_v4_mode(host);

@@ -148,7 +148,7 @@ export class FakeAdbd {
   }
 
   _banner() {
-    return Buffer.from(`device::ro.product.name=${this.o.product || "MU300"};ro.product.model=${this.o.model || "F50"};ro.product.device=${this.o.device || "mu300"};features=${this.o.features.join(",")}`);
+    return Buffer.from(`device::ro.product.name=${this.o.product || "OPENF50"};ro.product.model=${this.o.model || "F50"};ro.product.device=${this.o.device || "openf50"};features=${this.o.features.join(",")}`);
   }
 
   _goOnline() {
@@ -260,7 +260,7 @@ export class FakeAdbd {
     const frame = (id, data) => (v2 ? Buffer.concat([Buffer.from([id]), le32(data.length), Buffer.from(data)]) : Buffer.from(data));
     st.start = async () => {
       let userCmd = cmd, rcMark = null;
-      if (!v2) { const m = /; echo (MU300-ADB-RC=)\$\?$/.exec(cmd); if (m) { userCmd = cmd.slice(0, m.index); rcMark = m[1]; } }
+      if (!v2) { const m = /; echo (OPENF50-ADB-RC=)\$\?$/.exec(cmd); if (m) { userCmd = cmd.slice(0, m.index); rcMark = m[1]; } }
       const call = { cmd: userCmd, v2, killed: false };
       this.shellCalls.push(call);
       st.onClose = () => { call.killed = true; };

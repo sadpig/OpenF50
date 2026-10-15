@@ -1,4 +1,4 @@
-"""mu300-cpu: CPU performance profiles against a fake /sys (MU300_SYSROOT), a fake /run and a config file.
+"""openf50-cpu: CPU performance profiles against a fake /sys (OPENF50_SYSROOT), a fake /run and a config file.
 
 A profile is a governor and a per-cluster scaling_min/max inside the hardware frequency table; the tool never
 changes voltage and never touches the kernel thermal trips. These tests check the bounds (nothing is set outside
@@ -8,7 +8,7 @@ import unittest
 
 from helpers import ShellTest, BIN
 
-CPU = BIN / 'mu300-cpu'
+CPU = BIN / 'openf50-cpu'
 
 
 class CpuTest(ShellTest):
@@ -16,7 +16,7 @@ class CpuTest(ShellTest):
         super().setUp()
         self.root = self.tmp / 'root'
         self.run_dir = self.tmp / 'run'
-        (self.run_dir / 'mu300').mkdir(parents=True)
+        (self.run_dir / 'openf50').mkdir(parents=True)
         self.conf = self.tmp / 'cpu.conf'
         self.stub('logger', ':')
         self.cpufreq = self.root / 'sys/devices/system/cpu/cpufreq'
@@ -45,8 +45,8 @@ class CpuTest(ShellTest):
         self.policy('policy7', '7', [614400, 768000, 936000, 1105000, 1228800, 1378000, 1536000, 1703000, 1872000, 2041000, 2210000])
 
     def cpu(self, shell, args, **env):
-        return self.sh(shell, f'"{CPU}" {args}', MU300_SYSROOT=self.root, MU300_RUN=self.run_dir,
-                       MU300_CPU_CONF=self.conf, **env)
+        return self.sh(shell, f'"{CPU}" {args}', OPENF50_SYSROOT=self.root, OPENF50_RUN=self.run_dir,
+                       OPENF50_CPU_CONF=self.conf, **env)
 
     def read(self, policy, leaf):
         return (self.cpufreq / policy / leaf).read_text().strip()
@@ -131,13 +131,13 @@ class Ceiling(CpuTest):
         self.three_clusters()
         for shell in self.each_shell():
             self.cpu(shell, 'profile saving')
-            lines = (self.run_dir / 'mu300/cpu-ceiling').read_text().splitlines()
+            lines = (self.run_dir / 'openf50/cpu-ceiling').read_text().splitlines()
             got = dict(l.split('=') for l in lines if '=' in l)
             self.assertEqual(got['policy0'], '1105000')
             self.assertEqual(got['policy4'], '1326000')
             # performance then raises the ceiling back to the hardware maximum
             self.cpu(shell, 'profile performance')
-            lines = (self.run_dir / 'mu300/cpu-ceiling').read_text().splitlines()
+            lines = (self.run_dir / 'openf50/cpu-ceiling').read_text().splitlines()
             got = dict(l.split('=') for l in lines if '=' in l)
             self.assertEqual(got['policy0'], '2002000')
 
@@ -167,7 +167,7 @@ class Json(CpuTest):
             self.assertIn(st['throttling'], (0, 1))
 
     def thermal(self):
-        """the kernel's zones as mainline with mu300_thermal shows them: two physical zones without trips, the stock
+        """the kernel's zones as mainline with openf50_thermal shows them: two physical zones without trips, the stock
         soc-thmzone with its three trips and the cpufreq cooling devices bound (cdevK -> ../cooling_deviceM)"""
         th = self.root / 'sys/class/thermal'
         for i, (kind, temp) in enumerate((('lit0-thmzone', 51200), ('big7-thmzone', 56800))):
@@ -220,7 +220,7 @@ class Json(CpuTest):
 
     def test_throttling_reflects_the_alarm_flag(self):
         self.three_clusters()
-        (self.run_dir / 'mu300/thermal-alarm').write_text('')
+        (self.run_dir / 'openf50/thermal-alarm').write_text('')
         for shell in self.each_shell():
             st = json.loads(self.cpu(shell, 'status --json').stdout)
             self.assertEqual(st['throttling'], 1)

@@ -28,7 +28,7 @@ flowchart TD
 ```
 
 * **Ubuntu 26.04 needs 6.18 or 7.2.** Its programs use system calls 5.4 does not have.
-* **USB host mode on the U30 Air** (`mu300-usb host`) needs a mainline kernel.
+* **USB host mode on the U30 Air** (`openf50-usb host`) needs a mainline kernel.
 * **WireGuard:** the VPN module notes that the 5.4 vendor kernel has no WireGuard; mainline does.
 * **KVM** (`/dev/kvm`) is on all three.
 * **The mainline bundles** carry about 360 modules: WireGuard, SQM, tunnels, USB adapters and modems,
@@ -46,7 +46,7 @@ flowchart TD
 | kernel | version | notes |
 |---|---|---|
 | 5.4 | 5.4.254 | Unisoc's vendor kernel with the project's patches, unchanged since v2026.10.23, which added `NFT_QUEUE` (nftables' `queue` verdict, for userspace packet tools); since v2026.10.21 it no longer panics when a network namespace goes away (#103), and the Wi-Fi driver's routine lines are no longer errors (#140) |
-| 6.18 | 6.18.56 | longterm; BTF, BPF JIT, FunctionFS (for adb); rebuilt in v2026.10.25: the U30 Air's charger is also looked for at 0x1a (an SGM41513, #102); v2026.10.23 added the `mu300_thermal` module (the board's temperature as a thermal zone); since v2026.10.22 the F50's SD slot has real card detect (the EIC controller's six banks mapped), so an empty slot is no longer polled and no `mmc1` register dumps fill the log (#181); since v2026.10.21 the Wi-Fi driver can be unloaded (#146) and is quieter (#140) |
+| 6.18 | 6.18.56 | longterm; BTF, BPF JIT, FunctionFS (for adb); rebuilt in v2026.10.25: the U30 Air's charger is also looked for at 0x1a (an SGM41513, #102); v2026.10.23 added the `openf50_thermal` module (the board's temperature as a thermal zone); since v2026.10.22 the F50's SD slot has real card detect (the EIC controller's six banks mapped), so an empty slot is no longer polled and no `mmc1` register dumps fill the log (#181); since v2026.10.21 the Wi-Fi driver can be unloaded (#146) and is quieter (#140) |
 | 7.2 | 7.2.10 | stable; the same additions, the same card-detect fix, the same modules |
 
 The point releases bring, among others, a DWC3 USB fix for an IRQ storm that could panic the board, netfilter
@@ -57,20 +57,20 @@ boot image and 4 MiB of RAM.
 
 About once in 20 boots on one board, 6.18 stopped in its first seconds; the device then falls back to Android (it
 can take around 20 minutes, because each hang uses up several tries). Another F50 showed 0 hangs in 100 boots, as did
-7.2. Start Linux again with `su -c mu300-linux` in Android or the Magisk module's Action button. Details:
-[FINDINGS 31m](https://github.com/dikeckaan/mu300-linux/blob/main/docs/FINDINGS.md#31m-hard-hangs-in-the-first-seconds-under-618-open).
+7.2. Start Linux again with `su -c openf50-linux` in Android or the Magisk module's Action button. Details:
+[FINDINGS 31m](https://github.com/dikeckaan/openf50-linux/blob/main/docs/FINDINGS.md#31m-hard-hangs-in-the-first-seconds-under-618-open).
 
 ## Changing the kernel later
 
 On the device:
 
 ```sh
-sudo mu300-update kernel            # shows the current one
-sudo mu300-update kernel 6.18       # or 5.4, 7.2
+sudo openf50-update kernel            # shows the current one
+sudo openf50-update kernel 6.18       # or 5.4, 7.2
 sudo reboot
 ```
 
-The previous kernel and boot image are kept: `sudo mu300-update rollback-boot` goes back. A new kernel that does not
+The previous kernel and boot image are kept: `sudo openf50-update rollback-boot` goes back. A new kernel that does not
 start sends the device back to Android after the usual number of failed boots, even when Linux is locked (see
 [Going Back to Android](Going-Back-to-Android)).
 
@@ -80,7 +80,7 @@ start sends the device back to Android after the usual number of failed boots, e
   [dikeckaan/zte-ums9620-kernel-5.4.254](https://github.com/dikeckaan/zte-ums9620-kernel-5.4.254)), with Wi-Fi,
   Bluetooth and GPU drivers from realme's C51/C53 kernel release.
 * **6.18 and 7.2** are Linux from kernel.org with this project's patches and the vendor drivers ported to them
-  ([`upstream/`](https://github.com/dikeckaan/mu300-linux/tree/main/upstream)). A CI job builds the port every week
+  ([`upstream/`](https://github.com/dikeckaan/openf50-linux/tree/main/upstream)). A CI job builds the port every week
   against the newest longterm and stable kernels.
 
 The F50 and the U30 Air run the same kernel; the U30 Air's boot image loads a handful of different drivers for its

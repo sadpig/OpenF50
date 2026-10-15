@@ -1,7 +1,7 @@
 Use the generic wifi_board_config.ini for unknown projects.
 
 The realme C51/C53 driver falls through to wifi_board_config_hulk.ini for any
-project name it does not know. The ZTE F50/MU300 ships wifi_board_config.ini,
+project name it does not know. The ZTE F50/OPENF50 ships wifi_board_config.ini,
 so the firmware asserts with CMD_DOWNLOAD_INI / LOAD_INI_DATA_FAILED.
 
 --- a/sc2355/hw_param.c

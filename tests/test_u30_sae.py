@@ -58,10 +58,10 @@ int main(void) {
 ''')
         cls.exe = work / 'check'
         # Sanitizers are optional on desktop hosts whose compiler has no runtime library.
-        # CI can require them with MU300_TEST_UBSAN=1.
+        # CI can require them with OPENF50_TEST_UBSAN=1.
         probe = subprocess.run([cc, '-fsanitize=undefined', '-x', 'c', '-', '-o', str(work / 'probe')],
                                input='int main(void) { return 0; }', capture_output=True, text=True)
-        if os.environ.get('MU300_TEST_UBSAN') == '1' and probe.returncode:
+        if os.environ.get('OPENF50_TEST_UBSAN') == '1' and probe.returncode:
             raise AssertionError('UBSan was required but its compiler/runtime is unavailable: ' + probe.stderr)
         flags = ['-fsanitize=undefined', '-fno-sanitize-recover=all'] if not probe.returncode else []
         cls.sanitizer_flags = flags
@@ -278,7 +278,7 @@ wireless.ap0=wifi-iface
 wireless.ap0.device='radio0'
 wireless.ap0.mode='ap'
 wireless.ap0.ifname='wlan0'
-wireless.ap0.ssid='MU300-TEST'
+wireless.ap0.ssid='OPENF50-TEST'
 wireless.ap0.encryption='sae'
 wireless.ap0.key='synthetic-test-password'
 wireless.ap0.ieee80211w='2'
@@ -302,7 +302,7 @@ class SaeGuard(ShellTest):
     def setUp(self):
         super().setUp()
         self.root = self.tmp / 'root'
-        for d in ('etc/mu300', 'etc/config', 'etc/init.d', 'usr/sbin', 'run/mu300/power'):
+        for d in ('etc/openf50', 'etc/config', 'etc/init.d', 'usr/sbin', 'run/openf50/power'):
             (self.root / d).mkdir(parents=True)
         (self.root / 'etc/openwrt_release').write_text('DISTRIB_ID=OpenWrt\n')
         (self.root / 'etc/config/wireless').write_text('the file as it was\n')
@@ -328,11 +328,11 @@ class SaeGuard(ShellTest):
         for f in ('uci.log', 'ubus.log', 'wifi.log', 'logger.log', 'ap-after'):
             (self.tmp / f).unlink(missing_ok=True)
         for f in ('wireless.sae-offload', 'wireless.sae-offload.why'):
-            (self.root / 'etc/mu300' / f).unlink(missing_ok=True)
+            (self.root / 'etc/openf50' / f).unlink(missing_ok=True)
         if up_after:
             (self.tmp / 'ap-after').write_text(str(up_after))
         # two more looks, a second apart (busybox ash runs its own sleep, so a stub would not be asked)
-        r = self.script(shell, self.GUARD, mode, MU300_SYSROOT=self.root, MU300_SAE_WAIT=2, MU300_SAE_STEP=1)
+        r = self.script(shell, self.GUARD, mode, OPENF50_SYSROOT=self.root, OPENF50_SAE_WAIT=2, OPENF50_SAE_STEP=1)
         self.assertEqual(r.returncode, 0, r.stderr)
         return r
 
@@ -345,7 +345,7 @@ class SaeGuard(ShellTest):
         self.assertEqual((self.tmp / 'uci.state').read_text(), state)
         self.assertEqual([c for c in self.log('uci.log') if not c.startswith('get ')], [])
         self.assertEqual(self.log('wifi.log') + self.log('logger.log'), [])
-        self.assertEqual(sorted(p.name for p in (self.root / 'etc/mu300').iterdir()), [])
+        self.assertEqual(sorted(p.name for p in (self.root / 'etc/openf50').iterdir()), [])
 
     def assertWpa2(self, r, reason):
         state = (self.tmp / 'uci.state').read_text()
@@ -361,12 +361,12 @@ class SaeGuard(ShellTest):
         self.assertNotIn('synthetic-test-password', r.stderr + '\n'.join(self.log('logger.log')))
         self.assertEqual(len(self.log('logger.log')), 1)
         self.assertIn('-p daemon.err', self.log('logger.log')[0])
-        saved = self.root / 'etc/mu300/wireless.sae-offload'
+        saved = self.root / 'etc/openf50/wireless.sae-offload'
         self.assertEqual(saved.read_text(), 'the file as it was\n')
         self.assertEqual(saved.stat().st_mode & 0o077, 0)
         # the log keeps the line for minutes (the driver's own lines push it out): the reason and the time stay
         # next to the settings, without the password
-        why = (self.root / 'etc/mu300/wireless.sae-offload.why').read_text()
+        why = (self.root / 'etc/openf50/wireless.sae-offload.why').read_text()
         self.assertRegex(why, r'^\d{4}-\d\d-\d\d \d\d:\d\d:\d\d WPA3 hotspot \(U30 SAE offload\): ' + reason + r'\. ')
         self.assertEqual(why.count('\n'), 1)
         self.assertNotIn('synthetic-test-password', why)
@@ -394,7 +394,7 @@ class SaeGuard(ShellTest):
         for shell in self.each_shell():
             r = self.run_guard(shell, 'precheck', SAE_STATE)
             self.assertWpa2(r, 'the installed hostapd does not have it')
-            # mu300-hw brings Wi-Fi up right after; the client mode's disabled access point is repaired too
+            # openf50-hw brings Wi-Fi up right after; the client mode's disabled access point is repaired too
             self.assertEqual(self.log('wifi.log'), [])
             r = self.run_guard(shell, 'precheck', SAE_STATE + "wireless.ap0.disabled='1'\n")
             self.assertWpa2(r, 'the installed hostapd does not have it')
@@ -419,21 +419,21 @@ class SaeGuard(ShellTest):
             for state in (SAE_STATE + "wireless.ap0.disabled='1'\n", SAE_STATE + "wireless.radio0.disabled='1'\n",
                           SAE_STATE.replace("mode='ap'", "mode='sta'")):
                 self.assertUntouched(self.run_guard(shell, 'verify', state), state)
-            for marker in ('run/mu300-wifi-client.active', 'run/mu300-wifi-scan-mode', 'run/mu300/power/hotspot-off'):
+            for marker in ('run/openf50-wifi-client.active', 'run/openf50-wifi-scan-mode', 'run/openf50/power/hotspot-off'):
                 (self.root / marker).write_text('')
                 self.assertUntouched(self.run_guard(shell, 'verify', SAE_STATE), SAE_STATE)
                 (self.root / marker).unlink()
 
     def test_boot_calls_it_before_wifi_up_and_after_the_retry(self):
-        hw = (TOP / 'openwrt/overlay/etc/init.d/mu300-hw').read_text()
+        hw = (TOP / 'openwrt/overlay/etc/init.d/openf50-hw').read_text()
         self.assertLess(hw.index('openwrt-wifi-config'), hw.index('openwrt-wifi-sae-guard precheck'))
         self.assertLess(hw.index('openwrt-wifi-sae-guard precheck'), hw.index('\twifi down >>'))
-        post = (TOP / 'openwrt/overlay/etc/init.d/mu300-post').read_text()
+        post = (TOP / 'openwrt/overlay/etc/init.d/openf50-post').read_text()
         self.assertLess(post.index("'AP not up, retrying'; wifi up"), post.index('openwrt-wifi-sae-guard verify'))
 
 
-@unittest.skipUnless(os.environ.get('MU300_WRT_IMAGE') and shutil.which('docker'),
-                     'MU300_WRT_IMAGE (an OpenWrt 25.12 arm64 docker image) not set')
+@unittest.skipUnless(os.environ.get('OPENF50_WRT_IMAGE') and shutil.which('docker'),
+                     'OPENF50_WRT_IMAGE (an OpenWrt 25.12 arm64 docker image) not set')
 class SaeWifiScripts(unittest.TestCase):
     """OpenWrt's wifi-scripts for a fake wiphy (as test_wifi_channels): the hostapd configuration of the documented
     opt-in, and of what openwrt-wifi-sae-guard leaves behind."""
@@ -467,7 +467,7 @@ done
 """
             r = subprocess.run(['docker', 'run', '--rm', '--platform', 'linux/arm64',
                                 '-v', f'{channels.FIXTURES}:/fx:ro', '-v', f'{d}:/t',
-                                os.environ['MU300_WRT_IMAGE'], '/bin/sh', '-c', script],
+                                os.environ['OPENF50_WRT_IMAGE'], '/bin/sh', '-c', script],
                                capture_output=True, text=True, timeout=900)
             self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
 

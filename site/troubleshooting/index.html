@@ -3,28 +3,28 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<script>try{var t=localStorage.getItem("mu300-theme");if(t==="light"||t==="dark")document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
-<title>Troubleshooting MU300 Linux on the ZTE F50 / MU300 and U30 Air</title>
-<meta name="description" content="Fixes for common problems with Linux on the ZTE F50 / MU300 and U30 Air: the installer, no USB address, no internet, falling back to Android, OpenWrt on kernel 5.4, slow downloads and known issues.">
-<link rel="canonical" href="https://kaandikec.com/mu300-linux/troubleshooting/">
-<link rel="alternate" hreflang="en" href="https://kaandikec.com/mu300-linux/troubleshooting/">
-<link rel="alternate" hreflang="tr" href="https://kaandikec.com/mu300-linux/tr/troubleshooting/">
-<link rel="alternate" hreflang="zh-Hans" href="https://kaandikec.com/mu300-linux/zh/troubleshooting/">
-<link rel="alternate" hreflang="x-default" href="https://kaandikec.com/mu300-linux/troubleshooting/">
+<script>try{var t=localStorage.getItem("openf50-theme");if(t==="light"||t==="dark")document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
+<title>Troubleshooting OPENF50 Linux on the ZTE F50 / OPENF50 and U30 Air</title>
+<meta name="description" content="Fixes for common problems with Linux on the ZTE F50 / OPENF50 and U30 Air: the installer, no USB address, no internet, falling back to Android, OpenWrt on kernel 5.4, slow downloads and known issues.">
+<link rel="canonical" href="https://kaandikec.com/openf50-linux/troubleshooting/">
+<link rel="alternate" hreflang="en" href="https://kaandikec.com/openf50-linux/troubleshooting/">
+<link rel="alternate" hreflang="tr" href="https://kaandikec.com/openf50-linux/tr/troubleshooting/">
+<link rel="alternate" hreflang="zh-Hans" href="https://kaandikec.com/openf50-linux/zh/troubleshooting/">
+<link rel="alternate" hreflang="x-default" href="https://kaandikec.com/openf50-linux/troubleshooting/">
 <meta property="og:type" content="website">
-<meta property="og:site_name" content="MU300 Linux">
-<meta property="og:title" content="Troubleshooting MU300 Linux on the ZTE F50 / MU300 and U30 Air">
-<meta property="og:description" content="Fixes for common problems with Linux on the ZTE F50 / MU300 and U30 Air: the installer, no USB address, no internet, falling back to Android, OpenWrt on kernel 5.4, slow downloads and known issues.">
-<meta property="og:url" content="https://kaandikec.com/mu300-linux/troubleshooting/">
+<meta property="og:site_name" content="OPENF50 Linux">
+<meta property="og:title" content="Troubleshooting OPENF50 Linux on the ZTE F50 / OPENF50 and U30 Air">
+<meta property="og:description" content="Fixes for common problems with Linux on the ZTE F50 / OPENF50 and U30 Air: the installer, no USB address, no internet, falling back to Android, OpenWrt on kernel 5.4, slow downloads and known issues.">
+<meta property="og:url" content="https://kaandikec.com/openf50-linux/troubleshooting/">
 <meta property="og:locale" content="en_US">
-<meta property="og:image" content="https://kaandikec.com/mu300-linux/assets/img/og-image.png">
+<meta property="og:image" content="https://kaandikec.com/openf50-linux/assets/img/og-image.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta property="og:image:alt" content="A 5G pocket hotspot with two rooms, one for Android and one for Linux">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="Troubleshooting MU300 Linux on the ZTE F50 / MU300 and U30 Air">
-<meta name="twitter:description" content="Fixes for common problems with Linux on the ZTE F50 / MU300 and U30 Air: the installer, no USB address, no internet, falling back to Android, OpenWrt on kernel 5.4, slow downloads and known issues.">
-<meta name="twitter:image" content="https://kaandikec.com/mu300-linux/assets/img/og-image.png">
+<meta name="twitter:title" content="Troubleshooting OPENF50 Linux on the ZTE F50 / OPENF50 and U30 Air">
+<meta name="twitter:description" content="Fixes for common problems with Linux on the ZTE F50 / OPENF50 and U30 Air: the installer, no USB address, no internet, falling back to Android, OpenWrt on kernel 5.4, slow downloads and known issues.">
+<meta name="twitter:image" content="https://kaandikec.com/openf50-linux/assets/img/og-image.png">
 <meta name="theme-color" content="#f3f6fa" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#0d1520" media="(prefers-color-scheme: dark)">
 <link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
@@ -42,13 +42,13 @@
    "@type": "ListItem",
    "position": 1,
    "name": "Home",
-   "item": "https://kaandikec.com/mu300-linux/"
+   "item": "https://kaandikec.com/openf50-linux/"
   },
   {
    "@type": "ListItem",
    "position": 2,
    "name": "Troubleshooting",
-   "item": "https://kaandikec.com/mu300-linux/troubleshooting/"
+   "item": "https://kaandikec.com/openf50-linux/troubleshooting/"
   }
  ]
 }
@@ -58,7 +58,7 @@
 <a class="skip" href="#content">Skip to the content</a>
 <header class="site-header">
 <div class="wrap">
-<a class="brand" href="../"><svg viewBox="0 0 64 64" aria-hidden="true"><rect x="6" y="8" width="52" height="50" rx="12" fill="none" stroke="currentColor" stroke-width="4"/><circle cx="22" cy="20" r="3.5" fill="#2259d6"/><circle cx="32" cy="20" r="3.5" fill="currentColor"/><circle cx="42" cy="20" r="3.5" fill="#f2b23a"/><path d="M17 32 l9 7 l-9 7" fill="none" stroke="#f2b23a" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M30 47 h15" stroke="#f2b23a" stroke-width="4.5" stroke-linecap="round"/></svg>MU300 Linux</a>
+<a class="brand" href="../"><svg viewBox="0 0 64 64" aria-hidden="true"><rect x="6" y="8" width="52" height="50" rx="12" fill="none" stroke="currentColor" stroke-width="4"/><circle cx="22" cy="20" r="3.5" fill="#2259d6"/><circle cx="32" cy="20" r="3.5" fill="currentColor"/><circle cx="42" cy="20" r="3.5" fill="#f2b23a"/><path d="M17 32 l9 7 l-9 7" fill="none" stroke="#f2b23a" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M30 47 h15" stroke="#f2b23a" stroke-width="4.5" stroke-linecap="round"/></svg>OPENF50 Linux</a>
 <nav class="site-nav" id="site-nav" aria-label="Main">
 <a href="../install/">Install</a>
 <a href="../web-installer/">Web installer</a>
@@ -66,7 +66,7 @@
 <a href="../features/">Features</a>
 <a href="../updates/">Updates and safety</a>
 <a href="../troubleshooting/" aria-current="page">Troubleshooting</a>
-<a href="https://github.com/dikeckaan/mu300-linux">GitHub</a>
+<a href="https://github.com/dikeckaan/openf50-linux">GitHub</a>
 <span class="langs" role="group" aria-label="Language"><a href="../troubleshooting/" hreflang="en" lang="en" aria-current="true">English</a><a href="../tr/troubleshooting/" hreflang="tr" lang="tr">Türkçe</a><a href="../zh/troubleshooting/" hreflang="zh-Hans" lang="zh-Hans">中文</a></span>
 </nav>
 <button class="theme-btn" type="button" hidden data-labels="Theme|Auto|Light|Dark|follows your system|Change the colour theme"><svg class="i-auto" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 3.5a8.5 8.5 0 0 1 0 17z" fill="currentColor"/></svg><svg class="i-light" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1 7 17M17 7l2.1-2.1" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><svg class="i-dark" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg><span class="theme-name"></span></button>
@@ -101,7 +101,7 @@ adb shell su -c id</code></pre><p>The device should be listed as <code>device</c
 
 <section id="no-space">
 <h3>The check finds no free space</h3>
-<p>That is the 32 GB variant, where <code>userdata</code> fills the disk. Use an SD card (F50), or let the installer shrink <code>userdata</code>, which erases Android's data: see <a href="../install/#variant-32gb">the 32 GB variant</a>. If the numbers look like neither the 64 GB nor the 32 GB device, <a href="https://github.com/dikeckaan/mu300-linux/issues">open an issue</a> with what <code>--check</code> printed.</p>
+<p>That is the 32 GB variant, where <code>userdata</code> fills the disk. Use an SD card (F50), or let the installer shrink <code>userdata</code>, which erases Android's data: see <a href="../install/#variant-32gb">the 32 GB variant</a>. If the numbers look like neither the 64 GB nor the 32 GB device, <a href="https://github.com/dikeckaan/openf50-linux/issues">open an issue</a> with what <code>--check</code> printed.</p>
 </section>
 
 <section id="not-empty">
@@ -116,7 +116,7 @@ adb shell su -c id</code></pre><p>The device should be listed as <code>device</c
 
 <section id="slow-downloads">
 <h3>Downloads are slow</h3>
-<p>GitHub's download servers throttle single connections in some regions. The installer already downloads in 8 parallel chunks; set <code>MU300_FETCH_JOBS</code> to change that, or point <code>MU300_RELEASE_URL</code> at your own mirror of the release files.</p>
+<p>GitHub's download servers throttle single connections in some regions. The installer already downloads in 8 parallel chunks; set <code>OPENF50_FETCH_JOBS</code> to change that, or point <code>OPENF50_RELEASE_URL</code> at your own mirror of the release files.</p>
 </section>
 
 <h2 id="after">After installing</h2>
@@ -128,7 +128,7 @@ adb shell su -c id</code></pre><p>The device should be listed as <code>device</c
 
 <section id="no-address">
 <h3>The computer sees the device but gets no address (macOS)</h3>
-<p>macOS does not set up a network interface it has never seen while the screen is locked. Each device has its own USB MAC address, so the first time one is plugged in (or after an update that brought these addresses), unlock the Mac and the interface appears. With an F50 and a U30 Air plugged in, they are <code>192.168.77.1</code> and <code>192.168.78.1</code>; two of the same kind need <code>/etc/mu300/lan.conf</code> to tell them apart. The serial console (<code>screen /dev/cu.usbmodem* 115200</code>) works even without the network.</p>
+<p>macOS does not set up a network interface it has never seen while the screen is locked. Each device has its own USB MAC address, so the first time one is plugged in (or after an update that brought these addresses), unlock the Mac and the interface appears. With an F50 and a U30 Air plugged in, they are <code>192.168.77.1</code> and <code>192.168.78.1</code>; two of the same kind need <code>/etc/openf50/lan.conf</code> to tell them apart. The serial console (<code>screen /dev/cu.usbmodem* 115200</code>) works even without the network.</p>
 </section>
 
 <section id="no-internet">
@@ -138,12 +138,12 @@ adb shell su -c id</code></pre><p>The device should be listed as <code>device</c
 
 <section id="kernel-618">
 <h3>Back in Android without asking, on kernel 6.18</h3>
-<p>On some boards 6.18 hangs in its first seconds now and then (the README measured about one start in 20 on one board; the latest release notes saw 2 in 50 on one board and none in 100 on another, and none in 100 on 7.2). The device then falls back to Android, unless Linux is locked, in which case it starts Linux again. Start Linux again with <code>su -c mu300-linux</code> or the Magisk module's Action button, or switch to 7.2 or 5.4. Details: <a href="https://github.com/dikeckaan/mu300-linux/blob/main/docs/FINDINGS.md">FINDINGS 31m</a>.</p>
+<p>On some boards 6.18 hangs in its first seconds now and then (the README measured about one start in 20 on one board; the latest release notes saw 2 in 50 on one board and none in 100 on another, and none in 100 on 7.2). The device then falls back to Android, unless Linux is locked, in which case it starts Linux again. Start Linux again with <code>su -c openf50-linux</code> or the Magisk module's Action button, or switch to 7.2 or 5.4. Details: <a href="https://github.com/dikeckaan/openf50-linux/blob/main/docs/FINDINGS.md">FINDINGS 31m</a>.</p>
 </section>
 
 <section id="android-after-update">
 <h3>Back in Android after an update</h3>
-<p>With older boot images (v2026.09.27 and before), a single crash or reset of Linux makes the device fall back to Android and stay there. Start Linux again with <code>su -c mu300-linux</code>, then update as described in <a href="../updates/#update">updating</a>. If Linux does not start any more, run the installer again from a computer and choose <code>update</code>: it writes a fresh boot image and keeps your settings and data.</p>
+<p>With older boot images (v2026.09.27 and before), a single crash or reset of Linux makes the device fall back to Android and stay there. Start Linux again with <code>su -c openf50-linux</code>, then update as described in <a href="../updates/#update">updating</a>. If Linux does not start any more, run the installer again from a computer and choose <code>update</code>: it writes a fresh boot image and keeps your settings and data.</p>
 </section>
 
 <section id="openwrt-54">
@@ -158,12 +158,12 @@ adb shell su -c id</code></pre><p>The device should be listed as <code>device</c
 
 <section id="panel-stuck">
 <h3>The control panel went blank after an AT command got stuck</h3>
-<p>On OpenWrt with the control panel, up to v2026.10.18, one stuck AT command could blank every page for minutes, even the battery tile, also after a restart. Fixed from v2026.10.20 on: the pages keep their last readings and say how old they are, and an AT command on OpenWrt takes 0.13 s instead of a second. On an older release wait it out, or restart <code>rpcd</code> and <code>mu300-atd</code>.</p>
+<p>On OpenWrt with the control panel, up to v2026.10.18, one stuck AT command could blank every page for minutes, even the battery tile, also after a restart. Fixed from v2026.10.20 on: the pages keep their last readings and say how old they are, and an AT command on OpenWrt takes 0.13 s instead of a second. On an older release wait it out, or restart <code>rpcd</code> and <code>openf50-atd</code>.</p>
 </section>
 
 <section id="sms-600">
 <h3>Sending an SMS fails with <code>SMS FAILED: CODE:600</code>, or the panel's log says <code>sms_send - killed</code></h3>
-<p>Up to v2026.10.21, on some networks (China Broadnet, issue #176) the modem's IMS stack refused every submission (<code>+SPIMSREASON: 1,512,"SMS FAILED: CODE:600 REASON:Busy Everywhere"</code> in the URC log) while incoming messages arrived; and on OpenWrt with the control panel a send that took longer than 30 s was killed together with the panel's request, leaving <code>sms_send - killed</code> in the operations log and no word on whether the message went out. Fixed from v2026.10.22 on: a send is one AT transaction (the channel is held from the setup to the submission, so no other client gets in between) and the SMSC the modem reports is written back to it unchanged before each one, in <code>mu300-sms</code> and the panel on OpenWrt and in <code>sms</code> on Ubuntu; the panel starts the send in the background and follows it, also after a reload. On an older release write the SMSC back yourself (<code>mu300-at 'AT+CSCA?'</code>, then <code>mu300-at 'AT+CSCA="&lt;the value it showed&gt;",&lt;the type&gt;'</code>, with <code>sudo</code> on Ubuntu) and send from the shell while the panel is idle (<code>mu300-sms send NUMBER TEXT</code> on OpenWrt, <code>sudo sms send NUMBER TEXT</code> on Ubuntu).</p>
+<p>Up to v2026.10.21, on some networks (China Broadnet, issue #176) the modem's IMS stack refused every submission (<code>+SPIMSREASON: 1,512,"SMS FAILED: CODE:600 REASON:Busy Everywhere"</code> in the URC log) while incoming messages arrived; and on OpenWrt with the control panel a send that took longer than 30 s was killed together with the panel's request, leaving <code>sms_send - killed</code> in the operations log and no word on whether the message went out. Fixed from v2026.10.22 on: a send is one AT transaction (the channel is held from the setup to the submission, so no other client gets in between) and the SMSC the modem reports is written back to it unchanged before each one, in <code>openf50-sms</code> and the panel on OpenWrt and in <code>sms</code> on Ubuntu; the panel starts the send in the background and follows it, also after a reload. On an older release write the SMSC back yourself (<code>openf50-at 'AT+CSCA?'</code>, then <code>openf50-at 'AT+CSCA="&lt;the value it showed&gt;",&lt;the type&gt;'</code>, with <code>sudo</code> on Ubuntu) and send from the shell while the panel is idle (<code>openf50-sms send NUMBER TEXT</code> on OpenWrt, <code>sudo sms send NUMBER TEXT</code> on Ubuntu).</p>
 </section>
 
 <section id="netns-panic">
@@ -203,7 +203,7 @@ adb shell su -c id</code></pre><p>The device should be listed as <code>device</c
 
 <section id="journal">
 <h3>Kernel warnings are not in <code>journalctl -k</code></h3>
-<p>On Ubuntu they are in <code>journalctl -t kernel</code>: warnings and errors only, from the start of each boot, with repeating vendor chatter left out (<code>/etc/mu300/kmsg-ignore</code>). Everything else is in <code>dmesg</code>.</p>
+<p>On Ubuntu they are in <code>journalctl -t kernel</code>: warnings and errors only, from the start of each boot, with repeating vendor chatter left out (<code>/etc/openf50/kmsg-ignore</code>). Everything else is in <code>dmesg</code>.</p>
 </section>
 
 <h2 id="known">Known issues in the current release</h2>
@@ -216,23 +216,23 @@ fail</code> while it drops packets. The transfer completes.</li>
 <li>Updating from v2026.10.14 or older prints "could not arm the Linux slot for a trial". The fallback to Android after
 failed starts still works.</li>
 </ul>
-<p>Each release's notes list its own: <a href="https://github.com/dikeckaan/mu300-linux/releases">releases</a>.</p>
+<p>Each release's notes list its own: <a href="https://github.com/dikeckaan/openf50-linux/releases">releases</a>.</p>
 
 <div class="callout warn" id="sysupgrade">
 <strong>Never use OpenWrt's <code>sysupgrade</code> or flash OpenWrt firmware images</strong>
 <p>They are written for ordinary routers and would overwrite the device's storage. A normal <code>apk upgrade</code> is
-fine, except the <code>kernel</code> and <code>kmod-*</code> packages. Update with <code>mu300-update</code>.</p>
+fine, except the <code>kernel</code> and <code>kmod-*</code> packages. Update with <code>openf50-update</code>.</p>
 </div>
 
 <h2 id="help">Asking for help</h2>
 <ol>
-<li>Look through the <a href="https://github.com/dikeckaan/mu300-linux/issues?q=is%3Aissue">existing issues</a>.</li>
+<li>Look through the <a href="https://github.com/dikeckaan/openf50-linux/issues?q=is%3Aissue">existing issues</a>.</li>
 <li>Collect logs with <code>tools/collect-logs.sh</code>, and copy what <code>./install.sh --check</code> prints.</li>
-<li>Remove anything private (your IMEI, phone number, Wi-Fi names and passwords) and <a href="https://github.com/dikeckaan/mu300-linux/issues/new">open an
+<li>Remove anything private (your IMEI, phone number, Wi-Fi names and passwords) and <a href="https://github.com/dikeckaan/openf50-linux/issues/new">open an
 issue</a>: which device, which system and kernel, which release, what you did and what happened.</li>
 </ol>
-<p>Deeper explanations of the hardware live in <a href="https://github.com/dikeckaan/mu300-linux/blob/main/docs/FINDINGS.md">docs/FINDINGS.md</a> and in
-the <a href="https://github.com/dikeckaan/mu300-linux/wiki/Troubleshooting">wiki</a>.</p>
+<p>Deeper explanations of the hardware live in <a href="https://github.com/dikeckaan/openf50-linux/blob/main/docs/FINDINGS.md">docs/FINDINGS.md</a> and in
+the <a href="https://github.com/dikeckaan/openf50-linux/wiki/Troubleshooting">wiki</a>.</p>
 </div>
 
 </main>
@@ -241,17 +241,17 @@ the <a href="https://github.com/dikeckaan/mu300-linux/wiki/Troubleshooting">wiki
 <div>
 <h2>The project</h2>
 <ul>
-<li><a href="https://github.com/dikeckaan/mu300-linux">Source code on GitHub</a></li>
-<li><a href="https://github.com/dikeckaan/mu300-linux/releases">Releases (downloads)</a></li>
+<li><a href="https://github.com/dikeckaan/openf50-linux">Source code on GitHub</a></li>
+<li><a href="https://github.com/dikeckaan/openf50-linux/releases">Releases (downloads)</a></li>
 <li><a href="https://github.com/dikeckaan/mu300-linux-vpn">VPN module</a></li>
 </ul>
 </div>
 <div>
 <h2>Help</h2>
 <ul>
-<li><a href="https://github.com/dikeckaan/mu300-linux/wiki">Wiki</a></li>
+<li><a href="https://github.com/dikeckaan/openf50-linux/wiki">Wiki</a></li>
 <li><a href="../troubleshooting/">Troubleshooting</a></li>
-<li><a href="https://github.com/dikeckaan/mu300-linux/issues">Report a problem</a></li>
+<li><a href="https://github.com/dikeckaan/openf50-linux/issues">Report a problem</a></li>
 <li><a href="https://t.me/mu300project">Telegram channel (news and releases)</a></li>
 </ul>
 </div>

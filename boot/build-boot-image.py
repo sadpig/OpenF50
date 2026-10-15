@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build a ZTE F50 / MU300 (Unisoc T760, UMS9620) Linux boot image for slot b.
+"""Build a ZTE F50 / OPENF50 (Unisoc T760, UMS9620) Linux boot image for slot b.
 
 The image reuses the stock boot image header and AVB footer layout (the device runs a
 boot-verification bypass, the AVB descriptor is kept as-is), replaces the kernel and the
@@ -119,18 +119,18 @@ def main():
     ap.add_argument('--kernel', type=Path, help='arm64 Image built from kernel/')
     ap.add_argument('--generic-ramdisk', action='store_true',
                     help='write only the device-independent ramdisk segment (init, busybox, modules) to --out, for '
-                         'mu300-update to put behind the ramdisk of the boot image already on the device')
+                         'openf50-update to put behind the ramdisk of the boot image already on the device')
     ap.add_argument('--modules', required=True, type=Path, help='flat directory with the built .ko files')
     ap.add_argument('--module-order', type=Path, default=HERE / 'module-order.txt')
     ap.add_argument('--device-modules', action='append', default=[], metavar='NAME=DIR',
                     help='modules built for another device of this family (u30air=out/u30air): they go to '
                          'linux-modules/NAME/ with boot/module-order-NAME.txt, and init loads them in place of the '
                          'ones of the same name when it runs on that device')
-    ap.add_argument('--device', help='the device this image is for (f50, u30air): written to /etc/mu300-device, '
+    ap.add_argument('--device', help='the device this image is for (f50, u30air): written to /etc/openf50-device, '
                                      'which init trusts over its own guess from the device tree')
     ap.add_argument('--linux-slot', choices=['a', 'b'],
                     help='the slot this image goes to (default b; a when Android runs from slot b): written to '
-                         '/etc/mu300-linux-slot, which init uses when the kernel command line does not say')
+                         '/etc/openf50-linux-slot, which init uses when the kernel command line does not say')
     ap.add_argument('--trial-guard', type=int, metavar='SECONDS',
                     help='for experiments only: reboot SECONDS after switch_root unless /run/stay exists (with a '
                          'one-shot trial, that is back to Android when the kernel boots without USB)')
@@ -141,8 +141,8 @@ def main():
     ap.add_argument('--android-subset', type=Path, help='directory produced by android-vendor/extract-subset.sh')
     ap.add_argument('--append-ramdisk', type=Path,
                     help='another LZ4 legacy ramdisk segment to put behind this one (the ramdisk-generic.lz4 of a '
-                         'kernel bundle such as mu300-kernel-6.18.tar.gz: its init and modules replace these, which '
-                         'is what mu300-update writes on the device when it installs that kernel)')
+                         'kernel bundle such as openf50-kernel-6.18.tar.gz: its init and modules replace these, which '
+                         'is what openf50-update writes on the device when it installs that kernel)')
     ap.add_argument('--out', required=True, type=Path)
     a = ap.parse_args()
     if not a.generic_ramdisk and not (a.stock_boot and a.misc_head and a.kernel):
@@ -190,14 +190,14 @@ def main():
         # only in the device segment: a generic segment is the same for every device
         if a.generic_ramdisk:
             ap.error('--device does not go into a generic ramdisk')
-        files['etc/mu300-device'] = (a.device.encode() + b'\n', stat.S_IFREG | 0o644)
+        files['etc/openf50-device'] = (a.device.encode() + b'\n', stat.S_IFREG | 0o644)
     if a.generic_ramdisk:
         # The kernel unpacks concatenated ramdisk segments in turn and a later file replaces an earlier one of the
         # same name, so this segment behind the device's own ramdisk updates everything that is not the device's.
-        # That includes a trial guard an experiment left in the device segment: mu300-update keeps that segment,
+        # That includes a trial guard an experiment left in the device segment: openf50-update keeps that segment,
         # and a guard in it restarted an installed system every ten minutes whenever it booted as a trial (from
-        # Android with mu300-linux). An empty file here disarms it; an experiment's guard goes behind this.
-        files['etc/mu300-trial-guard'] = (b'', stat.S_IFREG | 0o644)
+        # Android with openf50-linux). An empty file here disarms it; an experiment's guard goes behind this.
+        files['etc/openf50-trial-guard'] = (b'', stat.S_IFREG | 0o644)
         ram = lz4_legacy(cpio_archive(dirs, files))
         a.out.write_bytes(ram)
         manifest = {
@@ -220,7 +220,7 @@ def main():
     files['etc/misc-bc-slot-b-trial.bin'] = (linux_b_bc, stat.S_IFREG | 0o644)
     files['etc/misc-bc-slot-b.bin'] = (android_b_bc, stat.S_IFREG | 0o644)
     files['etc/misc-bc-slot-a-trial.bin'] = (linux_a_bc, stat.S_IFREG | 0o644)
-    files['etc/mu300-linux-slot'] = (linux_slot.encode() + b'\n', stat.S_IFREG | 0o644)
+    files['etc/openf50-linux-slot'] = (linux_slot.encode() + b'\n', stat.S_IFREG | 0o644)
     if a.android_subset:
         dirs.add('android')
         side = a.android_subset / WINDOWS_TAR
@@ -272,7 +272,7 @@ def main():
         ram += lz4_legacy(cpio_archive(set(), {'init': files['init']}))
     if a.trial_guard:
         # last of all, behind the generic segment and its empty guard
-        ram += lz4_legacy(cpio_archive(set(), {'etc/mu300-trial-guard': (b'%d\n' % a.trial_guard,
+        ram += lz4_legacy(cpio_archive(set(), {'etc/openf50-trial-guard': (b'%d\n' % a.trial_guard,
                                                                          stat.S_IFREG | 0o644)}))
 
     kern = a.kernel.read_bytes()

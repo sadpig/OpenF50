@@ -23,7 +23,7 @@ export class MirrorError extends Error {
 }
 
 const TAG = /^v[0-9][0-9A-Za-z._]{0,40}$/;
-const ZIP = /^mu300-magisk-v[0-9][A-Za-z0-9._-]{0,80}\.zip$/;
+const ZIP = /^openf50-magisk-v[0-9][A-Za-z0-9._-]{0,80}\.zip$/;
 const HEX = /^[0-9a-f]{64}$/;
 
 // The mirror's address for a tag, or null when the configured base is not one this page talks to: https, a

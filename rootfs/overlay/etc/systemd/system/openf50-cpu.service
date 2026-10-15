@@ -1,0 +1,12 @@
+[Unit]
+Description=OPENF50 CPU: apply the saved performance profile
+ConditionPathExists=/etc/openf50/cpu.conf
+After=openf50-vendor.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/opt/openf50/bin/openf50-cpu apply
+
+[Install]
+WantedBy=multi-user.target

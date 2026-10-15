@@ -3,7 +3,7 @@
 # device in rooted Android (adb + su), ideally BEFORE installing anything.
 #
 #   tools/backup-device.sh [OUTDIR]        per-device data + bootloader chain (default: backup/<date>)
-#   MU300_BACKUP_ALL=1 tools/backup-device.sh OUTDIR   also the stock boot images (a few hundred MB more)
+#   OPENF50_BACKUP_ALL=1 tools/backup-device.sh OUTDIR   also the stock boot images (a few hundred MB more)
 #
 # Why: `prodnv`, the modem NV partitions and the calibration areas hold this unit's IMEI, RF calibration and
 # factory data. A generic firmware image cannot restore them - lose them and the modem side stays broken even
@@ -17,9 +17,9 @@ set -eu
 # the tty layer rewrites every LF as CRLF, silently inflating the bytes by about one in 256. Write the file
 # on the device and pull it instead - correct whether or not that device's su allocates a pty (issue #2).
 dev_pull() {  # dev_pull DEVICE_PATH LOCAL_PATH
-    adb shell "su -c 'cat $1 > /data/local/tmp/mu300-pull.bin'" </dev/null >/dev/null
-    adb pull /data/local/tmp/mu300-pull.bin "$2" >/dev/null 2>&1
-    adb shell "su -c 'rm -f /data/local/tmp/mu300-pull.bin'" </dev/null >/dev/null
+    adb shell "su -c 'cat $1 > /data/local/tmp/openf50-pull.bin'" </dev/null >/dev/null
+    adb pull /data/local/tmp/openf50-pull.bin "$2" >/dev/null 2>&1
+    adb shell "su -c 'rm -f /data/local/tmp/openf50-pull.bin'" </dev/null >/dev/null
 }
 OUT=${1:-backup/$(date +%Y%m%d-%H%M%S)}
 T=/data/local/tmp
@@ -35,18 +35,18 @@ IMAGES="boot_a boot_b vendor_boot_a vendor_boot_b init_boot_a init_boot_b dtb_a 
 
 say() { printf '\n==> %s\n' "$*"; }
 die() { printf '\nERROR: %s\n' "$*" >&2; exit 1; }
-su_do() { adb shell "su -c '$1'" </dev/null | tr -d '\r'; }
+su_do() { adb shell "${OPENF50_SU_BIN:-su} -c '$1'" </dev/null | tr -d '\r'; }
 
 command -v adb >/dev/null || die "adb not found"
 [ "$(adb get-state 2>/dev/null)" = device ] || die "no adb device (boot Android, enable USB debugging)"
-# a device running MU300 Linux answers adb too (MU300LINUX-...), with a root shell and none of Android's partitions
-case $(adb get-serialno 2>/dev/null) in MU300LINUX*) die "this adb device runs MU300 Linux, not Android: boot Android first (sudo mu300-next-boot android && sudo reboot)" ;; esac
+# a device running OPENF50 Linux answers adb too (OPENF50LINUX-...), with a root shell and none of Android's partitions
+case $(adb get-serialno 2>/dev/null) in OPENF50LINUX*) die "this adb device runs OPENF50 Linux, not Android: boot Android first (sudo openf50-next-boot android && sudo reboot)" ;; esac
 [ "$(su_do 'id -u')" = 0 ] || die "su does not work on the device"
 
 mkdir -p "$OUT"
 list=$CRITICAL
 list="$list $BOOTCHAIN"
-[ "${MU300_BACKUP_ALL:-0}" = 1 ] && list="$list $IMAGES"
+[ "${OPENF50_BACKUP_ALL:-0}" = 1 ] && list="$list $IMAGES"
 
 say "Backing up to $OUT"
 total=0
@@ -67,9 +67,9 @@ for p in $list; do
 done
 # the partition table itself, so a wiped GPT can be rebuilt
 su_do 'for p in /sys/block/mmcblk0/mmcblk0p*; do echo "${p##*/} $(cat $p/start) $(cat $p/size)"; done' > "$OUT/gpt-layout.txt"
-adb shell "su -c 'dd if=/dev/block/mmcblk0 bs=512 count=34 2>/dev/null > /data/local/tmp/mu300-pull.bin'" </dev/null >/dev/null
-adb pull /data/local/tmp/mu300-pull.bin "$OUT/gpt-header.bin" >/dev/null 2>&1
-adb shell "su -c 'rm -f /data/local/tmp/mu300-pull.bin'" </dev/null >/dev/null
+adb shell "su -c 'dd if=/dev/block/mmcblk0 bs=512 count=34 2>/dev/null > /data/local/tmp/openf50-pull.bin'" </dev/null >/dev/null
+adb pull /data/local/tmp/openf50-pull.bin "$OUT/gpt-header.bin" >/dev/null 2>&1
+adb shell "su -c 'rm -f /data/local/tmp/openf50-pull.bin'" </dev/null >/dev/null
 su_do 'ls -l /dev/block/by-name' > "$OUT/by-name.txt"
 
 say "Done: $((total / 1048576)) MiB in $OUT"

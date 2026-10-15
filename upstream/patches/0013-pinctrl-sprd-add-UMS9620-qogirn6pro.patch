@@ -5,7 +5,7 @@ Unisoc's 5.4 pinctrl-sprd-qogirn6pro.c (GPL-2.0, 511 pins: 67 global control fie
 register offsets from the SoC driver (the SC9860 keeps 0x20/0x4020), and the pin encoding grows to Unisoc's
 (5-bit register index, 8-bit field offset: the UMS9620's control fields go up to register 16, bit 28).
 
-The vendor DTB the MU300 boots with has the controller (/soc/aon/pinctrl@2e0000, "sprd,qogirn6pro-pinctrl")
+The vendor DTB the OPENF50 boots with has the controller (/soc/aon/pinctrl@2e0000, "sprd,qogirn6pro-pinctrl")
 and the board's groups, so the driver binds as it is; the groups are named hog states ("gpio_4" ...), not
 "default", so nothing is applied at probe. What the DTB lacks is a group for the U30 Air's charger bus (i2c6,
 pads SCL6/SDA6; Android and 5.4 run that bus on the bootloader's pad state). Issue #102: on the ABSSV firmware
@@ -1141,7 +1141,7 @@ diff -Naur a/drivers/pinctrl/sprd/pinctrl-sprd-qogirn6pro.c b/drivers/pinctrl/sp
 +};
 +
 +/*
-+ * MU300 (U30 Air, issue #102): the vendor DT the device boots with names no pin
++ * OPENF50 (U30 Air, issue #102): the vendor DT the device boots with names no pin
 + * group for the charger bus (i2c6, pads SCL6/SDA6), so those pads stay as the
 + * bootloader left them. On the ABSSV firmware variant nothing on that bus
 + * answers under mainline while Android and the vendor 5.4 kernel drive it, so
@@ -1153,18 +1153,18 @@ diff -Naur a/drivers/pinctrl/sprd/pinctrl-sprd-qogirn6pro.c b/drivers/pinctrl/sp
 +module_param(i2c6_fixup, bool, 0444);
 +MODULE_PARM_DESC(i2c6_fixup, "put the U30 Air's i2c6 pads (SCL6/SDA6) on their I2C function (default: on)");
 +
-+static const char * const mu300_i2c6_pads[] = {
++static const char * const openf50_i2c6_pads[] = {
 +	"QOGIRN6PRO_SCL6", "QOGIRN6PRO_SDA6"
 +};
 +
-+static void mu300_i2c6_pads_fixup(struct platform_device *pdev)
++static void openf50_i2c6_pads_fixup(struct platform_device *pdev)
 +{
 +	u32 sel = 0;
 +	int i;
 +
 +	sprd_pinctrl_get_pin_raw(pdev, "QOGIRN6PRO_IIC_INF6_SYS_SEL", &sel);
-+	for (i = 0; i < ARRAY_SIZE(mu300_i2c6_pads); i++) {
-+		const char *name = mu300_i2c6_pads[i];
++	for (i = 0; i < ARRAY_SIZE(openf50_i2c6_pads); i++) {
++		const char *name = openf50_i2c6_pads[i];
 +		char misc_name[48];
 +		u32 ctl = 0, misc = 0;
 +		int ret = 0;
@@ -1192,7 +1192,7 @@ diff -Naur a/drivers/pinctrl/sprd/pinctrl-sprd-qogirn6pro.c b/drivers/pinctrl/sp
 +	if (ret)
 +		return ret;
 +
-+	mu300_i2c6_pads_fixup(pdev);
++	openf50_i2c6_pads_fixup(pdev);
 +	return 0;
 +}
 +
@@ -1332,7 +1332,7 @@ diff -Naur a/drivers/pinctrl/sprd/pinctrl-sprd.c b/drivers/pinctrl/sprd/pinctrl-
 + * @name: the pin's name, as in the SoC driver's table
 + * @func: the function, 1 to 4 (func1 is the pad's own function, func4 the GPIO)
 + *
-+ * A stand-in for the pin group a device tree lacks: the vendor DT the MU300
++ * A stand-in for the pin group a device tree lacks: the vendor DT the OPENF50
 + * boots with names no group for the pads of the U30 Air's charger bus (i2c6),
 + * so the bootloader's state would stand. Returns 1 when the register was
 + * changed, 0 when the pad was on that function already.

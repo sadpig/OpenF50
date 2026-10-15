@@ -3,10 +3,10 @@
 **In one sentence:** the F50 and the U30 Air (and the experimental V50) are the same small Unisoc computer inside, and getting Linux to run on it
 meant borrowing a few of Android's own programs and working around some quirky hardware.
 
-This is a friendly summary of [docs/FINDINGS.md](https://github.com/dikeckaan/mu300-linux/blob/main/docs/FINDINGS.md), the
+This is a friendly summary of [docs/FINDINGS.md](https://github.com/dikeckaan/openf50-linux/blob/main/docs/FINDINGS.md), the
 project's lab notebook (symptom, cause, fix for every problem met). Section numbers below (§) point into it.
 
-![The device](https://kaandikec.com/mu300-linux/assets/img/device.svg)
+![The device](https://kaandikec.com/openf50-linux/assets/img/device.svg)
 
 ## The parts
 
@@ -33,7 +33,7 @@ some smaller areas; the kernel and its page tables take the rest. Linux sees abo
 flowchart LR
     subgraph eMMC["64 GB device: ~58 GiB eMMC"]
       direction LR
-      A["Android partitions"] --> B["userdata (20 GiB)<br/>encrypted"] --> C["~32.4 GiB that belongs<br/>to no partition<br/>ext4 mu300root"]
+      A["Android partitions"] --> B["userdata (20 GiB)<br/>encrypted"] --> C["~32.4 GiB that belongs<br/>to no partition<br/>ext4 openf50root"]
     end
 ```
 
@@ -56,7 +56,7 @@ Android sandbox (a chroot) with Android's libraries copied from **your** device.
 **Their own account (§41, v2026.10.20).** Android's `system` user is uid 1000, which on Ubuntu is the `ubuntu` login
 user: the daemons used to run as that user, and the modem's calibration partitions (`nr_fixnv*`, `persist`), which
 nothing can restore, were writable by it without `sudo`. Now `modem_control` and `refnotify` run as the system account
-`mu300vnd`, with only the capabilities they keep on Android, the device nodes they need belong to that account, the
+`openf50vnd`, with only the capabilities they keep on Android, the device nodes they need belong to that account, the
 GPU nodes to `root:video`, and nothing in `/dev` is world-writable or owned by the login user.
 
 **The 290-second power cut.** Early on, Linux ran fine and then the power simply went off about 290 s after boot. A
@@ -87,29 +87,29 @@ the device lands in Android about 20 minutes later. The cause is still open.
 
 ## U30 Air: battery, buttons, NFC, USB host
 
-* **Battery (§33d, §36):** level, voltage, current, temperature and charging state in `mu300-toolkit`, the panel and
+* **Battery (§33d, §36):** level, voltage, current, temperature and charging state in `openf50-toolkit`, the panel and
   `/sys/class/power_supply` on every kernel. Charging: on 5.4 by the vendor charger stack; on 6.18 and 7.2 by the
-  `bq256xx` driver from v2026.10.12 on. `mu300-power` adds profiles (`plugged`, `battery`, `saver`, `auto`), idle radios
-  and a **charge limit** (from v2026.10.20: any value from 0 to 100 %, `sudo mu300-power charge-limit 80` or
+  `bq256xx` driver from v2026.10.12 on. `openf50-power` adds profiles (`plugged`, `battery`, `saver`, `auto`), idle radios
+  and a **charge limit** (from v2026.10.20: any value from 0 to 100 %, `sudo openf50-power charge-limit 80` or
   `CHARGE_TO`; charging stops at the limit and resumes 5 points below it, 0 never charges, and the battery is never
   held under 5 %; before: 100 or 80); charging pauses above 45 °C.
 * **Type-C current (§40, v2026.10.20, mainline kernels):** the charger used to take 500 mA from every port. Now the
   PMIC's Type-C block is read and the larger of the BC1.2 and the Type-C (Rp) current is taken, 3 A capped to 2 A:
   on a 1.5 or 3 A port the battery charges at about 1.6 A instead of 0.36 A.
-* **Host mode on outside power:** `sudo mu300-usb host` with something on VBUS (a powered hub) keeps the 5 V boost
+* **Host mode on outside power:** `sudo openf50-usb host` with something on VBUS (a powered hub) keeps the 5 V boost
   off; on battery alone the boost supplies the 5 V as before.
 * **Charging boot:** a start caused by plugging in a charger stays a charging boot (LED blinking, hotspot and modem
   down) until the Wi-Fi key is pressed.
 * **LEDs (§33f):** battery (white: Linux is up), network (blue 4G, white 5G, red no service), Wi-Fi (white 2.4 GHz, blue
-  5 GHz). `sudo mu300-led test` shows which is which.
+  5 GHz). `sudo openf50-led test` shows which is which.
 * **Heat alarm:** the battery LED flashes red, white, blue in turn when the chip reaches 85 °C or the battery 50 °C
   (`thermal-guard`). On the F50 the network LED does this.
 * **Buttons:** power: a short press wakes the LEDs, held 3 s shuts down. Wi-Fi key: switches 2.4 / 5 GHz, held 3 s turns
   the hotspot off or on.
-* **NFC (§33g):** a phone held to the device can join the hotspot: `sudo mu300-nfc wifi` writes the hotspot's name and
+* **NFC (§33g):** a phone held to the device can join the hotspot: `sudo openf50-nfc wifi` writes the hotspot's name and
   password into the tag (also `url`, `text`, `clear`, `on`/`off`).
-* **USB host (§33e):** `sudo mu300-usb host` with an OTG adapter, on the mainline kernels: flash drives (FAT, exFAT),
-  keyboards, mice, USB modems and Ethernet adapters. `sudo mu300-usb device` goes back (the default at every boot).
+* **USB host (§33e):** `sudo openf50-usb host` with an OTG adapter, on the mainline kernels: flash drives (FAT, exFAT),
+  keyboards, mice, USB modems and Ethernet adapters. `sudo openf50-usb device` goes back (the default at every boot).
 * **Address:** `192.168.78.1`, so an F50 (`192.168.77.1`) and a U30 Air can be plugged into one computer (§33b).
 
 ## F50 specifics
@@ -129,7 +129,7 @@ The V50 is the F50's platform (`ums9620_2h10_feimao`, T760) with two SIM slots, 
   otherwise, USB-powered, no battery: no charger is bound (patch 0016 binds the 0x1a charger only with the U30 Air's
   charger policy service, which the V50 lacks).
 * **LEDs:** NET1 is the network lamp (blue 4G, white 5G, red no service), the Wi-Fi lamp white on 5 GHz and blue on
-  2.4 GHz, NET2 dark; `sudo mu300-led test` lights each, the raw channels are `aw9523b:pin0`-`15`.
+  2.4 GHz, NET2 dark; `sudo openf50-led test` lights each, the raw channels are `aw9523b:pin0`-`15`.
 * **eMMC:** its host is kept awake (patch 0017): kano lost files under mainline until he did that.
 * **Not yet:** the second SIM (the dual-SIM code is the U30 Air's), NFC (another reset line than the U30 Air's), SIM
   selection.
@@ -141,5 +141,5 @@ The V50 is the F50's platform (`ums9620_2h10_feimao`, T760) with two SIM slots, 
   98 % idle.
 * **Kernel warnings on 6.18** were traced to three vendor bugs and fixed (§31g).
 
-For anything deeper, the [FINDINGS contents table](https://github.com/dikeckaan/mu300-linux/blob/main/docs/FINDINGS.md#contents)
+For anything deeper, the [FINDINGS contents table](https://github.com/dikeckaan/openf50-linux/blob/main/docs/FINDINGS.md#contents)
 lists every section with its state (current, superseded, open).

@@ -4857,7 +4857,7 @@ int kbase_jd_user_buf_pin_pages(struct kbase_context *kctx,
 	pinned_pages = pin_user_pages_remote(mm, address, alloc->imported.user_buf.nr_pages,
 					     write ? FOLL_WRITE : 0, pages, NULL, NULL);
 #else
-	/* MU300: the vmas argument is gone since 6.5 */
+	/* OPENF50: the vmas argument is gone since 6.5 */
 	pinned_pages = pin_user_pages_remote(mm, address, alloc->imported.user_buf.nr_pages,
 					     write ? FOLL_WRITE : 0, pages, NULL);
 #endif

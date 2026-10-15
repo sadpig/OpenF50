@@ -1,5 +1,5 @@
 #!/bin/bash
-# Build mainline for the MU300 inside mu300-mainline-build: Image + DTB. /work = this directory, /src = kernel tree volume
+# Build mainline for the OPENF50 inside openf50-mainline-build: Image + DTB. /work = this directory, /src = kernel tree volume
 set -eo pipefail
 KV=${KV:-6.18.56}
 # where Image, DTB and modules.builtin go: /work/out for 6.18, OUTDIR=out-7.2 keeps another kernel next to it
@@ -13,26 +13,26 @@ if [ ! -d /src/linux-$KV ]; then
     tar -xJf linux-$KV.tar.xz && rm linux-$KV.tar.xz
 fi
 cd /src/linux-$KV
-# MU300 patches (idempotent); MU300_PROBE_STAGE=N adds the boot-stage reset probe (debug)
+# OPENF50 patches (idempotent); OPENF50_PROBE_STAGE=N adds the boot-stage reset probe (debug)
 python3 /work/port/install.py .
-[ -n "${MU300_PROBE_STAGE:-}" ] && python3 /work/debug/install-probe.py . "$MU300_PROBE_STAGE"
+[ -n "${OPENF50_PROBE_STAGE:-}" ] && python3 /work/debug/install-probe.py . "$OPENF50_PROBE_STAGE"
 # a patch either applies or is applied already; anything else stops the build (it used to be skipped silently).
 # patches/<major.minor>/ holds what only one kernel needs (what a newer one has upstream already)
-# .mu300-patches lists the ones applied to this tree (by checksum): a patch that a later one builds on (0009 under
+# .openf50-patches lists the ones applied to this tree (by checksum): a patch that a later one builds on (0009 under
 # 0012) can neither be applied again nor reversed alone, so a second run would stop at it
 for p in /work/patches/*.patch /work/patches/"$(echo "$KV" | cut -d. -f1,2)"/*.patch; do
     [ -e "$p" ] || continue
     s=$(sha256sum < "$p" | cut -d' ' -f1)
-    grep -qx "$s" .mu300-patches 2>/dev/null && continue
+    grep -qx "$s" .openf50-patches 2>/dev/null && continue
     if patch -p1 -N -s --dry-run < "$p" >/dev/null 2>&1; then patch -p1 -N -s < "$p"
     elif patch -p1 -R -s -f --dry-run < "$p" >/dev/null 2>&1; then :
     else echo "patch does not apply to $KV: $p" >&2; exit 1; fi
-    echo "$s" >> .mu300-patches
+    echo "$s" >> .openf50-patches
 done
 O=/src/out-$KV
 mkdir -p $O
 make O=$O ARCH=arm64 allnoconfig >/dev/null
-./scripts/kconfig/merge_config.sh -m -O $O $O/.config /work/mu300-mainline.config >/dev/null
+./scripts/kconfig/merge_config.sh -m -O $O $O/.config /work/openf50-mainline.config >/dev/null
 # NFSv4.2 needs the separate v4.1 switch in 6.18; 7.2 folded v4.1 into NFS_V4.
 if grep -q '^config NFS_V4_1$' fs/nfs/Kconfig; then
     ./scripts/config --file "$O/.config" --enable NFS_V4_1
@@ -45,7 +45,7 @@ while IFS= read -r l; do
   case "$l" in CONFIG_*=*) k=${l%%=*}; v=${l#*=}; g=$(grep -E "^$k=" $O/.config | cut -d= -f2- || true);
     [ "$v" = n ] && { grep -q "^$k=y" $O/.config && bad="$bad\nNOT DISABLED: $k" || true; continue; }
     [ "$g" = "$v" ] || grep -qx "$k" /work/config-ignored.txt 2>/dev/null || bad="$bad\nNOT SET: $k want $v got ${g:-unset}";; esac
-done < /work/mu300-mainline.config
+done < /work/openf50-mainline.config
 [ -z "$bad" ] || { printf "config options not taken:$bad\n" >&2; exit 1; }
 # on failure show the compiler's own messages: a plain grep for "error" also matches object names like
 # fdt_strerror.o and used to fill the report with those

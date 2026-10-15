@@ -16,14 +16,14 @@ sudo sms delete INDEX               # remove one from the SIM (also: read, all)
 sudo sms watch [COMMAND]            # wait for new messages, run COMMAND for each
 ```
 
-No `sudo` on OpenWrt. All of it goes through `mu300-atd`, so it queues behind anything else talking to the modem.
+No `sudo` on OpenWrt. All of it goes through `openf50-atd`, so it queues behind anything else talking to the modem.
 From v2026.10.22 a send is one transaction: the channel is held from the setup to the submission, and the SMSC the
 modem reports is written back to it unchanged first; some networks refused every send without that (issue #176, see
 [Troubleshooting](Troubleshooting)).
 `sms delete` accepts only a message index, `read` or `all` (from v2026.10.20); anything else is refused before the
 modem sees it, so a stray `1,4` can no longer wipe the mailbox.
 
-On Ubuntu with the web panel extra (Cockpit), the MU300 page reads, sends and deletes messages too.
+On Ubuntu with the web panel extra (Cockpit), the OPENF50 page reads, sends and deletes messages too.
 
 ## On OpenWrt with the control panel
 
@@ -31,8 +31,8 @@ Use **Cellular -> SMS** in the panel: read, send and delete. There a pool daemon
 `AT+CMGL`, which **marks unread messages on the SIM as read**; the panel keeps its own unread state.
 
 > **Do not run `sms delete read` on that system.** Because the pool marks everything it has seen as read, it would
-> delete messages nobody has looked at. Delete from the panel, or with `mu300-sms delete` (which touches the SIM only
-> with `--sim`). For automation use the panel's hook, `/etc/mu300/sms-hook`, rather than `sms watch`.
+> delete messages nobody has looked at. Delete from the panel, or with `openf50-sms delete` (which touches the SIM only
+> with `--sim`). For automation use the panel's hook, `/etc/openf50/sms-hook`, rather than `sms watch`.
 
 ## SMS forwarding
 
@@ -40,7 +40,7 @@ On OpenWrt with the control panel, **Cellular > SMS forwarding** passes incoming
 form), a Telegram chat or another phone by SMS. It is off until you turn it on. Each target has a template
 (`{sender}`, `{time}`, `{text}`, `{device}`) and can filter by sender and keyword; there is a "Send test" button and
 a delivery log, and failed deliveries are retried with a growing wait. Tokens, passwords and the webhook's address
-stay in `/etc/mu300/sms-forward.conf` (root only) and never appear in a log. E-mail forwarding needs `msmtp`, which
+stay in `/etc/openf50/sms-forward.conf` (root only) and never appear in a log. E-mail forwarding needs `msmtp`, which
 the image does not include.
 
 From v2026.10.23 the webhook can send a body of your own instead of the standard fields (`sender`, `time`, `text`,
@@ -90,7 +90,7 @@ message whose other parts never arrive is shown after an hour, marked incomplete
 Balance checks and similar codes:
 
 ```sh
-sudo mu300-ussd '*101#'
+sudo openf50-ussd '*101#'
 ```
 
 ## Why PDU mode
@@ -98,7 +98,7 @@ sudo mu300-ussd '*101#'
 The modem's text mode garbles senders that are names rather than numbers and cannot tell that several stored parts
 are one long message, so `sms` uses PDU mode and decodes the frames itself, including the Turkish national language
 shift. Sending picks GSM 7-bit when every character fits, UCS-2 otherwise. Details:
-[FINDINGS 26c](https://github.com/dikeckaan/mu300-linux/blob/main/docs/FINDINGS.md#26c-sms-needs-pdu-mode-and-turkish-needs-more-than-that).
+[FINDINGS 26c](https://github.com/dikeckaan/openf50-linux/blob/main/docs/FINDINGS.md#26c-sms-needs-pdu-mode-and-turkish-needs-more-than-that).
 
 ## Voice calls
 

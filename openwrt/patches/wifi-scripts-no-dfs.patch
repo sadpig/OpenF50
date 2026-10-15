@@ -13,13 +13,13 @@
  	phy_features.ftm_responder = device_extended_features(phy.extended_features, NL80211_EXT_FEATURE_ENABLE_FTM_RESPONDER);
  	phy_features.radar_background = device_extended_features(phy.extended_features, NL80211_EXT_FEATURE_RADAR_BACKGROUND);
  	phy_features.cipher_gcmp256 = WLAN_CIPHER_SUITE_GCMP_256 in (phy.cipher_suites ?? []);
-+	/* mu300: a driver that can detect radar names the widths in an interface combination */
++	/* openf50: a driver that can detect radar names the widths in an interface combination */
 +	phy_features.radar_detect = length(filter(phy.interface_combinations ?? [], (c) => c.radar_detect_widths)) > 0;
 +	phy_capabilities.freqs = band?.freqs ?? [];
  }
 +
-+/* mu300: an AP on a DFS channel needs radar detection; without it hostapd's start_dfs_cac() fails and the AP never
-+ * comes up (the SC2355 driver: mu300-linux docs/FINDINGS.md 42). For such a driver an explicit DFS channel becomes
++/* openf50: an AP on a DFS channel needs radar detection; without it hostapd's start_dfs_cac() fails and the AP never
++ * comes up (the SC2355 driver: openf50-linux docs/FINDINGS.md 42). For such a driver an explicit DFS channel becomes
 + * 36, else 149, else the first channel the regulatory domain allows without DFS (the width shrinks to what fits),
 + * and "auto" leaves the DFS channels out. */
 +function device_no_dfs(config) {

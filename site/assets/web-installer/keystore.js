@@ -3,7 +3,7 @@
 // new key (and the device asks again). Nothing else is stored by the page.
 import { generateKey, validKey } from "./adb/key.js";
 
-const DB = "mu300-web-installer", STORE = "keys", ID = "adb";
+const DB = "openf50-web-installer", STORE = "keys", ID = "adb";
 
 function open(idb) {
   return new Promise((resolve, reject) => {

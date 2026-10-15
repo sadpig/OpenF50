@@ -36,7 +36,7 @@ static void mm_check_mh_buffer(struct device *dev, void *buffer, dma_addr_t pa,
 		while ((desc->data_write_done != 1) &&
 		       (retry < MAX_RETRY_NUM)) {
 			/*
-			 * MU300: re-read the descriptor from memory. The vendor code called
+			 * OPENF50: re-read the descriptor from memory. The vendor code called
 			 * dma_sync_single_for_device() here, which on arm64 invalidated
 			 * FROM_DEVICE buffers until 5.19 and cleans them since: the CPU kept
 			 * reading the stale line, every retry failed, and the pr_err below
@@ -139,7 +139,7 @@ static inline int mm_do_addr_buf(struct mem_mgmt *mm_entry)
 	 *       JUST avoid addr_buf allocating fail after being sent here
 	 */
 	/*
-	 * MU300: every message on this path is rate-limited. The RX refill retries it, and when the chip stops
+	 * OPENF50: every message on this path is rate-limited. The RX refill retries it, and when the chip stops
 	 * taking address buffers (issue #94: the WCN in dump status for minutes) each attempt printed four lines
 	 * to the console until a CPU soft-locked in printk. The first ones still show; printk counts the rest.
 	 */
@@ -458,7 +458,7 @@ static void mm_normal_data_process(struct mem_mgmt *mm_entry,
 			skb = mm_build_skb(data, skb_len, buffer_type);
 		else {
 			/*
-			 * MU300 (#140): the vendor's "should not happen" happens on every short frame (an ACK-sized
+			 * OPENF50 (#140): the vendor's "should not happen" happens on every short frame (an ACK-sized
 			 * buffer is smaller than skb_shared_info plus the aligned payload); the copy below handles it,
 			 * so it is a trace of the slow path, not an error
 			 */
@@ -519,7 +519,7 @@ static int mm_single_event_process(struct mem_mgmt *mm_entry,
 		break;
 	case SPRD_FLUSH_BUFFER:
 		/*
-		 * MU300: ignored. The vendor called sc2355_rx_flush_buffer(mm_entry) here, with mm_entry where it
+		 * OPENF50: ignored. The vendor called sc2355_rx_flush_buffer(mm_entry) here, with mm_entry where it
 		 * takes the hif, so it read a garbage rx_mgmt pointer: this firmware never sends it, or it would have
 		 * crashed. Done right, it is still unsafe: from this RX context it would free buffer_list and the
 		 * address buffer under a running refill (sprd_work), and deferred to sprd_work it would free buffers
@@ -570,7 +570,7 @@ void *sc2355_mm_phys_to_virt(struct device *dev, unsigned long pcie_addr,
 	pa = pcie_addr & (~(SPRD_MH_ADDRESS_BIT) & SPRD_PHYS_MASK);
 	buffer = phys_to_virt(pa);
 
-	/* MU300: for_cpu, not for_device: the CPU is about to read what the device wrote (see mm_check_mh_buffer) */
+	/* OPENF50: for_cpu, not for_device: the CPU is about to read what the device wrote (see mm_check_mh_buffer) */
 	dma_sync_single_for_cpu(dev, pa, size, direction);
 
 	if (is_mh)
@@ -599,7 +599,7 @@ int sc2355_mm_buffer_alloc(struct mem_mgmt *mm_entry, int need_num)
 	for (num = 0; num < need_num; num++) {
 		ret = mm_single_buffer_alloc(mm_entry);
 		if (ret) {
-			/* MU300: rate-limited, the refill retries this (see mm_do_addr_buf) */
+			/* OPENF50: rate-limited, the refill retries this (see mm_do_addr_buf) */
 			pr_err_ratelimited("%s: alloc num: %d, need num: %d, ret: %d\n",
 					   __func__, num, need_num, ret);
 			break;

@@ -8,4 +8,4 @@
 //   2. its address here: "https://raw.githubusercontent.com/OWNER/REPO/" (with the last slash);
 //   3. https://raw.githubusercontent.com in connect-src of the Content-Security-Policy of the three web-installer
 //      pages (tests/test_web_installer.py holds the two together).
-export const MIRROR_BASE = "https://raw.githubusercontent.com/dikeckaan/mu300-linux-mirror/";
+export const MIRROR_BASE = "https://raw.githubusercontent.com/dikeckaan/openf50-linux-mirror/";

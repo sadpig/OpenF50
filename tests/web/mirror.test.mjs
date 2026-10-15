@@ -9,9 +9,9 @@ import crypto from "node:crypto";
 import { MirrorError, PART_MAX, downloadZip, loadMirror, mirrorUrl } from "../../site/assets/web-installer/mirror.js";
 import { MIRROR_BASE } from "../../site/assets/web-installer/config.js";
 
-const BASE = "https://raw.githubusercontent.com/someone/mu300-linux-mirror/";
+const BASE = "https://raw.githubusercontent.com/someone/openf50-linux-mirror/";
 const TAG = "v2026.11.01";
-const NAME = `mu300-magisk-${TAG}-openwrt-k6.18.zip`;
+const NAME = `openf50-magisk-${TAG}-openwrt-k6.18.zip`;
 const sha = (b) => crypto.createHash("sha256").update(b).digest("hex");
 const code = (c) => (e) => { assert.ok(e instanceof MirrorError, String(e && e.stack)); assert.equal(e.code, c); return true; };
 
@@ -36,8 +36,8 @@ function mirror() {
 }
 
 test("the mirror the page ships with is the project's, at an address the page accepts; without one it asks for none", () => {
-  assert.equal(MIRROR_BASE, "https://raw.githubusercontent.com/dikeckaan/mu300-linux-mirror/");
-  assert.equal(mirrorUrl(MIRROR_BASE, TAG, "manifest.json"), `https://raw.githubusercontent.com/dikeckaan/mu300-linux-mirror/${TAG}/manifest.json`);
+  assert.equal(MIRROR_BASE, "https://raw.githubusercontent.com/sadpig/OpenF50-mirror/");
+  assert.equal(mirrorUrl(MIRROR_BASE, TAG, "manifest.json"), `https://raw.githubusercontent.com/sadpig/OpenF50-mirror/${TAG}/manifest.json`);
   assert.equal(mirrorUrl("", TAG, "manifest.json"), null);
 });
 
@@ -107,7 +107,7 @@ test("a mirror whose copy is not the release's file is not used at all", async (
   // the release (GitHub's API) names another checksum, or another size, than the mirror's manifest
   await assert.rejects(downloadZip(BASE, man, { ...m.asset, sha256: "a".repeat(64) }, { fetchImpl: m.fetchImpl }), code("mismatch"));
   await assert.rejects(downloadZip(BASE, man, { ...m.asset, size: 2501 }, { fetchImpl: m.fetchImpl }), code("mismatch"));
-  await assert.rejects(downloadZip(BASE, man, { ...m.asset, name: `mu300-magisk-${TAG}-ubuntu-24.04-k6.18.zip` }, { fetchImpl: m.fetchImpl }), code("none"));
+  await assert.rejects(downloadZip(BASE, man, { ...m.asset, name: `openf50-magisk-${TAG}-ubuntu-24.04-k6.18.zip` }, { fetchImpl: m.fetchImpl }), code("none"));
   assert.equal(m.asked.length, before, "nothing was downloaded for a file the mirror does not hold as the release has it");
 });
 

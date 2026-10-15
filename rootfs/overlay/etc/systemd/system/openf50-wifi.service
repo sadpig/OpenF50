@@ -1,0 +1,12 @@
+[Unit]
+Description=OPENF50 Wi-Fi (SC2355/Marlin3 over PCIe)
+After=openf50-vendor.service systemd-udevd.service
+Wants=openf50-vendor.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/opt/openf50/bin/wifi-start
+
+[Install]
+WantedBy=multi-user.target

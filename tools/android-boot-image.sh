@@ -1,7 +1,7 @@
 # Device side of the Magisk installer: what only the device can make for its Linux boot image and its systems - the
 # misc blocks, the Android files modem_control needs, the firmware, the device ramdisk segment - and the image
-# itself, built from Android's own boot image the way mu300-update rebuilds ours. Sourced after
-# rootfs/overlay/opt/mu300/bin/mu300-update (MU300_LIB=1), whose bootimg_from_stock and byte helpers it uses.
+# itself, built from Android's own boot image the way openf50-update rebuilds ours. Sourced after
+# rootfs/overlay/opt/openf50/bin/openf50-update (OPENF50_LIB=1), whose bootimg_from_stock and byte helpers it uses.
 # Writes only into the directories it is given. The files it collects are proprietary: they stay on this device.
 LZ4_MAGIC=02214c18
 FIRMWARE='wcnmodem.bin gnssmodem.bin wifi_board_config.ini wifi_board_config_ab.ini bt_configure_pskey.ini bt_configure_rf.ini'
@@ -14,7 +14,7 @@ hex_to_bytes() {  # hex_to_bytes HEX: the bytes (octal escapes: dash's printf ha
     done
 }
 # CRC-32 (zlib) of the bytes of HEX, little endian as the block stores it: gzip ends every stream with exactly that
-# value, which saves an implementation (mu300-next-boot does the same)
+# value, which saves an implementation (openf50-next-boot does the same)
 crc32_hex() { hex_to_bytes "$1" | gzip -c | tail -c 8 | head -c 4 | od -An -tx1 -v | tr -d ' \n'; }
 
 # bc_block LIVE a|b A_META B_META: the live bootloader_control (64 hex digits) with that slot suffix, slot a's and
@@ -44,7 +44,7 @@ _collect_firmware() {
     mkdir -p "$1"; _miss=
     for _f in $FIRMWARE; do
         _ok=
-        for _d in ${MU300_FW_DIRS:-/odm/firmware /vendor/firmware /vendor/etc}; do
+        for _d in ${OPENF50_FW_DIRS:-/odm/firmware /vendor/firmware /vendor/etc}; do
             if [ -s "$_d/$_f" ] && cp "$_d/$_f" "$1/$_f"; then _ok=1; break; fi
         done
         [ -n "$_ok" ] || _miss="$_miss $_f"
@@ -61,7 +61,7 @@ collect_subset() { ( umask 022; _collect_subset "$@" ); }
 _collect_subset() {
     _list=$(grep -v '^#' "$1") || return 1
     rm -rf "$2"; mkdir -p "$2"
-    (cd "${MU300_ANDROID_ROOT:-/}" && tar -chf - $_list 2>/dev/null) | tar -xf - -C "$2" 2>/dev/null
+    (cd "${OPENF50_ANDROID_ROOT:-/}" && tar -chf - $_list 2>/dev/null) | tar -xf - -C "$2" 2>/dev/null
     mkdir -p "$2/system/bin" "$2/linkerconfig"
     ln -sfn /apex/com.android.runtime/bin/linker64 "$2/system/bin/linker64"
     : > "$2/linkerconfig/ld.config.txt"
@@ -74,12 +74,12 @@ _collect_gpu() {
     _list=$(grep -v '^#' "$1") || return 1
     rm -rf "$2"; mkdir -p "$2"
     for _p in $_list; do
-        [ -e "${MU300_ANDROID_ROOT:-}/$_p" ] || { rm -rf "$2"; return 1; }
+        [ -e "${OPENF50_ANDROID_ROOT:-}/$_p" ] || { rm -rf "$2"; return 1; }
     done
-    (cd "${MU300_ANDROID_ROOT:-/}" && tar -chf - $_list) | tar -xf - -C "$2" || { rm -rf "$2"; return 1; }
+    (cd "${OPENF50_ANDROID_ROOT:-/}" && tar -chf - $_list) | tar -xf - -C "$2" || { rm -rf "$2"; return 1; }
 }
 # vendor_overlay OS FW SUBSET GPU OUT: what tools/vendor-overlay.py makes on a computer, for android-install.sh to
-# unpack over the system: the firmware, the subset under opt/mu300/android with its property area moved out of
+# unpack over the system: the firmware, the subset under opt/openf50/android with its property area moved out of
 # dev/ (a devtmpfs is mounted there), the GPU files where the subset has none. Only leaf directories are named, so
 # no entry replaces a directory the system has (Ubuntu's lib is a link to usr/lib). The copies it works on are
 # proprietary: they are removed whether it succeeds or not.
@@ -91,18 +91,18 @@ vendor_overlay() {
 }
 _vendor_overlay() {
     case $1 in ubuntu) _fw=usr/lib/firmware ;; openwrt|openwrt-luci) _fw=lib/firmware ;; *) return 1 ;; esac
-    mkdir -p "$_o/$_fw" "$_o/opt/mu300/android" || return 1
-    cp "$2"/* "$_o/$_fw/" && cp -a "$3"/. "$_o/opt/mu300/android/" || return 1
-    mv "$_o/opt/mu300/android/dev/__properties__" "$_o/opt/mu300/android/dev-properties" &&
-        rm -rf "$_o/opt/mu300/android/dev" || return 1
+    mkdir -p "$_o/$_fw" "$_o/opt/openf50/android" || return 1
+    cp "$2"/* "$_o/$_fw/" && cp -a "$3"/. "$_o/opt/openf50/android/" || return 1
+    mv "$_o/opt/openf50/android/dev/__properties__" "$_o/opt/openf50/android/dev-properties" &&
+        rm -rf "$_o/opt/openf50/android/dev" || return 1
     if [ -n "$4" ]; then
         # the list goes through a file, not a pipe: a loop at the end of a pipe runs in a subshell, and a copy
         # that failed there would not fail this function
         (cd "$4" && find . ! -type d) > "$5.gpu" || return 1
         while read -r _f; do
             _f=${_f#./}
-            [ -e "$_o/opt/mu300/android/$_f" ] || [ -L "$_o/opt/mu300/android/$_f" ] && continue
-            mkdir -p "$_o/opt/mu300/android/$(dirname "$_f")" && cp -a "$4/$_f" "$_o/opt/mu300/android/$_f" || return 1
+            [ -e "$_o/opt/openf50/android/$_f" ] || [ -L "$_o/opt/openf50/android/$_f" ] && continue
+            mkdir -p "$_o/opt/openf50/android/$(dirname "$_f")" && cp -a "$4/$_f" "$_o/opt/openf50/android/$_f" || return 1
         done < "$5.gpu"
     fi
     # Root's, all of it, as tools/vendor-overlay.py stores it: tar keeps the owner each copy has, and on Android
@@ -110,7 +110,7 @@ _vendor_overlay() {
     # is the first login account, which could then rewrite the libc root's cp_diskserver loads. -h: the linker64
     # link itself, never what it points at on this device. (Not root: a test; the installer always is.)
     [ "$(id -u)" != 0 ] || chown -hR 0:0 "$_o" || return 1
-    tar -czf "$5" -C "$_o" "$_fw" opt/mu300/android
+    tar -czf "$5" -C "$_o" "$_fw" opt/openf50/android
 }
 
 # device_segment DIR OUT: DIR as a newc cpio owned by root, compressed to LZ4 legacy by magiskboot - the format the
@@ -144,7 +144,7 @@ _device_segment() {
         { echo "boot: the device ramdisk segment does not decompress to its cpio" >&2; return 1; }
 }
 # linux_boot_image STOCK BUNDLE DEVSEG OUT: the device segment first, then the bundle's generic one (init, busybox,
-# modules); nothing in a generic segment has the name of a device-segment file, and mu300-update wants an LZ4 frame
+# modules); nothing in a generic segment has the name of a device-segment file, and openf50-update wants an LZ4 frame
 # first. Then the header and AVB data of Android's own image around it. boot/build-boot-image.py with
 # --append-ramdisk puts the checkout's init behind as a third segment (a release is usually older than the checkout
 # that installs from it); here the bundle's generic segment carries the init, which is why the bundle and the

@@ -3,28 +3,28 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<script>try{var t=localStorage.getItem("mu300-theme");if(t==="light"||t==="dark")document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
-<title>更新、回滚和回到 Android：ZTE F50 / U30 Air 上的 MU300 Linux</title>
-<meta name="description" content="MU300 Linux 如何自我更新和回滚，启动失败后如何自动回到 Android，以及如何在 Android 和 Linux 间切换、卸载、找回忘记的密码。">
-<link rel="canonical" href="https://kaandikec.com/mu300-linux/zh/updates/">
-<link rel="alternate" hreflang="en" href="https://kaandikec.com/mu300-linux/updates/">
-<link rel="alternate" hreflang="tr" href="https://kaandikec.com/mu300-linux/tr/updates/">
-<link rel="alternate" hreflang="zh-Hans" href="https://kaandikec.com/mu300-linux/zh/updates/">
-<link rel="alternate" hreflang="x-default" href="https://kaandikec.com/mu300-linux/updates/">
+<script>try{var t=localStorage.getItem("openf50-theme");if(t==="light"||t==="dark")document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
+<title>更新、回滚和回到 Android：ZTE F50 / U30 Air 上的 OPENF50 Linux</title>
+<meta name="description" content="OPENF50 Linux 如何自我更新和回滚，启动失败后如何自动回到 Android，以及如何在 Android 和 Linux 间切换、卸载、找回忘记的密码。">
+<link rel="canonical" href="https://kaandikec.com/openf50-linux/zh/updates/">
+<link rel="alternate" hreflang="en" href="https://kaandikec.com/openf50-linux/updates/">
+<link rel="alternate" hreflang="tr" href="https://kaandikec.com/openf50-linux/tr/updates/">
+<link rel="alternate" hreflang="zh-Hans" href="https://kaandikec.com/openf50-linux/zh/updates/">
+<link rel="alternate" hreflang="x-default" href="https://kaandikec.com/openf50-linux/updates/">
 <meta property="og:type" content="website">
-<meta property="og:site_name" content="MU300 Linux">
-<meta property="og:title" content="更新、回滚和回到 Android：ZTE F50 / U30 Air 上的 MU300 Linux">
-<meta property="og:description" content="MU300 Linux 如何自我更新和回滚，启动失败后如何自动回到 Android，以及如何在 Android 和 Linux 间切换、卸载、找回忘记的密码。">
-<meta property="og:url" content="https://kaandikec.com/mu300-linux/zh/updates/">
+<meta property="og:site_name" content="OPENF50 Linux">
+<meta property="og:title" content="更新、回滚和回到 Android：ZTE F50 / U30 Air 上的 OPENF50 Linux">
+<meta property="og:description" content="OPENF50 Linux 如何自我更新和回滚，启动失败后如何自动回到 Android，以及如何在 Android 和 Linux 间切换、卸载、找回忘记的密码。">
+<meta property="og:url" content="https://kaandikec.com/openf50-linux/zh/updates/">
 <meta property="og:locale" content="zh_CN">
-<meta property="og:image" content="https://kaandikec.com/mu300-linux/assets/img/og-image.png">
+<meta property="og:image" content="https://kaandikec.com/openf50-linux/assets/img/og-image.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta property="og:image:alt" content="一台有两个房间的 5G 随身热点：一个给 Android，一个给 Linux">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="更新、回滚和回到 Android：ZTE F50 / U30 Air 上的 MU300 Linux">
-<meta name="twitter:description" content="MU300 Linux 如何自我更新和回滚，启动失败后如何自动回到 Android，以及如何在 Android 和 Linux 间切换、卸载、找回忘记的密码。">
-<meta name="twitter:image" content="https://kaandikec.com/mu300-linux/assets/img/og-image.png">
+<meta name="twitter:title" content="更新、回滚和回到 Android：ZTE F50 / U30 Air 上的 OPENF50 Linux">
+<meta name="twitter:description" content="OPENF50 Linux 如何自我更新和回滚，启动失败后如何自动回到 Android，以及如何在 Android 和 Linux 间切换、卸载、找回忘记的密码。">
+<meta name="twitter:image" content="https://kaandikec.com/openf50-linux/assets/img/og-image.png">
 <meta name="theme-color" content="#f3f6fa" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#0d1520" media="(prefers-color-scheme: dark)">
 <link rel="icon" href="../../assets/favicon.svg" type="image/svg+xml">
@@ -42,13 +42,13 @@
    "@type": "ListItem",
    "position": 1,
    "name": "首页",
-   "item": "https://kaandikec.com/mu300-linux/zh/"
+   "item": "https://kaandikec.com/openf50-linux/zh/"
   },
   {
    "@type": "ListItem",
    "position": 2,
    "name": "更新与安全",
-   "item": "https://kaandikec.com/mu300-linux/zh/updates/"
+   "item": "https://kaandikec.com/openf50-linux/zh/updates/"
   }
  ]
 }
@@ -58,7 +58,7 @@
 <a class="skip" href="#content">跳到正文</a>
 <header class="site-header">
 <div class="wrap">
-<a class="brand" href="../../zh/"><svg viewBox="0 0 64 64" aria-hidden="true"><rect x="6" y="8" width="52" height="50" rx="12" fill="none" stroke="currentColor" stroke-width="4"/><circle cx="22" cy="20" r="3.5" fill="#2259d6"/><circle cx="32" cy="20" r="3.5" fill="currentColor"/><circle cx="42" cy="20" r="3.5" fill="#f2b23a"/><path d="M17 32 l9 7 l-9 7" fill="none" stroke="#f2b23a" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M30 47 h15" stroke="#f2b23a" stroke-width="4.5" stroke-linecap="round"/></svg>MU300 Linux</a>
+<a class="brand" href="../../zh/"><svg viewBox="0 0 64 64" aria-hidden="true"><rect x="6" y="8" width="52" height="50" rx="12" fill="none" stroke="currentColor" stroke-width="4"/><circle cx="22" cy="20" r="3.5" fill="#2259d6"/><circle cx="32" cy="20" r="3.5" fill="currentColor"/><circle cx="42" cy="20" r="3.5" fill="#f2b23a"/><path d="M17 32 l9 7 l-9 7" fill="none" stroke="#f2b23a" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M30 47 h15" stroke="#f2b23a" stroke-width="4.5" stroke-linecap="round"/></svg>OPENF50 Linux</a>
 <nav class="site-nav" id="site-nav" aria-label="Main">
 <a href="../../zh/install/">安装</a>
 <a href="../../zh/web-installer/">网页安装器</a>
@@ -66,7 +66,7 @@
 <a href="../../zh/features/">功能</a>
 <a href="../../zh/updates/" aria-current="page">更新与安全</a>
 <a href="../../zh/troubleshooting/">故障排除</a>
-<a href="https://github.com/dikeckaan/mu300-linux">GitHub</a>
+<a href="https://github.com/dikeckaan/openf50-linux">GitHub</a>
 <span class="langs" role="group" aria-label="语言"><a href="../../updates/" hreflang="en" lang="en">English</a><a href="../../tr/updates/" hreflang="tr" lang="tr">Türkçe</a><a href="../../zh/updates/" hreflang="zh-Hans" lang="zh-Hans" aria-current="true">中文</a></span>
 </nav>
 <button class="theme-btn" type="button" hidden data-labels="主题|自动|浅色|深色|跟随系统|切换颜色主题"><svg class="i-auto" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 3.5a8.5 8.5 0 0 1 0 17z" fill="currentColor"/></svg><svg class="i-light" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1 7 17M17 7l2.1-2.1" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><svg class="i-dark" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg><span class="theme-name"></span></button>
@@ -98,39 +98,39 @@
 
 <section id="update">
 <h2>更新</h2>
-<p>设备可以直接从发布版本更新自己，不需要电脑。它会在开机时和之后每 6 小时检查一次新版本，并在登录时和 <code>mu300-toolkit</code> 里提醒你，但<strong>绝不会自己安装</strong>。</p>
-<pre><code>sudo mu300-update check           <span class="c"># 当前版本和最新发布</span>
-sudo mu300-update apply           <span class="c"># 系统、内核和启动镜像；然后重启</span>
+<p>设备可以直接从发布版本更新自己，不需要电脑。它会在开机时和之后每 6 小时检查一次新版本，并在登录时和 <code>openf50-toolkit</code> 里提醒你，但<strong>绝不会自己安装</strong>。</p>
+<pre><code>sudo openf50-update check           <span class="c"># 当前版本和最新发布</span>
+sudo openf50-update apply           <span class="c"># 系统、内核和启动镜像；然后重启</span>
 sudo reboot</code></pre>
-<p><code>mu300-toolkit</code> 里的 System &gt; Software update 也能做同样的事。过程是这样的：</p>
+<p><code>openf50-toolkit</code> 里的 System &gt; Software update 也能做同样的事。过程是这样的：</p>
 <ol>
 <li>先下载并校验所有文件；全部到齐之前什么都不改。</li>
 <li>新系统解压在旧系统<strong>旁边</strong>，到最后才换上，所以下载中断也不会留下一个更新到一半的系统。</li>
 <li>你的设置、用户、<code>/usr/local</code>、从你设备上取来的 Wi-Fi 和基带文件，以及已装的扩展都会带过去。VPN 模块（核心和引擎作为一组）会更新到它的最新版本。</li>
 <li>内核和启动镜像也一起更新。新内核的头几次启动照常按失败次数计算，所以起不来的内核会让设备自己回到 Android。</li>
 </ol>
-<p>换内核也是同样的方式：<code>sudo mu300-update kernel 6.18</code>（或 <code>5.4</code>、<code>7.2</code>），然后重启。见<a href="../choose/#kernels">选择内核</a>。</p>
+<p>换内核也是同样的方式：<code>sudo openf50-update kernel 6.18</code>（或 <code>5.4</code>、<code>7.2</code>），然后重启。见<a href="../choose/#kernels">选择内核</a>。</p>
 
 <div class="callout">
 <strong>从 v2026.09.27 或更早的版本更新</strong>
 <p>先取得新的更新程序，再更新；两步都在刚重启之后做（旧的启动镜像在安静几分钟后可能丢失移动数据）：</p>
-<pre><code>sudo curl -fL https://github.com/dikeckaan/mu300-linux/releases/latest/download/mu300-update -o /opt/mu300/bin/mu300-update
-sudo mu300-update apply</code></pre>
+<pre><code>sudo curl -fL https://github.com/dikeckaan/openf50-linux/releases/latest/download/openf50-update -o /opt/openf50/bin/openf50-update
+sudo openf50-update apply</code></pre>
 <p>在 OpenWrt 上，以 root 身份：</p>
-<pre><code>wget -O /opt/mu300/bin/mu300-update https://github.com/dikeckaan/mu300-linux/releases/latest/download/mu300-update
-mu300-update apply</code></pre>
+<pre><code>wget -O /opt/openf50/bin/openf50-update https://github.com/dikeckaan/openf50-linux/releases/latest/download/openf50-update
+openf50-update apply</code></pre>
 </div>
 <p>用电脑也行：再运行一次安装程序，选 <code>update</code>。它会重装系统、写入新的启动镜像，并保留你的设置和数据。</p>
-<p><strong>你自己装的软件包</strong>（<code>apk add</code>、<code>apt install</code>）不在发布版的镜像里。更新会把它们列出来，把它们的 OpenWrt 设置先放到一边（免得程序不在了设置还在起作用），新系统在第一次开机联网后再把它们装回来。<code>mu300-user-packages status</code> 显示哪些回来了（控制面板里：系统 &rarr; 更新后的软件包）；<code>mu300-update apply --no-reinstall</code> 跳过这一步。Ubuntu 上你添加的 apt 源（PPA）也会保留。从 v2026.10.20 起。</p>
-<p>装了网页面板扩展的 Ubuntu 上，新镜像里没有 Cockpit：更新后的第一次开机会在后台把它装回来（扩展自带副本就用副本，否则联网后从 Ubuntu 的软件源装）；<code>mu300-panel status</code> 会说明进度。</p>
+<p><strong>你自己装的软件包</strong>（<code>apk add</code>、<code>apt install</code>）不在发布版的镜像里。更新会把它们列出来，把它们的 OpenWrt 设置先放到一边（免得程序不在了设置还在起作用），新系统在第一次开机联网后再把它们装回来。<code>openf50-user-packages status</code> 显示哪些回来了（控制面板里：系统 &rarr; 更新后的软件包）；<code>openf50-update apply --no-reinstall</code> 跳过这一步。Ubuntu 上你添加的 apt 源（PPA）也会保留。从 v2026.10.20 起。</p>
+<p>装了网页面板扩展的 Ubuntu 上，新镜像里没有 Cockpit：更新后的第一次开机会在后台把它装回来（扩展自带副本就用副本，否则联网后从 Ubuntu 的软件源装）；<code>openf50-panel status</code> 会说明进度。</p>
 </section>
 
 <section id="rollback">
 <h2>回滚</h2>
 <p>上一个版本会以 <code>&lt;os&gt;.old</code> 的形式保留，直到你清理掉；上一个启动镜像也会保留。</p>
-<pre><code>sudo mu300-update rollback        <span class="c"># 回到上一个系统</span>
-sudo mu300-update rollback-boot   <span class="c"># 回到上一个内核和启动镜像</span>
-sudo mu300-update clean           <span class="c"># 删掉保留的旧版本</span></code></pre>
+<pre><code>sudo openf50-update rollback        <span class="c"># 回到上一个系统</span>
+sudo openf50-update rollback-boot   <span class="c"># 回到上一个内核和启动镜像</span>
+sudo openf50-update clean           <span class="c"># 删掉保留的旧版本</span></code></pre>
 </section>
 
 <section id="safety-net">
@@ -265,12 +265,12 @@ sudo mu300-update clean           <span class="c"># 删掉保留的旧版本</sp
 <ul>
 <li>次数在安装时选，<strong>1 到 6，默认 5</strong>；6 是引导程序计数器能存下的最大值。</li>
 <li>如果 Linux 根本起不来，设备也会自己回到 Android。</li>
-<li><strong>锁定 Linux</strong> 就是故意把降落伞关掉：设备永远不会自己回到 Android，失败多少次都不会，系统起不来也不会（这时它会在 USB 上等着，提供一个 telnet shell，在里面运行 <code>sh /run/to-android</code> 就能去 Android）。唯一的例外是 <code>mu300-update</code> 装的新内核，它的头几次启动仍按通常的次数计算。控制面板首页上也有“锁定 Linux”（Lock Linux）。</li>
+<li><strong>锁定 Linux</strong> 就是故意把降落伞关掉：设备永远不会自己回到 Android，失败多少次都不会，系统起不来也不会（这时它会在 USB 上等着，提供一个 telnet shell，在里面运行 <code>sh /run/to-android</code> 就能去 Android）。唯一的例外是 <code>openf50-update</code> 装的新内核，它的头几次启动仍按通常的次数计算。控制面板首页上也有“锁定 Linux”（Lock Linux）。</li>
 </ul>
-<pre><code>sudo mu300-next-boot attempts 3  <span class="c"># 回到 Android 前允许失败几次，1 到 6</span>
-sudo mu300-next-boot lock        <span class="c"># 无论如何都留在 Linux</span>
-sudo mu300-next-boot unlock      <span class="c"># 恢复按次数回退</span>
-sudo mu300-next-boot status</code></pre>
+<pre><code>sudo openf50-next-boot attempts 3  <span class="c"># 回到 Android 前允许失败几次，1 到 6</span>
+sudo openf50-next-boot lock        <span class="c"># 无论如何都留在 Linux</span>
+sudo openf50-next-boot unlock      <span class="c"># 恢复按次数回退</span>
+sudo openf50-next-boot status</code></pre>
 </section>
 
 <section id="to-android">
@@ -278,19 +278,19 @@ sudo mu300-next-boot status</code></pre>
 <div class="cards">
 <div class="card android">
 <h3>从 Linux 到 Android</h3>
-<pre><code>sudo mu300-next-boot android
+<pre><code>sudo openf50-next-boot android
 sudo reboot</code></pre>
 <p>或者用控制面板上的“切换到 Android”（Switch to Android）。手边没有电脑、也登录不了：在开机过程中断电，连续断的次数等于你设的失败次数（见<a href="#password">下文</a>）。</p>
 </div>
 <div class="card linux">
 <h3>从 Android 到 Linux</h3>
-<pre><code>su -c mu300-linux                <span class="c"># 在 Android 里：重启进入 Linux</span>
-su -c 'mu300-linux status'       <span class="c"># 哪个系统在哪个槽位</span></code></pre>
-<p>或者用 Magisk 应用里“MU300 Linux”模块的操作（Action）按钮。这个模块是安装程序装上的；它只写入和安装程序相同的那 32 个字节的 <code>misc</code>。</p>
+<pre><code>su -c openf50-linux                <span class="c"># 在 Android 里：重启进入 Linux</span>
+su -c 'openf50-linux status'       <span class="c"># 哪个系统在哪个槽位</span></code></pre>
+<p>或者用 Magisk 应用里“OPENF50 Linux”模块的操作（Action）按钮。这个模块是安装程序装上的；它只写入和安装程序相同的那 32 个字节的 <code>misc</code>。</p>
 </div>
 </div>
 <p>切换到 Android 之前，如果还设着频段或小区锁定，控制面板会提醒你，因为基带把它们存在自己的存储里，Android 也会照用。网络锁定页面上的“全部重置为自动”（Reset all to automatic）（<code>unisoc-modem lock reset</code>）可以清除它们。</p>
-<p>在几个 Linux 系统之间切换：<code>sudo mu300-os ubuntu</code>、<code>openwrt</code> 或 <code>openwrt-luci</code>，然后重启。</p>
+<p>在几个 Linux 系统之间切换：<code>sudo openf50-os ubuntu</code>、<code>openwrt</code> 或 <code>openwrt-luci</code>，然后重启。</p>
 </section>
 
 <section id="uninstall">
@@ -317,7 +317,7 @@ uninstall.cmd                 <span class="c"># Windows（cmd）</span></code></
 <li><strong>设置新密码：</strong>在电脑上操作，不用启动 Linux，所有数据都保留：
 <pre><code>tools/reset-password.sh            <span class="c"># ubuntu、openwrt 或两者</span></code></pre>
 </li>
-<li>再启动 Linux：在 Android 里运行 <code>su -c mu300-linux</code>，或者如果 Linux 是默认系统，直接重启。</li>
+<li>再启动 Linux：在 Android 里运行 <code>su -c openf50-linux</code>，或者如果 Linux 是默认系统，直接重启。</li>
 </ol>
 <p>再运行一次安装程序并选 <code>update</code>，也会把密码设成你输入的那个。</p>
 </section>
@@ -329,17 +329,17 @@ uninstall.cmd                 <span class="c"># Windows（cmd）</span></code></
 <div>
 <h2>项目</h2>
 <ul>
-<li><a href="https://github.com/dikeckaan/mu300-linux">GitHub 上的源代码</a></li>
-<li><a href="https://github.com/dikeckaan/mu300-linux/releases">发布版本（下载）</a></li>
+<li><a href="https://github.com/dikeckaan/openf50-linux">GitHub 上的源代码</a></li>
+<li><a href="https://github.com/dikeckaan/openf50-linux/releases">发布版本（下载）</a></li>
 <li><a href="https://github.com/dikeckaan/mu300-linux-vpn">VPN 模块</a></li>
 </ul>
 </div>
 <div>
 <h2>帮助</h2>
 <ul>
-<li><a href="https://github.com/dikeckaan/mu300-linux/wiki">Wiki（英文）</a></li>
+<li><a href="https://github.com/dikeckaan/openf50-linux/wiki">Wiki（英文）</a></li>
 <li><a href="../../zh/troubleshooting/">故障排除</a></li>
-<li><a href="https://github.com/dikeckaan/mu300-linux/issues">报告问题</a></li>
+<li><a href="https://github.com/dikeckaan/openf50-linux/issues">报告问题</a></li>
 <li><a href="https://t.me/mu300project">Telegram 频道（动态与新版本）</a></li>
 </ul>
 </div>

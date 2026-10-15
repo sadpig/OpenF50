@@ -6,7 +6,7 @@ Rongyue E5's 5.15 tree, ported to the 5.4 audio_driver tree this project builds.
 The AGCP DMA completion interrupt never reaches the GIC on these boards: both sprd_dma lines in
 /proc/interrupts stay at 0 for a whole stream (docs/FINDINGS.md 24, "Where it actually stops"), so
 sprd_pcm_dma_buf_done() never runs and nothing calls snd_pcm_period_elapsed(). Every ordinary ALSA client -
-aplay, arecord, mu300-voice's tone and echo - then blocks on its first full buffer and gives up with EIO,
+aplay, arecord, openf50-voice's tone and echo - then blocks on its first full buffer and gives up with EIO,
 which is exactly the hw_ptr-stuck-after-one-burst picture measured here. The E5 has the same SoC family and
 the same symptom, with or without the AGDSP running.
 

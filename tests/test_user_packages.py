@@ -1,6 +1,6 @@
-"""Packages installed on the device across an update (#116): mu300-update's upk_record writes down what was added to
+"""Packages installed on the device across an update (#116): openf50-update's upk_record writes down what was added to
 a system (OpenWrt's world file, dpkg's manual packages) less the image's own set and sets the UCI files of those
-packages aside; mu300-user-packages installs them again at the first boot, puts their settings back, takes a dead DNS
+packages aside; openf50-user-packages installs them again at the first boot, puts their settings back, takes a dead DNS
 forwarder and a missing LuCI theme out, and says what it did. apk, apt-get, dpkg-query and uci are stubs."""
 import os
 import re
@@ -10,8 +10,8 @@ import sys
 
 from helpers import BIN, TOP, ShellTest
 
-UPD = BIN / 'mu300-update'
-UPK = BIN / 'mu300-user-packages'
+UPD = BIN / 'openf50-update'
+UPK = BIN / 'openf50-user-packages'
 
 
 def write(root, files):
@@ -58,9 +58,9 @@ def openwrt_old(root, image_list=True):
              'etc/config/openclash': "config openclash 'config'\n\toption enable '1'\n",
              'etc/config/argon': 'config global\n', 'etc/config/dhcp': 'old dhcp\n', 'etc/config/luci': 'old luci\n',
              'etc/config/system': 'old system\n', 'etc/config/mine': 'by hand\n',
-             'etc/mu300/image-version': 'v1\n', 'etc/mu300/vpn.conf': 'ENABLE=1\n'}
+             'etc/openf50/image-version': 'v1\n', 'etc/openf50/vpn.conf': 'ENABLE=1\n'}
     if image_list:
-        files['etc/mu300/image-packages'] = 'base-files\nbusybox\ndnsmasq\nluci\nluci-theme-aurora\n'
+        files['etc/openf50/image-packages'] = 'base-files\nbusybox\ndnsmasq\nluci\nluci-theme-aurora\n'
     write(root, files)
     (root / 'etc/rc.d').mkdir(parents=True, exist_ok=True)
     for n in ('S99openclash', 'S19dnsmasq'):
@@ -74,13 +74,13 @@ def openwrt_new(root, extra_db=None):
     write(root, {'etc/apk/world': IMAGE_WORLD + ''.join(f'{n}\n' for n in (extra_db or {})),
                  'lib/apk/db/installed': apk_db(db),
                  'etc/config/dhcp': 'image dhcp\n', 'etc/config/luci': 'image luci\n', 'etc/config/system': 'image\n',
-                 'etc/mu300/image-version': 'v2\n',
-                 'etc/mu300/image-packages': 'base-files\nbusybox\ndnsmasq\nluci\nluci-theme-aurora\n'})
+                 'etc/openf50/image-version': 'v2\n',
+                 'etc/openf50/image-packages': 'base-files\nbusybox\ndnsmasq\nluci\nluci-theme-aurora\n'})
 
 
 def keep(old, new):
     """What apply_one copies between image_own_save and upk_record (keep_list of OpenWrt)."""
-    for k in ('etc/config', 'etc/mu300'):
+    for k in ('etc/config', 'etc/openf50'):
         shutil.rmtree(new / k, ignore_errors=True)
         shutil.copytree(old / k, new / k, symlinks=True)
 
@@ -100,12 +100,12 @@ class Record(ShellTest):
 
     def record(self, shell, os_name='openwrt-luci', pre='', **env):
         code = (f'. "{UPD}"; {pre} image_own_save "{self.new}" && '
-                f'keep() {{ for k in etc/config etc/mu300; do rm -rf "{self.new}/$k"; cp -a "{self.old}/$k" "{self.new}/$k"; done; }} && keep && '
+                f'keep() {{ for k in etc/config etc/openf50; do rm -rf "{self.new}/$k"; cp -a "{self.old}/$k" "{self.new}/$k"; done; }} && keep && '
                 f'image_own_restore "{self.new}" && upk_record "{self.old}" "{self.new}" {os_name}; echo "rc=$?"')
-        return self.sh(shell, code, MU300_LIB=1, **env)
+        return self.sh(shell, code, OPENF50_LIB=1, **env)
 
     def rec(self, name):
-        p = self.new / 'etc/mu300/user-packages' / name
+        p = self.new / 'etc/openf50/user-packages' / name
         return p.read_text() if p.exists() else None
 
     def test_openwrt_added_packages_are_written_down_and_their_config_set_aside(self):
@@ -122,19 +122,19 @@ class Record(ShellTest):
             self.assertIn('luci-app-openclash etc/init.d/openclash\n', self.rec('files'))
             self.assertNotIn('usr/share', self.rec('files'))   # only etc/
             self.assertIn('S99openclash\n', self.rec('rc.d'))
-            orph = self.new / 'etc/mu300/orphaned-config/etc/config'
+            orph = self.new / 'etc/openf50/orphaned-config/etc/config'
             self.assertEqual((orph / 'openclash').read_text(), "config openclash 'config'\n\toption enable '1'\n")
             self.assertEqual((orph / 'argon').read_text(), 'config global\n')
             self.assertFalse((self.new / 'etc/config/openclash').exists())
             # the image's own files and one made by hand stay where they are, as the device had them
             self.assertEqual((self.new / 'etc/config/dhcp').read_text(), 'old dhcp\n')
             self.assertEqual((self.new / 'etc/config/mine').read_text(), 'by hand\n')
-            self.assertEqual((self.new / 'etc/mu300/vpn.conf').read_text(), 'ENABLE=1\n')
-            # the new image's version and list, not the old ones that came with etc/mu300
-            self.assertEqual((self.new / 'etc/mu300/image-version').read_text(), 'v2\n')
-            self.assertFalse((self.new / '.mu300-image').exists())
+            self.assertEqual((self.new / 'etc/openf50/vpn.conf').read_text(), 'ENABLE=1\n')
+            # the new image's version and list, not the old ones that came with etc/openf50
+            self.assertEqual((self.new / 'etc/openf50/image-version').read_text(), 'v2\n')
+            self.assertFalse((self.new / '.openf50-image').exists())
             self.assertIn('luci-app-openclash luci-theme-argon', r.stdout)
-            self.assertIn('/etc/config/openclash -> /etc/mu300/orphaned-config/etc/config/openclash', r.stdout)
+            self.assertIn('/etc/config/openclash -> /etc/openf50/orphaned-config/etc/config/openclash', r.stdout)
             self.assertIn('first boot installs them again', r.stdout)
 
     def test_a_file_the_new_image_has_is_never_set_aside(self):
@@ -147,7 +147,7 @@ class Record(ShellTest):
             r = self.record(shell)
             self.assertIn('rc=0', r.stdout, r.stderr)
             self.assertEqual((self.new / 'etc/config/dhcp').read_text(), 'old dhcp\n')
-            self.assertFalse((self.new / 'etc/mu300/orphaned-config/etc/config/dhcp').exists())
+            self.assertFalse((self.new / 'etc/openf50/orphaned-config/etc/config/dhcp').exists())
 
     def test_a_package_the_new_image_has_is_neither_wanted_nor_set_aside(self):
         for shell in self.each_shell():
@@ -163,7 +163,7 @@ class Record(ShellTest):
             # a package the old image had and the new one dropped on purpose: in its packages.txt, not added by hand
             w = self.old / 'etc/apk/world'
             w.write_text(w.read_text() + 'oldthing\n')
-            (self.old / 'etc/mu300/packages.txt').write_text(
+            (self.old / 'etc/openf50/packages.txt').write_text(
                 'oldthing-2024.10.04~abc-r1 aarch64_generic {feeds/x} (GPL) [installed]\n'
                 'busybox-1.37.0-r5 aarch64_generic {feeds/base} (GPL) [installed]\n')
             r = self.record(shell)
@@ -177,17 +177,17 @@ class Record(ShellTest):
             r = self.record(shell)
             self.assertIn('rc=0', r.stdout, r.stderr)
             self.assertIn('none', r.stdout)
-            self.assertFalse((self.new / 'etc/mu300/user-packages').exists())
+            self.assertFalse((self.new / 'etc/openf50/user-packages').exists())
             self.assertTrue((self.new / 'etc/config/openclash').exists())
 
     def test_an_old_record_is_replaced_and_what_it_never_got_back_stays_wanted(self):
         for shell in self.each_shell():
             self.fresh()
-            write(self.old, {'etc/mu300/user-packages/wanted': 'adguardhome\nluci-app-sqm\nnano\n',
-                             'etc/mu300/user-packages/done': 'nano\n',
-                             'etc/mu300/user-packages/failed': 'luci-app-sqm ERROR: unable to select\n',
-                             'etc/mu300/user-packages/files': 'adguardhome etc/config/adguardhome\n',
-                             'etc/mu300/user-packages/log': 'old log\n'})
+            write(self.old, {'etc/openf50/user-packages/wanted': 'adguardhome\nluci-app-sqm\nnano\n',
+                             'etc/openf50/user-packages/done': 'nano\n',
+                             'etc/openf50/user-packages/failed': 'luci-app-sqm ERROR: unable to select\n',
+                             'etc/openf50/user-packages/files': 'adguardhome etc/config/adguardhome\n',
+                             'etc/openf50/user-packages/log': 'old log\n'})
             r = self.record(shell)
             self.assertIn('rc=0', r.stdout, r.stderr)
             self.assertEqual(self.rec('wanted'), 'adguardhome\nluci-app-openclash\nluci-theme-argon\n')
@@ -198,11 +198,11 @@ class Record(ShellTest):
     def test_skipped_still_sets_the_settings_aside(self):
         for shell in self.each_shell():
             self.fresh()
-            r = self.record(shell, MU300_KEEP_PACKAGES='0')
+            r = self.record(shell, OPENF50_KEEP_PACKAGES='0')
             self.assertIn('rc=0', r.stdout, r.stderr)
             self.assertEqual(self.rec('state'), 'skipped\n')
             self.assertIn('not installed again', r.stdout)
-            self.assertTrue((self.new / 'etc/mu300/orphaned-config/etc/config/openclash').exists())
+            self.assertTrue((self.new / 'etc/openf50/orphaned-config/etc/config/openclash').exists())
 
     def test_safe_under_set_e(self):
         # tools/android-install.sh runs with set -e
@@ -222,17 +222,17 @@ class Record(ShellTest):
             for d in (self.old, self.new):
                 shutil.rmtree(d, ignore_errors=True)
             write(self.old, dpkg(['bash', 'openssh-server', 'htop', 'libfoo', 'linux-image-6.8'], auto=['libfoo']))
-            write(self.old, {'etc/mu300/image-packages': 'bash\nopenssh-server\n', 'etc/mu300/image-version': 'v1\n',
+            write(self.old, {'etc/openf50/image-packages': 'bash\nopenssh-server\n', 'etc/openf50/image-version': 'v1\n',
                              'etc/config/x': ''})
             write(self.new, dpkg(['bash', 'openssh-server']))
-            write(self.new, {'etc/mu300/image-version': 'v2\n', 'etc/mu300/image-packages': 'bash\nopenssh-server\n'})
+            write(self.new, {'etc/openf50/image-version': 'v2\n', 'etc/openf50/image-packages': 'bash\nopenssh-server\n'})
             r = self.record(shell, 'ubuntu')
             self.assertIn('rc=0', r.stdout, r.stderr)
             self.assertEqual(self.rec('wanted'), 'htop\n')
             self.assertEqual(self.rec('files'), '')
             # without the old image's list: the new image's manual set
-            (self.old / 'etc/mu300/image-packages').unlink()
-            shutil.rmtree(self.new / 'etc/mu300/user-packages')
+            (self.old / 'etc/openf50/image-packages').unlink()
+            shutil.rmtree(self.new / 'etc/openf50/user-packages')
             r = self.record(shell, 'ubuntu')
             self.assertEqual(self.rec('wanted'), 'htop\n', r.stderr)
 
@@ -245,7 +245,7 @@ class Record(ShellTest):
         write(self.old, dpkg(manual))
         write(self.old, {
             'usr/lib/os-release': f'NAME="Ubuntu"\nVERSION_CODENAME={old_codename}\n',
-            'etc/mu300/image-packages': 'bash\n', 'etc/mu300/image-version': 'v1\n',
+            'etc/openf50/image-packages': 'bash\n', 'etc/openf50/image-version': 'v1\n',
             # the image's own source (the new image has it too) and two the user added, one deb822 with a key
             'etc/apt/sources.list.d/ubuntu.sources': 'old\n',
             'etc/apt/sources.list.d/ppa-htop.list': 'deb [signed-by=/etc/apt/keyrings/htop.gpg] http://ppa noble main\n',
@@ -269,7 +269,7 @@ class Record(ShellTest):
         os.symlink('htopd.service', self.old / 'usr/lib/systemd/system/htop-alias.service')
         write(self.new, dpkg(['bash']))
         write(self.new, {'usr/lib/os-release': f'NAME="Ubuntu"\nVERSION_CODENAME={new_codename}\n',
-                         'etc/mu300/image-packages': 'bash\n', 'etc/mu300/image-version': 'v2\n',
+                         'etc/openf50/image-packages': 'bash\n', 'etc/openf50/image-version': 'v2\n',
                          'etc/apt/sources.list.d/ubuntu.sources': 'image\n',
                          'etc/apt/preferences.d/image-pin': 'image pin\n',
                          'usr/share/keyrings/ubuntu-archive-keyring.gpg': 'image key'})
@@ -309,8 +309,8 @@ class Record(ShellTest):
             self.assertFalse((src / 'ppa-htop.list').exists())
             self.assertTrue((src / 'ppa-htop.list.disabled').exists())
             self.assertIn('is for Ubuntu noble, this is resolute: kept disabled', r.stdout)
-            self.assertFalse((self.new / 'etc/mu300/user-packages').exists())
-            # with a package to bring back they stay on: the first boot tries them (mu300-user-packages)
+            self.assertFalse((self.new / 'etc/openf50/user-packages').exists())
+            # with a package to bring back they stay on: the first boot tries them (openf50-user-packages)
             self.ubuntu_roots('noble', 'resolute')
             self.record(shell, 'ubuntu')
             self.assertTrue((src / 'ppa-htop.list').exists())
@@ -320,7 +320,7 @@ class Record(ShellTest):
         ai = (TOP / 'tools/android-install.sh').read_text()
         blk = re.compile(r'# --- user-packages begin\n.*?# --- user-packages end\n', re.S)
         self.assertEqual(blk.search(ai).group(0), blk.search(upd).group(0))
-        # and it runs where mu300-update's does: after the settings, before the switch
+        # and it runs where openf50-update's does: after the settings, before the switch
         self.assertLess(ai.index('image_own_save "$M/$os.new"'), ai.index('for k in $keep'))
         self.assertLess(ai.index('upk_record "$M/$os"'), ai.index('mv $M/$os.new $M/$os'))
 
@@ -337,22 +337,22 @@ class ApplyOne(ShellTest):
         (img / 'sbin/init').chmod(0o755)
         (img / 'etc/init.d/dnsmasq').chmod(0o755)
         (img / 'etc/rc.d').mkdir()
-        stage = disk / '.mu300-update'
+        stage = disk / '.openf50-update'
         for shell in self.each_shell():
             shutil.rmtree(disk, ignore_errors=True)
             openwrt_old(disk / 'openwrt')
             write(disk / 'openwrt', {'sbin/init': '#!/bin/sh\n'})
             stage.mkdir(parents=True)
-            subprocess.run(['tar', '-czf', str(stage / 'mu300-openwrt-rootfs.tar.gz'), '-C', str(img), '.'], check=True)
-            r = self.sh(shell, f'. "{UPD}"; is_root() {{ false; }}; apply_one openwrt v2', MU300_LIB=1, MU300_DISK=disk,
-                        MU300_BIN=BIN)
+            subprocess.run(['tar', '-czf', str(stage / 'openf50-openwrt-rootfs.tar.gz'), '-C', str(img), '.'], check=True)
+            r = self.sh(shell, f'. "{UPD}"; is_root() {{ false; }}; apply_one openwrt v2', OPENF50_LIB=1, OPENF50_DISK=disk,
+                        OPENF50_BIN=BIN)
             self.assertEqual(r.returncode, 0, r.stderr)
             new = disk / 'openwrt'
-            self.assertEqual((new / 'etc/mu300/user-packages/wanted').read_text(), 'luci-app-openclash\nluci-theme-argon\n')
-            self.assertTrue((new / 'etc/mu300/orphaned-config/etc/config/openclash').exists())
+            self.assertEqual((new / 'etc/openf50/user-packages/wanted').read_text(), 'luci-app-openclash\nluci-theme-argon\n')
+            self.assertTrue((new / 'etc/openf50/orphaned-config/etc/config/openclash').exists())
             self.assertFalse((new / 'etc/config/openclash').exists())
-            self.assertEqual((new / 'etc/mu300/image-version').read_text(), 'v2\n')
-            self.assertFalse((new / '.mu300-image').exists())
+            self.assertEqual((new / 'etc/openf50/image-version').read_text(), 'v2\n')
+            self.assertFalse((new / '.openf50-image').exists())
             # the service of a package the new system does not have: no dangling link; dnsmasq's comes along
             self.assertFalse(os.path.lexists(new / 'etc/rc.d/S99openclash'))
             self.assertTrue(os.path.islink(new / 'etc/rc.d/S19dnsmasq'))
@@ -363,7 +363,7 @@ class ApplyOne(ShellTest):
         # the old system (a device updated to v2026.10.18) and the image both carry etc/config/attendedsysupgrade
         # and uhttpd.apk-new; neither stays, except attendedsysupgrade with its package installed in the new image
         disk = self.tmp / 'disk'
-        stage = disk / '.mu300-update'
+        stage = disk / '.openf50-update'
         for shell in self.each_shell():
             for extra_db, keeps in ((None, False), ({'attendedsysupgrade-common': ['etc/config/attendedsysupgrade']}, True)):
                 shutil.rmtree(disk, ignore_errors=True)
@@ -378,16 +378,16 @@ class ApplyOne(ShellTest):
                 write(disk / 'openwrt', {'sbin/init': '#!/bin/sh\n', 'etc/config/attendedsysupgrade': 'stray\n',
                                          'etc/config/uhttpd.apk-new': 'stray\n', 'etc/config/uhttpd': 'mine\n'})
                 stage.mkdir(parents=True)
-                subprocess.run(['tar', '-czf', str(stage / 'mu300-openwrt-rootfs.tar.gz'), '-C', str(img), '.'], check=True)
-                r = self.sh(shell, f'. "{UPD}"; is_root() {{ false; }}; apply_one openwrt v2', MU300_LIB=1, MU300_DISK=disk,
-                            MU300_BIN=BIN)
+                subprocess.run(['tar', '-czf', str(stage / 'openf50-openwrt-rootfs.tar.gz'), '-C', str(img), '.'], check=True)
+                r = self.sh(shell, f'. "{UPD}"; is_root() {{ false; }}; apply_one openwrt v2', OPENF50_LIB=1, OPENF50_DISK=disk,
+                            OPENF50_BIN=BIN)
                 self.assertEqual(r.returncode, 0, r.stderr)
                 new = disk / 'openwrt'
                 self.assertFalse((new / 'etc/config/uhttpd.apk-new').exists(), keeps)
                 self.assertEqual((new / 'etc/config/attendedsysupgrade').exists(), keeps)
                 self.assertEqual((new / 'etc/config/uhttpd').read_text(), 'mine\n')   # the device's own stays
                 # deleted, not set aside (the fixture's OpenClash config is, as always)
-                orph = new / 'etc/mu300/orphaned-config/etc/config'
+                orph = new / 'etc/openf50/orphaned-config/etc/config'
                 self.assertFalse((orph / 'attendedsysupgrade').exists())
                 self.assertFalse((orph / 'uhttpd.apk-new').exists())
 
@@ -399,31 +399,31 @@ class ApplyOne(ShellTest):
         img = self.tmp / 'img'
         openwrt_new(img, {'sqm-scripts': ['etc/config/sqm']})
         write(img, {'sbin/init': '#!/bin/sh\n', 'etc/config/sqm': 'image sqm\n',
-                    'etc/mu300/image-packages': 'base-files\nbusybox\ndnsmasq\nluci\nluci-theme-aurora\nsqm-scripts\n'})
+                    'etc/openf50/image-packages': 'base-files\nbusybox\ndnsmasq\nluci\nluci-theme-aurora\nsqm-scripts\n'})
         (img / 'sbin/init').chmod(0o755)
         (img / 'etc/rc.d').mkdir()
-        stage = disk / '.mu300-update'
+        stage = disk / '.openf50-update'
         for shell in self.each_shell():
             shutil.rmtree(disk, ignore_errors=True)
             openwrt_old(disk / 'openwrt')
             old = disk / 'openwrt'
             write(old, {'sbin/init': '#!/bin/sh\n',
-                        'etc/mu300/image-packages': 'base-files\nbusybox\ndnsmasq\nluci\nluci-theme-aurora\nsqm-scripts\n'})
+                        'etc/openf50/image-packages': 'base-files\nbusybox\ndnsmasq\nluci\nluci-theme-aurora\nsqm-scripts\n'})
             stage.mkdir(parents=True)
-            subprocess.run(['tar', '-czf', str(stage / 'mu300-openwrt-rootfs.tar.gz'), '-C', str(img), '.'], check=True)
-            r = self.sh(shell, f'. "{UPD}"; is_root() {{ false; }}; apply_one openwrt v2', MU300_LIB=1, MU300_DISK=disk,
-                        MU300_BIN=BIN)
+            subprocess.run(['tar', '-czf', str(stage / 'openf50-openwrt-rootfs.tar.gz'), '-C', str(img), '.'], check=True)
+            r = self.sh(shell, f'. "{UPD}"; is_root() {{ false; }}; apply_one openwrt v2', OPENF50_LIB=1, OPENF50_DISK=disk,
+                        OPENF50_BIN=BIN)
             self.assertEqual(r.returncode, 0, r.stderr)
             new = disk / 'openwrt'
             self.assertEqual((new / 'etc/config/sqm').read_text(), 'image sqm\n')
-            self.assertFalse((new / 'etc/mu300/orphaned-config/etc/config/sqm').exists())
-            self.assertNotIn('sqm-scripts', (new / 'etc/mu300/user-packages/wanted').read_text())
-            self.assertTrue((new / 'etc/mu300/orphaned-config/etc/config/openclash').exists())
+            self.assertFalse((new / 'etc/openf50/orphaned-config/etc/config/sqm').exists())
+            self.assertNotIn('sqm-scripts', (new / 'etc/openf50/user-packages/wanted').read_text())
+            self.assertTrue((new / 'etc/openf50/orphaned-config/etc/config/openclash').exists())
             self.assertEqual((new / 'etc/config/dhcp').read_text(), 'old dhcp\n')     # the device's, not the image's
 
     def test_no_reinstall_flag(self):
         src = UPD.read_text()
-        self.assertIn('--no-reinstall) MU300_KEEP_PACKAGES=0', src)
+        self.assertIn('--no-reinstall) OPENF50_KEEP_PACKAGES=0', src)
 
 
 FAKE_UCI = r'''
@@ -469,7 +469,7 @@ elif cmd == 'commit':
 
 
 class Service(ShellTest):
-    """mu300-user-packages on a fake root (MU300_SYSROOT): apk/apt-get, dpkg-query, uci, the init scripts stubbed."""
+    """openf50-user-packages on a fake root (OPENF50_SYSROOT): apk/apt-get, dpkg-query, uci, the init scripts stubbed."""
 
     def setUp(self):
         super().setUp()
@@ -490,7 +490,7 @@ class Service(ShellTest):
         self.stub('apt-get', 'echo "apt-get $*" >> "$STUBLOG/pm.log"\n'
                              # a source whose suite is gone (another Ubuntu release) fails the update while it is on
                              'case $1 in update) [ -e "$STUBLOG/online" ] || exit 100\n'
-                             '    [ ! -e "$MU300_SYSROOT/etc/apt/sources.list.d/gone.list" ] || exit 100 ;;\n'
+                             '    [ ! -e "$OPENF50_SYSROOT/etc/apt/sources.list.d/gone.list" ] || exit 100 ;;\n'
                              '  *) for p; do case $p in -*|install) continue ;; esac; grep -qx "$p" "$STUBLOG/missing" 2>/dev/null && { echo "E: Unable to locate package $p"; exit 100; }; done ;;\n'
                              'esac\nexit 0')
         self.stub('dpkg-query', 'exit 1')
@@ -499,15 +499,15 @@ class Service(ShellTest):
         shutil.rmtree(self.R, ignore_errors=True)
         for f in ('online', 'missing', 'installed', 'pm.log', 'uci.db', 'uci.log', 'init.log'):
             (self.tmp / f).unlink(missing_ok=True)
-        d = 'etc/mu300/user-packages'
+        d = 'etc/openf50/user-packages'
         write(self.R, {'etc/openwrt_release': 'DISTRIB_ID=OpenWrt\n',
                        f'{d}/wanted': 'luci-app-openclash\nluci-theme-argon\n', f'{d}/done': '', f'{d}/failed': '',
                        f'{d}/from': 'v1\n', f'{d}/state': 'pending\n', f'{d}/rc.d': 'S99openclash\nS19dnsmasq\n',
                        f'{d}/files': 'luci-app-openclash etc/config/openclash\nluci-app-openclash etc/init.d/openclash\n'
                                      'luci-app-openclash etc/init.d/openclash-watch\n'
                                      'luci-theme-argon etc/config/argon\n',
-                       'etc/mu300/orphaned-config/etc/config/openclash': "config openclash 'config'\n\toption dns_port '7874'\n",
-                       'etc/mu300/orphaned-config/etc/config/argon': 'argon\n',
+                       'etc/openf50/orphaned-config/etc/config/openclash': "config openclash 'config'\n\toption dns_port '7874'\n",
+                       'etc/openf50/orphaned-config/etc/config/argon': 'argon\n',
                        'etc/config/dhcp': 'dhcp file\n',
                        'www/luci-static/aurora/main.css': '', 'www/luci-static/bootstrap/x.css': '',
                        'proc/net/udp': '  sl  local_address rem_address   st\n   0: 0100007F:0035 00000000:0000 07\n'
@@ -528,14 +528,14 @@ class Service(ShellTest):
             (self.R / f'etc/init.d/{n}').chmod(0o755)
 
     def run_upk(self, shell, *args, **env):
-        e = dict(MU300_SYSROOT=self.R, MU300_BIN=BIN, MU300_PKG_SETTLE=0, MU300_PKG_DELAY=0, MU300_PKG_TRIES=2,
-                 MU300_DNS_CHECKS=2, MU300_DNS_INTERVAL=0,
-                 MU300_RUN=self.tmp / 'run', MU300_MOTD_DIR=self.tmp / 'motd')
+        e = dict(OPENF50_SYSROOT=self.R, OPENF50_BIN=BIN, OPENF50_PKG_SETTLE=0, OPENF50_PKG_DELAY=0, OPENF50_PKG_TRIES=2,
+                 OPENF50_DNS_CHECKS=2, OPENF50_DNS_INTERVAL=0,
+                 OPENF50_RUN=self.tmp / 'run', OPENF50_MOTD_DIR=self.tmp / 'motd')
         e.update(env)
         return self.script(shell, UPK, *args, **e)
 
     def rec(self, name):
-        p = self.R / 'etc/mu300/user-packages' / name
+        p = self.R / 'etc/openf50/user-packages' / name
         return p.read_text() if p.exists() else None
 
     def uci(self):
@@ -554,12 +554,12 @@ class Service(ShellTest):
             self.assertEqual(self.rec('state'), 'failed\n')
             # its settings back, its services as they were: enabled (and restarted with them) or left disabled
             self.assertEqual((self.R / 'etc/config/openclash').read_text(), "config openclash 'config'\n\toption dns_port '7874'\n")
-            self.assertFalse((self.R / 'etc/mu300/orphaned-config/etc/config/openclash').exists())
+            self.assertFalse((self.R / 'etc/openf50/orphaned-config/etc/config/openclash').exists())
             init = (self.tmp / 'init.log').read_text()
             self.assertIn('openclash enable\nopenclash restart\n', init)
             self.assertIn('openclash-watch disable\n', init)
             # the failed one's stay aside
-            self.assertEqual((self.R / 'etc/mu300/orphaned-config/etc/config/argon').read_text(), 'argon\n')
+            self.assertEqual((self.R / 'etc/openf50/orphaned-config/etc/config/argon').read_text(), 'argon\n')
             # a forwarder something listens on stays
             self.assertIn('dhcp.cfg01.server=127.0.0.1#7874', self.uci())
             # Argon is gone: off the list, and the default is a theme that is there
@@ -570,7 +570,7 @@ class Service(ShellTest):
             self.assertIn('apk add luci-app-openclash luci-theme-argon\napk add luci-app-openclash\napk add luci-theme-argon\n',
                           (self.tmp / 'pm.log').read_text())
             s = self.run_upk(shell, 'status').stdout
-            self.assertIn('mv /etc/mu300/orphaned-config/etc/config/argon /etc/config/argon', s)
+            self.assertIn('mv /etc/openf50/orphaned-config/etc/config/argon /etc/config/argon', s)
             self.assertIn('apk add --allow-untrusted', s)
             # a second boot: nothing left to do, no package manager
             (self.tmp / 'pm.log').unlink()
@@ -591,7 +591,7 @@ class Service(ShellTest):
             u = self.uci()
             self.assertIn('dhcp.cfg01.server=8.8.8.8\n', u)
             self.assertIn('dhcp.cfg01.noresolv=1', u)         # never touched
-            self.assertTrue((self.R / 'etc/mu300/orphaned-config/etc/config/dhcp.before-dns-repair').exists())
+            self.assertTrue((self.R / 'etc/openf50/orphaned-config/etc/config/dhcp.before-dns-repair').exists())
             self.assertIn('DNS: removed the forwarder 127.0.0.1#7874 of luci-app-openclash', self.rec('log'))
 
     def test_dns_only_forwarder_is_reported_and_removed_on_request_only(self):
@@ -603,7 +603,7 @@ class Service(ShellTest):
             before = self.dhcp()
             self.assertIn('dhcp.cfg01.server=127.0.0.1#7874', before)
             self.assertIn('dhcp.cfg01.noresolv=1', before)
-            self.assertIn('mu300-user-packages repair-dns', self.rec('note'))
+            self.assertIn('openf50-user-packages repair-dns', self.rec('note'))
             self.assertIn('repair-dns', self.run_upk(shell, 'status').stdout)
             # the user's own decision: the forwarder goes, and then the connection's resolvers
             r = self.run_upk(shell, 'repair-dns')
@@ -625,7 +625,7 @@ class Service(ShellTest):
     def test_dns_untouched_with_the_vpn_on(self):
         for shell in self.each_shell():
             self.setup_openwrt(server='127.0.0.1#7874 8.8.8.8')
-            write(self.R, {'etc/mu300/vpn.conf': 'ENABLE=1\nSECRET=do-not-print\n'})
+            write(self.R, {'etc/openf50/vpn.conf': 'ENABLE=1\nSECRET=do-not-print\n'})
             (self.tmp / 'online').write_text('')
             (self.tmp / 'missing').write_text('luci-app-openclash\n')
             before = self.dhcp()
@@ -650,7 +650,7 @@ class Service(ShellTest):
             self.setup_openwrt(server='127.0.0.1#7874 8.8.8.8')
             (self.tmp / 'online').write_text('')
             (self.tmp / 'missing').write_text('luci-app-openclash\n')
-            write(self.R, {'etc/mu300/vpn/settings': 'DNS_PORT=7874\n'})
+            write(self.R, {'etc/openf50/vpn/settings': 'DNS_PORT=7874\n'})
             before = self.dhcp()
             self.run_upk(shell, 'run')
             self.assertEqual(self.dhcp(), before)
@@ -664,7 +664,7 @@ class Service(ShellTest):
             # builtin, a stub named sleep never runs there)
             self.stub('dnswait', f'printf "   1: 0100007F:1EC2 00000000:0000 07\\n" >> "{self.R}/proc/net/udp"')
             before = self.dhcp()
-            r = self.run_upk(shell, 'run', MU300_DNS_CHECKS=3, MU300_DNS_WAIT=self.stubs / 'dnswait')
+            r = self.run_upk(shell, 'run', OPENF50_DNS_CHECKS=3, OPENF50_DNS_WAIT=self.stubs / 'dnswait')
             self.assertEqual(r.returncode, 0, r.stderr)
             self.assertEqual(self.dhcp(), before)
             self.assertIn('0100007F:1EC2', (self.R / 'proc/net/udp').read_text())   # the wait did run
@@ -706,7 +706,7 @@ class Service(ShellTest):
             self.assertIn('dhcp.cfg01.server=127.0.0.1#7874', self.uci())
             self.assertIn('dhcp.cfg01.noresolv=1', self.uci())
             self.assertIn('repair-dns', self.rec('note'))
-            self.assertTrue((self.R / 'etc/mu300/orphaned-config/etc/config/openclash').exists())
+            self.assertTrue((self.R / 'etc/openf50/orphaned-config/etc/config/openclash').exists())
             self.assertIn('skipped', self.rec('note'))
             self.run_upk(shell, 'retry')
             self.assertEqual(self.rec('state'), 'done\n')
@@ -717,15 +717,15 @@ class Service(ShellTest):
         # next boot", the panel "Not installed yet"
         for shell in self.each_shell():
             self.setup_openwrt(listening=True)
-            write(self.R, {'etc/mu300/user-packages/done': 'luci-app-openclash\nluci-theme-argon\n',
-                           'etc/mu300/user-packages/state': 'done\n'})
+            write(self.R, {'etc/openf50/user-packages/done': 'luci-app-openclash\nluci-theme-argon\n',
+                           'etc/openf50/user-packages/state': 'done\n'})
             r = self.run_upk(shell, 'retry')
             self.assertEqual(r.returncode, 0, r.stderr)
             self.assertEqual(self.rec('state'), 'done\n')
             self.assertIn('2 of 2 packages', self.run_upk(shell, 'brief').stdout)
             self.assertFalse((self.tmp / 'pm.log').exists())
             # a record an older retry left pending: the next run ends it
-            write(self.R, {'etc/mu300/user-packages/state': 'pending\n'})
+            write(self.R, {'etc/openf50/user-packages/state': 'pending\n'})
             self.run_upk(shell, 'run')
             self.assertEqual(self.rec('state'), 'done\n')
 
@@ -742,11 +742,11 @@ class Service(ShellTest):
     def test_one_run_at_a_time(self):
         for shell in self.each_shell():
             self.setup_openwrt()
-            (self.tmp / 'run/mu300-user-packages.lock').mkdir(parents=True, exist_ok=True)
+            (self.tmp / 'run/openf50-user-packages.lock').mkdir(parents=True, exist_ok=True)
             r = self.run_upk(shell, 'run')
             self.assertNotEqual(r.returncode, 0)
             self.assertIn('running already', r.stderr)
-            (self.tmp / 'run/mu300-user-packages.lock').rmdir()
+            (self.tmp / 'run/openf50-user-packages.lock').rmdir()
 
     def test_nothing_recorded_does_nothing(self):
         for shell in self.each_shell():
@@ -762,7 +762,7 @@ class Service(ShellTest):
             for f in ('online', 'missing', 'pm.log'):
                 (self.tmp / f).unlink(missing_ok=True)
             shutil.rmtree(self.tmp / 'motd', ignore_errors=True)
-            d = 'etc/mu300/user-packages'
+            d = 'etc/openf50/user-packages'
             write(self.R, {f'{d}/wanted': 'htop\nppa-thing\n', f'{d}/done': '', f'{d}/failed': '', f'{d}/files': '',
                            f'{d}/rc.d': '', f'{d}/state': 'pending\n'})
             (self.tmp / 'online').write_text('')
@@ -775,15 +775,15 @@ class Service(ShellTest):
             self.assertIn('apt-get update -q --error-on=any', (self.tmp / 'pm.log').read_text())
             self.assertIn('apt-get install -y -q -o Dpkg::Options::=--force-confold htop ppa-thing',
                           (self.tmp / 'pm.log').read_text())
-            self.assertIn('could not be installed again', (self.tmp / 'motd/61-mu300-packages').read_text())
+            self.assertIn('could not be installed again', (self.tmp / 'motd/61-openf50-packages').read_text())
             self.run_upk(shell, 'dismiss')
-            self.assertFalse((self.tmp / 'motd/61-mu300-packages').exists())
+            self.assertFalse((self.tmp / 'motd/61-openf50-packages').exists())
 
     def ubuntu_record(self, wanted='htop\n', units='', sources=''):
         shutil.rmtree(self.R, ignore_errors=True)
         for f in ('online', 'missing', 'pm.log', 'systemctl.log'):
             (self.tmp / f).unlink(missing_ok=True)
-        d = 'etc/mu300/user-packages'
+        d = 'etc/openf50/user-packages'
         write(self.R, {f'{d}/wanted': wanted, f'{d}/done': '', f'{d}/failed': '', f'{d}/files': '', f'{d}/rc.d': '',
                        f'{d}/state': 'pending\n', f'{d}/units': units, f'{d}/apt-sources': sources})
 
@@ -807,7 +807,7 @@ class Service(ShellTest):
     def test_ubuntu_kept_source_that_fails_is_disabled(self):
         for shell in self.each_shell():
             self.ubuntu_record(sources='etc/apt/sources.list.d/gone.list\netc/apt/sources.list.d/ok.list\n')
-            write(self.R, {'etc/mu300/user-packages/apt-prefs': 'etc/apt/preferences.d/gone-pin\n',
+            write(self.R, {'etc/openf50/user-packages/apt-prefs': 'etc/apt/preferences.d/gone-pin\n',
                            'etc/apt/preferences.d/gone-pin': 'Package: *\n',
                            'etc/apt/sources.list.d/gone.list': 'deb x noble main\n',
                            'etc/apt/sources.list.d/ok.list': 'deb y resolute main\n'})
@@ -838,24 +838,24 @@ class Service(ShellTest):
 class Wiring(ShellTest):
     def test_the_images_list_their_packages_and_run_the_service(self):
         b = (TOP / 'openwrt/build-rootfs.sh').read_text()
-        self.assertRegex(b, r'for s in [^\n]*\bmu300-user-packages\b[^\n]*; do')   # in the service loop, whatever else is there
-        self.assertIn('upk_manual $R openwrt) > $R/etc/mu300/image-packages', b)
+        self.assertRegex(b, r'for s in [^\n]*\bopenf50-user-packages\b[^\n]*; do')   # in the service loop, whatever else is there
+        self.assertIn('upk_manual $R openwrt) > $R/etc/openf50/image-packages', b)
         # no stray config file in the image itself (an update would add it to every device): removed from $R, checked
         self.assertIn('rm -f $R/etc/config/attendedsysupgrade $R/etc/config/*.apk-new', b)
         self.assertLess(b.index('rm -f $R/etc/config/attendedsysupgrade'), b.index('cd $R && tar -czf'))
         a = (TOP / 'rootfs/assemble.sh').read_text()
-        self.assertIn('mu300-user-packages.service:multi-user.target', a)
-        self.assertIn('upk_manual $R ubuntu) > $R/etc/mu300/image-packages', a)
-        self.assertTrue((TOP / 'rootfs/overlay/etc/systemd/system/mu300-user-packages.service').exists())
-        i = TOP / 'openwrt/overlay/etc/init.d/mu300-user-packages'
+        self.assertIn('openf50-user-packages.service:multi-user.target', a)
+        self.assertIn('upk_manual $R ubuntu) > $R/etc/openf50/image-packages', a)
+        self.assertTrue((TOP / 'rootfs/overlay/etc/systemd/system/openf50-user-packages.service').exists())
+        i = TOP / 'openwrt/overlay/etc/init.d/openf50-user-packages'
         self.assertTrue(i.stat().st_mode & 0o111)
         self.assertIn('START=99', i.read_text())
-        self.assertIn('/etc/mu300/user-packages/note', (TOP / 'openwrt/overlay/etc/profile.d/mu300-update.sh').read_text())
+        self.assertIn('/etc/openf50/user-packages/note', (TOP / 'openwrt/overlay/etc/profile.d/openf50-update.sh').read_text())
 
     def test_build_shell_can_source_the_updater(self):
-        # the OpenWrt build sources mu300-update under sh -eu, assemble.sh under bash -e
+        # the OpenWrt build sources openf50-update under sh -eu, assemble.sh under bash -e
         r = self.tmp / 'r'
         write(r, {'etc/apk/world': 'a\nb=1\nc><Q1x=\n'})
         for shell in self.each_shell():
-            out = self.sh(shell, f'set -eu; (MU300_LIB=1; . "{UPD}"; upk_manual "{r}" openwrt)')
+            out = self.sh(shell, f'set -eu; (OPENF50_LIB=1; . "{UPD}"; upk_manual "{r}" openwrt)')
             self.assertEqual((out.returncode, out.stdout), (0, 'a\nb\nc\n'), out.stderr)

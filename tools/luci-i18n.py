@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The control panel's (openwrt/luci-app-mu300) translation catalogs, po/<lang>/mu300.po (tr and zh_Hans required).
+"""The control panel's (openwrt/luci-app-openf50) translation catalogs, po/<lang>/openf50.po (tr and zh_Hans required).
 
     python3 tools/luci-i18n.py check   [--root DIR]   list the problems; exit 1 if there is any
     python3 tools/luci-i18n.py extract [--root DIR]   print every message once, in order of first use
@@ -12,21 +12,21 @@ Messages are English and come from:
   * htdocs/**/*.js: _('...') / _("...") with one string literal argument (JS escapes decoded). Any other argument
     is an error, except the sites in DYNAMIC_OK, whose values are messages extracted from elsewhere.
   * root/usr/share/luci/menu.d/*.json: every "title"; root/usr/share/rpcd/acl.d/*.json: every "description".
-  * the backend, root/usr/libexec/rpcd/mu300dash, mu300vpn and root/usr/libexec/unisoc-modem/*, in three forms:
+  * the backend, root/usr/libexec/rpcd/openf50dash, openf50vpn and root/usr/libexec/unisoc-modem/*, in three forms:
       - a literal JSON value in the code, "error" or "message", plain or escaped inside a "..." string:
         printf '{"ok":0,"error":"Text"}\\n'   print "{\\"error\\":\\"Text\\"}"
         Any other value of such a key (%s, a variable) outside the body of a reply helper is an error, unless the
         code line is right after '# i18n: Text' line(s) naming the message(s) it can carry.
-      - a literal argument of a reply helper: refuse 'Text' [DETAIL], reply_obj JSON 'Text' (mu300dash),
+      - a literal argument of a reply helper: refuse 'Text' [DETAIL], reply_obj JSON 'Text' (openf50dash),
         fail OP 'Text' [DETAIL] (action), error 'Text' (device-usb), cli_fail 'Text', reply_val KEY 'Text'
-        (mu300vpn); single or double quotes, no $ or `
+        (openf50vpn); single or double quotes, no $ or `
         inside double quotes. A helper called with a non-literal message is an error, except in BACKEND_DYNAMIC_OK.
       - a comment line '# i18n: Text', for a message the code builds or passes through a variable.
   * N_() is an error: the app has no plural messages (tools/po2lmo.py refuses msgid_plural).
 
 The problems `check` prints, one per line as RULE: PATH:LINE: WHAT (spec, Translations):
   cjk          a CJK character outside the catalogs (po/) and the installers' i18n data
-  missing      a message without an entry, or with an empty msgstr, in any po/<lang>/mu300.po (or no po/tr,
+  missing      a message without an entry, or with an empty msgstr, in any po/<lang>/openf50.po (or no po/tr,
                po/zh_Hans: the images need both)
   language     a po/<lang> directory without a row in openwrt/luci-languages.tsv (its LuCI code and name)
   placeholder  a msgstr whose %s/%d/%% placeholders are not its msgid's, in the same order
@@ -47,7 +47,7 @@ TOP = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import po2lmo  # noqa: E402
 
-APP = TOP / 'openwrt' / 'luci-app-mu300'
+APP = TOP / 'openwrt' / 'luci-app-openf50'
 REQUIRED = ('tr', 'zh_Hans')
 # po directory -> (LuCI code, name): the build, the lang extra and this check read the same table
 TABLE = TOP / 'openwrt' / 'luci-languages.tsv'
@@ -66,21 +66,21 @@ def langs(root):
     """every catalog directory of the app (po/<lang>/), the required ones included even when missing"""
     have = {p.name for p in (root / 'po').iterdir() if p.is_dir()} if (root / 'po').is_dir() else set()
     return sorted(have | set(REQUIRED))
-DOMAIN = 'mu300'
+DOMAIN = 'openf50'
 
 # _() arguments that are not literals: backend replies and carrier names, extracted from the backend and common.js
 DYNAMIC_OK = {'res.error', 'res.message', 'carrier.name'}
 # reply helpers of the backend: name -> position of the message among its arguments (1 = first)
 HELPERS = {'refuse': 1, 'reply_obj': 2, 'fail': 2, 'error': 1, 'cli_fail': 1, 'reply_val': 2}
 # helper calls whose message is a variable on purpose: (file name, helper, argument)
-BACKEND_DYNAMIC_OK = {('mu300dash', 'refuse', '"$2"'),   # reply_obj passing its MESSAGE on
-                      ('mu300vpn', 'refuse', '"$1"'),    # cli_fail and reply_val passing theirs on
-                      ('mu300vpn', 'refuse', '"$2"')}
+BACKEND_DYNAMIC_OK = {('openf50dash', 'refuse', '"$2"'),   # reply_obj passing its MESSAGE on
+                      ('openf50vpn', 'refuse', '"$1"'),    # cli_fail and reply_val passing theirs on
+                      ('openf50vpn', 'refuse', '"$2"')}
 
 # CJK: only these files may contain it (repository paths; with --root, only po/ of that copy)
 CJK = re.compile('[\u2e80-\u9fff\uf900-\ufaff\uff00-\uffef]')
 CJK_SCOPE = ['openwrt', 'rootfs/overlay', 'boot', 'tools', 'install.sh', 'uninstall.sh']
-CJK_ALLOWED = re.compile(r'^(tools/i18n\.sh|i18n/[^/]+\.tsv|openwrt/luci-app-mu300/po/.*|openwrt/luci-languages\.tsv|tests/fixtures/.*)$')
+CJK_ALLOWED = re.compile(r'^(tools/i18n\.sh|i18n/[^/]+\.tsv|openwrt/luci-app-openf50/po/.*|openwrt/luci-languages\.tsv|tests/fixtures/.*)$')
 
 PLACEHOLDER = re.compile(r'%(?:%|[-+#0]*\d*(?:\.\d+)?[a-zA-Z])')
 
@@ -379,7 +379,7 @@ def extract(root, base=None):
                 m.add(msg, rel(p), _line(src, off))
             elif arg not in DYNAMIC_OK:
                 m.problem('dynamic', rel(p), _line(src, off), f'_({arg}) is not one string literal')
-    backend = [root / 'root/usr/libexec/rpcd/mu300dash', root / 'root/usr/libexec/rpcd/mu300vpn'] + \
+    backend = [root / 'root/usr/libexec/rpcd/openf50dash', root / 'root/usr/libexec/rpcd/openf50vpn'] + \
         sorted(root.glob('root/usr/libexec/unisoc-modem/*'))
     for p in backend:
         if p.is_file():
@@ -506,7 +506,7 @@ def update(root):
 def main(argv):
     ap = argparse.ArgumentParser(description=__doc__.split('\n')[0])
     common = argparse.ArgumentParser(add_help=False)
-    common.add_argument('--root', type=Path, help='the app directory (default: openwrt/luci-app-mu300)')
+    common.add_argument('--root', type=Path, help='the app directory (default: openwrt/luci-app-openf50)')
     sub = ap.add_subparsers(dest='cmd', required=True)
     for name in ('check', 'extract', 'update'):
         sub.add_parser(name, parents=[common])

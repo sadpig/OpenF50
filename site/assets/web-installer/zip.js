@@ -1,5 +1,5 @@
 // Reading a Magisk zip the user picked, in the browser, before anything is sent to the device: which system and
-// kernel it holds (its mu300/manifest) and whether its installer knows the web installer. Only the directory at the
+// kernel it holds (its openf50/manifest) and whether its installer knows the web installer. Only the directory at the
 // end of the file and the small entries asked for are read; the payload (the root filesystem) is never unpacked
 // here. The device checks the whole file against its SHA-256 afterwards: this is for telling the user early that
 // they picked the wrong file, not for trusting it.
@@ -98,13 +98,13 @@ export function parseManifest(textValue) {
 }
 
 // inspectMagiskZip(blob) -> { tag, system, os, ubuntu, kernel, web }
-// web: its installer takes MU300_ANSWERS and prints MU300-STEP lines (releases after v2026.10.23)
+// web: its installer takes OPENF50_ANSWERS and prints OPENF50-STEP lines (releases after v2026.10.23)
 export async function inspectMagiskZip(blob) {
   const zip = await openZip(blob);
-  for (const need of ["mu300/manifest", "mu300/install.sh", "mu300/android-install.sh", "switch.sh", "module.prop"]) {
+  for (const need of ["openf50/manifest", "openf50/install.sh", "openf50/android-install.sh", "switch.sh", "module.prop"]) {
     if (!zip.entries.has(need)) throw new ZipError("not-ours", need);
   }
-  const manifest = parseManifest(dec.decode(await zip.read("mu300/manifest", 4096)));
-  const installer = dec.decode(await zip.read("mu300/install.sh", 512 * 1024));
-  return { ...manifest, web: installer.includes("MU300_ANSWERS") && installer.includes("MU300-STEP") };
+  const manifest = parseManifest(dec.decode(await zip.read("openf50/manifest", 4096)));
+  const installer = dec.decode(await zip.read("openf50/install.sh", 512 * 1024));
+  return { ...manifest, web: installer.includes("OPENF50_ANSWERS") && installer.includes("OPENF50-STEP") };
 }

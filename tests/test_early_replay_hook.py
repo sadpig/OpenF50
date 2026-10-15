@@ -1,7 +1,7 @@
 """The platform offers the optional unisoc-modem LuCI plugin an early hook to replay its saved locks (K65).
 
 Ported from kanoqwq/clean-tf-7.2 (6404c10, tests/test_early_replay_hook.py). The plugin's path is
-$PLUGIN_LOCK here (MU300_PLUGIN_LOCK overrides it for the tests), so the checks name the variable and its default
+$PLUGIN_LOCK here (OPENF50_PLUGIN_LOCK overrides it for the tests), so the checks name the variable and its default
 instead of the literal path. The behaviour is tested in test_device_scripts.MobileData.test_early_lock_replay_hook.
 """
 from pathlib import Path
@@ -9,8 +9,8 @@ import unittest
 
 
 TOP = Path(__file__).resolve().parents[1]
-RADIO = TOP / 'rootfs/overlay/opt/mu300/bin/mobile-data'
-ATD = TOP / 'openwrt/overlay/etc/init.d/mu300-atd'
+RADIO = TOP / 'rootfs/overlay/opt/openf50/bin/mobile-data'
+ATD = TOP / 'openwrt/overlay/etc/init.d/openf50-atd'
 
 
 class EarlyReplayHook(unittest.TestCase):
@@ -23,7 +23,7 @@ class EarlyReplayHook(unittest.TestCase):
         self.assertLess(body.index("out=$(at 'AT+CFUN?'"), body.index('"$PLUGIN_LOCK" replay early'))
         self.assertLess(body.index('"$PLUGIN_LOCK" replay early'), body.index("at 'AT+SFUN=4'"))
         self.assertIn('[ -x "$PLUGIN_LOCK" ]', body)
-        self.assertIn('PLUGIN_LOCK=${MU300_PLUGIN_LOCK:-/usr/libexec/unisoc-modem/lock}', radio)
+        self.assertIn('PLUGIN_LOCK=${OPENF50_PLUGIN_LOCK:-/usr/libexec/unisoc-modem/lock}', radio)
         self.assertIn('early lock replay unverified; late fallback remains armed', body)
 
     def test_pending_marker_brackets_platform_radio_on(self):

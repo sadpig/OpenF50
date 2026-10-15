@@ -1,13 +1,13 @@
 #!/bin/sh
-# Build adbd for MU300 Linux: one static aarch64 binary (musl) for Ubuntu and OpenWrt alike.
+# Build adbd for OPENF50 Linux: one static aarch64 binary (musl) for Ubuntu and OpenWrt alike.
 #   tools/adbd/build.sh OUT        (OUT: the binary to write; needs docker with arm64 support)
 # The daemon of AOSP's adb, platform-tools 34.0.5, from the release tarball of github.com/nmeum/android-tools (the
 # AOSP sources with BoringSSL vendored; checked against its SHA-256), built with CMakeLists.txt here - adbd only,
-# the tarball's own build makes the host tools - and mu300-adbd.patch:
+# the tarball's own build makes the host tools - and openf50-adbd.patch:
 #   - USB (FunctionFS at /dev/usb-ffs/adb) on Linux, and nothing else: no TCP or vsock listener, ever
-#   - authentication by one switch, the environment variable mu300-adbd starts it with: MU300_ADB_AUTH=open accepts
-#     every computer (ro.adb.secure=0; the default of "mu300-usb adb auth"), anything else is public-key
-#     authentication (ro.adb.secure=1): keys in /etc/mu300/adb_keys and /root/.android/adb_keys, no Android
+#   - authentication by one switch, the environment variable openf50-adbd starts it with: OPENF50_ADB_AUTH=open accepts
+#     every computer (ro.adb.secure=0; the default of "openf50-usb adb auth"), anything else is public-key
+#     authentication (ro.adb.secure=1): keys in /etc/openf50/adb_keys and /root/.android/adb_keys, no Android
 #     framework socket that could approve one
 #   - the shell: the user's login shell, TMPDIR=/tmp, umask 022; no property monitor (Android's)
 # stubs.cpp leaves out JDWP, adb over Wi-Fi (pairing) and mDNS, and with them protobuf. Debian's and Ubuntu's adbd
@@ -29,7 +29,7 @@ wget -q -O at.tar.xz $URL
 echo '$SHA  at.tar.xz' | sha256sum -c -
 tar -xJf at.tar.xz
 cd android-tools-$VER/vendor
-patch -p1 < /adbd/mu300-adbd.patch
+patch -p1 < /adbd/openf50-adbd.patch
 cmake -S /adbd -B /tmp/b -G Ninja -DCMAKE_BUILD_TYPE=Release -DANDROID_TOOLS=\$PWD >/dev/null
 ninja -C /tmp/b adbd >/dev/null
 cp /tmp/b/adbd /out/adbd

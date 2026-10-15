@@ -1,11 +1,11 @@
-MU300 / ZTE F50 - IPA state on stock Android with mobile data working.
+OPENF50 / ZTE F50 - IPA state on stock Android with mobile data working.
 
 Taken so that the same dump from Linux has something to be compared against; see docs/FINDINGS.md 13f for what
-it means and which fields are easy to misread. Collect the Linux side with /opt/mu300/bin/mu300-ipa-dump.
+it means and which fields are easy to misread. Collect the Linux side with /opt/openf50/bin/openf50-ipa-dump.
 
 Android does not mount debugfs, so this needs "mount -t debugfs debugfs /sys/kernel/debug" first.
 
-########## MU300 Android IPA reference
+########## OPENF50 Android IPA reference
 date: Sun Sep 20 22:23:22 +03 2026  kernel: 5.4.254-android12-9-g9c6342244991  uptime: 2099s
 
 ########## 1. interfaces

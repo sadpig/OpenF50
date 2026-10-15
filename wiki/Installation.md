@@ -8,7 +8,7 @@ exactly which boxes it will put where, waits for you to say yes, and never moves
 
 > **Hobby project, no warranty.** Rooting and unlocking are not part of this project and happen at your own risk.
 > A wrong step, a power cut or a bad cable can still leave a device unusable. Keep a backup. See the
-> [full notice](https://github.com/dikeckaan/mu300-linux#a-hobby-project-at-your-own-risk).
+> [full notice](https://github.com/dikeckaan/openf50-linux#a-hobby-project-at-your-own-risk).
 
 ```mermaid
 flowchart TD
@@ -25,7 +25,7 @@ flowchart TD
 
 ## What you need
 
-* A **ZTE F50 / MU300** or **ZTE U30 Air** that is already **rooted and unlocked**: it must already boot a modified
+* A **ZTE F50 / OPENF50** or **ZTE U30 Air** that is already **rooted and unlocked**: it must already boot a modified
   Android boot image. Getting there is not part of this project.
 * **USB debugging** enabled, and the device connected by USB.
 * A computer with **`adb`**:
@@ -35,7 +35,7 @@ flowchart TD
     execution-policy change needed).
 * About 15 minutes.
 
-Get the project with `git clone https://github.com/dikeckaan/mu300-linux` or download it as a zip from GitHub. You
+Get the project with `git clone https://github.com/dikeckaan/openf50-linux` or download it as a zip from GitHub. You
 do not need to download the images yourself: the installer fetches the newest release and checks its SHA256 sums.
 
 ## What gets written (and what never does)
@@ -55,11 +55,11 @@ Linux boots with the bootloader chain of its own slot but runs Android's modem. 
 slots hold different firmware builds, and the Linux slot's chain is still the factory one, which has kept the modem
 from starting on updated devices (issue #86). So the installer copies `uboot`, `sml`, `teecfg`, `trustos` and
 `vbmeta` of Android's slot to the Linux slot whenever they differ - only those five, never the NV or calibration
-partitions or anything of Android's slot. The images the Linux slot held are backed up first (`.mu300/bootchain/` on
+partitions or anything of Android's slot. The images the Linux slot held are backed up first (`.openf50/bootchain/` on
 the Linux filesystem and `work/bootchain/` on the computer), every written image is read back, and a mismatch puts
 the old ones back and stops before Linux is armed. The summary says what it will do ("boot chain: identical on both
-slots" on a device that never took an update). Experts skip it with `MU300_SYNC_BOOTCHAIN=0` (`install.ps1
--NoBootchainSync`). From Android, `su -c 'mu300-linux bootchain'` shows the state and `... bootchain sync` copies.
+slots" on a device that never took an update). Experts skip it with `OPENF50_SYNC_BOOTCHAIN=0` (`install.ps1
+-NoBootchainSync`). From Android, `su -c 'openf50-linux bootchain'` shows the state and `... bootchain sync` copies.
 Thanks to kano for the advice.
 
 ```mermaid
@@ -68,7 +68,7 @@ flowchart LR
       direction LR
       P["Android partitions<br/>(boot, system, vendor, …)<br/>untouched"] --> U["userdata<br/>Android's apps and data<br/>untouched"] --> L["Free space, ~32 GiB<br/>belongs to no partition<br/>Linux lives here"]
     end
-    SD[("SD card, F50 only<br/>ext4 labelled mu300sd")] -.->|"or here instead"| L
+    SD[("SD card, F50 only<br/>ext4 labelled openf50sd")] -.->|"or here instead"| L
 ```
 
 ## Step 0: back up what cannot be replaced (recommended)
@@ -100,7 +100,7 @@ It prints the storage size, where Android's partitions end and how much free spa
 | `the installer will offer the SD card instead` | no room inside, but a card is in the slot: no repartitioning needed |
 | `WARNING: the unpartitioned space is not empty` | something wrote there; installing would overwrite it (you would have to type `overwrite`) |
 
-If the numbers look like none of these, stop and [open an issue](https://github.com/dikeckaan/mu300-linux/issues)
+If the numbers look like none of these, stop and [open an issue](https://github.com/dikeckaan/openf50-linux/issues)
 with what `--check` printed.
 
 ### The 32 GB variant
@@ -116,9 +116,9 @@ On the 32 GB device `userdata` fills the whole disk, so there is no free space. 
 ### The SD card (F50 only)
 
 With a card of at least 700 MiB in the slot, the installer asks whether Linux goes there or into the internal free
-space (`MU300_STORAGE=sd` answers it). The card is formatted as ext4 labelled `mu300sd`; a card that holds another
-Linux (ext4) filesystem is never formatted. Insert the card while the device is **off**. A `mu300sd` card always
-starts first. Note: the boot image starts *any* card labelled `mu300sd`, so whoever holds the device can start a
+space (`OPENF50_STORAGE=sd` answers it). The card is formatted as ext4 labelled `openf50sd`; a card that holds another
+Linux (ext4) filesystem is never formatted. Insert the card while the device is **off**. A `openf50sd` card always
+starts first. Note: the boot image starts *any* card labelled `openf50sd`, so whoever holds the device can start a
 system of their own from a card. The U30 Air has no card slot.
 
 ## Step 2: install
@@ -130,8 +130,8 @@ install.cmd                   # Windows (cmd)
 ```
 
 First it brings your copy of the project up to date from GitHub and restarts itself if anything changed
-(`MU300_NO_SELF_UPDATE=1` / `-NoSelfUpdate` skips that). Then it asks the language: English, Türkçe or 中文
-(`MU300_LANG=tr` or `.\install.ps1 -Lang zh` skips the question).
+(`OPENF50_NO_SELF_UPDATE=1` / `-NoSelfUpdate` skips that). Then it asks the language: English, Türkçe or 中文
+(`OPENF50_LANG=tr` or `.\install.ps1 -Lang zh` skips the question).
 
 ### The questions, one by one
 
@@ -139,16 +139,16 @@ First it brings your copy of the project up to date from GitHub and restarts its
 |---|---|---|
 | *Where should the Linux filesystem go: internal storage or the SD card?* (only with a card) | where Linux lives | `internal` on a 64 GB device |
 | *What should be installed?* 1) Ubuntu LTS 2) OpenWrt 3) both | the system(s); see [Choosing a System](Choosing-a-System) | 3 (both) is the default |
-| *Which OpenWrt?* 1) the standard LuCI web interface 2) with the MU300 control panel | plain OpenWrt, or OpenWrt with the modem panel | see [Control Panel (LuCI)](Control-Panel-(LuCI)) |
-| *Which one should boot* | with two systems: which starts first | either; switch later with `mu300-os` |
+| *Which OpenWrt?* 1) the standard LuCI web interface 2) with the OPENF50 control panel | plain OpenWrt, or OpenWrt with the modem panel | see [Control Panel (LuCI)](Control-Panel-(LuCI)) |
+| *Which one should boot* | with two systems: which starts first | either; switch later with `openf50-os` |
 | *Which Ubuntu?* 1) 24.04 LTS 2) 26.04 LTS | Ubuntu release | 24.04 (the longest tested) |
 | *Boot Linux by default instead of Android?* | yes: Linux starts on every power-on, Android after failed boots | yes |
 | *Failed boots before Android (1-6)* | how many unfinished starts in a row before it gives up and goes to Android | 5 (default) |
 | *Copy Android's hotspot name and password to Linux?* | your Wi-Fi keeps its name and password | yes |
 | *Include the Mali GPU (OpenCL) userspace (~90 MiB)?* | GPU compute support | yes |
 | *Install the VPN module?* | the optional [VPN](VPN) (about 40 MB to download) | no, add it later if needed |
-| *Install the web panel for Ubuntu?* (Ubuntu only) | Cockpit with the MU300 page, from the release's offline file (about 24 MB more; see [Control Panel (LuCI)](Control-Panel-(LuCI)#a-web-panel-on-ubuntu-cockpit)) | no, add it later with `mu300-extra install panel` |
-| *adb to Linux is on and lets every computer in ... Let in only this computer's adb key instead?* | adb to Linux over the cable is on by default, with a root shell and no password for anyone who plugs in a cable; `yes` closes it to all but the computer you install from (see [adb to Linux](#adb-to-linux)) | no (every computer; change it later with `mu300-usb adb auth keys` or `mu300-usb adb off`) |
+| *Install the web panel for Ubuntu?* (Ubuntu only) | Cockpit with the OPENF50 page, from the release's offline file (about 24 MB more; see [Control Panel (LuCI)](Control-Panel-(LuCI)#a-web-panel-on-ubuntu-cockpit)) | no, add it later with `openf50-extra install panel` |
+| *adb to Linux is on and lets every computer in ... Let in only this computer's adb key instead?* | adb to Linux over the cable is on by default, with a root shell and no password for anyone who plugs in a cable; `yes` closes it to all but the computer you install from (see [adb to Linux](#adb-to-linux)) | no (every computer; change it later with `openf50-usb adb auth keys` or `openf50-usb adb off`) |
 | *Which kernel?* 1) 5.4 2) 6.18 3) 7.2 | the core of Linux; see [Kernels](Kernels) | 1 (5.4), or 2 (6.18) for Ubuntu 26.04 |
 | *update or wipe* (only when Linux is already there) | `update` keeps settings and data, `wipe` starts fresh | update |
 | *Password for the "ubuntu" user (Ubuntu) and "root" (OpenWrt)* | your login password, at least 6 characters | choose a good one |
@@ -178,13 +178,13 @@ so you can start Linux from Android later, then reboots into Linux.
 
 If the device is running Linux rather than Android when you start, the installer notices and offers to reboot it into
 Android for you: over adb where the device lets the computer in (the default; no password to type), else over SSH.
-A device in Linux is in `adb devices` too, as `MU300LINUX-...`, and is never installed to as it is.
+A device in Linux is in `adb devices` too, as `OPENF50LINUX-...`, and is never installed to as it is.
 
 ## Step 3: log in
 
 Wait about a minute, then on the computer the device is plugged into:
 
-| | F50 / MU300 | U30 Air |
+| | F50 / OPENF50 | U30 Air |
 |---|---|---|
 | Ubuntu | `ssh ubuntu@192.168.77.1` | `ssh ubuntu@192.168.78.1` |
 | OpenWrt | `ssh root@192.168.77.1` | `ssh root@192.168.78.1` |
@@ -192,7 +192,7 @@ Wait about a minute, then on the computer the device is plugged into:
 
 Use the password you chose. The Wi-Fi network the device broadcasts is its hotspot; unless you chose otherwise it has
 the name and password copied from Android. A USB serial console is there too: `screen /dev/cu.usbmodem* 115200` on
-macOS. Then try `sudo mu300-toolkit`.
+macOS. Then try `sudo openf50-toolkit`.
 
 **macOS tip:** macOS does not set up a network interface it has never seen while the screen is locked. Unlock the Mac
 the first time you plug the device in.
@@ -209,34 +209,34 @@ a root shell**, also after you set passwords, and can read and change everything
 nothing is reachable over Wi-Fi, the LAN or mobile data. If the device is ever out of your hands, close it:
 
 ```sh
-sudo mu300-usb adb auth keys                        # only computers whose key you authorised get in
-sudo mu300-usb adb off                              # no adb at all
+sudo openf50-usb adb auth keys                        # only computers whose key you authorised get in
+sudo openf50-usb adb off                              # no adb at all
 ```
 
 Both stay across reboots and updates. The rest:
 
 ```sh
-mu300-usb adb status                                # on or off, whom it lets in
+openf50-usb adb status                                # on or off, whom it lets in
 scp ~/.android/adbkey.pub ubuntu@192.168.77.1:      # a computer's key (root@ on OpenWrt; .78.1 on a U30 Air)
-sudo mu300-usb adb key ~/adbkey.pub                 # authorise it (/etc/mu300/adb_keys), for "auth keys"
-sudo mu300-usb adb keys                             # the authorised keys
-sudo mu300-usb adb auth open                        # every computer again
-sudo mu300-usb adb on                               # after "off"
+sudo openf50-usb adb key ~/adbkey.pub                 # authorise it (/etc/openf50/adb_keys), for "auth keys"
+sudo openf50-usb adb keys                             # the authorised keys
+sudo openf50-usb adb auth open                        # every computer again
+sudo openf50-usb adb on                               # after "off"
 ```
 
 A device that was set up before keeps what it had: `adb off` stays off, and a device where adb was turned on or a
-key was authorised under v2026.10.20-23 stays keys-only until `sudo mu300-usb adb auth open`. Every other device has
+key was authorised under v2026.10.20-23 stays keys-only until `sudo openf50-usb adb auth open`. Every other device has
 adb on and open after an update. The installers ask whether to let in only the computer they run on; the Magisk zip
 does not ask, its systems start open.
 
-The device shows up in `adb devices` as `MU300LINUX-...`. In keys mode a computer whose key is not authorised sees
+The device shows up in `adb devices` as `OPENF50LINUX-...`. In keys mode a computer whose key is not authorised sees
 `unauthorized` and gets nothing (no prompt on the device). There is no TCP port in either mode. adb needs a kernel
 with FunctionFS: 5.4, or the mainline kernels of v2026.10.20 or newer; it is not there while a U30 Air's port is a
 USB host.
 
 ## Installing from the browser: the web installer
 
-https://kaandikec.com/mu300-linux/web-installer/ installs, updates and removes Linux from **Chrome or Edge** over
+https://kaandikec.com/openf50-linux/web-installer/ installs, updates and removes Linux from **Chrome or Edge** over
 USB, with no adb, Python or script on the computer. **Tested** (2026-10-13, release v2026.10.25): from start to
 finish on an F50 (64 GB, Magisk 30.6) from Chrome 155 on macOS - one system and two, a tab closed in the middle,
 Linux started and managed, back to Android, uninstalled. **Not tested yet:** Windows (the adb interface needs the
@@ -260,38 +260,38 @@ than Magisk, and the device's own download over real mobile data. The installers
 * If the browser cannot open the device: another program has it - stop a running adb server (`adb kill-server`)
   and close any other browser window or tab that has the page open and connected; on Windows the adb interface
   needs the WinUSB driver; on Linux a udev rule. The page says which, and has the details.
-* "Restart into Android" in the page makes Android the default boot (it is `mu300-next-boot android`); "Make Linux
-  the default again" in the page's Linux view, or `mu300-next-boot linux`, undoes it.
+* "Restart into Android" in the page makes Android the default boot (it is `openf50-next-boot android`); "Make Linux
+  the default again" in the page's Linux view, or `openf50-next-boot linux`, undoes it.
 
-How it is built and how to test it: [docs/web-installer.md](https://github.com/dikeckaan/mu300-linux/blob/main/docs/web-installer.md).
+How it is built and how to test it: [docs/web-installer.md](https://github.com/dikeckaan/openf50-linux/blob/main/docs/web-installer.md).
 
 ## Installing from Android with a Magisk zip (no computer)
 
 If the device runs a rooted Android with **Magisk 26 or newer**, Linux can be installed from the device itself. Each
-release has one zip per system and kernel, 11 in all, e.g. `mu300-magisk-<tag>-ubuntu-24.04-k5.4.zip` or
-`mu300-magisk-<tag>-openwrt-luci-k7.2.zip` (OpenWrt with the control panel); the same zip works on the F50 and the
+release has one zip per system and kernel, 11 in all, e.g. `openf50-magisk-<tag>-ubuntu-24.04-k5.4.zip` or
+`openf50-magisk-<tag>-openwrt-luci-k7.2.zip` (OpenWrt with the control panel); the same zip works on the F50 and the
 U30 Air and finds the place by itself. There is no Ubuntu 26.04 zip with kernel 5.4.
 
 1. Put the zip on the device and open it in the Magisk app (Modules, Install from storage), or run
    `su -c 'magisk --install-module /sdcard/Download/<zip>'`. Not from recovery.
 2. Read the output: it shows the device, where Linux goes, what it writes and **which password works** - the images'
    own: Ubuntu's user `ubuntu` has the password `ubuntu`, OpenWrt's `root` has none until you set one (`passwd`, or
-   LuCI's System > Administration); `MU300_PASSWORD` in the settings file sets one of your own. The same note is in
-   `/data/adb/mu300-linux-password.txt` (`su -c cat /data/adb/mu300-linux-password.txt`).
+   LuCI's System > Administration); `OPENF50_PASSWORD` in the settings file sets one of your own. The same note is in
+   `/data/adb/openf50-linux-password.txt` (`su -c cat /data/adb/openf50-linux-password.txt`).
 3. Reboot. If Linux does not start, the device returns to Android by itself.
 
-Magisk cannot ask questions, so choices go in a settings file, `mu300-install.conf`. Shrinking `userdata` is not
+Magisk cannot ask questions, so choices go in a settings file, `openf50-install.conf`. Shrinking `userdata` is not
 offered from a zip. The keys, where the file may live and the rules for erasing are in the
-[README](https://github.com/dikeckaan/mu300-linux#choosing-something-else-mu300-installconf).
+[README](https://github.com/dikeckaan/openf50-linux#choosing-something-else-openf50-installconf).
 
 ## Downloads are slow?
 
 GitHub's release CDN throttles single connections in some regions. The installer already downloads in 8 parallel
-chunks; `MU300_FETCH_JOBS` changes that, and `MU300_RELEASE_URL` points it at your own mirror.
+chunks; `OPENF50_FETCH_JOBS` changes that, and `OPENF50_RELEASE_URL` points it at your own mirror.
 
 ## Next
 
 * [Choosing a System](Choosing-a-System) and [Kernels](Kernels), if you have not decided yet
 * [Going Back to Android](Going-Back-to-Android)
 * [Troubleshooting](Troubleshooting)
-* The illustrated guide: https://kaandikec.com/mu300-linux/install/
+* The illustrated guide: https://kaandikec.com/openf50-linux/install/

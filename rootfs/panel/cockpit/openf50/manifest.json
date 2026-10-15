@@ -1,0 +1,17 @@
+{
+    "version": 0,
+    "requires": {
+        "cockpit": "300"
+    },
+    "menu": {
+        "index": {
+            "label": "OPENF50",
+            "order": 5,
+            "keywords": [
+                {
+                    "matches": [ "openf50", "modem", "signal", "sms", "vpn", "battery", "hotspot", "wifi", "cpu", "update" ]
+                }
+            ]
+        }
+    }
+}

@@ -9,7 +9,7 @@ Android's ids are not taken over as numbers. Android's system user is uid 1000, 
 the first human account (ubuntu; alarm on Arch): the modem's calibration partitions (nr_fixnv*), persist and the
 modem's control nodes were that account's, writable without sudo (FINDINGS: "The vendor daemons' own account").
 What each Android id becomes on Linux (MAP below):
-  system, radio -> the vendor account mu300vnd ($V, group $VG): the ids the vendor daemons run as. Where there is no
+  system, radio -> the vendor account openf50vnd ($V, group $VG): the ids the vendor daemons run as. Where there is no
                    such account (OpenWrt, the initramfs) that is uid/gid 1000, which they switch to themselves.
   graphics      -> on a node Android gives everyone (mali0, ion, dma_heap: 0666) the video group ($GPU), so the GPU
                    is its users' and no longer everyone's; anywhere else root, as no Linux account is in it
@@ -31,7 +31,7 @@ MAP = {'system': ('$V', '$VG'), 'radio': ('$V', '$VG')}
 # Nodes that stay root's, in the vendor group: the RTC. One that belonged to Android's system could not be opened by
 # systemd-timedated (root, but without CAP_DAC_OVERRIDE), and with systemd 259 (Ubuntu 26.04) timedatectl failed as a
 # whole ("Failed to read RTC"); refnotify opens it too (as uid 1000 with gid 0 it did so through Linux's root:root
-# 0660, as mu300vnd it needs the group).
+# 0660, as openf50vnd it needs the group).
 ROOT_OWNED = ('/dev/rtc',)
 # Nodes Android gives its system user that no vendor daemon run here uses, and that were the first human's on Linux:
 # root's alone (0600). Input events (every key pressed), the USB serial console ttyGS* (getty and login hand it to
@@ -54,9 +54,9 @@ id_of() {  # id_of NAME FILE: the id (third field) of NAME in FILE (passwd or gr
     while IFS=: read -r n _ i _ || [ -n "$n" ]; do [ "$n" = "$1" ] && { echo "$i"; return 0; }; done < "$2"
     return 0
 }
-E=${MU300_ETC:-/etc}
-V=$(id_of mu300vnd "$E/passwd"); V=${V:-1000}
-VG=$(id_of mu300vnd "$E/group"); VG=${VG:-1000}
+E=${OPENF50_ETC:-/etc}
+V=$(id_of openf50vnd "$E/passwd"); V=${V:-1000}
+VG=$(id_of openf50vnd "$E/group"); VG=${VG:-1000}
 GPU=$(id_of video "$E/group"); GPU=${GPU:-0}'''
 
 

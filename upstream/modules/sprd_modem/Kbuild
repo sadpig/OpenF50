@@ -1,4 +1,4 @@
-# MU300: the Unisoc modem stack (Trusty, PM co-processor manager, mailbox, SIPC, modem loader, SIPA) from the
+# OPENF50: the Unisoc modem stack (Trusty, PM co-processor manager, mailbox, SIPC, modem loader, SIPA) from the
 # ZTE U30 Air 5.4.254 GPL tree, built as out-of-tree modules against the mainline kernel.
 # Vendor Kconfig symbols keep their 5.4 values (make variables for the Makefiles, defines for the sources).
 VENDOR_M := SPRD_SYSTIMER SPRD_TIME_SYNC SPRD_TIME_SYNC_CP TRUSTY TRUSTY_LOG TRUSTY_VIRTIO TRUSTY_VIRTIO_IPC SPRD_TSHM \
@@ -11,9 +11,9 @@ VENDOR_Y := UNISOC_MAILBOX_R2 UNISOC_SIPC_SLOG_BRIDGE_5G
 $(foreach c,$(VENDOR_M),$(eval export CONFIG_$(c) := m))
 $(foreach c,$(VENDOR_Y),$(eval export CONFIG_$(c) := y))
 
-MU300_FLAGS := $(foreach c,$(VENDOR_M),-DCONFIG_$(c)_MODULE=1) $(foreach c,$(VENDOR_Y),-DCONFIG_$(c)=1) \
-	-include $(src)/../wcn_bsp/kinclude/mu300_compat.h -I$(src)/kinclude -I$(src)/../wcn_bsp/kinclude -I$(src)/trusty
-subdir-ccflags-y += $(MU300_FLAGS)
-ccflags-y += $(MU300_FLAGS)
+OPENF50_FLAGS := $(foreach c,$(VENDOR_M),-DCONFIG_$(c)_MODULE=1) $(foreach c,$(VENDOR_Y),-DCONFIG_$(c)=1) \
+	-include $(src)/../wcn_bsp/kinclude/openf50_compat.h -I$(src)/kinclude -I$(src)/../wcn_bsp/kinclude -I$(src)/trusty
+subdir-ccflags-y += $(OPENF50_FLAGS)
+ccflags-y += $(OPENF50_FLAGS)
 
 obj-m += misc/ trusty/ mailbox/ sipc_virt_bus/ power_manager/ sipc/ modem_loader/ seth/ sipa_sys/ sipa_v3/ sipa_delegate/

@@ -1,4 +1,4 @@
-// MU300 Linux adbd: the Android-only services that are left out of this build.
+// OPENF50 Linux adbd: the Android-only services that are left out of this build.
 //   JDWP (debugging Java processes: there are none), adb over Wi-Fi with pairing (needs Android's framework and
 //   would open a network port) and mDNS. Leaving them out also leaves out protobuf.
 #include <string.h>
@@ -24,7 +24,7 @@ void adbd_wifi_secure_connect(atransport*) {}
 
 void setup_mdns(int) {}
 
-// musl has no b64_pton (mu300_compat.h); the keys in adb_keys are "BASE64 comment" lines, split before this
+// musl has no b64_pton (openf50_compat.h); the keys in adb_keys are "BASE64 comment" lines, split before this
 int b64_pton(const char* src, unsigned char* target, size_t targsize) {
     size_t len = strlen(src), max = 0, out = 0;
     if (!EVP_DecodedLength(&max, len)) return -1;

@@ -1,5 +1,5 @@
 """The zip: customize.sh in a fake Magisk installer environment, tools/make-magisk-zips.sh and, on a release's real
-zips (MU300_MAGISK_ZIPS), the allow-list, the manifest against the payload and a dry run of each zip's installer."""
+zips (OPENF50_MAGISK_ZIPS), the allow-list, the manifest against the payload and a dry run of each zip's installer."""
 import hashlib
 import io
 import os
@@ -14,7 +14,7 @@ from pathlib import Path
 from fakedevice import FakeDevice
 from helpers import TOP, ShellTest, shells
 from test_android_boot_image import MAGISKBOOT, fake_android_root
-from test_magisk_installer import MU300_FILES
+from test_magisk_installer import OPENF50_FILES
 
 MAGISK_ENV = r'''
 ui_print() { echo "$1"; }
@@ -37,12 +37,12 @@ class Customize(ShellTest):
     def zip_with(self, install_sh, name='m.zip', body='#!/system/bin/sh\n'):
         z = self.tmp / name
         with zipfile.ZipFile(z, 'w') as f:
-            f.writestr('mu300/install.sh', install_sh + '\n')
+            f.writestr('openf50/install.sh', install_sh + '\n')
             f.writestr('module.prop', 'id=x\n')
             f.writestr('action.sh', body)
             f.writestr('switch.sh', body)
             f.writestr('bootchain.sh', body)
-            f.writestr('system/bin/mu300-linux', body)
+            f.writestr('system/bin/openf50-linux', body)
         return z
 
     def run_customize(self, shell, install_sh, bootmode='true'):
@@ -77,7 +77,7 @@ class Customize(ShellTest):
         for shell in self.each_shell():
             r, mod = self.run_customize(shell, f'cp "{evil}" "$ZIPFILE"; exit 0')
             self.assertNotIn('ABORT', r.stdout, r.stdout + r.stderr)
-            for f in ('switch.sh', 'action.sh', 'bootchain.sh', 'system/bin/mu300-linux'):
+            for f in ('switch.sh', 'action.sh', 'bootchain.sh', 'system/bin/openf50-linux'):
                 self.assertEqual((mod / f).read_text(), '#!/system/bin/sh\n', f)
             self.assertEqual(sorted(p.name for p in (self.tmp / 't').iterdir()), [])   # nothing left behind
 
@@ -89,9 +89,9 @@ class Customize(ShellTest):
 
 
 ALLOWED = {'META-INF/com/google/android/update-binary', 'META-INF/com/google/android/updater-script',
-           'module.prop', 'customize.sh', 'action.sh', 'switch.sh', 'bootchain.sh', 'system/bin/mu300-linux'} | set(MU300_FILES)
-ASSETS = ('mu300-kernel.tar.gz', 'mu300-kernel-6.18.tar.gz', 'mu300-kernel-7.2.tar.gz', 'mu300-openwrt-rootfs.tar.gz',
-          'mu300-openwrt-luci-rootfs.tar.gz', 'mu300-ubuntu-rootfs.tar.gz', 'mu300-ubuntu-26.04-rootfs.tar.gz')
+           'module.prop', 'customize.sh', 'action.sh', 'switch.sh', 'bootchain.sh', 'system/bin/openf50-linux'} | set(OPENF50_FILES)
+ASSETS = ('openf50-kernel.tar.gz', 'openf50-kernel-6.18.tar.gz', 'openf50-kernel-7.2.tar.gz', 'openf50-openwrt-rootfs.tar.gz',
+          'openf50-openwrt-luci-rootfs.tar.gz', 'openf50-ubuntu-rootfs.tar.gz', 'openf50-ubuntu-26.04-rootfs.tar.gz')
 
 
 def tar_with(members):
@@ -109,18 +109,18 @@ def fake_release(rel):
     rel.mkdir(parents=True)
     sums = []
     for a in ASSETS:
-        data = tar_with({'./busybox': b'#!busybox\n', './x': a.encode()} if a == 'mu300-kernel.tar.gz' else {'./x': a.encode()})
+        data = tar_with({'./busybox': b'#!busybox\n', './x': a.encode()} if a == 'openf50-kernel.tar.gz' else {'./x': a.encode()})
         (rel / a).write_bytes(data)
         sums.append(f'{hashlib.sha256(data).hexdigest()}  {a}\n')
     upd = b'#!/bin/sh\n'
-    (rel / 'mu300-update').write_bytes(upd)
-    sums.append(f'{hashlib.sha256(upd).hexdigest()}  mu300-update\n')
+    (rel / 'openf50-update').write_bytes(upd)
+    sums.append(f'{hashlib.sha256(upd).hexdigest()}  openf50-update\n')
     (rel / 'SHA256SUMS').write_text(''.join(sums))
 
 
 class Builder(unittest.TestCase):
     def setUp(self):
-        self.tmp = Path(tempfile.mkdtemp(prefix='mu300-zips-'))
+        self.tmp = Path(tempfile.mkdtemp(prefix='openf50-zips-'))
         self.addCleanup(shutil.rmtree, self.tmp, ignore_errors=True)
         self.rel = self.tmp / 'v2026.10.06'
         fake_release(self.rel)
@@ -134,11 +134,11 @@ class Builder(unittest.TestCase):
         self.assertEqual(r.returncode, 0, r.stderr)
         names = sorted(p.name for p in (self.tmp / 'out').glob('*.zip'))
         self.assertEqual(len(names), 11)
-        self.assertNotIn('mu300-magisk-v2026.10.06-ubuntu-26.04-k5.4.zip', names)
-        self.assertIn('mu300-magisk-v2026.10.06-openwrt-k6.18.zip', names)
+        self.assertNotIn('openf50-magisk-v2026.10.06-ubuntu-26.04-k5.4.zip', names)
+        self.assertIn('openf50-magisk-v2026.10.06-openwrt-k6.18.zip', names)
         # OpenWrt with the control panel, on every kernel
         for k in ('5.4', '6.18', '7.2'):
-            self.assertIn(f'mu300-magisk-v2026.10.06-openwrt-luci-k{k}.zip', names)
+            self.assertIn(f'openf50-magisk-v2026.10.06-openwrt-luci-k{k}.zip', names)
         sums = (self.tmp / 'out/SHA256SUMS-magisk').read_text().split('\n')
         self.assertEqual(len([s for s in sums if s]), 11)
         for line in sums:
@@ -148,21 +148,21 @@ class Builder(unittest.TestCase):
 
     def test_layout_manifest_and_stored_payload(self):
         self.build()
-        z = zipfile.ZipFile(self.tmp / 'out/mu300-magisk-v2026.10.06-ubuntu-24.04-k7.2.zip')
+        z = zipfile.ZipFile(self.tmp / 'out/openf50-magisk-v2026.10.06-ubuntu-24.04-k7.2.zip')
         names = set(z.namelist())
-        self.assertEqual(names - ALLOWED, {'payload/mu300-kernel-7.2.tar.gz', 'payload/mu300-ubuntu-rootfs.tar.gz'})
+        self.assertEqual(names - ALLOWED, {'payload/openf50-kernel-7.2.tar.gz', 'payload/openf50-ubuntu-rootfs.tar.gz'})
         self.assertEqual(ALLOWED - names, set())
         for i in z.infolist():
             if i.filename.startswith('payload/'):
                 self.assertEqual(i.compress_type, zipfile.ZIP_STORED)
-        m = dict(l.split('=', 1) for l in z.read('mu300/manifest').decode().split('\n') if '=' in l)
+        m = dict(l.split('=', 1) for l in z.read('openf50/manifest').decode().split('\n') if '=' in l)
         self.assertEqual((m['OS'], m['UBUNTU'], m['KERNEL']), ('ubuntu', '24.04', '7.2'))
-        self.assertEqual(m['SHA256_ROOTFS'], hashlib.sha256(z.read('payload/mu300-ubuntu-rootfs.tar.gz')).hexdigest())
-        self.assertEqual(m['SHA256_KERNEL'], hashlib.sha256(z.read('payload/mu300-kernel-7.2.tar.gz')).hexdigest())
+        self.assertEqual(m['SHA256_ROOTFS'], hashlib.sha256(z.read('payload/openf50-ubuntu-rootfs.tar.gz')).hexdigest())
+        self.assertEqual(m['SHA256_KERNEL'], hashlib.sha256(z.read('payload/openf50-kernel-7.2.tar.gz')).hexdigest())
         self.assertIn('versionCode=20261006', z.read('module.prop').decode())
         self.assertNotIn('@', z.read('module.prop').decode())
-        self.assertEqual(z.read('mu300/busybox'), b'#!busybox\n')
-        for entry, src in MU300_FILES.items():     # the helper that stages the installer for its tests agrees
+        self.assertEqual(z.read('openf50/busybox'), b'#!busybox\n')
+        for entry, src in OPENF50_FILES.items():     # the helper that stages the installer for its tests agrees
             if src:
                 self.assertEqual(z.read(entry), (TOP / src).read_bytes(), entry)
 
@@ -171,19 +171,19 @@ class Builder(unittest.TestCase):
         for zp in sorted((self.tmp / 'out').glob('*.zip')):
             d = self.tmp / 'unz' / zp.stem
             with zipfile.ZipFile(zp) as z:
-                z.extractall(d, [n for n in z.namelist() if n.startswith('mu300/')])
+                z.extractall(d, [n for n in z.namelist() if n.startswith('openf50/')])
             for shell in shells():
-                r = subprocess.run(shell + ['-c', f'MU300_LIB=1 MU300_DIR="{d}/mu300" . "{d}/mu300/install.sh"; '
-                                          f'manifest_load "{d}/mu300/manifest" && echo "ok $TAG $SYSTEM $KERNEL"'],
+                r = subprocess.run(shell + ['-c', f'OPENF50_LIB=1 OPENF50_DIR="{d}/openf50" . "{d}/openf50/install.sh"; '
+                                          f'manifest_load "{d}/openf50/manifest" && echo "ok $TAG $SYSTEM $KERNEL"'],
                                    capture_output=True, text=True)
                 self.assertIn('ok v2026.10.06', r.stdout, f'{zp.name} {shell}: {r.stdout}{r.stderr}')
 
     def test_checksum_mismatch_stops(self):
-        with open(self.rel / 'mu300-openwrt-rootfs.tar.gz', 'ab') as f:
+        with open(self.rel / 'openf50-openwrt-rootfs.tar.gz', 'ab') as f:
             f.write(b'x')
         r = self.build()
         self.assertNotEqual(r.returncode, 0)
-        self.assertIn('mu300-openwrt-rootfs.tar.gz', r.stderr)
+        self.assertIn('openf50-openwrt-rootfs.tar.gz', r.stderr)
         self.assertEqual(list((self.tmp / 'out').glob('*.zip')), [])
 
     def test_a_tag_the_installer_would_refuse_stops_before_anything_is_built(self):
@@ -201,7 +201,7 @@ class Builder(unittest.TestCase):
     def test_no_conf_in_a_zip(self):
         self.assertEqual(self.build().returncode, 0)
         for zp in (self.tmp / 'out').glob('*.zip'):
-            self.assertFalse([n for n in zipfile.ZipFile(zp).namelist() if n.endswith('mu300-install.conf')])
+            self.assertFalse([n for n in zipfile.ZipFile(zp).namelist() if n.endswith('openf50-install.conf')])
 
 
 class Workflow(unittest.TestCase):
@@ -215,13 +215,13 @@ class Workflow(unittest.TestCase):
 BUSYBOX_PATH = shutil.which('busybox')
 
 
-@unittest.skipUnless(os.environ.get('MU300_MAGISK_ZIPS'), 'MU300_MAGISK_ZIPS not set (the Magisk workflow sets it)')
+@unittest.skipUnless(os.environ.get('OPENF50_MAGISK_ZIPS'), 'OPENF50_MAGISK_ZIPS not set (the Magisk workflow sets it)')
 class ReleaseZips(ShellTest):
     """the real zips of a release: the allow-list, the manifest against the payload, and a dry run of each zip's own
     installer on the fake device that must print the plan and write nothing"""
 
     def zips(self):
-        zs = sorted(Path(os.environ['MU300_MAGISK_ZIPS']).glob('*.zip'))
+        zs = sorted(Path(os.environ['OPENF50_MAGISK_ZIPS']).glob('*.zip'))
         self.assertEqual(len(zs), 11, zs)          # 3 OpenWrt, 3 OpenWrt with the panel, 3 + 2 Ubuntu
         return zs
 
@@ -229,7 +229,7 @@ class ReleaseZips(ShellTest):
         for zp in self.zips():
             with zipfile.ZipFile(zp) as z:
                 names = set(z.namelist())
-                m = dict(l.split('=', 1) for l in z.read('mu300/manifest').decode().split('\n') if '=' in l)
+                m = dict(l.split('=', 1) for l in z.read('openf50/manifest').decode().split('\n') if '=' in l)
                 payload = {f'payload/{m["KERNEL_ASSET"]}', f'payload/{m["ROOTFS_ASSET"]}'}
                 self.assertEqual(names, ALLOWED | payload, zp.name)
                 for n, key in ((m['KERNEL_ASSET'], 'SHA256_KERNEL'), (m['ROOTFS_ASSET'], 'SHA256_ROOTFS')):
@@ -249,16 +249,16 @@ class ReleaseZips(ShellTest):
             unz = self.tmp / 'unz'
             shutil.rmtree(unz, ignore_errors=True)
             with zipfile.ZipFile(zp) as z:
-                z.extractall(unz, [n for n in z.namelist() if n.startswith('mu300/')])
+                z.extractall(unz, [n for n in z.namelist() if n.startswith('openf50/')])
             fake = FakeDevice(self.tmp, self.stubs)
             fake_android_root(fake.root / 'android')
             (fake.root / 'magisk/busybox').symlink_to(BUSYBOX_PATH)
-            (fake.root / 'sdcard/mu300-install.conf').write_text('MU300_DRY_RUN=1\n')
-            env = fake.env(unz / 'mu300', self.stubs / 'magiskboot')
+            (fake.root / 'sdcard/openf50-install.conf').write_text('OPENF50_DRY_RUN=1\n')
+            env = fake.env(unz / 'openf50', self.stubs / 'magiskboot')
             env['ZIPFILE'] = str(zp)
             before = {n: hashlib.sha256((fake.root / 'dev/block/by-name' / n).read_bytes()).hexdigest()
                       for n in ('boot_a', 'boot_b', 'misc')}
-            r = subprocess.run([BUSYBOX_PATH, 'sh', str(unz / 'mu300/install.sh')], capture_output=True, text=True,
+            r = subprocess.run([BUSYBOX_PATH, 'sh', str(unz / 'openf50/install.sh')], capture_output=True, text=True,
                                env=self.env(**env), timeout=600)
             self.assertEqual(r.returncode, 3, f'{zp.name}\n{r.stdout}{r.stderr}')
             self.assertIn('Plan', r.stdout, zp.name)

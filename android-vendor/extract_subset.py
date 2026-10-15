@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Pull the Android vendor runtime needed by modem_control from a rooted device (adb + su) and build the chroot
-subset used by the initramfs (/android) and the root filesystem (/opt/mu300/android).
+subset used by the initramfs (/android) and the root filesystem (/opt/openf50/android).
 
     python3 android-vendor/extract_subset.py [OUTDIR]
 
@@ -169,7 +169,7 @@ def main():
         # Build the tar on the device and pull it as a file. Streaming it through `adb exec-out "su -c ..."`
         # is what the comment here used to claim was binary-clean, and on some devices it is not: su gives
         # the command a pty whose ONLCR turns every LF into CRLF, and the archive arrives corrupt (issue #2).
-        devtar = '/data/local/tmp/mu300-subset.tar'
+        devtar = '/data/local/tmp/openf50-subset.tar'
         subprocess.run(['adb', 'shell', f"su -c 'tar -chf {devtar} " + ' '.join(PULL) + " 2>/dev/null'"],
                        stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
         p = subprocess.run(['adb', 'pull', devtar, str(blob)],

@@ -8,7 +8,7 @@
 #
 #   kernel/build-audio.sh [OUT]       default: work/k54/audio-modules
 #
-# Needs kernel/build-all.sh to have run first: it builds against /src/out-linux in the mu300-kernel volume.
+# Needs kernel/build-all.sh to have run first: it builds against /src/out-linux in the openf50-kernel volume.
 #
 # Three things about this build are not obvious and cost an evening each:
 #
@@ -26,18 +26,18 @@
 set -eu
 TOP=$(cd "$(dirname "$0")/.." && pwd)
 OUT=${1:-$TOP/work/k54/audio-modules}
-VOL=mu300-kernel
+VOL=openf50-kernel
 MODULES_REPO=https://github.com/realme-kernel-opensource/realme_C51_C53_Narzo-N53-AndroidT-kernel-source.git
 MODULES_REV=4381465ccaf87fcf3215b9cd42f4a685df40e5e0
 
-docker build -q -t mu300-kbuild "$TOP/kernel" >/dev/null
+docker build -q -t openf50-kbuild "$TOP/kernel" >/dev/null
 W=$(mktemp -d)
 trap 'rm -rf "$W"' EXIT
 
 cp -R "$TOP/kernel/." "$W/"
 docker run --rm -v "$VOL":/src -v "$W":/work \
   -e MODULES_REPO="$MODULES_REPO" -e MODULES_REV="$MODULES_REV" \
-  mu300-kbuild bash -euc '
+  openf50-kbuild bash -euc '
 M=kernel_modules/kernel5.4
 cd /src/realme
 git sparse-checkout set $M/wcn/wlan/wlan_combo $M/wcn/bluetooth/driver $M/gpu/natt/mali $M/audio_driver

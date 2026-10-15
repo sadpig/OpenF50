@@ -1,8 +1,8 @@
 """A fake F50 for the Magisk installer: block devices are files, sysfs a directory tree, Android's tools stubs.
-The device shell (MU300_DEVICE_SH) rewrites the absolute device paths in the commands storage.sh sends, the way
-tests/test_installer.py's Region does; android-install.sh and the mount helper are replaced by MU300_ANDROID_SH,
+The device shell (OPENF50_DEVICE_SH) rewrites the absolute device paths in the commands storage.sh sends, the way
+tests/test_installer.py's Region does; android-install.sh and the mount helper are replaced by OPENF50_ANDROID_SH,
 which records what it was given and acts on a directory standing in for the Linux filesystem. A mount is a real
-directory holding a copy of that filesystem and a line in a fake mount table (MU300_MOUNTS), so a cleanup that
+directory holding a copy of that filesystem and a line in a fake mount table (OPENF50_MOUNTS), so a cleanup that
 deleted a mounted filesystem would delete files a test can look for."""
 import os
 import shutil
@@ -10,25 +10,25 @@ import shutil
 from test_boot_image import LIVE_A, fake_misc, fake_stock, with_slots
 
 ANDROID_SH = r'''#!/bin/sh
-# stand-in for /system/bin/sh running android-install.sh or android-mount-mu300root.sh
+# stand-in for /system/bin/sh running android-install.sh or android-mount-openf50root.sh
 log=$FAKE/android-sh.log
-echo "ASH_STANDALONE=${ASH_STANDALONE:-} PATH=$PATH $* MU300_RO=${MU300_RO:-} MU300_DEVICE_WORK=${MU300_DEVICE_WORK:-} MU300_LOCK_DIR=${MU300_LOCK_DIR:-} $(ls -ld "${MU300_DEVICE_WORK:-/nonexistent}" 2>/dev/null | cut -c1-10)" >> "$log"
+echo "ASH_STANDALONE=${ASH_STANDALONE:-} PATH=$PATH $* OPENF50_RO=${OPENF50_RO:-} OPENF50_DEVICE_WORK=${OPENF50_DEVICE_WORK:-} OPENF50_LOCK_DIR=${OPENF50_LOCK_DIR:-} $(ls -ld "${OPENF50_DEVICE_WORK:-/nonexistent}" 2>/dev/null | cut -c1-10)" >> "$log"
 case $1 in
     -c) shift; exec "$FAKE/devsh" -c "$@" ;;
-    # the real one, on the fake by-name directory (MU300_BY_NAME), with Android's getprop
+    # the real one, on the fake by-name directory (OPENF50_BY_NAME), with Android's getprop
     */android-bootchain.sh) PATH="$FAKE/bin:$PATH" exec sh "$@" ;;
     */android-install.sh)
-        cp "$MU300_DEVICE_WORK/mu300-install.env" "$FAKE/install.env"
+        cp "$OPENF50_DEVICE_WORK/openf50-install.env" "$FAKE/install.env"
         [ "${FAKE_INSTALL_FAILS:-0}" = 1 ] && { echo "[device] failing as asked"; exit 1; }
-        . "$MU300_DEVICE_WORK/mu300-install.env"
+        . "$OPENF50_DEVICE_WORK/openf50-install.env"
         # what would be installed: the tarballs it is given, by checksum
-        for os in $OSES; do sha256sum "$MU300_DEVICE_WORK/mu300-$os.tar.gz" >> "$FAKE/installed.sha256"; mkdir -p "$FAKE/fs/$os/etc"
+        for os in $OSES; do sha256sum "$OPENF50_DEVICE_WORK/openf50-$os.tar.gz" >> "$FAKE/installed.sha256"; mkdir -p "$FAKE/fs/$os/etc"
             # an installed system has its accounts (android-install.sh: the image's, the hash put in or carried over)
             [ -f "$FAKE/fs/$os/etc/shadow" ] || echo "root:\$6\$fake:19000::::::" > "$FAKE/fs/$os/etc/shadow"; done
         # what a test wants to happen while the systems are installed (tests' fake_install_hook)
         [ ! -f "$FAKE/install-hook" ] || . "$FAKE/install-hook"
-        echo MU300-INSTALL-OK ;;
-    */android-mount-mu300root.sh)
+        echo OPENF50-INSTALL-OK ;;
+    */android-mount-openf50root.sh)
         # a mount is a real directory holding a copy of $FAKE/fs, listed in $FAKE/mounts; unmounting a read-write
         # one writes it back to $FAKE/fs, then empties it
         if [ "$2" = -u ]; then
@@ -40,7 +40,7 @@ case $1 in
         else
             [ "${FAKE_MOUNT_FAILS:-0}" = 1 ] && { echo "ALREADY-MOUNTED loop7"; exit 1; }
             mkdir -p "$2" && cp -R "$FAKE/fs/." "$2/"
-            echo "/dev/block/loop7 $2 ext4 $([ -n "${MU300_RO:-}" ] && echo ro || echo rw) 0 0" >> "$FAKE/mounts"
+            echo "/dev/block/loop7 $2 ext4 $([ -n "${OPENF50_RO:-}" ] && echo ro || echo rw) 0 0" >> "$FAKE/mounts"
             echo "MOUNTED fake on $2"
         fi ;;
 esac
@@ -74,7 +74,7 @@ class FakeDevice:
         self.root = tmp / 'fake'
         r = self.root
         if product is None:
-            product = 'mu300' if model == 'ZTE MU300' else model.lower().replace(' ', '')
+            product = 'openf50' if model == 'ZTE MU300' else model.lower().replace(' ', '')
         # tmp is /data/local/tmp, which the installer must never use; data/adb holds its work directory
         for d in ('dev/block/by-name', 'sys/block/mmcblk0/mmcblk0p1', 'sdcard', 'tmp', 'data/adb', 'fs', 'magisk',
                   'android'):
@@ -113,15 +113,15 @@ class FakeDevice:
         (r / 'bin').mkdir(exist_ok=True)
         (r / 'bin/getprop').write_text(GETPROP); (r / 'bin/getprop').chmod(0o755)
 
-    def env(self, mu300_dir, magiskboot):
+    def env(self, openf50_dir, magiskboot):
         r = self.root
-        return {'FAKE': r, 'MU300_DIR': mu300_dir, 'MU300_WORK_PARENT': r / 'data/adb',
-                'MU300_TRUSTED_CONF': r / 'data/adb/mu300-install.conf', 'MU300_TRUSTED_UID': os.getuid(),
-                'MU300_PW_DIR': r / 'data/adb', 'MU300_MOUNTS': r / 'mounts', 'MU300_BY_NAME': r / 'dev/block/by-name',
-                'MU300_SDCARD': r / 'sdcard', 'MU300_DEVICE_SH': r / 'devsh', 'MU300_ANDROID_SH': r / 'android-sh',
-                'MU300_ANDROID_PATH': os.environ['PATH'], 'MU300_ANDROID_ROOT': r / 'android',
-                'MU300_FW_DIRS': f'{r}/android/vendor/firmware', 'MAGISKBIN': r / 'magisk',
-                'MAGISKBOOT': magiskboot, 'MU300_UBB': r / 'ubb', 'MU300_SKIP_ROOT_CHECK': 1,
-                'MU300_BOOT_ID': r / 'boot_id',
+        return {'FAKE': r, 'OPENF50_DIR': openf50_dir, 'OPENF50_WORK_PARENT': r / 'data/adb',
+                'OPENF50_TRUSTED_CONF': r / 'data/adb/openf50-install.conf', 'OPENF50_TRUSTED_UID': os.getuid(),
+                'OPENF50_PW_DIR': r / 'data/adb', 'OPENF50_MOUNTS': r / 'mounts', 'OPENF50_BY_NAME': r / 'dev/block/by-name',
+                'OPENF50_SDCARD': r / 'sdcard', 'OPENF50_DEVICE_SH': r / 'devsh', 'OPENF50_ANDROID_SH': r / 'android-sh',
+                'OPENF50_ANDROID_PATH': os.environ['PATH'], 'OPENF50_ANDROID_ROOT': r / 'android',
+                'OPENF50_FW_DIRS': f'{r}/android/vendor/firmware', 'MAGISKBIN': r / 'magisk',
+                'MAGISKBOOT': magiskboot, 'OPENF50_UBB': r / 'ubb', 'OPENF50_SKIP_ROOT_CHECK': 1,
+                'OPENF50_BOOT_ID': r / 'boot_id',
                 # as under Magisk: what the installer starts on Android's side must not inherit it
                 'ASH_STANDALONE': 1}

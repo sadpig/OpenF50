@@ -31,7 +31,7 @@
 #include <backend/gpu/mali_kbase_js_internal.h>
 
 #ifdef SPRD_SUPPORT_FAULT_KEYWORD
-extern s64 time[FAULT_KEYWORD_NUM];	/* MU300: s64 is gone from the kernel headers */
+extern s64 time[FAULT_KEYWORD_NUM];	/* OPENF50: s64 is gone from the kernel headers */
 #endif
 
 #if !MALI_USE_CSF
@@ -332,10 +332,10 @@ int kbase_backend_timer_init(struct kbase_device *kbdev)
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 15, 0)
 	hrtimer_setup(&backend->scheduling_timer, timer_callback,
-		      CLOCK_MONOTONIC, HRTIMER_MODE_REL);	/* MU300: hrtimer_init() is gone */
+		      CLOCK_MONOTONIC, HRTIMER_MODE_REL);	/* OPENF50: hrtimer_init() is gone */
 #else
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 15, 0)
-	hrtimer_setup(&backend->scheduling_timer, timer_callback, CLOCK_MONOTONIC, HRTIMER_MODE_REL);	/* MU300: hrtimer_init() is gone */
+	hrtimer_setup(&backend->scheduling_timer, timer_callback, CLOCK_MONOTONIC, HRTIMER_MODE_REL);	/* OPENF50: hrtimer_init() is gone */
 #else
 	hrtimer_init(&backend->scheduling_timer, CLOCK_MONOTONIC,
 							HRTIMER_MODE_REL);

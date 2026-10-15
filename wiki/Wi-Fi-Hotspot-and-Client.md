@@ -14,14 +14,14 @@ network), not both at the same time. The hotspot is the default.
 * Wi-Fi clients and USB clients share one LAN, so they can see each other and the device.
 * The hotspot is **WPA2**. WPA3 is not in the images: on this chip the firmware does the WPA3 exchange itself, and the
   only way to use it is an experimental build of your own for the U30 Air on OpenWrt, with an open security question
-  ([U30AIR-SAE.md](https://github.com/dikeckaan/mu300-linux/blob/main/docs/U30AIR-SAE.md)). Choosing WPA3 in LuCI
+  ([U30AIR-SAE.md](https://github.com/dikeckaan/openf50-linux/blob/main/docs/U30AIR-SAE.md)). Choosing WPA3 in LuCI
   on a normal image gives a hotspot that nothing can join.
 
 ### Change the name, password or band
 
 | System | How |
 |---|---|
-| Ubuntu | edit `/etc/mu300/hotspot.conf` (`SSID=`, `PSK=`, `BAND=5` or `2.4`, `CHANNEL=auto` or a number, `COUNTRY=`), then `sudo systemctl restart mu300-hotspot` |
+| Ubuntu | edit `/etc/openf50/hotspot.conf` (`SSID=`, `PSK=`, `BAND=5` or `2.4`, `CHANNEL=auto` or a number, `COUNTRY=`), then `sudo systemctl restart openf50-hotspot` |
 | OpenWrt | LuCI -> Network -> Wireless (the `hotspot.conf` file is only read once, at the first boot) |
 | U30 Air | the Wi-Fi key switches 2.4 / 5 GHz; held 3 s it turns the hotspot off or on |
 
@@ -31,7 +31,7 @@ On 5 GHz the firmware allows channels 36-48 and 149-165; if it refuses 5 GHz, th
 access point there must first listen for radar, and the Wi-Fi driver cannot do that, so hostapd would stop with
 `start_dfs_cac() failed` and the hotspot would stay down. A DFS channel in `hotspot.conf` or in LuCI is replaced by
 channel 36 (149 in the countries that do not allow 36-48), with one line in the log that says why
-(`journalctl -u mu300-hotspot` on Ubuntu, `logread` on OpenWrt); `auto` never picks one either. LuCI still lists
+(`journalctl -u openf50-hotspot` on Ubuntu, `logread` on OpenWrt); `auto` never picks one either. LuCI still lists
 the DFS channels; on OpenWrt the setting itself is changed to the replacement at the next boot. Joining someone
 else's Wi-Fi on a DFS channel (as a client) works as before. Releases up to v2026.10.18 refused to start on such a
 channel (`start_dfs_cac() failed`); there, choose 36-48 or 149-165.
@@ -58,17 +58,17 @@ sudo wifi-client reconnect               # join the saved network again
 sudo wifi-client forget                  # delete the saved network
 ```
 
-Or use the menu: `sudo mu300-toolkit` -> Network -> Wi-Fi -> "Join a network".
+Or use the menu: `sudo openf50-toolkit` -> Network -> Wi-Fi -> "Join a network".
 
 **Good to know:**
 
 * **The mode is decided at boot.** While the radio is the hotspot, `connect` saves the network and asks for a reboot
-  (`mu300-toolkit` offers a reboot with the hotspot off, to scan).
+  (`openf50-toolkit` offers a reboot with the hotspot off, to scan).
 * **WPA2 and WPA2/WPA3 mixed networks work; WPA3-only networks do not.** This driver has no SAE. The scan labels them
   `WPA3`; set the router to WPA2/WPA3 mixed mode to join it.
 * **Type the password when asked**, not on the command line: `sudo` writes the whole command line to the system log.
   From a script: `printf '%s\n' "$PW" | sudo wifi-client connect "NAME" -`, or `--password-file FILE`.
-* The joined network is saved in `/etc/mu300/wifi-client.conf` (root only) and joined again at every boot.
+* The joined network is saved in `/etc/openf50/wifi-client.conf` (root only) and joined again at every boot.
 * `disconnect` lasts across reboots; `disconnect --keep` leaves the network joined at the next boot.
 * When the Wi-Fi chip's firmware crashes, the driver resets it and the Wi-Fi comes back by itself: the hotspot since
   v2026.10.17, a Wi-Fi client of another network since v2026.10.18 (it used to reboot the device).
@@ -81,7 +81,7 @@ the device's LAN. So a guest on the device's USB does not end up on your home or
 only ping, DHCP, IPv6 neighbour discovery and replies come in: SSH and the device's other services are closed to it (use
 USB to reach the device). With the [VPN](VPN) on, traffic still goes through the tunnel and the kill switch covers the
 Wi-Fi uplink too. The full firewall description is in the
-[README](https://github.com/dikeckaan/mu300-linux#wi-fi-client).
+[README](https://github.com/dikeckaan/openf50-linux#wi-fi-client).
 
 ## Known issues
 
@@ -90,4 +90,4 @@ Wi-Fi uplink too. The full firewall description is in the
 * Suspend with the hotspot up returns at once (hostapd's alarm timer).
 
 Why one mode at a time and why 5 GHz needed a patch:
-[FINDINGS 14b, 23](https://github.com/dikeckaan/mu300-linux/blob/main/docs/FINDINGS.md).
+[FINDINGS 14b, 23](https://github.com/dikeckaan/openf50-linux/blob/main/docs/FINDINGS.md).

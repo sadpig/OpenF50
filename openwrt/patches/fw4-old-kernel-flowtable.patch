@@ -4,7 +4,7 @@
  	exit 1
  }
  
-+# MU300: a kernel before 5.13 refuses a flowtable that names a device the table's old flowtable still has, even when
++# OPENF50: a kernel before 5.13 refuses a flowtable that names a device the table's old flowtable still has, even when
 +# the same transaction deletes the old one (it counts entries pending deletion): the reload then fails with "flowtable
 +# ft: Resource busy" and "flow offload @ft: No such file or directory". The old one goes first, in transactions of
 +# its own: the rules that use it (a flowtable in use cannot be deleted - Resource busy again), then the flowtable.

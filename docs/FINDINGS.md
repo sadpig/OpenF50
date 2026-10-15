@@ -1,6 +1,6 @@
-# Findings: running Linux on the ZTE F50 / MU300 (Unisoc T760)
+# Findings: running Linux on the ZTE F50 / OPENF50 (Unisoc T760)
 
-Everything below was verified on a ZTE F50 (hardware MU300, firmware `MU300_ZYV1.0.0B09`,
+Everything below was verified on a ZTE F50 (hardware OPENF50, firmware `OPENF50_ZYV1.0.0B09`,
 Android 13, stock kernel `5.4.254-android12-9-g9c6342244991`) during September 2026.
 Each item lists the symptom, the root cause and the fix, so it can be reused for other
 UMS9620 devices (for example the ZTE U30 Air).
@@ -113,7 +113,7 @@ what replaced it. The table below gives each section's state.
 | 45 | `rmmod sprd_wlan_combo` panicked in `__run_timers` (issue #146) | current (fixed) |
 | 46 | SMS sends failed with IMS "Busy Everywhere" until the SMSC was written back; the panel lost slow sends (#176) | current (fixed) |
 | 47 | A system the Magisk zip added beside another had a password nobody saw (#167) | current (fixed) |
-| 48 | The stock virtual thermal zone on mainline (`mu300_thermal`), and thermal-guard's handoff to the kernel | current (F50-B, 7.2.10); U30 Air and 6.18 on a board untested |
+| 48 | The stock virtual thermal zone on mainline (`openf50_thermal`), and thermal-guard's handoff to the kernel | current (F50-B, 7.2.10); U30 Air and 6.18 on a board untested |
 | 49 | The SIM's own number in the panel: CNUM, else the IMS identity, on full rounds only | current (U30 Air, Vodafone TR: CNUM answers) |
 | 50 | Three guards for the installers: the boot image read back from the medium, bounded SD-card stages, no re-run in the same boot | current; the timeout path not yet seen on a device |
 | 51 | SMS delivered directly (+CMT), acknowledged only once the pool has it; the SIM path stays as the fallback | current |
@@ -124,7 +124,7 @@ what replaced it. The table below gives each section's state.
 | 56 | The VPN page showed a refused config without its reason; the engines' own defects are in the VPN module's FINDINGS 26i-26m | current (fixed; measured on the U30 Air) |
 | 57 | A 64 GB unit whose partition table has `userdata` filling the disk, and no way to make room from Windows (#32) | current (fixed; unit tests against a table built from #9's figures, not measured on a device) |
 | 58 | A service's own error in an HTTP 200 answer to the SMS webhook: a KEY=VALUE check of the answer; a button that clears the delivery log (#171) | current (unit tests; measured on the U30 Air against a fake webhook, not against the real services) |
-| 60 | `/run` takes files from every user: the daemons' directories there are checked, and a squatted name is put out of the way (review of #145/#149) | current (fixed for mu300-atd and mu300-voice, F50-B on 5.4 and 7.2.10); `/run` itself is still 1777 |
+| 60 | `/run` takes files from every user: the daemons' directories there are checked, and a squatted name is put out of the way (review of #145/#149) | current (fixed for openf50-atd and openf50-voice, F50-B on 5.4 and 7.2.10); `/run` itself is still 1777 |
 | 63 | A reused SMS reference number mixed long messages, or kept them from ever being joined; a part delivered again | current (fixed; unit tests only, not measured on a device) |
 | 64 | An update dropped the panel's saved locks (`/etc/unisoc-modem`) | current (fixed; unit tests only, not reproduced on a device) |
 | 65 | An APN with a user name and a password (`AT+CGPCO`), and what else kanoqwq's APN page does | current (unit tests only; never sent to a modem) |
@@ -133,7 +133,7 @@ what replaced it. The table below gives each section's state.
 | 72 | The web installer: adb over WebUSB, how the release files reach the device, WebUSB per platform, and what a closed tab leaves | current; run end to end on an F50 from Chrome on macOS on 2026-10-13 (docs/web-installer.md); Windows, a Linux host, the U30 Air, KernelSU/APatch and a download over a carrier's network not measured |
 | 74 | The U30 Air's second SIM: what two units showed, and the selector built on it (PR #73/#166, #194) | current (the maintainer's U30 Air on 7.2.10 and the contributor's on 7.2.9); two working cards, kernel 5.4 and an F50 not run |
 | 80 | WPA3 on the U30 Air's access point: the SC2355 firmware does SAE itself (PR #74, Snrat) | experimental, opt-in build recipe (7.2.9; 7.2.10 without a client); PMK provenance open; the WPA2 fallback measured on the U30 Air |
-| 81 | An update that brought another mu300-update ended with "another mu300-update is running": the lock was held by the first half's own keep-alive | current (fixed; found on the F50 updating v2026.10.23 to v2026.10.24) |
+| 81 | An update that brought another openf50-update ended with "another openf50-update is running": the lock was held by the first half's own keep-alive | current (fixed; found on the F50 updating v2026.10.23 to v2026.10.24) |
 | 82 | adb on by default, and no OpenWrt had it after a boot: the service gave up 13 s after power-on, before FunctionFS could be had | current (fixed; measured on the F50, openwrt-luci, 7.2.10) |
 | 83 | An update dropped the jobs of OpenWrt's System > Scheduled Tasks (`/etc/crontabs`) | current (fixed; a user's report of the symptom, unit tests only) |
 | 95 | The ZTE V50 (MU3351), experimental: how it is told apart, and what kano measured on his (f6b0668d, 0438ab01) | experimental; nothing of it measured by this project (no V50 here): unit tests, the device trees of an F50 and a U30 Air, both mainline kernels built |
@@ -214,7 +214,7 @@ The UDC only appears when the whole chain probes, in this order:
   1. Copy `/dev/__properties__` from a running Android so property reads work.
   2. Create `/dev/block/by-name` links and apply Android's node ownership (`ueventd.rc` plus `chown`/`chmod`
      from vendor `init*.rc`), because `modem_control` drops to uid `system` (1000). (On a distribution it starts as
-     the account `mu300vnd` instead and the nodes are that account's: 41.)
+     the account `openf50vnd` instead and the nodes are that account's: 41.)
   3. Bind-mount a copy of `/proc/cmdline` with `androidboot.slot_suffix=_a` so it loads the `_a` modem images
      (LK passes `_b` when booting the trial slot).
   4. **Exec the binary directly.** `sprd_modem_loader` rejects every ioctl/write unless `current->comm` is
@@ -240,7 +240,7 @@ average. `top` shows about 98 % idle.
 
 ### 8. Build notes
 * Full LTO needs more than 8 GiB in the linker step; ThinLTO keeps CFI and links fine.
-* Stock config + `kernel/mu300-linux.fragment` adds devtmpfs, fhandle, autofs, SysV IPC, namespaces, nftables,
+* Stock config + `kernel/openf50-linux.fragment` adds devtmpfs, fhandle, autofs, SysV IPC, namespaces, nftables,
   btrfs/xfs/squashfs, NFS/CIFS, USB serial/modem/audio host drivers, crypto user API, CDC-ACM gadget, and removes
   `STATIC_USERMODEHELPER` and forced module signatures.
 * All vendor modules must be rebuilt from the same tree (symbol CRCs change).
@@ -250,7 +250,7 @@ average. `top` shows about 98 % idle.
 ### 9. Unused space after userdata
 * `userdata` is 20 GiB and ends at sector 54218752; the GPT's last usable LBA is 122155007 and the backup GPT
   is at the very end. About **32.4 GiB between them belongs to no partition** and read back as zeros.
-* The rootfs is an ext4 filesystem (`mu300root`) at byte offset `27762098176` (sector 54222848), 32.39 GiB,
+* The rootfs is an ext4 filesystem (`openf50root`) at byte offset `27762098176` (sector 54222848), 32.39 GiB,
   accessed through a loop device with an offset. **The GPT, userdata and all Android partitions are unchanged.**
 * `userdata` uses metadata encryption (`dm-default-key`, `inlinecrypt`), so it cannot be shrunk or shared.
 
@@ -260,7 +260,7 @@ Asked for often, because a smaller eMMC variant leaves less free space behind `u
 * **An image file inside `userdata` cannot work.** Metadata encryption covers the whole partition, not just file
   contents: `mmcblk0p75` reads as ciphertext from Linux - 4079 of the first 4096 bytes are non-zero, no ext4 magic
   at `0x438` (`2d81`), no f2fs magic at `0x400` (`58931da1`). The same `dd` on our own region returns `53ef` and
-  the label `mu300root`, so this is the partition and not the reader. The key lives in keymaster and `metadata`
+  the label `openf50root`, so this is the partition and not the reader. The key lives in keymaster and `metadata`
   and Android unwraps it at boot, so a file created from Android is unreadable from Linux whatever we do to it.
 * **`blackbox` (500 MiB) and `fulldumpdb` (2 GiB) are not spare.** They look unused, but sampling shows
   `fulldumpdb` non-zero in 16 of 16 samples (it starts with a `note` record) and `blackbox` in 1 of 16: the
@@ -300,14 +300,14 @@ The root filesystem moved from Ubuntu 26.04 to 24.04 LTS: 26.04's userland start
 5.4 (below), 24.04 is supported until 2029 and runs on 5.4 without workarounds.
 
 **Update 2026-10-07:** Ubuntu 26.04 is offered again, as a beta, and only with a mainline kernel (6.18 or 7.2).
-`install.sh` refuses it with 5.4 for the `openat2` reason in §13. Releases ship `mu300-ubuntu-26.04-rootfs.tar.gz`
+`install.sh` refuses it with 5.4 for the `openat2` reason in §13. Releases ship `openf50-ubuntu-26.04-rootfs.tar.gz`
 next to 24.04 (v2026.10.11).
 
 ### 11. systemd 259 works on 5.4
 5.4 is systemd's minimum baseline; the system boots to `running` with the `old-kernel` taint.
 
 ### 12. USB Ethernet must be up before the host activates ECM
-* Symptom: macOS shows the "MU300 Linux USB Ethernet" interface as `inactive` forever, no DHCP, although on the
+* Symptom: macOS shows the "OPENF50 Linux USB Ethernet" interface as `inactive` forever, no DHCP, although on the
   device `usb0` is UP with carrier.
 * Cause: `usb0` was only brought up by a systemd unit a few seconds after the UDC was bound. f_ecm reports the link
   in its first CONNECT notification and macOS' `AppleUserECM` does not pick up a later "connected" notification.
@@ -340,10 +340,10 @@ is the whole problem:
   immediately. Measured: with the daemon holding a stale descriptor, all six channels are silent; with the daemon
   stopped, all six answer `OK` at once.
 * **Closing the descriptor while the modem is running does the opposite: the channel never answers again.**
-  Measured on 5.4, with `AT+CGACT?` answering normally minutes earlier: `mu300-atd` was killed and started again -
+  Measured on 5.4, with `AT+CGACT?` answering normally minutes earlier: `openf50-atd` was killed and started again -
   one close, one open, nothing else - and from then on `/dev/stty_nr1` accepted writes and returned nothing, for
   the remaining forty minutes of that boot. Everything tried against it failed: opening it raw with no daemon at
-  all, opening `nr0`-`nr5` together, draining `nr0`, and `/etc/init.d/mu300-vendor restart` - `modem_control`
+  all, opening `nr0`-`nr5` together, draining `nr0`, and `/etc/init.d/openf50-vendor restart` - `modem_control`
   re-attaches without reloading the modem (the kernel logs `modem_control has get lock 0`, and no boot follows).
   Only a reboot brings it back. The modem is fine throughout: `nr0` keeps delivering `+SIND` and `+ECIND`, and
   debugfs `modem` still reports `run_state: 1`.
@@ -353,43 +353,43 @@ it decides, and `nr0` is that evidence: the modem's unsolicited output never sto
 that is still producing lines means the modem is alive and this descriptor is fine - whatever else is wrong,
 closing it can only make things worse.
 
-Three rules follow, and `mu300-atd` implements all three:
+Three rules follow, and `openf50-atd` implements all three:
 
 * **Exactly one owner.** The daemon holds the tty and serves one command at a time through a pair of fifos in
-  `/run/mu300-at`; `mu300-at "AT+CSQ"` asks it, and `mobile-data` uses it automatically when it is running. Nothing
+  `/run/openf50-at`; `openf50-at "AT+CSQ"` asks it, and `mobile-data` uses it automatically when it is running. Nothing
   else may open the device - including `stty -F`, which is an open and a close of its own.
-* **Drain `nr0`.** It is read continuously into a capped log under `/run/mu300-at/urc/`, the way Android's RIL
+* **Drain `nr0`.** It is read continuously into a capped log under `/run/openf50-at/urc/`, the way Android's RIL
   holds all six channels open. It is not a cure for a silent channel - that was tried - but registration and PDP
   changes are announced there and nowhere else, and `stty_nr0.log` is what the reopen rule below is built on.
-  `nr2`-`nr5` are left alone by default (`MU300_AT_URC_CHANNELS` takes them): a drainer owns its channel as
+  `nr2`-`nr5` are left alone by default (`OPENF50_AT_URC_CHANNELS` takes them): a drainer owns its channel as
   completely as the daemon owns `nr1`, and measured, those four say nothing at all.
 * **Reopen only when the modem is really gone.** Five unanswered commands, at most one reopen every five minutes,
   and only when `stty_nr0.log` has been quiet for 240 s as well. The earlier rule - reopen after two or three
   unanswered commands - traded a working modem for a dead one on any device busy enough to miss a few replies.
 
 "Exactly one owner" has to be enforced, not assumed. On the mainline kernel the modem kept going quiet a few
-minutes after every boot, and it was neither the channel nor the modem: **a second `mu300-atd` had been started**
+minutes after every boot, and it was neither the channel nor the modem: **a second `openf50-atd` had been started**
 (procd respawning it, a service started twice). Two daemons read the same `/dev/stty_nr1` and each gets part of
 every reply, and the newcomer removes and recreates the command fifo under the one already running, so every
 command returns empty. What follows looks exactly like a lost network - the watchdog sees no context, takes the
 interface down, netifd tears `wan` down and rebuilds it for ever - while the modem is untouched: stopping every
-daemon and starting a single one answered `+CSQ: 43,24` with `+CGACT:1,1` still active. `mu300-atd` now takes
-`/run/mu300-at/lock` before it opens the tty or creates the fifo; a second instance waits there instead of
+daemon and starting a single one answered `+CSQ: 43,24` with `+CGACT:1,1` still active. `openf50-atd` now takes
+`/run/openf50-at/lock` before it opens the tty or creates the fifo; a second instance waits there instead of
 exiting, so a spare is always ready to take over if the owner is killed.
 
 The lock alone was not enough, because `mobile-data` could still walk past it. Its `at()` asks the daemon when
-`/run/mu300-at/cmd` exists and opens `/dev/stty_nr1` itself when it does not - and "no fifo" is not the same as
-"no daemon". Remove `/run/mu300-at` under a running `mu300-atd` (a stale lock cleaned up by hand, a `tmpfiles`
+`/run/openf50-at/cmd` exists and opens `/dev/stty_nr1` itself when it does not - and "no fifo" is not the same as
+"no daemon". Remove `/run/openf50-at` under a running `openf50-atd` (a stale lock cleaned up by hand, a `tmpfiles`
 sweep) and the daemon keeps its descriptor while the fifo is gone, so every `mobile-data` call takes the direct
 path and becomes a second reader on a channel that hands each line to exactly one of them. Found on the device:
-`mu300-at` reporting "the daemon is not reading commands" while `/proc/*/fd` showed `mu300-atd` *and*
-`mobile-data watch` both holding `/dev/stty_nr1`. `mobile-data` now checks `/run/mu300-at/lock/pid` before it
-opens anything: a live `mu300-atd` behind that pid means "refuse and say so", and otherwise it takes the same
+`openf50-at` reporting "the daemon is not reading commands" while `/proc/*/fd` showed `openf50-atd` *and*
+`mobile-data watch` both holding `/dev/stty_nr1`. `mobile-data` now checks `/run/openf50-at/lock/pid` before it
+opens anything: a live `openf50-atd` behind that pid means "refuse and say so", and otherwise it takes the same
 lock for the length of the command. `tty_setup` obeys the same check, since `stty -F` is an open and a close.
 
 Also make sure only one bring-up runs at a time: `mobile-data up` from the service and from the watchdog used to
 run concurrently, and the two of them take the channel lock away from each other for every single AT command, so
-neither finishes. `mobile-data` now holds `/run/mu300-mobile-data-up.lock` while it works, `down()` leaves the
+neither finishes. `mobile-data` now holds `/run/openf50-mobile-data-up.lock` while it works, `down()` leaves the
 context alone while a bring-up owns the channel, and only one watchdog runs.
 
 Verified on 5.4 after these changes: a full `down`/`up` cycle followed by AT queries, and 12 queries over two
@@ -442,7 +442,7 @@ Ruled out by measurement, so that nobody spends another evening on them:
 * **A full software mailbox queue** (real bug, fixed in 13e) - the AP can send again, and the modem still goes
   quiet.
 
-Also ruled out by the same differential: **our own services**. With `mu300-atd` and `mobile-data` killed and a
+Also ruled out by the same differential: **our own services**. With `openf50-atd` and `mobile-data` killed and a
 single shell holding the tty, the channel still went silent (132 s instead of ~90 s).
 
 The next step is therefore not a kernel one: find what the CP expects from the AP that Android provides and we do
@@ -479,14 +479,14 @@ too early in itself; it failed because the CP was *reset* underneath it afterwar
 
 Two things that are not this bug, and cost time looking like it:
 
-* **A stopped VPN leaves its policy routing behind.** `/etc/init.d/mu300-vpn stop` removes neither the
+* **A stopped VPN leaves its policy routing behind.** `/etc/init.d/openf50-vpn stop` removes neither the
   `sbtun` rules (prefs 9000-9010, table 2022) nor sing-box itself, so every packet still goes into a tunnel
   with nothing at the other end and every test reads `Operation not permitted`. That is an EPERM from routing,
   not from the modem, and it made a working data path look dead.
 
-  **Update 2026-10-07:** `mu300-vpn off` now removes rules that a dead engine left behind (`routing_cleanup`,
+  **Update 2026-10-07:** `openf50-vpn off` now removes rules that a dead engine left behind (`routing_cleanup`,
   prefs 9000-9010 and table 2022), and every exit of the Xray engine takes its routes down (§26e). A service stop
-  still leaves the kill switch up on purpose. Only `ENABLE=0` or `mu300-vpn off` removes it. Since PR #31 the engines
+  still leaves the kill switch up on purpose. Only `ENABLE=0` or `openf50-vpn off` removes it. Since PR #31 the engines
   are not in the images at all, see §26e.
 * **A resolv.conf left behind by Docker.** Images built before the build fix carry the container's
   `nameserver 192.168.65.7` as a regular file rather than the symlink to `/tmp/resolv.conf`, so every name
@@ -603,7 +603,7 @@ Android, with data flowing, `ping -I sipa_eth0 8.8.8.8` reports 100 % loss, and 
 so it is the cellular path rather than a VPN swallowing the echo. A TCP connect on the same interface completes
 and `rx_packets` climbs. The signal to read is that counter, not whether a connect succeeded - the connect may
 be carried by a VPN, and on Android it was (`ip route get 1.1.1.1` goes to `tun0`), but the VPN's own packets
-still leave and arrive over `sipa_eth0`, which is the only WAN this device has. `mu300-ipa-dump` does it this
+still leave and arrive over `sipa_eth0`, which is the only WAN this device has. `openf50-ipa-dump` does it this
 way; several earlier "nothing arrives" measurements here were ping-based and proved less than they looked.
 
 Two smaller differences from the same reference, both cheap to copy and neither yet tested:
@@ -657,7 +657,7 @@ positives here before the real cause turned up:
   millisecond while `sipa_eth0`'s `tx_packets` never moves. A sub-millisecond reply from a public address is
   the tell. Stop sing-box before believing any ping, and check `tx_packets` alongside it.
 * **The kill-switch turns the next attempt into a different lie.** With sing-box stopped but the firewall up,
-  the same ping returns `sendto: Operation not permitted` - an EPERM from `table inet mu300_vpn`, which reads
+  the same ping returns `sendto: Operation not permitted` - an EPERM from `table inet openf50_vpn`, which reads
   like the modem refusing traffic. Both have to be down, or the test has to be a hole punched in
   `accept_to_wan` and taken straight back out.
 
@@ -710,8 +710,8 @@ Two ways of timing out a read do **not** work here, and both fail silently:
 * **The termios timer is ignored.** `stty min 0 time 5` changes nothing: the driver blocks in `sbuf_read` until the
   modem says something, possibly for ever. Visible as `wchan = sbuf_read` with zero CPU time.
 
-`read -t` in bash and in busybox ash uses `poll()`, which this driver does implement, so both work. `mu300-atd` and
-`mu300-at` re-exec themselves under bash (or busybox ash) when the shell running them has no `-t`.
+`read -t` in bash and in busybox ash uses `poll()`, which this driver does implement, so both work. `openf50-atd` and
+`openf50-at` re-exec themselves under bash (or busybox ash) when the shell running them has no `-t`.
 
 Apply `stty` to the already-open descriptor (`stty raw -echo <&3`), never `stty -F /dev/stty_nr1`: the `-F` form is
 an extra open and close of the device, which takes the channel away from whoever owns it (13b).
@@ -772,8 +772,8 @@ The SC2355 can be an access point or a client of somebody else's network, but th
   (`iface 'wlan0' deleted`, then `type 3 added`, §31n), and the AP comes up. What went wrong in §31n was a race
   with the probe's power-off, not the recreation itself.
 
-So the mode belongs to the boot: `mu300-wifi-client.service` runs before `mu300-hotspot.service`, joins the saved
-network while `wlan0` is still a station, and holds `/run/mu300-wifi-client.active`, which the hotspot unit refuses
+So the mode belongs to the boot: `openf50-wifi-client.service` runs before `openf50-hotspot.service`, joins the saved
+network while `wlan0` is still a station, and holds `/run/openf50-wifi-client.active`, which the hotspot unit refuses
 to start on (`ConditionPathExists=!`). Going back to the hotspot needs no reboot, because that is the direction
 hostapd can do by itself.
 
@@ -816,15 +816,15 @@ buffers to the bus and leave when there is no tx context yet.
 ### 16. Rootfs details found while testing data
 * `docker export` leaves an empty `/etc/resolv.conf`: `resolvectl query` works but glibc programs cannot resolve names.
   Link it to `../run/systemd/resolve/stub-resolv.conf`.
-* busybox/toybox tar drop xattrs, so `ping` loses `cap_net_raw`; `mu300-fixups.service` restores it.
+* busybox/toybox tar drop xattrs, so `ping` loses `cap_net_raw`; `openf50-fixups.service` restores it.
 * Android's uid `system` (1000) is also Ubuntu's first user, so modem device nodes showed up as owned by `ubuntu` -
-  writable by it, the modem's calibration among them. Fixed in 41: they are the vendor account's (`mu300vnd`) now.
+  writable by it, the modem's calibration among them. Fixed in 41: they are the vendor account's (`openf50vnd`) now.
 
 ### 26b. The tunnel needs sing-box's gvisor stack on this kernel
-**2026-10-09: the VPN moved to its own repository.** `mu300-vpn`, its drivers and engines are the module of
+**2026-10-09: the VPN moved to its own repository.** `openf50-vpn`, its drivers and engines are the module of
 [dikeckaan/mu300-linux-vpn](https://github.com/dikeckaan/mu300-linux-vpn) now, installed as the `vpn` extra
-(`mu300-extra install vpn`); the images carry none of it. These findings (26b, 26e, 26f) stay here as they were
-written, and are continued in that repository's docs; paths like `/opt/mu300/lib/vpn` are the module's, linked into
+(`openf50-extra install vpn`); the images carry none of it. These findings (26b, 26e, 26f) stay here as they were
+written, and are continued in that repository's docs; paths like `/opt/openf50/lib/vpn` are the module's, linked into
 each system by its `hooks/link`.
 
 Everything through the VPN failed while the VPN itself looked healthy: it connected to its server, resolved
@@ -875,11 +875,11 @@ what makes `ığşçöü ÇĞİÖŞÜ` survive. Verified by sending to the SIM's
 
 
 **Update 2026-10-07:** since PR #31 the engines (Xray-core, hev-socks5-tunnel, sing-box) are not in the Ubuntu or
-OpenWrt images. They are an optional release asset, `mu300-extra-vpn.tar.gz`, installed with
-`mu300-extra install vpn` or by the installer's question. `mu300-vpn` looks in `extra/vpn/bin` first. Since PR #49,
+OpenWrt images. They are an optional release asset, `openf50-extra-vpn.tar.gz`, installed with
+`openf50-extra install vpn` or by the installer's question. `openf50-vpn` looks in `extra/vpn/bin` first. Since PR #49,
 Tailscale's own traffic also goes through the tunnel (`TAILSCALE=0` opts out). The engine choice below still
-holds (`mu300-vpn`, `ENGINE` default).
-`mu300-vpn` now defaults to `ENGINE=xray`: Xray-core does VLESS, hev-socks5-tunnel owns a plain kernel TUN (`xtun`)
+holds (`openf50-vpn`, `ENGINE` default).
+`openf50-vpn` now defaults to `ENGINE=xray`: Xray-core does VLESS, hev-socks5-tunnel owns a plain kernel TUN (`xtun`)
 and hands each flow to Xray's SOCKS port on loopback. Neither installs routes, so the script does, with sing-box's
 rule prefs and table (9000-9010, table 2022): Xray's own sockets carry mark `0x2d0` and go to `main`, as do the LAN
 and the server's address; everything else goes to `xtun`. The device's own DNS - dnsmasq's upstream, which is the
@@ -917,16 +917,16 @@ address around it: `ip rule add pref 8999 to <addr> lookup main`, test, delete t
 ### 26f. One VPN command for every protocol: profiles and engine drivers
 (Now the VPN module of [dikeckaan/mu300-linux-vpn](https://github.com/dikeckaan/mu300-linux-vpn): see 26b.)
 
-`mu300-vpn` spoke one protocol: a VLESS link in `vpn.conf`. People have WireGuard configs, OpenVPN files,
+`openf50-vpn` spoke one protocol: a VLESS link in `vpn.conf`. People have WireGuard configs, OpenVPN files,
 Clash/mihomo subscriptions and raw Xray/sing-box JSON from their panels, so it now keeps named profiles under
-`/etc/mu300/vpn` (`profile import|add|edit|use|remove|export|show|list`, `settings`, `engines`, `check`) and runs
-the active one through a driver per engine (`/opt/mu300/lib/vpn/<type>.sh`: `drv_check`, `drv_gen`, `drv_start`,
+`/etc/openf50/vpn` (`profile import|add|edit|use|remove|export|show|list`, `settings`, `engines`, `check`) and runs
+the active one through a driver per engine (`/opt/openf50/lib/vpn/<type>.sh`: `drv_check`, `drv_gen`, `drv_start`,
 `drv_alive`, `drv_stop`, `drv_import`...). The core owns what the drivers must not differ in: the kill switch, the
 routing (rules 9000-9010, table 2022), the DNS nat and the Tailscale rules. The decisions:
 
 * **ENABLE stays in `vpn.conf`.** Everything else moved, but the switch has too many readers to move with it:
-  `mu300-update` and `android-install.sh` (a VPN in use keeps its engines across an update), `wifi-client` (the kill
-  switch is fatal only when the VPN is on), `mu300-extra` (refuses to remove the vpn extra while ENABLE=1), the
+  `openf50-update` and `android-install.sh` (a VPN in use keeps its engines across an update), `wifi-client` (the kill
+  switch is fatal only when the VPN is on), `openf50-extra` (refuses to remove the vpn extra while ENABLE=1), the
   dashboard, and every older image, which must find a working VLESS VPN after a downgrade. So `on`/`off` write that
   one line and `vpn.conf` keeps its legacy keys; `wifi-client` and the dashboard read `KILL_SWITCH` and the engine
   from the store first and fall back to `vpn.conf`.
@@ -983,40 +983,40 @@ verified on the device up to that point, no further.
 * LK decrements `tries_remaining` before booting a slot and rolls back when it finds `tries == 1 && !successful`.
   The one-shot trial arms slot b with `tries = 2`.
 * Default-Linux mode never sets `successful_boot`. Instead:
-  1. init skips the slot-a restore when `/etc/mu300/default-boot` in the rootfs says `linux` (slot b is left at `tries = 1`);
-  2. `mu300-boot-ok.service` runs 30 s after `multi-user.target` and writes the `tries = 2` block again.
-* A boot that never reaches `mu300-boot-ok` therefore leaves `tries = 1`, and the next boot rolls back to Android.
-* Verified: `mu300-next-boot linux` + reboot returned to Linux and re-armed slot b; `mu300-next-boot android` + reboot
+  1. init skips the slot-a restore when `/etc/openf50/default-boot` in the rootfs says `linux` (slot b is left at `tries = 1`);
+  2. `openf50-boot-ok.service` runs 30 s after `multi-user.target` and writes the `tries = 2` block again.
+* A boot that never reaches `openf50-boot-ok` therefore leaves `tries = 1`, and the next boot rolls back to Android.
+* Verified: `openf50-next-boot linux` + reboot returned to Linux and re-armed slot b; `openf50-next-boot android` + reboot
   booted slot a.
 
 **Update 2026-10-07:** the list above is the first version, and the rest of this section replaces three things in
-it. Slot b is re-armed with `tries = N + 1`, not 2. `mu300-boot-ok` waits for the USB network and SSH, not for
-`multi-user.target` (`mu300-boot-ok.service`, still 30 s). Since PR #39, an arm from Android after LK's own fallback
+it. Slot b is re-armed with `tries = N + 1`, not 2. `openf50-boot-ok` waits for the USB network and SSH, not for
+`multi-user.target` (`openf50-boot-ok.service`, still 30 s). Since PR #39, an arm from Android after LK's own fallback
 restarts init's count (`stage=boot-tries-restart`, the `boot-tries` block in `boot/init`). Before that, in exactly that
-case, init counted N + 1 and sent the first boot after `su -c mu300-linux` back to Android.
+case, init counted N + 1 and sent the first boot after `su -c openf50-linux` back to Android.
 
 **One interrupted boot was enough to lose Linux.** Re-arming with `tries = 2` gives Linux exactly one boot that
-may fail. `mu300-boot-ok` runs about a minute after power-on, so pulling the plug once during that minute - or
+may fail. `openf50-boot-ok` runs about a minute after power-on, so pulling the plug once during that minute - or
 a power cut, or a crash - sent the next boot to Android. The initramfs has its own counter meant to allow five
 such boots, but LK always got there first, so it never mattered. (`uboot_log` shows it plainly: `bootable slot 1
 ... tries_remaining: 1, successful_boot: 0`, `check rollback slot 1 tries: 1`, `Booting slot_a`.)
 
-Now the user picks N, 1-6, at install (default 5; stored in `.mu300/boot-attempts` on the Linux disk, changed
-later with `mu300-next-boot attempts N`), and slot b is re-armed with `tries = N + 1`. LK decrements on every boot
+Now the user picks N, 1-6, at install (default 5; stored in `.openf50/boot-attempts` on the Linux disk, changed
+later with `openf50-next-boot attempts N`), and slot b is re-armed with `tries = N + 1`. LK decrements on every boot
 and rolls back at 1, so N boots in a row that never reach boot-ok are allowed and the next one is Android. The
 field is three bits, hence the upper limit. The initramfs counter now reads the same N and fires on the same
 boot, as a backstop.
 
-**Update 2026-10-09: locked Linux.** `mu300-next-boot lock` arms the Linux slot `successful = 1` (byte `0xEF` for
+**Update 2026-10-09: locked Linux.** `openf50-next-boot lock` arms the Linux slot `successful = 1` (byte `0xEF` for
 slot b: prio 15, tries 6, successful). LK never counts a successful slot down, so it never rolls back; the initramfs
-skips its backstop when it sees the bit in misc and `.mu300/boot-lock` on the disk (the bit alone, set by anything
+skips its backstop when it sees the bit in misc and `.openf50/boot-lock` on the disk (the bit alone, set by anything
 else, keeps the backstop), and its standalone fallback (no system to start) stays on telnet with `/run/to-android`
-instead of restoring Android's slot. `mu300-update` arms the usual attempts (`--trial`, `0x6F`) before it writes a
-boot image or rolls one back, and `mu300-boot-ok` locks again after the first good boot. Verified on the U30 Air
-(7.2.9): lock -> `ef`; a new boot image -> `6f`; its first boot -> `ef` again; a boot with `.mu300/boot-tries` at 9
+instead of restoring Android's slot. `openf50-update` arms the usual attempts (`--trial`, `0x6F`) before it writes a
+boot image or rolls one back, and `openf50-boot-ok` locks again after the first good boot. Verified on the U30 Air
+(7.2.9): lock -> `ef`; a new boot image -> `6f`; its first boot -> `ef` again; a boot with `.openf50/boot-tries` at 9
 stayed in Linux with `stage=boot-locked (no backstop)`.
 
-* The block is rebuilt at run time from the initramfs' `tries = 2` block, because `mu300-update` does not replace
+* The block is rebuilt at run time from the initramfs' `tries = 2` block, because `openf50-update` does not replace
   the boot image and an older one carries only that block. Byte 14 is slot b's `prio | tries << 4 |
   successful << 7`; the CRC-32 over the first 28 bytes comes from `gzip`, whose stream trailer is the same
   CRC-32. Before writing anything the script rebuilds `tries = 2` and requires it to match the initramfs' block
@@ -1029,14 +1029,14 @@ stayed in Linux with `stage=boot-locked (no backstop)`.
 
 **Update 2026-10-12: "Reboot to start the updated openwrt-luci" when a reboot starts Android.** A U30 Air with
 Linux on slot a (Android on b) was updated v2026.10.17 -> v2026.10.20 from a Linux boot, and the reboot went to
-Android. The image was fine: `/etc/mu300/default-boot` said `android` (the device had been switched to Android by
+Android. The image was fine: `/etc/openf50/default-boot` said `android` (the device had been switched to Android by
 hand earlier), so that boot was itself a one-shot trial armed from Android, and the init log of it says exactly
 that - `stage=misc-restored` (init writing Android's slot block back, §1) and no `stage=default-boot-linux`, with
-`.mu300/boot-tries` at 0 (no backstop ever fired; the updated kernel had come up in 4.9 s). `mu300-update`'s
-`--trial` is a quiet no-op in that state (`mu300-next-boot` answers "default boot is not linux, nothing to do" and
-exits 0), and its last line still promised a reboot. Now `mu300-next-boot --trial` exits 3 when there is nothing to
-arm and 1 when it can only write the initramfs' one-shot block (one boot, not N, §32); `mu300-update` says both, and
-what it prints last after a boot image, a system or a kernel changed is how to start Linux by hand (`mu300-linux`)
+`.openf50/boot-tries` at 0 (no backstop ever fired; the updated kernel had come up in 4.9 s). `openf50-update`'s
+`--trial` is a quiet no-op in that state (`openf50-next-boot` answers "default boot is not linux, nothing to do" and
+exits 0), and its last line still promised a reboot. Now `openf50-next-boot --trial` exits 3 when there is nothing to
+arm and 1 when it can only write the initramfs' one-shot block (one boot, not N, §32); `openf50-update` says both, and
+what it prints last after a boot image, a system or a kernel changed is how to start Linux by hand (`openf50-linux`)
 instead of a reboot that goes the other way.
 
 **Boot-ok used to wait for every service.** It was ordered `After=multi-user.target`, so one service that never
@@ -1044,7 +1044,7 @@ finished - `mobile-data` stuck on a busy AT channel in an older Ubuntu image - k
 usable it was, and the next reboot counted it as failed. It now follows only the USB network and SSH: a boot you
 can log in to is a good one. Measured on Ubuntu: SSH at 47 s, boot-ok at 79 s, independent of the rest.
 
-`mu300-os` also carries `default-boot` to the system it switches to. The initramfs reads it from the system it
+`openf50-os` also carries `default-boot` to the system it switches to. The initramfs reads it from the system it
 boots, so switching from one where Linux is the default to one where it was never set made the first reboot
 there go to Android.
 
@@ -1072,12 +1072,12 @@ there go to Android.
 
 ### 20. Diagnosing early power cuts
 * The initramfs log loop ends at `switch_root` and journald flushes only after local filesystems are up, so a power cut in
-  the first seconds of systemd leaves no log. `mu300-early-recorder.service` keeps writing `dmesg` to the boot_b log area
+  the first seconds of systemd leaves no log. `openf50-early-recorder.service` keeps writing `dmesg` to the boot_b log area
   for the first five minutes.
 
   **Update 2026-10-07:** it now writes every 2 s for the first 90 s, then every 10 s (§31d). It runs up to 300 s on
-  Ubuntu (`mu300-early-recorder.service`) and up to 420 s from OpenWrt's preinit
-  (`openwrt/overlay/lib/preinit/05_mu300_early_recorder`). It writes only what it has collected, not the full
+  Ubuntu (`openf50-early-recorder.service`) and up to 420 s from OpenWrt's preinit
+  (`openwrt/overlay/lib/preinit/05_openf50_early_recorder`). It writes only what it has collected, not the full
   8 MiB.
 
 ### 20b. Telling a userspace reboot from a power cut, and finding who asked for it
@@ -1089,7 +1089,7 @@ watchdog leaves the log ending mid-sentence; a deliberate reboot ends with the k
 `[T1]` is the task that made the call, and on OpenWrt that is procd: busybox `reboot` does not call the syscall itself,
 it hands the request to init, so *every* userspace reboot on this image shows up as pid 1 no matter who started it. The
 pstore line therefore says "userspace asked", never who. Three things together do say who, and all three write to
-`/mnt/mu300-disk/.mu300/` so they survive the reboot they are recording:
+`/mnt/openf50-disk/.openf50/` so they survive the reboot they are recording:
 
 * **not** a wrapper on `/sbin/reboot`. That was tried and it deadlocks the device: on OpenWrt `reboot` hands the
   request to procd, and procd runs `/sbin/reboot` itself on the way down - straight back into the wrapper, which
@@ -1102,9 +1102,9 @@ pstore line therefore says "userspace asked", never who. Three things together d
   (`SEEN < 1`), so a bouncing key is a plausible cause and worth ruling in or out explicitly,
 * a kprobe on the syscall for anything that bypasses `/sbin/reboot`, which needs no module:
 
-      echo 'p:mu300reboot __arm64_sys_reboot' > /sys/kernel/debug/tracing/kprobe_events
-      echo 1 > /sys/kernel/debug/tracing/events/kprobes/mu300reboot/enable
-      cat /sys/kernel/debug/tracing/trace_pipe >> /mnt/mu300-disk/.mu300/reboot-trace.log &
+      echo 'p:openf50reboot __arm64_sys_reboot' > /sys/kernel/debug/tracing/kprobe_events
+      echo 1 > /sys/kernel/debug/tracing/events/kprobes/openf50reboot/enable
+      cat /sys/kernel/debug/tracing/trace_pipe >> /mnt/openf50-disk/.openf50/reboot-trace.log &
 
   `trace_pipe` is worth the reader process: the trace buffer itself does not survive the reboot, and procd sleeps a
   second before it calls the syscall, which is long enough for the line to reach the disk.
@@ -1118,7 +1118,7 @@ would log as "Power down" rather than "Restarting system".
 ### 21. One LAN for USB and Wi-Fi
 * `br-lan` (192.168.77.1/24) bridges `usb0` and `wlan0`; one dnsmasq serves both.
 
-  **Update 2026-10-07:** 192.168.77.1 is the F50's default. The U30 Air uses `.78` (`mu300-lan-ip`, §33b), and
+  **Update 2026-10-07:** 192.168.77.1 is the F50's default. The U30 Air uses `.78` (`openf50-lan-ip`, §33b), and
   `lan.conf` or LuCI can change either.
 * cfg80211 refuses to bridge `wlan0` ("Device does not allow enslaving to a bridge") because `IFF_DONT_BRIDGE` stays set:
   the SC2355 driver marks the interface as AP but returns an error from `change_virtual_intf` when tearing down the
@@ -1157,40 +1157,40 @@ would log as "Power down" rather than "Restarting system".
   `sipa_delegate: modem_reset`, and `modem_control` stops and reloads the modem through Trusty. It comes back with
   `+CFUN: 0`, no registration and no PDP context, while `sipa_eth0` keeps its stale address, so clients lose internet.
   Android's RIL reconnects silently.
-* `mobile-data watch` (`mu300-mobile-data-watch.service`) checks `AT+CGACT?` and the interface address every 30 s and
-  runs `up` again after two failed checks; `mobile-data down` sets `/run/mu300-mobile-data-down` so a manual disconnect
+* `mobile-data watch` (`openf50-mobile-data-watch.service`) checks `AT+CGACT?` and the interface address every 30 s and
+  runs `up` again after two failed checks; `mobile-data down` sets `/run/openf50-mobile-data-down` so a manual disconnect
   is respected. Verified by switching the radio off: data returned without intervention.
 
   **Update 2026-10-07:** the check also compares the interface's address with the context's (`AT+CGPADDR`). A
   context can come back with a new address while `sipa_eth0` keeps the old one (§31c).
 
 ### 26d. USSD, and the AT lock that made the channel look dead
-Three separate traps, and the first one hid the other two for an evening. `mu300-ussd` handles all three.
+Three separate traps, and the first one hid the other two for an evening. `openf50-ussd` handles all three.
 
-* **The AT lock meant two things at once.** `/run/mu300-at/lock` was both "`mu300-atd` holds the channel", which
+* **The AT lock meant two things at once.** `/run/openf50-at/lock` was both "`openf50-atd` holds the channel", which
   lasts for the life of the system, and "one client at a time", which lasts for one command. Whichever ran second
   won: a client removed the daemon's directory as it exited, after which the lock behaved as a plain client mutex
   and everything worked — so the collision stayed invisible. Restart the daemon and it takes the directory back,
-  and from that moment every client waits out its full 90 s and prints `mu300-at: busy` at a completely idle
-  modem. Ownership is now `/run/mu300-at/owner`; `lock` is the client mutex alone.
+  and from that moment every client waits out its full 90 s and prints `openf50-at: busy` at a completely idle
+  modem. Ownership is now `/run/openf50-at/owner`; `lock` is the client mutex alone.
   * The failure looks exactly like a wedged SIPC channel, which sends you after the modem instead of the lock.
-    What tells them apart: `cat /run/mu300-at/owner/pid` against `ps`, and whether `+CSQ` is still ticking in
+    What tells them apart: `cat /run/openf50-at/owner/pid` against `ps`, and whether `+CSQ` is still ticking in
     `urc/stty_nr0.log` — a wedged channel goes quiet, a blocked lock does not.
-  * Do not diagnose this by polling `mu300-at` in a loop. Each call takes the client lock, so the loop queues up
+  * Do not diagnose this by polling `openf50-at` in a loop. Each call takes the client lock, so the loop queues up
     behind the command already waiting for its answer and genuinely jams what was only blocked.
 * **A USSD code has to be sent as hex.** `AT+CUSD=1,"*101#",15` answers `+CME ERROR: 3`, and still does after
   `AT+CSCS="GSM"` — so this is not the character set behaving as documented. `AT+CUSD=1,"2A31303123",15` is
   accepted whatever `AT+CSCS` says.
 * **The answer arrives on a different channel than the command.** The command gets a bare `OK` on `/dev/stty_nr1`;
   the `+CUSD` turns up seconds later on nr0, the unsolicited channel. Anything waiting for it on nr1 waits for
-  ever. `mu300-atd`'s drainer logs nr0 to `/run/mu300-at/urc/stty_nr0.log`, and that log is what to read — waiting
+  ever. `openf50-atd`'s drainer logs nr0 to `/run/openf50-at/urc/stty_nr0.log`, and that log is what to read — waiting
   on a file also costs the modem nothing, which is the point after the trap above.
-* `drain()` in `mu300-atd` now appends what it reads to `urc/stty_nr1.log` instead of discarding it, so a late
+* `drain()` in `openf50-atd` now appends what it reads to `urc/stty_nr1.log` instead of discarding it, so a late
   answer on the command channel is recoverable too. `+CMTI` (a new SMS) lands there the same way.
 * The third `+CUSD` field is a **CBS** coding scheme, not an SMS one: 15 is the GSM alphabet, 72 is UCS2, which is
   what a Turkish menu comes back as. The body is hex-dumped one byte per character, not packed septets.
   `awk -v mode=ussd -v hex=... -v dcs=... -f sms-pdu.awk` decodes both.
-* Verified end to end: `mu300-ussd '*101#'` returns the SIM's own number, and a `dcs=72` body decodes with its
+* Verified end to end: `openf50-ussd '*101#'` returns the SIM's own number, and a `dcs=72` body decodes with its
   Turkish characters intact.
 
 ### 27. Where the missing ~550 MiB of RAM goes
@@ -1201,7 +1201,7 @@ Three separate traps, and the first one hid the other two for an evening. `mu300
 * Not needed on Linux: `logobuffer` (9 MiB, there is no display) and `sysdump-uboot` (16 MiB, bootloader crash dumps).
   `kernel/patches/of-reserved-mem-skip.patch` adds `CONFIG_OF_RESERVED_MEM_SKIP` (the boot image command line is not
   passed on by LK, so a cmdline option alone would not work); MemTotal grew from 1447 to 1473 MiB.
-* `mu300-zram.service` adds lz4 zram swap of half the RAM (swappiness 100).
+* `openf50-zram.service` adds lz4 zram swap of half the RAM (swappiness 100).
 
 
 ### 28. Mali-G57 GPU (OpenCL) without Android
@@ -1222,13 +1222,13 @@ Three separate traps, and the first one hid the other two for an evening. `mu300
 
 ### 29. OpenWrt 25.12 next to Ubuntu
 * Layout: the ext4 area holds `/openwrt` (and `/ubuntu`, or Ubuntu directly in the root on first installs);
-  `/.mu300/boot-os` selects the system and `init` starts `/lib/systemd/systemd` or procd's `/sbin/init`. The disk stays
-  mounted at `/mnt/mu300-disk`; `mu300-os ubuntu|openwrt` switches. (**Update 2026-10-07:** a third system,
-  `openwrt-luci`, OpenWrt with the MU300 control panel, sits next to them (§35). `mu300-os` switches to any system
+  `/.openf50/boot-os` selects the system and `init` starts `/lib/systemd/systemd` or procd's `/sbin/init`. The disk stays
+  mounted at `/mnt/openf50-disk`; `openf50-os ubuntu|openwrt` switches. (**Update 2026-10-07:** a third system,
+  `openwrt-luci`, OpenWrt with the OPENF50 control panel, sits next to them (§35). `openf50-os` switches to any system
   directory on the disk.) `openwrt/build-rootfs.sh` builds the rootfs from the
   official armsr/armv8 tarball (checksum-verified) with apk, our kernel modules flat in `/lib/modules/<release>`
-  (ubox kmodloader), the vendor chroot and procd services (`mu300-vendor`, `mu300-hw`, `mu300-post`).
-* Cellular WAN is a netifd protocol (`proto mu300cell`, option `apn`), so LuCI/fw4 handle routing, DNS and NAT;
+  (ubox kmodloader), the vendor chroot and procd services (`openf50-vendor`, `openf50-hw`, `openf50-post`).
+* Cellular WAN is a netifd protocol (`proto openf50cell`, option `apn`), so LuCI/fw4 handle routing, DNS and NAT;
   `mobile-data watch` calls `ifup wan` after modem resets.
 * Pitfalls found on the device:
   * procd mounts `/dev` as a 512 KiB tmpfs: copying the 85 MiB Android property area gives empty files and
@@ -1253,7 +1253,7 @@ Three separate traps, and the first one hid the other two for an evening. `mu300
     (own GPT, kernel 6.12) over the eMMC and brick the device. The packages are removed and `/sbin/sysupgrade` only allows
     configuration backups.
   * `wifi-scripts` generates an open "OpenWrt" network on first boot; `openwrt-wifi-config` replaces it once (marker
-    `/etc/mu300/wifi-configured`) with the imported SSID/WPA2 settings.
+    `/etc/openf50/wifi-configured`) with the imported SSID/WPA2 settings.
 * Verified after reboots: 5 GHz AP (channel 36), cellular WAN, a USB client's traffic leaves with the modem's public IP;
   memory use about 140 MiB.
 * The early recorder runs from preinit, so a failed OpenWrt boot leaves dmesg, `ps`, `logread` and the Android logcat in
@@ -1328,7 +1328,7 @@ Three separate traps, and the first one hid the other two for an evening. `mu300
       [Audio:SMSG] aud_smsg_send: dst=1, channel=3
 
   The last two lines are the point: the audio SIPC channel that used to answer `ENODEV` now allocates its
-  blocks inside the reserved region and sends to the DSP. `mu300-audio-dsp` loads the 23 drivers with the right
+  blocks inside the reserved region and sends to the DSP. `openf50-audio-dsp` loads the 23 drivers with the right
   parameters.
 * The card now parses **57 of its 58 dai links**, where before it deferred at link 0 and never moved.
   `BE_VOICE_PCM_P` - the back end the SIP gateway needs - parses fine. It stops on the last one,
@@ -1348,7 +1348,7 @@ Three separate traps, and the first one hid the other two for an evening. `mu300
   modem firmware there is no copy on the device to take.
 * **The card registers: `sprdphone-sc2730`, 19 PCM devices, `FE_ST_VOICE_PCM_P` at card 1 device 53.** That
   is the same card the community Android modules produce, and that endpoint is exactly what sipserver looks
-  for. `mu300-audio-dsp load` does it in one command and it survives a reboot.
+  for. `openf50-audio-dsp load` does it in one command and it survives a reboot.
 * **The last thing in the way was the DMA engine, and nothing says so.** `CONFIG_SPRD_DMA` is a module and
   nothing pulls it in, so `/sys/class/dma` is empty, `sprd-pcm-audio` defers for want of a channel, its
   component never registers, and `snd_soc_register_card` fails with `ASoC: failed to init link FE_NORMAL_AP01:
@@ -1358,7 +1358,7 @@ Three separate traps, and the first one hid the other two for an evening. `mu300
 * The card's own probe runs before those components exist and **is not retried**: it returns 0 even when
   `snd_soc_register_card` deferred, so nothing re-probes it. Binding `sound@0` again by hand once everything
   is up is what completes it.
-* `mu300-audio` brings the card up at boot on both systems - a procd `boot()` that backgrounds itself, because
+* `openf50-audio` brings the card up at boot on both systems - a procd `boot()` that backgrounds itself, because
   binding takes about half a minute of waiting on probes and busybox init does not spawn the consoles until
   sysinit returns. It runs `load` and never `start`, so nothing at boot can reach the reboot below.
 * **The reboot below is no longer reproducible, and the explanation given for it does not hold.** Android's own
@@ -1371,7 +1371,7 @@ Three separate traps, and the first one hid the other two for an evening. `mu300
   loaded - the console shows an orderly CPU shutdown and `reboot: Restarting system` seconds later. It is a
   deliberate reboot from userspace, not a panic. Registering the card is what exercises `agdsp_access_enable`,
   so with no card the AGDSP power domain is never brought up and `start_store` writes `RESET_SEL`, `CORE_RESET`
-  and `SYS_RESET` into a domain that is off. `mu300-audio-dsp start` now refuses unless the card is present.
+  and `SYS_RESET` into a domain that is off. `openf50-audio-dsp start` now refuses unless the card is present.
   The register sequence itself was compared against the driver and the device tree and is not the problem:
   `reset_sel` 0x0ba8/0xffffffff, `corereset` 0x0b88/0x1, `sysreset` 0x0b98/0x400000, `bootprotect` 0x0078 with
   the 0x9620 magic, and the boot vector is written - "dsp reboot by DDR!" means the `dsp-reboot-mode` property
@@ -1382,7 +1382,7 @@ Three separate traps, and the first one hid the other two for an evening. `mu300
   `core=0 sys=0 sleep=6` - the DSP was up. Read it with `od -An -tu4 -N12`.
 * **The start is once per boot, and that is all it needs to be.** From the cold state (`sys=7 sleep=0`) it
   works every time; re-running it on a DSP that has already been booted leaves `sys=7` with every step still
-  reporting success. `mu300-audio` does it once at boot, after the card, which is the only ordering that is
+  reporting success. `openf50-audio` does it once at boot, after the card, which is the only ordering that is
   safe anyway.
 * **`sys` flips between 0 and 7 on its own** - that is the DSP's power management, not a failure. Reading the
   status at an arbitrary moment says little; what says the path works is opening the endpoint:
@@ -1401,10 +1401,10 @@ Three separate traps, and the first one hid the other two for an evening. `mu300
 
   The DPCM front ends are joined to their back ends by ~70 `S_..._SWITCH` mixer controls, all off at probe
   (`S_NORMAL_AP01_P_CODEC SWITCH`, `S_VOICE_PCM_P SWITCH`, `S_VOICE_P_CODEC SWITCH`, …). Android's HAL sets
-  them from its own configuration and there is nothing to inherit here. `mu300-audio-dsp routes` sets the ones
+  them from its own configuration and there is nothing to inherit here. `openf50-audio-dsp routes` sets the ones
   this board can use; with the route on, `hw_params` installs and `BE_DAI_ID_NORMAL_AP01_CODEC` comes up.
 * **An idle AGDSP reads exactly like one that never started.** The power domain is only up while something is
-  using it, so `sys_status` is 7 whenever no PCM is open - and `mu300-audio-dsp start` used to check it one
+  using it, so `sys_status` is 7 whenever no PCM is open - and `openf50-audio-dsp start` used to check it one
   second after the firmware write and report "the DSP did not come up" over a load that had gone fine.
 * **Powered is not running, and confusing the two cost an evening.** Opening a PCM produces
 
@@ -1424,7 +1424,7 @@ Three separate traps, and the first one hid the other two for an evening. `mu300
 
       [Audio:SIPC] aud_send_cmd out,cmd =5 id:0 ret-value:0,repeat_count=1
 
-  `repeat_count=1` is a reply on the first attempt. **The AGDSP is running and answering.** `mu300-audio-dsp`
+  `repeat_count=1` is a reply on the first attempt. **The AGDSP is running and answering.** `openf50-audio-dsp`
   reports power-up and liveness separately, and uses this for the second.
 * **Android does not get further than this either**, which is worth knowing before spending a week on it. Its
   AudioCP times out too - from `f50_bluetooth_microphone_experimental`'s `service.sh`:
@@ -1439,7 +1439,7 @@ Three separate traps, and the first one hid the other two for an evening. `mu300
   through the AGDSP at all. `S_VOICE_P_BT` and `S_VOICE_C_BT` exist in the mixer, so that route is reachable
   from here too, and BlueZ already runs on this device (section 25).
 * **Every register the AP is supposed to write is written correctly**, read back from the silicon with
-  `tools/mu300-peek` (this kernel has `# CONFIG_DEVMEM is not set`, so there is no `/dev/mem` and a small
+  `tools/openf50-peek` (this kernel has `# CONFIG_DEVMEM is not set`, so there is no `/dev/mem` and a small
   module is the only way to look). The two syscons are `/soc/syscon@64900000` (phandle 2) and
   `@64910000` (phandle 4), both `sprd,ums9620-glbregs`, and after `start`:
 
@@ -1499,7 +1499,7 @@ Three separate traps, and the first one hid the other two for an evening. `mu300
 
       [Audio:SIPC] cmd =11 sharemem_info.id=…, phy_iram_addr=0xaf981210, size=0x6c4
 
-  and `0xaf981210` is `sprd,shmaddr-dsp-vbc` from the device tree. `mu300-audio-dsp profiles [MODE]` does the
+  and `0xaf981210` is `sprd,shmaddr-dsp-vbc` from the device tree. `openf50-audio-dsp profiles [MODE]` does the
   whole sequence.
 * **A working reference exists and is worth borrowing from.** A ZTE MU5358 (ums9632, a later VBC generation)
   registers the same `sprdphone-sc2730` card and does carry call audio. Diffing `tinymix` on it between idle
@@ -1575,10 +1575,10 @@ Three separate traps, and the first one hid the other two for an evening. `mu300
       this board's node is `compatible = "unisoc,audio-mem-sharkl5"`. A change made in the whale2 one compiles,
       loads, accepts its module parameter and does nothing, which is a quiet way to lose an experiment.
     * Also: the boot service loads `audio_mem` at startup and the module is `[permanent]`, so trying a
-      different layout means `/etc/init.d/mu300-audio disable`, reboot, load by hand, and remember to
+      different layout means `/etc/init.d/openf50-audio disable`, reboot, load by hand, and remember to
       re-enable it afterwards.
   * **Three things took the board down** hard enough that slot B lost its boot trial and LK rolled back to
-    Android. Recovery is `ANDROID_SERIAL=<the MU300> boot/android-boot-linux.sh <the image on boot_b>`, which
+    Android. Recovery is `ANDROID_SERIAL=<the OPENF50> boot/android-boot-linux.sh <the image on boot_b>`, which
     verifies `boot_b` and rewrites only the 32-byte block in `misc`. The three: writing the Moto G35 AGDSP
     image; opening a **capture** stream (`arecord -D hw:1,0` with `S_NORMAL_AP01_C_CODEC` on, which died
     before its first log line); and **reading AGCP-domain MMIO while the domain was powered down**. That last
@@ -1627,13 +1627,13 @@ native XML), and the stall was taken apart further. Audio still does not move; w
 * Running `depmod -a` with the audio modules in `/lib/modules/<release>/audio` makes them visible to `modprobe`, and
   from then on udev and the kernel's own `request_module()` load them first - without parameters. `audio_mem`
   comes up with no memory region (`memory-region 1 unavailable!(-19)`), `snd_soc_sprd_card` without
-  `dummy_on_defer`, both are `[permanent]`, and the card never registers. `mu300-audio-dsp` does pass both
-  parameters; it just never gets to. `/etc/modprobe.d/mu300-audio.conf` now keeps `modprobe` away from all 23
-  (`install <name> /bin/false`); `mu300-audio-dsp` uses `insmod` and is not affected.
+  `dummy_on_defer`, both are `[permanent]`, and the card never registers. `openf50-audio-dsp` does pass both
+  parameters; it just never gets to. `/etc/modprobe.d/openf50-audio.conf` now keeps `modprobe` away from all 23
+  (`install <name> /bin/false`); `openf50-audio-dsp` uses `insmod` and is not affected.
 * Closing a voice stream can panic the kernel: `Asynchronous SError Interrupt` in `regmap_read <-
   check_agcp_mcdt_clock <- mcdt_dac_dma_disable <- fe_hw_free`. The MCDT driver reads an AGCP register on the way
   down, after the AGDSP domain has already dropped - the same bus hang as in 24, from inside the driver. Holding
-  the domain with the `agdsp_access_en` mixer control for the length of a call avoids it; `mu300-voice` does.
+  the domain with the `agdsp_access_en` mixer control for the length of a call avoids it; `openf50-voice` does.
 
 **Reading the hardware without hanging it.**
 * `/proc/asound/card1/vbc` dumps the DSP-side VBC registers (the DSP copies them to shared memory on request) and
@@ -1689,7 +1689,7 @@ instead (`vbc_proc_write` -> `dsp_vbc_reg_write`, e.g. `echo 1700eb0 1`); never 
 ### 24c. What the Rongyue E5 (kanoqwq/e5-linux) did, and what of it applies here
 kano's [e5-linux](https://github.com/kanoqwq/e5-linux) (MIT) runs Linux on the Rongyue E5, a UMS9621 handset with the
 same AGDSP, VBC v4, MCDT and UMP9620 codec drivers. It started from this project's bring-up (its `e5-audio-dsp` is
-`mu300-audio-dsp` adapted) and got further: the speaker plays (2026-09-25), the microphone records, and a cellular
+`openf50-audio-dsp` adapted) and got further: the speaker plays (2026-09-25), the microphone records, and a cellular
 call's downlink was heard on the receiver and the speaker (2026-10-02, e5-linux FINDINGS 55). Read against 24 and
 24b, the differences fall in three groups.
 
@@ -1718,9 +1718,9 @@ that turned "the DMA runs one burst and stops" into "the VBC FIFO drains" (e5-li
 re-measuring here before either reading is trusted.
 
 **The call sequence, which does.** What the E5 changed between "both PCMs RUNNING, silence" and "heard" (`402fde1`,
-`8e9b8a4`, `2c726fc`), against what `mu300-voice` did:
+`8e9b8a4`, `2c726fc`), against what `openf50-voice` did:
 
-| | mu300-voice until now | e5-linux |
+| | openf50-voice until now | e5-linux |
 |---|---|---|
 | call scene | `FE_VOICE` playback only, 16 kHz | `FE_ST_VOICE` playback **and** capture, 8 kHz mono, both prepared before either starts |
 | profile select | `(mode << 24) \| (0x5e << 16)`, through amixer | `(mode << 24) \| (mode << 16) \| 5` (param id = mode, low byte the voice DAI), raw, before and after the start |
@@ -1730,7 +1730,7 @@ re-measuring here before either reading is trusted.
 
 Two of these are bugs here on their own: amixer clamps every profile select from mode 16 up - the Bluetooth modes
 (BTHS, 28 and up) included - to `0x0fffffff`, and a capture-less scene leaves the DSP without an uplink, which is
-the VoLTE ~20 s drop of 24b. `mu300-voice audio start` now does the E5's sequence; the undo log puts every control
+the VoLTE ~20 s drop of 24b. `openf50-voice audio start` now does the E5's sequence; the undo log puts every control
 back on `audio stop`.
 
 **Bluetooth, which is the output this board has.** kano reports that the F50 under Android, with the AGDSP image of
@@ -1743,12 +1743,12 @@ be set again after the scene is RUNNING. Two of its findings matter here: on mai
 the pin controller (the 5.4 kernel has `pinctrl-sprd-qogirn6pro`), and BlueZ's own SCO path stays silent with this
 PSKey, so the AP must not try to carry SCO audio itself.
 
-What a call on a headset needs from the AP is therefore only the links: the DSP scene (`mu300-voice audio start bt`)
+What a call on a headset needs from the AP is therefore only the links: the DSP scene (`openf50-voice audio start bt`)
 and an HFP audio gateway holding the service level connection and the SCO link. BlueZ has no AG of its own (oFono
-would want the modem), so `tools/hfp` (`mu300-hfp`) is a minimal one on raw kernel sockets: it connects to the paired
+would want the modem), so `tools/hfp` (`openf50-hfp`) is a minimal one on raw kernel sockets: it connects to the paired
 headset, answers the AT setup, opens CVSD SCO when told, and turns the headset's buttons into `ATA` / `AT+CHUP`.
-`mu300-voice watch` follows `AT+CLCC` and drives both. The AGDSP image stays the user's to supply:
-`mu300-audio-dsp install FILE` checks size and the `AUDCP` header and records the sha256 on the device.
+`openf50-voice watch` follows `AT+CLCC` and drives both. The AGDSP image stays the user's to supply:
+`openf50-audio-dsp install FILE` checks size and the `AUDCP` header and records the sha256 on the device.
 
 Not measured yet, for want of the firmware on any test board: whether the 41S image runs the BT call scene under
 Linux, and whether the period timer moves `FE_VOICE_PCM_P` / `FE_VOICE_C`.
@@ -1756,8 +1756,8 @@ Linux, and whether the period timer moves `FE_VOICE_PCM_P` / `FE_VOICE_C`.
 2026-10-13, against v2026.10.23: the seven audio patches apply to the pristine realme tree in `build-audio.sh`'s
 order and all 23 modules build against the 5.4 tree (`sprd-dmaengine-pcm` with its `period_timer` parameter); they
 were not loaded on a board - the released 5.4 kernel has no audio modules, and no test board has the firmware. On
-F50-B the userspace was run on the released 5.4 and on 7.2.10: without the drivers `mu300-voice` says that this
-kernel has no call audio (it used to say "run mu300-audio-dsp load", which cannot work there), `mu300-hfp` refuses
+F50-B the userspace was run on the released 5.4 and on 7.2.10: without the drivers `openf50-voice` says that this
+kernel has no call audio (it used to say "run openf50-audio-dsp load", which cannot work there), `openf50-hfp` refuses
 an address that is not bonded, and nothing is left running. The call itself, on a headset or through the taps, is
 still unmeasured.
 
@@ -1769,7 +1769,7 @@ still unmeasured.
   `btattach -B /dev/ttyBT0 -P h4` creates `hci0`.
 * Vendor init (Android `libbt-sprd_suite`, Marlin3): before the stack starts, send `0xFCA0` with the 176-byte PSKey block
   from `bt_configure_pskey.ini` (BD address at bytes 20..25, little endian), `0xFCA2` with the 252-byte RF block from
-  `bt_configure_rf.ini`, then `0xFCA1 00 00 01` (dual mode, enable). `tools/bt-init/mu300-bt-init.c` does this. Without the
+  `bt_configure_rf.ini`, then `0xFCA1 00 00 01` (dual mode, enable). `tools/bt-init/openf50-bt-init.c` does this. Without the
   PSKey upload the controller reports a fixed placeholder address.
 * The firmware advertises Hold Mode and Park State in its LMP features, but `Write Default Link Policy Settings` returns
   `Invalid HCI Command Parameters` for any value that includes them (0x0000/0x0001/0x0004/0x0005 accepted, 0x0007 rejected).
@@ -1777,7 +1777,7 @@ still unmeasured.
   `kernel/patches/bluetooth-marlin3-link-policy.patch` requests only Role Switch and Sniff (Bluetooth is built in, so this
   needs the kernel rebuild).
 * Android keeps the real BT address in `/data/vendor/bluetooth/btmac.txt` on encrypted `/data`; Linux uses
-  `BDADDR=` from `/etc/mu300/bluetooth.conf` or a stable locally administered address derived from `machine-id`.
+  `BDADDR=` from `/etc/openf50/bluetooth.conf` or a stable locally administered address derived from `machine-id`.
 * Verified: `bluetoothd` powers the adapter and LE/BR-EDR scanning lists nearby devices.
 * Rebuilding with a modified tree appends `-dirty` to the kernel release and breaks module loading; `.scmversion` with
   `-gb50db5b6224c` in the source tree keeps the release string stable.
@@ -1788,11 +1788,11 @@ Everything here was measured on the test device (64 GB F50, Vodafone TR, 5G NSA)
 upstream/ modules, running the release's Ubuntu and OpenWrt images.
 
 **Update 2026-10-07:** the port has been on 6.18.55 since PR #26 (`KV` in `upstream/build.sh`), and it also builds
-against 7.2.9, shipped as `mu300-kernel-7.2.tar.gz`. Sections 31e onwards were mostly measured on 6.18.55 and 7.2.9.
+against 7.2.9, shipped as `openf50-kernel-7.2.tar.gz`. Sections 31e onwards were mostly measured on 6.18.55 and 7.2.9.
 
 ### 31. Ubuntu on 6.18, and what it takes
 Ubuntu had never been booted on the mainline kernel. With the kernel bundle from `upstream/make-bundle.sh`,
-installed by `mu300-update` (modules into every system, the boot image built on the device), it boots in under
+installed by `openf50-update` (modules into every system, the boot image built on the device), it boots in under
 45 s and runs the hotspot, USB NCM, Bluetooth, the modem with SMS, the VPN and mobile data - the downlink
 included, which had never been shown on 6.18: the delegate's handshake completes and a 20 MB download goes
 through.
@@ -1816,12 +1816,12 @@ but not on 5.4, whose Wi-Fi driver carries `wlan_combo-rx-software-checksum.patc
 path. The patch's "hw csum failure" may well have had this stale read as its cause too.
 
 ### 31b. The modem units' ordering cycle (both kernels)
-`cp_diskserver` was ordered before `mu300-vendor`, which runs before `sysinit.target`, while its default
+`cp_diskserver` was ordered before `openf50-vendor`, which runs before `sysinit.target`, while its default
 dependencies put it after `sysinit.target`: a cycle, which systemd broke by dropping `cp_diskserver` and
 `refnotify` from the boot transaction (on 5.4 it happened to break it elsewhere). On 6.18 it showed because the
 modem's nodes appear about 18 s in, after the units' `ConditionPathExists=/dev/modem` had been evaluated.
 `cp_diskserver` has no default dependencies now, the conditions look for the driver
-(`/sys/module/sprd_modem_loader`), and `mu300-vendor` waits for the node.
+(`/sys/module/sprd_modem_loader`), and `openf50-vendor` waits for the node.
 
 ### 31c. A context that comes back with a new address (both kernels)
 After the radio or the network dropped the bearer, the LTE modem attaches again by itself and the default context
@@ -1834,7 +1834,7 @@ Two boots in about twenty (one Ubuntu, one OpenWrt) died shortly after `switch_r
 and 21 s by the early recorder - and left nothing. Three gaps, all closed:
 * The 6.18 config had no lockup detectors, so `softlockup_panic`/`hardlockup_panic` from `boot/init` had nothing
   behind them. Soft and (buddy) hard lockup detectors now panic; hung tasks are only reported.
-* `mu300-early-recorder` was never enabled in the Ubuntu image; it is, and writes every 2 s for the first 90 s.
+* `openf50-early-recorder` was never enabled in the Ubuntu image; it is, and writes every 2 s for the first 90 s.
 * pstore works: `sysrq-c` -> panic -> Linux again a minute later, with the panic in
   `/var/lib/systemd/pstore/dmesg-ramoops-0`. `systemd-pstore` moves the records out of `/sys/fs/pstore` at boot,
   which is why that directory looked empty after the failures.
@@ -1967,7 +1967,7 @@ lines (`gpiochip3: 24 GPIOs`), and the slot's card detect is line 35: the lookup
 reads the write protect GPIO, the bus mode properties (`sd-uhs-sdr104`, `no-sdio`, `no-mmc`, ...) and the power
 sequence, so it returns before any of those. For that host alone the port therefore removes `cd-gpios` from the
 node (`of_remove_property`), runs the parse again (now without a CD GPIO: -ENOENT, which it accepts) and sets
-`MMC_CAP_NEEDS_POLL`; it logs "MU300: CD GPIO deferred, polling the card slot". `sdhci-sprd` has
+`MMC_CAP_NEEDS_POLL`; it logs "OPENF50: CD GPIO deferred, polling the card slot". `sdhci-sprd` has
 `SDHCI_QUIRK_BROKEN_CARD_DETECTION`, so without a CD GPIO every poll that finds no card tries to start one.
 
 The first version of this edit only masked the `-EPROBE_DEFER` and kept the half-done parse; the measurements of
@@ -2040,7 +2040,7 @@ driver depends on it: the bank count comes from `reg`, the interrupt handler wal
 `mmc_of_parse()` finds the line at the first try, the port's fallback does not run, and the core requests the EIC
 line's interrupt (both edges; the sync EIC supports `IRQ_TYPE_EDGE_BOTH`) instead of polling: an empty slot is not
 touched after the one rescan at start, which `mmc_gpio_get_cd()` ends before any command. Expected on the device:
-`gpiochip3` with 48 lines, no "MU300: CD GPIO deferred" line, `cd-gpios` still in `/proc/device-tree`, no "Got
+`gpiochip3` with 48 lines, no "OPENF50: CD GPIO deferred" line, `cd-gpios` still in `/proc/device-tree`, no "Got
 command interrupt" dump, the slot's interrupt counter at rest, and a card inserted later found by the interrupt
 (the stuck-busy loop of the polled slot above may or may not recur: it needs the test by hand).
 
@@ -2055,11 +2055,11 @@ on the card, the earlier installation still in the internal region.
   so 65536 inodes still leave room for an `<os>.old` of each during an update. The default of one inode per 16 KiB
   is millions of inodes on a 128 GB card; that is what kanoqwq found slow and failing there.
 - **Where it went.** The summary said `writes: SD card /dev/block/mmcblk1p1, boot_b, 32 bytes of misc`; the device
-  log `marked the internal installation: the SD card boots first`, and `/.mu300/root-on-sd` was in the internal
-  filesystem. Booted: `/run/mu300-root-dev` `/dev/mmcblk1p1`, `/mnt/mu300-disk` the card, Ubuntu's `findmnt /`
-  `/dev/mmcblk1p1[/ubuntu]` with `LABEL=mu300sd` in its fstab; the hotspot up in both systems; mobile data
+  log `marked the internal installation: the SD card boots first`, and `/.openf50/root-on-sd` was in the internal
+  filesystem. Booted: `/run/openf50-root-dev` `/dev/mmcblk1p1`, `/mnt/openf50-disk` the card, Ubuntu's `findmnt /`
+  `/dev/mmcblk1p1[/ubuntu]` with `LABEL=openf50sd` in its fstab; the hotspot up in both systems; mobile data
   connected (this test SIM carries traffic only through a VPN, so nothing further was tried there).
-- **Update.** `mu300-update boot` with a 6.18 bundle that has no `./features` refused (`this kernel bundle cannot
+- **Update.** `openf50-update boot` with a 6.18 bundle that has no `./features` refused (`this kernel bundle cannot
   read the SD card, and this system runs from it; nothing was changed`, boot_b unchanged); with the `sdcard`
   bundle it installed the 31 modules into both systems and the device booted from the card again.
 - **Reboots.** A loop rebooted OpenWrt on the card 19 times; 18 came back on the card and 1 hung (the 10th, below):
@@ -2089,24 +2089,24 @@ on the card, the earlier installation still in the internal region.
   OpenWrt's preinit), with no panic or oops; `dmesg-ramoops` was an old one. Armed again from Android, it booted
   from the card at once. So the hang is not the card; what it is stays open (31m).
 - **Uninstall.** Internal kept, card erased: `erased (/dev/block/mmcblk1p1)`, the internal `root-on-sd` marker
-  removed, the internal systems intact; `install.sh --check` then reported `existing mu300sd filesystem: no`.
-- **Without the card.** Simulated by relabelling the card's filesystem away from `mu300sd` on F50 #1 (2026-10-05,
+  removed, the internal systems intact; `install.sh --check` then reported `existing openf50sd filesystem: no`.
+- **Without the card.** Simulated by relabelling the card's filesystem away from `openf50sd` on F50 #1 (2026-10-05,
   6.18.55 #7, OpenWrt on the card, the older installation still in the internal region with its `root-on-sd`
-  marker): the card stays in the slot and is set up at 2.45 s as on every boot, but holds no `mu300sd`. With a
+  marker): the card stays in the slot and is set up at 2.45 s as on every boot, but holds no `openf50sd`. With a
   foreign label (`photos`) init mounted the internal system at 5.21 s, waited for a card for 8.85 s
   (`stage=sd-root-missing (marker present, booting the internal system)` at 14.06 s) and started the internal
   OpenWrt; with no label at all the same, 5.19 s and 14.05 s (8.86 s). The wait stayed at 8 s: the card that is
-  there is set up (`sd_coming` false), so the 30 s allowance is not used. Labelled `mu300sd` again from the internal
+  there is set up (`sd_coming` false), so the 30 s allowance is not used. Labelled `openf50sd` again from the internal
   system (`e2label`), the next boot started the card again (`stage=sd-root dev=/dev/mmcblk1p1` at 5.09 s). On this
   board the internal OpenWrt has `default-boot` android, so init restored slot a on those fallback boots
-  (`stage=misc-restored`): the reboot after each landed in Android, and `su -c mu300-linux` started Linux again. A
+  (`stage=misc-restored`): the reboot after each landed in Android, and `su -c openf50-linux` started Linux again. A
   system of the user's in default-Linux mode would stay in Linux. A card that is physically pulled was not tried (no
   hands at the board), nor a device with no internal system and no card (it would have meant erasing F50 #1's
   internal installation); for those there are the unit tests of the root selection (`tests/test_boot_init.py`,
   RootSelect).
 - **Kernel 5.4.** Release v2026.10.08's 5.4 bundle with this branch's init in its generic ramdisk and `sdcard` in
-  `./features`, installed on the card system with `mu300-update kernel 5.4` (2026-10-05): 7 boots, 2 with the init
-  from before the longer wait and 5 with the one that has it, all from the card (`/run/mu300-root-dev`
+  `./features`, installed on the card system with `openf50-update kernel 5.4` (2026-10-05): 7 boots, 2 with the init
+  from before the longer wait and 5 with the one that has it, all from the card (`/run/openf50-root-dev`
   `/dev/mmcblk1p1`, OpenWrt). `mmcblk1` at 3.40 to 3.63 s and `p1` at 3.43 to 5.35 s; the
   vendor modules done at 10.23 to 11.00 s and `stage=sd-root dev=/dev/mmcblk1p1` at 11.65 to 12.49 s, so init found
   the card on its first look and never waited; 0 `mmc1` error, timeout or crc lines in the five boots counted. The
@@ -2120,7 +2120,7 @@ on the card, the earlier installation still in the internal region.
 31j's "`mmc0` is the eMMC by probe order" does not hold under mainline. On F50 #1 (6.18.55, OpenWrt on the card,
 2026-10-05), boot 19 of a 20-boot soft-reboot loop came up with the card on `mmc0` (`mmc0: new UHS-I speed SDR104
 SDHC card`, `mmcblk0: mmc0:aaaa SL32G`) and the eMMC on `mmc1` (`stage=persist-target dev=/dev/mmcblk1p38`). init
-then looked for the card on `mmcblk[1-9]` (the eMMC, no `mu300sd`) and for the internal region on `/dev/mmcblk0`,
+then looked for the card on `mmcblk[1-9]` (the eMMC, no `openf50sd`) and for the internal region on `/dev/mmcblk0`,
 the card: the first candidate offset lies past the card's end, `dd bs=1 skip=` cannot seek there and busybox reads
 its way instead, byte by byte. No stage line after `usb-bind-done` for 297 s, then `stage=timer-reboot` at 302 s;
 the next boot was normal. From outside it looked like a hang (no SSH for 6 minutes).
@@ -2136,11 +2136,11 @@ host deferred on its card-detect GPIO and always came second.
   of 5.04 to 5.07 s.
 * init and the Linux tools no longer rely on the number: init takes the eMMC as the `mmcblk` disk whose card type
   is `MMC` and the card candidates from the `SD` disks, looks for the region only on the eMMC and never past its
-  end, and writes `<eMMC>@<offset>` to `/run/mu300-root-dev` (`mu300-update` takes any `@` there for internal);
+  end, and writes `<eMMC>@<offset>` to `/run/openf50-root-dev` (`openf50-update` takes any `@` there for internal);
   early-recorder and android-vendor-start find the eMMC's partitions by name or type. (The Android-side tools run
   on the stock kernel, where the eMMC is `mmcblk0`, and are unchanged.)
 * Every Linux-side lookup by GPT name - init's `misc` and `boot_<slot>` (the BCB, the persistent log,
-  `/run/mu300/misc-dev` for mu300-next-boot), early-recorder's log partition, `mu300-update`'s kernel partition and
+  `/run/openf50/misc-dev` for openf50-next-boot), early-recorder's log partition, `openf50-update`'s kernel partition and
   the `by-name` links - looks only at the eMMC: the disk of type `MMC`, else the first `mmcblk` disk that is not `SD`,
   never a card. A card can carry the same names (a raw clone of a device backup) and would otherwise be written to.
 * `ueventd-perms.sh` no longer touches block devices by number: Android's `mmcblk1p*` rule (the card, for vold,
@@ -2243,7 +2243,7 @@ Fix, both kernels (`upstream/modules/sprd_wlan_combo`, `kernel/patches/wlan_comb
     after a failed sync the channels stayed registered too. It is now undone the way a power-off does.
 
 Measured on F50-B (Ubuntu 24.04, 6.18.55 with the fix):
-- 30 soft reboots, each started only after `mu300-boot-ok` had confirmed the one before: 0 Oops, 0 "no Wi-Fi
+- 30 soft reboots, each started only after `openf50-boot-ok` had confirmed the one before: 0 Oops, 0 "no Wi-Fi
   context" lines, pstore empty, every boot confirmed.
   - 14 boots in hotspot mode (AP up every time). A 15th, at 23:47, was the user unplugging the board and is not
     counted.
@@ -2251,7 +2251,7 @@ Measured on F50-B (Ubuntu 24.04, 6.18.55 with the fix):
     driver registered it, to recreate the pstore boot's timing (Ubuntu's hostapd opens about 10 s later).
   - In all 16 the open came 1 to 16 ms after the probe's power-off began, about 140 ms before that power-off's
     `stop_marlin`. That is the window of the Oops. In all 16 the open's `start_marlin` came after it.
-- 30 hotspot restarts (`systemctl restart mu300-hotspot`, a full WCN power-off and power-on each): AP up after
+- 30 hotspot restarts (`systemctl restart openf50-hotspot`, a full WCN power-off and power-on each): AP up after
   every one, 0 Oops.
 - The 6.18.55 and 7.2.9 modules build. The 5.4 patch applies after the others and compiles against the 5.4 tree;
   the module link was not run.
@@ -2269,7 +2269,7 @@ kernel logged an Oops and panicked. A chip powered down by `stop_marlin` under a
 access, though, so this fix may remove some of that class. Not shown.
 
 ### 31o. KVM, and the module set a router needs
-The mainline config (allnoconfig plus `mu300-mainline.config`) never had `CONFIG_KVM`, so 6.18 and 7.2 had no
+The mainline config (allnoconfig plus `openf50-mainline.config`) never had `CONFIG_KVM`, so 6.18 and 7.2 had no
 `/dev/kvm`, although the firmware starts every CPU at EL2 (`CPU: All CPU(s) started at EL2` on all three kernels).
 The vendor 5.4 kernel has it: on F50-B, 5.4.254 logs `kvm [1]: Hyp mode initialized successfully` (nVHE: 5.4 runs
 the host at EL1). With `VIRTUALIZATION`/`KVM` built in, 6.18.55 and 7.2.9 log `kvm [1]: VHE mode initialized
@@ -2297,7 +2297,7 @@ the AX8817X and CDC subset USB drivers) were left out of the fragment. Not taken
 |---|---|---|---|---|
 | Image (bytes) | 16 281 608 | 17 311 752 | 16 705 544 | 17 864 712 |
 | modules in the bundle | 31 (vendor) | 360 | 31 | 377 |
-| bundle (`mu300-kernel-*.tar.gz`) | 9.4 MB | 15.7 MB | 9.6 MB | 16.4 MB |
+| bundle (`openf50-kernel-*.tar.gz`) | 9.4 MB | 15.7 MB | 9.6 MB | 16.4 MB |
 
 The modules unpack to 20 MiB (6.18, debug sections stripped) under `/lib/modules/<release>`. Boot time on F50-B
 (Ubuntu 24.04, no SIM) did not move: kernel 5.50 s before, 5.43 s after (7.2: 5.42 s); userspace is 3 min 42 s
@@ -2305,7 +2305,7 @@ both times, the mobile-data watch waiting for a modem without a SIM.
 
 Packaging: `build-modules.sh` now runs `modules_install` (stripped) and puts the kernel's own modules flat into
 `out/modules` next to the vendor ones, refusing a vendor module with an in-tree name. The layout on the device did
-not change: `mu300-update` already put the bundle's flat directory under `extra/` on Ubuntu, where depmod indexes
+not change: `openf50-update` already put the bundle's flat directory under `extra/` on Ubuntu, where depmod indexes
 every module there (`modprobe dm-crypt` pulls in `dm-mod`), and flat into `/lib/modules/<release>` on OpenWrt, where
 ubox's kmodloader resolves dependencies from each module's `depends=`. With a set this size it now replaces the
 modules of an earlier bundle of the same release instead of adding to them (a module a newer bundle dropped stayed
@@ -2332,7 +2332,7 @@ JIT, and dae v2.1.1 refused to start on v2026.10.18's 7.2.9: `load eBPF objects:
 tproxy_lan_ingress_l2: load program: invalid argument: callbacks are not allowed in non-JITed programs`. The 5.4
 kernel is too old for dae and was not changed.
 
-Now in `mu300-mainline.config`, for both kernels: `DEBUG_INFO_DWARF5`, `DEBUG_INFO_BTF`, `DEBUG_INFO_BTF_MODULES`,
+Now in `openf50-mainline.config`, for both kernels: `DEBUG_INFO_DWARF5`, `DEBUG_INFO_BTF`, `DEBUG_INFO_BTF_MODULES`,
 `MODULE_ALLOW_BTF_MISMATCH` (a module with bad BTF still loads), `BPF_JIT`, `BPF_STREAM_PARSER`, `NET_INGRESS`,
 `NET_EGRESS` and `NETKIT` (dae's preferred `dae0` pair; it uses a veth pair without it). The DWARF is compressed
 (`DEBUG_INFO_COMPRESSED_ZSTD`): vmlinux is 157 MB instead of 312 MB, and two build trees fit in one docker
@@ -2385,7 +2385,7 @@ persistent log in the same partition (64 MiB), with about 18 MB to spare.
 ## Updating on the device
 
 ### 32. Old kernels, an idle IPA, and an update that ended in Android
-A report: a device on the vendor 5.4 kernel, updated with `mu300-update`, only ever started Android afterwards.
+A report: a device on the vendor 5.4 kernel, updated with `openf50-update`, only ever started Android afterwards.
 Reproduced on the test board with an older installer boot image (kernel #11 of 20 September) and the systems of
 v2026.09.21. The boot image of v2026.09.27 (kernel #13) does not have the problem below: its downlink works after
 four and a half idle minutes, with the same failed power-off messages in the log. Which of the published boot
@@ -2395,7 +2395,7 @@ images have it was not established, so the update protects all of them:
   (`Polling check power off reg timed out`, `sipa power off maybe fail`). From then on the downlink is dead
   until the next boot: `rx_packets` of `sipa_eth0` stops, TLS handshakes time out, and neither the data
   watchdog (the address is still right) nor a reconnect of mobile data brings it back.
-* The old `mu300-update` downloaded one system, unpacked it for a few minutes - exactly the quiet time the IPA
+* The old `openf50-update` downloaded one system, unpacked it for a few minutes - exactly the quiet time the IPA
   needs - and then started the next download. `curl` had no timeout and hung there, and twice the board reset
   without a trace (no pstore, no persistent log) right when the next network transfer started: once between
   the two systems, once at the start of the boot image step. A reset while boot_b is being written leaves slot b
@@ -2404,35 +2404,35 @@ images have it was not established, so the update protects all of them:
 A reset does not have to hit the boot_b write to end in Android, though. With the boot scheme of the older boot
 images slot b is armed for one boot (`tries_remaining 2`, see 1); a crash leaves it at 1, and LK's log on the next
 start reads `check rollback slot 1 tries: 1` - `Have not get right slot` - Android, for good, with boot_b intact.
-`su -c mu300-linux` in Android (or the Magisk module's button) arms slot b again and Linux starts as before; the
+`su -c openf50-linux` in Android (or the Magisk module's button) arms slot b again and Linux starts as before; the
 newer boot images count failed boots instead (5 in a row before Android).
 
-`mu300-update` now:
+`openf50-update` now:
 * downloads everything the update needs (the systems and the kernel bundle) first, checks every file against
   the release's `SHA256SUMS`, and only then changes anything; the unpacking and the boot_b write need no network;
 * keeps the IPA from going idle while it runs: a ping every 3 s (to 1.1.1.1 and to 223.5.5.5, which is reachable
   from mainland China). With it, a 26 MB download after four otherwise quiet minutes on kernel #11 ran at 5 MB/s;
   without it the download after the same pause never started;
 * cuts off stalled transfers (`--connect-timeout`, `--speed-limit`) and resumes partial files, so a dead downlink
-  is an error message ("reboot, then run mu300-update apply right away") instead of a hang;
+  is an error message ("reboot, then run openf50-update apply right away") instead of a hang;
 * stops the data watchdog while it installs, so no redial happens in the middle of the boot_b write.
 
 The full old-user path (installer boot_b with kernel #11, both systems reinstalled, boot image written) then took
 40 s, and the board started the new kernel.
 
 ### 32a. The offset in init, replaced by every boot image update
-A user installed 6.18 with the installer and got "MU300 standalone Linux ... automatically reboots to Android
+A user installed 6.18 with the installer and got "OPENF50 standalone Linux ... automatically reboots to Android
 after 300 seconds": the root filesystem was not found. `boot/init` finds the Linux region at `ROOT_OFFSET`, a number
 in the file - our test board's region (27762098176). The installer writes the device's own offset into that
 line, but that init lives in the device's ramdisk segment, and the generic segment behind it - what
-`mu300-update` puts there for every kernel and boot image update since v2026.09.27, and what the installer adds for
+`openf50-update` puts there for every kernel and boot image update since v2026.09.27, and what the installer adds for
 a mainline kernel - brings its own init, which replaces the file, with the default. On every device whose region
 is somewhere else, each such boot image went looking at the test board's offset, dropped into standalone mode and
 went back to Android: the boot image did not have to be broken for "the update always ends in Android", which is
 very likely what the report of section 32 was too. The test board never showed it: its region is the default.
 
 init now finds the region itself, as the installer places it - the first 2 MiB boundary after the last partition
-(from sysfs) - and takes the first candidate that holds the mu300root filesystem (ext4 magic and label), the
+(from sysfs) - and takes the first candidate that holds the openf50root filesystem (ext4 magic and label), the
 number in the file only as the last one. Tested with a generic segment whose default was wrong on purpose:
 "stage=root-offset found=27762098176 (default 12884901888)", and the board booted. A device left in Android by
 this needs one reinstall from a computer (the installer's `update` keeps settings and data); from v2026.09.29 on
@@ -2440,7 +2440,7 @@ every generic segment carries the new init.
 
 Found on the way: the account merge rewrote `/etc/passwd` and friends in place (a reader at first boot could see a
 half-written file: `Failed to resolve user 'messagebus'`); it now writes a copy and renames it, and
-`mu300-accounts` runs before tmpfiles, sysusers and D-Bus. `rollback` removed `<os>.broken` even when that was the
+`openf50-accounts` runs before tmpfiles, sysusers and D-Bus. `rollback` removed `<os>.broken` even when that was the
 system still running (only rm's `--preserve-root` stopped it), and `apply`, `rollback` and `clean` could remove
 `<os>.old` while it was the running system (an apply or rollback without the reboot in between); all of them now
 check whether a directory is the running root (`[ / -ef dir ]`) first.
@@ -2449,29 +2449,29 @@ check whether a directory is the running root (`[ / -ef dir ]`) first.
 On the second F50 (Android on slot a, Magisk 30.6, an Ubuntu and an OpenWrt on the internal region), zips built
 from a local release of main: every run of the installer, a dry run included, stopped after unpacking with "could not
 unmount the Linux filesystem", nothing written. The read-only look at what is installed had mounted and read the
-filesystem; `android-mount-mu300root.sh -u` then failed, because Android's umount (toybox) frees the loop device of
+filesystem; `android-mount-openf50root.sh -u` then failed, because Android's umount (toybox) frees the loop device of
 what it unmounts and the `losetup -d` after it ends in "No such device or address". The computer installers,
 uninstall and reset-password never look at `-u`'s status; the Magisk installer does. The helper now detaches only a
 loop that is still attached.
 
-With that fixed, the OpenWrt 6.18 zip (with `MU300_MODE=wipe` in `/data/adb/mu300-install.conf`: a fresh region)
-installed in 32 s and booted (`/run/mu300/linux-slot` b, boot-ok counted); the wipe line became a comment. The
+With that fixed, the OpenWrt 6.18 zip (with `OPENF50_MODE=wipe` in `/data/adb/openf50-install.conf`: a fresh region)
+installed in 32 s and booted (`/run/openf50/linux-slot` b, boot-ok counted); the wipe line became a comment. The
 Ubuntu 24.04 5.4 zip then installed beside it in 36 s as an update, OpenWrt untouched (its LAN setting kept), and
-`mu300-os` switched between them. But its password file replaced the first one: the OpenWrt root password, still
+`openf50-os` switched between them. But its password file replaced the first one: the OpenWrt root password, still
 the one in use, was then nowhere on the device. The file now keeps the other system's entry while that system stays
 on the filesystem (not after a wipe); on the device, OpenWrt and then Ubuntu again left a file with both, and the
 OpenWrt shadow hash matched the password in it.
 
 **Update 2026-10-07:** since PR #40 an update (keep mode) leaves the system's accounts and passwords as they are.
 No password is generated and no password file is written. A password is made only for a new filesystem, a wipe,
-a system added beside another, or when `MU300_PASSWORD`/`MU300_PASSWORD_RESET=yes` asks for one. The install
+a system added beside another, or when `OPENF50_PASSWORD`/`OPENF50_PASSWORD_RESET=yes` asks for one. The install
 refuses a system that would be left with an empty password or the image's default. See
-`android/magisk/installer/mu300-install.sh` and `tools/android-install.sh`. No device test of that change is
+`android/magisk/installer/openf50-install.sh` and `tools/android-install.sh`. No device test of that change is
 recorded.
 
 ### 32c. Packages installed on the device, and the settings they left behind (#116)
 
-An update puts the release's image in place and keeps `/etc/config` (OpenWrt) and `/etc/mu300`. Packages added on
+An update puts the release's image in place and keeps `/etc/config` (OpenWrt) and `/etc/openf50`. Packages added on
 the device (`apk add`) were gone afterwards and their settings stayed. A user with OpenClash lost the internet: while
 it runs, OpenClash points dnsmasq at itself (`dhcp.@dnsmasq[0].server=127.0.0.1#7874`, `noresolv=1`; its init
 script, `change_dnsmasq`) and reverts that when it stops, but the update had copied `/etc/config/dhcp` while it was
@@ -2479,16 +2479,16 @@ running. The new system had dnsmasq forwarding to a port nothing listened on: no
 was inert without the program; fw4 skips an include whose path is missing (`openclash`'s is in `/var/etc`). Argon's
 theme entry in `/etc/config/luci` stayed and pointed at files that were gone.
 
-Since then `mu300-update apply` and the installers' update write down what was added (OpenWrt: `/etc/apk/world`;
-Ubuntu: dpkg's packages apt did not pull in) less the image's own list (`/etc/mu300/image-packages`, written at build
+Since then `openf50-update apply` and the installers' update write down what was added (OpenWrt: `/etc/apk/world`;
+Ubuntu: dpkg's packages apt did not pull in) less the image's own list (`/etc/openf50/image-packages`, written at build
 time; older systems: the new image's world and `packages.txt`), move those packages' own `etc/config` files to
-`/etc/mu300/orphaned-config/` (never one the new image has), and `mu300-user-packages` installs them again at the
+`/etc/openf50/orphaned-config/` (never one the new image has), and `openf50-user-packages` installs them again at the
 first boot and puts the files back. A LuCI theme whose files are not there goes off LuCI's list. The DNS leftover is
 handled fail-closed (DNS privacy first; for some users the internet is only usable through the VPN): after the
 reinstall step, a loopback forwarder is touched only when its port is a value in the set-aside settings of a recorded
 package that is definitively absent (failed in the feeds, given up, skipped), nothing binds it over a window of
 looks, the project's own settings do not name it and the VPN is off - and then only when another server stays. The
-only forwarder is reported (status, the login note) and stays: `mu300-user-packages repair-dns` removes it on request
+only forwarder is reported (status, the login note) and stays: `openf50-user-packages repair-dns` removes it on request
 and only then lets dnsmasq use the connection's resolvers (the file as it was:
 `orphaned-config/etc/config/dhcp.before-dns-repair`). Tested in a container of the openwrt-luci rootfs with real apk and uci; no device test
 recorded yet.
@@ -2520,7 +2520,7 @@ modules. The load order (`boot/module-order-u30air.txt`) is the F50's with the c
 against every module's `depends=` (the fuel gauge needs the charger manager, which needs the SQC modules and
 `charger_policy_service`).
 
-init picks the set: `/etc/mu300-device` (written by the installer into the device segment of the ramdisk, which an
+init picks the set: `/etc/openf50-device` (written by the installer into the device segment of the ramdisk, which an
 update's generic segment does not replace), else the device tree (`/charger_policy_service` exists only on the U30
 Air). The set is used only when `linux-modules/u30air/kernel.release` matches `uname -r`, since a mainline kernel's
 generic segment brings its own modules and order but leaves these in place.
@@ -2528,7 +2528,7 @@ generic segment brings its own modules and order but leaves these in place.
 With them: 93/93 modules, USB network, the hotspot, Bluetooth, mobile data, `/sys/class/power_supply/battery`
 (capacity, status) and the charger's `usb`/`ac` online flags. The battery LED is the charger's own; the others are
 `gpio-leds` (`pwr_green`, `net_blue`/`net_red`/`net_green`/`net_white`, `wifi_blue`/`wifi_white`), driven by
-`mu300-led`. No `LEDS_TRIGGER_NETDEV` in this kernel, so the Wi-Fi LED follows the hotspot service, not traffic.
+`openf50-led`. No `LEDS_TRIGGER_NETDEV` in this kernel, so the Wi-Fi LED follows the hotspot service, not traffic.
 
 **Update 2026-10-07:** that LED list is wrong. Of the GPIO LEDs only `net_blue` is wired. The others are
 LDO-switched camera supplies and the PMIC's keypad backlight sink, and the remaining six `gpio-leds` light nothing
@@ -2545,8 +2545,8 @@ there were rescued by the bootloader's own counting. The lookup now runs after t
 ### 33b. Two devices on one computer
 
 Every device had `192.168.77.1` and the same USB MAC addresses (`02:50:00:00:77:0x`). The subnet now goes with the
-kind of device (F50 `.77`, U30 Air `.78`; `mu300-lan-ip`, `lan.conf` still overrides it) and the gadget MACs are
-`02:50:<md5 of the serial>:<subnet>:0x`. `mu300-vpn` always keeps the device's own LAN out of the tunnel: a
+kind of device (F50 `.77`, U30 Air `.78`; `openf50-lan-ip`, `lan.conf` still overrides it) and the gadget MACs are
+`02:50:<md5 of the serial>:<subnet>:0x`. `openf50-vpn` always keeps the device's own LAN out of the tunnel: a
 `vpn.conf` copied from an F50 said `LAN_CIDRS=192.168.77.0/24`, which on a `.78` device would have sent every reply
 to its USB and Wi-Fi clients into the tunnel.
 
@@ -2568,8 +2568,8 @@ Android. A reading of the PMIC registers through debugfs (`regmap/spi4.0/registe
 CPU for 23 s and panicked the board - the ADI bus does not take a full register sweep.
 
 Two more things that only show with two devices on one computer: every gadget had the USB serial number
-`MU300LINUX`, and macOS gave the second device a serial port but no network interface; it is now
-`MU300LINUX-<serial number>`. And under mainline `/proc/cmdline` is the kernel's forced command line, without
+`OPENF50LINUX`, and macOS gave the second device a serial port but no network interface; it is now
+`OPENF50LINUX-<serial number>`. And under mainline `/proc/cmdline` is the kernel's forced command line, without
 `androidboot.serialno`: init reads the bootloader's from `/chosen/bootargs` in the device tree.
 
 Under 6.18 and 7.2 the U30 Air has USB, mobile data, the VPN, the hotspot, Bluetooth and its LEDs
@@ -2577,7 +2577,7 @@ Under 6.18 and 7.2 the U30 Air has USB, mobile data, the VPN, the hotspot, Bluet
 the UMP9620) have no mainline drivers (for the charger IC see 33d: it does not charge without one).
 (**Update 2026-10-07:** both are reported now. Patches 0004-0006 add the UMP9620 fuel gauge, and mainline's
 `bq256xx` drives the charger and switches charging on, which Android had left off (§33d, PR #55).) Kernel bundles now name
-the devices they run on (`./devices`): mu300-update and the installers do not put a bundle from before this onto a
+the devices they run on (`./devices`): openf50-update and the installers do not put a bundle from before this onto a
 U30 Air.
 
 ### 33d. The U30 Air's battery under mainline
@@ -2619,7 +2619,7 @@ Mainline's `bq256xx` driver now handles the node. `port/install.py` adds the com
 the bq25601's data, and patch 0009 changes the following for that node only:
 
 - No register cache. The driver's cache starts from the power-on defaults, so every read-modify-write would have
-  written them back over Android's values (and over `mu300-usb`'s OTG bit in REG01).
+  written them back over Android's values (and over `openf50-usb`'s OTG bit in REG01).
 - The charge current is at most 1.98 A, Android's value. The battery node says 3 A, which is too much for this
   4050 mAh cell. VREG is at most 4.208 V: Android's REG04 has that, while the node says 4.3 V. Termination is on and
   the watchdog off. VINDPM comes from `vindpm-value`, rounded up to the chip's 100 mV steps.
@@ -2638,7 +2638,7 @@ the bq25601's data, and patch 0009 changes the following for that node only:
 - The fuel gauge is in the charger's `supplied_to`, and patch 0010 makes it take its status from
   `bq256xx-charger`, as it does from the SC27xx chargers.
 
-The driver owns 6-006b now, so `mu300-usb` reaches the chip with `i2cget/i2cset -f` and leaves its watchdog off.
+The driver owns 6-006b now, so `openf50-usb` reaches the chip with `i2cget/i2cset -f` and leaves its watchdog off.
 On expiry, the watchdog would drop the driver's settings. Nothing answers at 0x6b on the F50 (24). If its DT has
 the node, the probe stops at the first read.
 
@@ -2700,12 +2700,12 @@ before. Two things the vendor stack does elsewhere:
   does not need goes into `patches/<version>/`). dwc3 tells the PHY about the role through `otg_set_vbus()`, which
   the PHY did not provide: it has an otg structure now (host eye pattern, A-type ID, D+/D- pull-downs).
 - The 5 V. `vbus-supply` is the charger's `otg-vbus` regulator, and the charger (SGM41511, part 0010 in REG0B, on
-  the I2C controller at 22a0000) has no driver under mainline. `mu300-usb` sets its OTG_CONFIG bit (REG01 bit 5)
+  the I2C controller at 22a0000) has no driver under mainline. `openf50-usb` sets its OTG_CONFIG bit (REG01 bit 5)
   and turns its watchdog off (REG05 5:4), which would otherwise return it to its defaults 40 s after the write,
   boost included. It refuses host mode while REG08 reports power good (a computer or charger on VBUS), and turns
   the boost off at boot: the chip runs on the battery and keeps its registers across a reboot.
 
-  **Update 2026-10-07:** the charger has a driver under mainline now, `bq256xx` (§33d, PR #55). `mu300-usb` still
+  **Update 2026-10-07:** the charger has a driver under mainline now, `bq256xx` (§33d, PR #55). `openf50-usb` still
   sets the OTG bit, but through `i2cget`/`i2cset -f` while the driver owns 6-006b. It leaves the chip's watchdog
   off, because the watchdog would drop the driver's settings.
 
@@ -2714,7 +2714,7 @@ A Logitech receiver (HID) and a flash drive (FAT, mounted and read) worked throu
 elsewhere. HDMI through the same adapter needs DisplayPort alternate mode over USB-C, which this project has on
 neither kernel.
 
-Two restarts during these tests, both about 600 s after boot, were not the USB: `mu300-update` keeps the device
+Two restarts during these tests, both about 600 s after boot, were not the USB: `openf50-update` keeps the device
 segment of whatever image is in boot_b, and boot_b held a `--trial-guard 600` experiment - so every boot restarted
 after ten minutes. init now honours a guard only in a trial boot (Linux not the default), and says so.
 
@@ -2739,7 +2739,7 @@ VDDCAMA0-2 (3.3 V) through `vddcamaN_status`, mainline had no consumer for them,
 kept the bootloader's "on". `leds-zte-ldo` (upstream/port) makes them `zte-ldo0..2` and starts them dark, and
 `leds-sc27xx-kpled` (after Unisoc's keypad driver, current mode) brings the red back under its Android name. What
 each colour means was read from Android: sampling `/sys/class/leds` with the radio off shows the network LED
-cycling red / white / off, and `vddcama0` lit on 5G. mu300-led now follows it (blue on 4G, white on 5G, red
+cycling red / white / off, and `vddcama0` lit on 5G. openf50-led now follows it (blue on 4G, white on 5G, red
 without service); `mobile-data` reads the access technology (`AT+COPS?`) again on every watchdog round, since it
 changes under a live connection.
 
@@ -2753,7 +2753,7 @@ dual-interface EEPROM at 0x57 on the same bus (I2C bus 2), which answers only wh
 `ntag-reset-gpio`, driven by its `fm11tag` module under 5.4) is low; GPIO 127 is its field-detect interrupt. The
 memory is NTAG-like: UID and lock bytes, the capability container `e1 10 6d 00` (872 bytes of NDEF), then the NDEF
 TLV from 0x10. ZTE's `Fm11ntagService` writes a WSC Wi-Fi record (WPA2-PSK, AES) with the hotspot's name and
-password; `mu300-nfc wifi` writes the same bytes (compared page by page against ZTE's: nothing to write).
+password; `openf50-nfc wifi` writes the same bytes (compared page by page against ZTE's: nothing to write).
 
 A phone got nothing from the tag at first, under Linux and under Android alike, although the field-detect interrupt
 counted every tap. ZTE's web interface had NFC off (`settings global webserver_nfc_switch_status=0`, the factory
@@ -2761,25 +2761,25 @@ state of this unit); switching it on there once made the tag answer phones from 
 switch is kept in the chip, presumably in its configuration block at 0x3b0 (which also holds the I2C address).
 The data area was unchanged by it: reading all 1 KiB with the switch on and off, the only difference is bit 5 of
 byte 0x3bf (0x20 set: off), in the configuration block at 0x3b0 that also holds the I2C address (0x57 at 0x3b3).
-`mu300-nfc on|off` changes that bit alone. With it on, URLs and text written by `mu300-nfc` reached a phone; a
+`openf50-nfc on|off` changes that bit alone. With it on, URLs and text written by `openf50-nfc` reached a phone; a
 Wi-Fi record joins Android phones, while iOS reads URL records by itself but does nothing with a WSC record.
 
 ### 33h. A trial guard that outlived its experiment, again
 
-The U30 Air restarted about every ten minutes after coming back from Android (`su -c mu300-linux`). init said
+The U30 Air restarted about every ten minutes after coming back from Android (`su -c openf50-linux`). init said
 `stage=trial-guard 600s`: the device segment of boot_b still held the guard of an old `--trial-guard 600`
-experiment, and `mu300-update` keeps that segment. 33e made init honour a guard only in a trial boot, but a boot
-from Android with mu300-linux is exactly that. The generic ramdisk segment, which every update appends behind the
-device segment, now carries an empty `etc/mu300-trial-guard` (a later file replaces an earlier one), and an
+experiment, and `openf50-update` keeps that segment. 33e made init honour a guard only in a trial boot, but a boot
+from Android with openf50-linux is exactly that. The generic ramdisk segment, which every update appends behind the
+device segment, now carries an empty `etc/openf50-trial-guard` (a later file replaces an earlier one), and an
 experiment's guard goes into a segment of its own behind the generic one.
 
 ### 33i. A reboot "with the hotspot off" that never brought it back
 
-Reported: after rebooting from mu300-toolkit because the hotspot was on, SSH was gone. The toolkit's "join a
+Reported: after rebooting from openf50-toolkit because the hotspot was on, SSH was gone. The toolkit's "join a
 network" offers exactly that reboot when the radio is the access point (this driver cannot turn an AP back into a
-station), and `wifi-client scan-mode on` left `/etc/mu300/wifi-scan-mode` in place until a network was joined: the
+station), and `wifi-client scan-mode on` left `/etc/openf50/wifi-scan-mode` in place until a network was joined: the
 hotspot stayed off at that boot and at every boot after, and whoever had come in over it had no way back but USB.
-The flag is now taken at boot into `/run` (mu300-wifi-scan-mode.service), for that boot only, a transient timer
+The flag is now taken at boot into `/run` (openf50-wifi-scan-mode.service), for that boot only, a transient timer
 brings the hotspot back after 10 minutes when nothing was joined, and the toolkit says before the reboot that a
 session over the hotspot ends there and where to come back. Newer-release notes at login came in the same change.
 
@@ -2790,7 +2790,7 @@ reads it from the restored data), so 33b's gadget identity was the same on both:
 the same host MAC. macOS gave the one network interface to whichever enumerated last, and the other had none.
 init now adds the eMMC's serial (`androidboot.emmcid`, which the bootloader passes on both boards; it is the
 product serial field of the eMMC's CID, hex characters 21-28): the USB serial number is
-`MU300LINUX-<serial>-<emmc serial>` and the MACs are `02:50:<md5 of both>:<subnet>:0x`. Not read from the CID in
+`OPENF50LINUX-<serial>-<emmc serial>` and the MACs are `02:50:<md5 of both>:<subnet>:0x`. Not read from the CID in
 `/sys` when the argument is missing: init sets up USB before the modules that find the eMMC are loaded (and under
 mainline the eMMC may or may not be there yet), so the identity would change from boot to boot; without the argument
 it is the serial number alone, as before.
@@ -2838,19 +2838,19 @@ Throughput did not move beyond its spread: phone -> device 537-555 vs 553-571 Mb
 
 ### 33l. The charge limit, a Type-C source's current, and the Wi-Fi phy's address (a community build reviewed)
 
-A community build for the U30 Air, `v2026.10.15-charge2` by oswaldxdd (github.com/oswaldxdd/mu300-linux, tag
+A community build for the U30 Air, `v2026.10.15-charge2` by oswaldxdd (github.com/oswaldxdd/openf50-linux, tag
 `v2026.10.15-charge2`, commit 321f771: a snapshot of the source under `experimental/u30air-charge2/source`, the
 same files as its release zip), replaced the U30 Air's 7.2 charging with its own stack: a native SGM41511 driver
 with the stock JEITA tables and a kernel-enforced 0-100 % limit, a 1655-line fuel gauge with capacity learning
 (records hashed to the eMMC CID), and Unisoc's whole Type-C/PD/TCPM stack (about 8800 lines of vendor code). Its
 sources are GPL with their headers. What was taken, and how:
 
-- **The charge limit**, as a feature of mu300-power rather than of a second charger driver: `CHARGE_TO` is any
+- **The charge limit**, as a feature of openf50-power rather than of a second charger driver: `CHARGE_TO` is any
   whole number 0-100. 1-99 stops charging at N % and starts it again under N-5 (at once when the limit was changed);
   0 never charges, the device runs on the charger; 100 lets go at once. The build's 0 % held the battery for good,
   but the SGM41511 still supplements a load its input does not cover from the battery, so on a 500 mA port the
   battery would drain to the cut-off while plugged in: the guard never holds it under 5 %. The temperature guard
-  keeps the last word. `mu300-power charge-limit [N]`; System > Power has a number field (U30 Air only).
+  keeps the last word. `openf50-power charge-limit [N]`; System > Power has a number field (U30 Air only).
 - **A Type-C source's current.** BC1.2 sees a hub or splitter with a charger behind it as an SDP: 500 mA. The build
   got the source's offer from the TCPM stack. Only one register of it is needed: the UMP9620's Type-C block (typec@380,
   no driver here) runs its state machine on its own, and STATUS (+0x1c) holds the state in bits 4:0 (2: attached as
@@ -2858,14 +2858,14 @@ sources are GPL with their headers. What was taken, and how:
   current and the Rp's (3 A taken as 2 A). On the Mac's USB-C port (an SDP) the status read 0x6082 (sink, 3 A): input
   2000 mA, the battery charging at 1.6 A instead of 0.36 A. Right after a USB role change the block was still in
   attach-wait (0x6001) when the VBUS event came, so the read waits up to 1.5 s for the attach.
-- **USB host on outside power.** `mu300-usb host` refused while something powered the port. With a splitter (charger
+- **USB host on outside power.** `openf50-usb host` refused while something powered the port. With a splitter (charger
   and a USB network adapter on one port) that is the case to support: host with the boost left off.
 - **The Wi-Fi phy's address** (`/sys/class/ieee80211/phy0/macaddress`) was all zeros; it is now the factory address
   LK passes (the one wlan0 had already), on both boards.
 
 Left out: the native charger and fuel gauge (they replace patches 0006/0009-0011, which are tested, for 7.2 only and
 for every 7.2 kernel - the F50 runs the same one), capacity learning and the 0.1 % display (a full learning cycle
-was not verified by its author), the TCPM stack (PD at 5 V gives nothing over the Rp read), and the build's mu300-usb,
+was not verified by its author), the TCPM stack (PD at 5 V gives nothing over the Rp read), and the build's openf50-usb,
 which drops the boost and with it host mode on battery.
 
 ### 33m. The ABSSV U30 Air's charger bus under mainline, and a pin controller (issue #102)
@@ -2949,7 +2949,7 @@ steps would have written 33, which is 600 mA on that chip; the battery node's 30
 reads (`no charger: -5 (and -5 at 0x1a)`), so one boot on the ABSSV unit also says when the idea is wrong. Compiled
 only (the one object, `W=1`, on 6.18.56 and 7.2.10 with the other patches applied); not booted on any device, and
 no SGM41513 was available to test against. What the patch takes to be the same on that chip without ZTE's driver
-showing it: OTG_CONFIG, VBUS_STAT, PG_STAT and IINDET_EN. `mu300-usb` still addresses 0x6b for host mode and would
+showing it: OTG_CONFIG, VBUS_STAT, PG_STAT and IINDET_EN. `openf50-usb` still addresses 0x6b for host mode and would
 have to follow once the chip is confirmed.
 
 What else was compared, in case the chip is not at 0x1a either:
@@ -2981,13 +2981,13 @@ point of view; what came out of it, measured on 2026-10-05:
 * **LEDs.** The F50 has the PMIC's RGB LED and the keypad backlight sink (`keyboard-backlight`, 0-127), nothing
   else. ZTE's Android (read from `/sys/class/leds` on the second F50, no SIM) lights `sc27xx:red` without service
   and `keyboard-backlight` at 48 while the hotspot is up (0 when it is stopped, 48 again when it starts). The Wi-Fi
-  light stayed dark under Linux because `mu300-led` mapped no Wi-Fi LED on the F50. Now: network blue on 4G, white
+  light stayed dark under Linux because `openf50-led` mapped no Wi-Fi LED on the F50. Now: network blue on 4G, white
   (the green channel) on 5G, red without service; Wi-Fi `keyboard-backlight` 48. Every state was driven and read
   back on both F50s; on F50 #1 (OpenWrt) the hotspot switched off and on the way LuCI does it
-  (`uci set wireless.ap0.disabled=1; uci commit; reload_config`) gave 48, 0, 48 (`mu300-led wifi sync` from a
+  (`uci set wireless.ap0.disabled=1; uci commit; reload_config`) gave 48, 0, 48 (`openf50-led wifi sync` from a
   procd reload trigger on `wireless`, which follows wlan0 for two minutes: turned off and on again at once, hostapd
   took 63 s to report AP-ENABLED, and the LED followed within a second).
-* **mu300-update.** It already skipped systems at the release's version (`ubuntu: already v2026.10.08`); a
+* **openf50-update.** It already skipped systems at the release's version (`ubuntu: already v2026.10.08`); a
   rollback's `ubuntu.broken` (655 MB) stayed on the disk through every update. `apply` now removes stale
   `<os>.broken` copies, never the running root, before counting free space: used space 2.8 G before, 2.2 G after.
 * **Early kernel messages.** `journalctl -k` shows nothing: journald has `ReadKMsg=no`, and `kmsg-forward` writes
@@ -3005,10 +3005,10 @@ point of view; what came out of it, measured on 2026-10-05:
 
 ### 35. kanoqwq's fixes, measured: openwrt-luci on F50 #1 and the U30 Air
 
-The third system (OpenWrt with the MU300 control panel, built from this branch) was installed next to the systems
+The third system (OpenWrt with the OPENF50 control panel, built from this branch) was installed next to the systems
 already there - F50 #1 on its card (`/openwrt`, `/ubuntu`, now `/openwrt-luci`; kernel 6.18.55, boot image
 v2026.10.08), the U30 Air on its internal region (`/ubuntu`, now `/openwrt-luci`; 7.2.9) - with the vendor files,
-`hotspot.conf` and the password of the system of the same device, and booted with `mu300-os openwrt-luci`. Both
+`hotspot.conf` and the password of the system of the same device, and booted with `openf50-os openwrt-luci`. Both
 devices went back to their own system afterwards. The boot images were not replaced: what only a new init does
 (K5/K9 early lease from the initramfs, K6 RNDIS, the USB mode the panel saves, K1's "never a kept copy") is
 covered by the unit tests, not by these boots. The reboots are soft reboots (F50 #1 cannot be power-cycled
@@ -3016,16 +3016,16 @@ remotely; the U30 Air has a battery), not cold boots.
 
 Two defects showed on the first boot and are fixed:
 
-* `android-vendor-start` (from main, the slot work): `L=$(cat /run/mu300/linux-slot)` under `set -e` ended the
+* `android-vendor-start` (from main, the slot work): `L=$(cat /run/openf50/linux-slot)` under `set -e` ended the
   script when the boot image does not publish that file, before `modem_control`; procd restarted it every 10 s and
   the AT channel never answered (8 restarts in 100 s, `no valid answer to the RIL handshake` every 36 s). Any device
   whose rootfs is newer than its boot image had no modem. Now the slot falls back to the command line.
-* Every check of a dead AT owner printed `mu300-at: line 96: can't open /proc/7668/cmdline` into radio.log
+* Every check of a dead AT owner printed `openf50-at: line 96: can't open /proc/7668/cmdline` into radio.log
   (`tr < /proc/$pid/cmdline 2>/dev/null` reports the failed redirection before its own `2>/dev/null` applies).
-  And `mu300-sms` named its lock with `cksum`, which OpenWrt's busybox does not have (`cksum: not found` in the
+  And `openf50-sms` named its lock with `cksum`, which OpenWrt's busybox does not have (`cksum: not found` in the
   panel's SMS details).
 
-Per boot, from `/run/mu300/boot-timeline` and `radio.log` (seconds after the kernel started):
+Per boot, from `/run/openf50/boot-timeline` and `radio.log` (seconds after the kernel started):
 
 | | F50 #1 (9 boots) | U30 Air (11 boots) |
 |---|---|---|
@@ -3040,7 +3040,7 @@ Per boot, from `/run/mu300/boot-timeline` and `radio.log` (seconds after the ker
 | nr6/nr7 dashboard daemons (K19), early lock hook cleared (K65) | 9/9, 9/9 | 10/10, 10/10 |
 | USB host (macOS) answers ping after the reboot command | 24-27 s, lease 3600 s (preinit, K11) | 24-25 s, lease 3600 s |
 
-A tenth F50 boot hung hard (no USB, back in Android after about 20 minutes, `su -c mu300-linux` brought it back):
+A tenth F50 boot hung hard (no USB, back in Android after about 20 minutes, `su -c openf50-linux` brought it back):
 the known 6.18 hang of FINDINGS 31m, counted apart. K23 and K57 passed on soft reboots (F50 #1 9 + 1 hang counted
 apart, U30 Air 11); cold boots not run (F50 #1 cannot be power-cycled remotely, the U30 Air has a battery). On the U30
 Air, ten `ifdown wan; ifup wan` gave the WAN back in
@@ -3063,7 +3063,7 @@ Air, ten `ifdown wan; ifup wan` gave the WAN back in
   1 out, 1 in) and answered. Wider traffic could not be tried: both lines were in the carrier's walled garden (no
   credit: DNS answered, ICMP and HTTP did not, the same under the device's own Ubuntu). The spoofed-NS test was not
   run (no tool to craft one on the LAN side); ndp-learn takes no LAN input at all. `uci show dhcp` has no
-  `ndp`/`ndproxy` option. A changed `network.wan.ipv6` reaches `mu300-ndp` only at the next boot, as its header says.
+  `ndp`/`ndproxy` option. A changed `network.wan.ipv6` reaches `openf50-ndp` only at the next boot, as its header says.
 * **SMS (K58, K69)**: sending failed on both lines whatever `AT+CAVIMS` was (`+CMS ERROR: 28` on the U30 Air,
   `313` on the F50, the same with 0 and 1): the lines have no credit, so `AT+CAVIMS=1` is kept (no difference
   measured) and receiving was not tried. `AT+CMGL=4` marks messages read on this modem: on F50 #1's SIM the first
@@ -3073,17 +3073,17 @@ Air, ten `ifdown wan; ifup wan` gave the WAN back in
   a long reply then never arrived, so the pool never saw it. On that SIM one sync moved 34 slots off, and the
   missing part of the waiting message arrived within a minute.
 * **Update keeps the user's settings (I3)**: on openwrt-luci with the language, theme, `pdptype` and `ipv6` changed,
-  mu300-update's `apply_one` with a newer image and a reboot kept all four, and `dhcp` had no NDP option. The device
-  check covered those four (91-mu300-luci). The update now keeps the user's network settings too: 90-mu300 is split
-  the same way (first-install defaults behind `system.mu300.defaults`; an install from before it is told by wan
-  proto `mu300cell`), so the LAN address and mask, `ip6assign`, the APN, hostname, time zone and br-lan's members
+  openf50-update's `apply_one` with a newer image and a reboot kept all four, and `dhcp` had no NDP option. The device
+  check covered those four (91-openf50-luci). The update now keeps the user's network settings too: 90-openf50 is split
+  the same way (first-install defaults behind `system.openf50.defaults`; an install from before it is told by wan
+  proto `openf50cell`), so the LAN address and mask, `ip6assign`, the APN, hostname, time zone and br-lan's members
   stay as the user set them; flow offloading too, except once on the first update of an install from before the
-  marker, which switches it on (`mu300-ttl` turns it off again at boot while a TTL is set). Checked on the U30 Air:
+  marker, which switches it on (`openf50-ttl` turns it off again at boot while a TTL is set). Checked on the U30 Air:
   its openwrt-luci from before the marker, hostname changed to `u30test`, updated by `apply_one` with the new image:
   after the reboot the hostname, LAN address and `ip6assign` 60 were kept, the marker was set, WAN and the Mac's
   lease came up. Open: the pinned USB host entry keeps its address when the LAN moves to another subnet (a later
   fix should re-derive it from the LAN).
-* **TTL and the flowtable (K28, R23)**: `mu300-ttl set 64` turned flow offloading off and the sipa_eth0 flowtable
+* **TTL and the flowtable (K28, R23)**: `openf50-ttl set 64` turned flow offloading off and the sipa_eth0 flowtable
   went (1 -> 0); `off` brought both back.
 * **TTL in tc keeps the flowtable (mainline)**: the nft rule sits in postrouting, which an offloaded flow never
   reaches: `nf_flow_offload_ip_hook` (ingress of br-lan) rewrites the packet and hands it to `neigh_xmit` ->
@@ -3091,12 +3091,12 @@ Air, ten `ifdown wan; ifup wan` gave the WAN back in
   qdisc, for every packet whichever way it came, so a `matchall` filter there with `pedit ex munge ip ttl set N pipe
   csum ip` (and `ip6 hoplimit set N`) rewrites offloaded and device-own traffic alike, and flow offloading can stay
   on. Needs `NET_SCH_INGRESS` (clsact), `NET_CLS_ACT`, `NET_CLS_MATCHALL`, `NET_ACT_PEDIT` and `NET_ACT_CSUM`
-  (mu300-mainline.config: the last three are modules, loaded one by one - OpenWrt's kmodloader `modprobe` takes one
+  (openf50-mainline.config: the last three are modules, loaded one by one - OpenWrt's kmodloader `modprobe` takes one
   module per call) and a `tc` that has pedit's `ex` syntax (OpenWrt's `tc-tiny` 6.18, which sqm-scripts brings,
-  does). The 5.4 vendor kernel has no `act_pedit`: there mu300-ttl keeps the nft rule and turns offloading off.
+  does). The 5.4 vendor kernel has no `act_pedit`: there openf50-ttl keeps the nft rule and turns offloading off.
   matchall cannot replace a filter (`tc filter replace` answers EEXIST once one is there), so `apply` deletes its
   own (prefs 10 and 11) and adds them again; the filters belong to each sipa_eth* (all 16 get them), and
-  mobile-data's bring-up calls `mu300-ttl apply`. Checked on the U30 Air (7.2.9, openwrt-luci): `set 64` put both
+  mobile-data's bring-up calls `openf50-ttl apply`. Checked on the U30 Air (7.2.9, openwrt-luci): `set 64` put both
   filters on every sipa_eth*, the counters grew with traffic (538 packets for a 1 MB download), `flow_offloading`
   stayed 1 and no nft table was made; `set 65` changed the key to 0x41; the filters removed by hand came back with
   `ifup wan`; `off` removed them all. The VPN was on during the check, so the forwarded LAN traffic left through
@@ -3107,7 +3107,7 @@ Air, ten `ifdown wan; ifup wan` gave the WAN back in
   number, an over-long SMS) have Turkish and Chinese entries; a radio switch during a dial answers "busy".
 
   **Update 2026-10-07:** since PR #48 LuCI and the panel have a language switch. English, Turkish and Chinese are
-  in the images, and 46 languages in all come with the `lang` extra (`mu300-extra install lang`, or System >
+  in the images, and 46 languages in all come with the `lang` extra (`openf50-extra install lang`, or System >
   Languages in the panel). German now comes from that extra.
 * **LEDs (K38, K39, K68)**: not ported here. The F50's lamp states were measured with someone watching and are
   implemented by the f50-leds-fixes work (FINDINGS 34); the fork's boot chase, lamp switches and LED page
@@ -3118,54 +3118,54 @@ Air, ten `ifdown wan; ifup wan` gave the WAN back in
 The U30 Air ran flat in a day or two of hotspot use. Two causes, both seen before: the charger IC charged on its
 power-on defaults and was never told anything (33d; the bq256xx driver of PR #55 now drives it, so the guard below has
 a node to write), and a boot that Android's LK started because a charger was plugged in ("charger mode") came up as a
-full hotspot with the modem dialling, in a pocket. `mu300-power` (one `/bin/sh` script, `mu300-power.service` or
-`/etc/init.d/mu300-power`) answers both. Design: `docs/superpowers/specs/2026-10-06-power-profiles-design.md`.
+full hotspot with the modem dialling, in a pocket. `openf50-power` (one `/bin/sh` script, `openf50-power.service` or
+`/etc/init.d/openf50-power`) answers both. Design: `docs/superpowers/specs/2026-10-06-power-profiles-design.md`.
 
 What was built:
 
 * **Profiles** `plugged`, `battery`, `saver`, picked automatically (saver below `SAVER_BELOW` % on battery, by the
-  fuel gauge's `capacity` only) or forced with `mu300-power profile NAME`. Each has four knobs: `WIFI_IDLE` (minutes
+  fuel gauge's `capacity` only) or forced with `openf50-power profile NAME`. Each has four knobs: `WIFI_IDLE` (minutes
   without a client, 0 never), `RADIO_IDLE` `keep|lte|off`, `LEDS_IDLE` `on|off`, `CPU` `full|eco`. Defaults: plugged
-  `0 keep on full`, battery `10 off off full`, saver `5 off off eco`. A bad value in `/etc/mu300/power.conf` counts as
+  `0 keep on full`, battery `10 off off full`, saver `5 off off eco`. A bad value in `/etc/openf50/power.conf` counts as
   the default and `status` names it.
 * **Idle** is "no Wi-Fi station, no USB host, no key press" for `WIFI_IDLE` minutes. Then the hotspot goes down, the
   LEDs follow `LEDS_IDLE`, and the modem follows `RADIO_IDLE`: `mobile-data suspend lte` only switches EN-DC off with
   `AT+SPENDC=2` (the lock adapter's measured "off" value; no stack restart, the data connection is untouched) and
   `resume` restores `AT+SPENDC=1` only if EN-DC was on before; `suspend off` is the radio off (`AT+SFUN=5`) with data
   down, and `resume` runs `radio_on` and redials itself; `mobile-data up` refuses to dial while the modem is
-  suspended `off`, except from `resume`. On OpenWrt the daemon runs with `MU300_NETIFD=1`, so `suspend off` is
+  suspended `off`, except from `resume`. On OpenWrt the daemon runs with `OPENF50_NETIFD=1`, so `suspend off` is
   `ifdown wan` before `AT+SFUN=5` and `resume` redials with `ifup wan`: netifd keeps owning the WAN's address,
   route, firewall, DNS and IPv6. Idle wakes on a key, a computer on USB, a Wi-Fi station, or plugging in (the edge
   battery -> plugged, not being plugged: idle on the charger, a forced profile and the battery-less F50 stay idle).
   Every wake brings the hotspot up first, then the LEDs and the CPU, then the modem, whose dial can take minutes.
 * **State** is kept across daemon restarts within a boot. The daemon's TERM trap wakes the radios without a dial
   (`mobile-data resume nodial`: the radio on, the watcher redials) and does nothing during a shutdown (the held
-  power key and the low-battery poweroff leave `/run/mu300/power/shutdown`; Ubuntu also says `stopping`). The
+  power key and the low-battery poweroff leave `/run/openf50/power/shutdown`; Ubuntu also says `stopping`). The
   units keep a 150 s stop timeout (`TimeoutStopSec=150`, procd `term_timeout 150`) for the radio lock. A failed
   action is logged and retried by the following loops.
-* **Charging boot**: `init` writes `/run/mu300/boot-mode` and, in a charger boot, `/run/mu300/charging-boot`. The
+* **Charging boot**: `init` writes `/run/openf50/boot-mode` and, in a charger boot, `/run/openf50/charging-boot`. The
   Ubuntu hotspot and mobile-data units skip on that file; the daemon enters the charging boot only on its first start
-  of a boot, and leaves it only by the Wi-Fi key (`mu300-power wake wifi`; a computer on USB or the power key does
+  of a boot, and leaves it only by the Wi-Fi key (`openf50-power wake wifi`; a computer on USB or the power key does
   not). It powers the device off only unplugged (no charger online, no extcon `USB=1`, the battery not `Charging`),
   below 5 % for three loops in a row, never on one sample. OpenWrt's early radio warm-up skips a charging boot.
 * **Charge guard**: charging off at battery `temp` above 45.0 C or below 0 C, on again below 40.0 C and above 3.0 C;
   with `CHARGE_TO=N` (0-100, §33l) off at N % and on below N-5. It writes the bq256xx charger's `charge_type` (`N/A` off,
   `Fast` on). bq256xx reads `N/A` whenever it is not charging, so `Fast` is written only when the guard itself turned
-  charging off (`/run/mu300/power/charge-off`); the driver resets its switch at probe, so a marker lost with `/run`
+  charging off (`/run/openf50/power/charge-off`); the driver resets its switch at probe, so a marker lost with `/run`
   leaves nothing off. It logs only when that marker changes, and a failed write turns the guard off for the boot
   with one log line. No reading means no change.
 * **Panel**: System -> Power on `openwrt-luci` (state, profile, knobs, charge limit), catalogs in all 31 languages.
 
-Method for the numbers: `mu300-power log 5 /tmp/power.csv` writes `epoch,mV,mA,mW,capacity,temp,state,profile` every 5 s.
+Method for the numbers: `openf50-power log 5 /tmp/power.csv` writes `epoch,mV,mA,mW,capacity,temp,state,profile` every 5 s.
 Each row is a 3-minute run unplugged, the hotspot idle (a client associated, no traffic) unless the row says
-otherwise, `mu300-power set` or the verbs between runs. The fuel gauge's `current_now` is negative when
+otherwise, `openf50-power set` or the verbs between runs. The fuel gauge's `current_now` is negative when
 discharging; the draw is the mean of the run's mA (and W) after the first 30 s. Android's own idle figure comes from
 `dumpsys battery` / the same gauge on the Android side for the target line.
 
 | Row | What is on | Measured (mean W) | Measured on |
 |---|---|---|---|
 | baseline | everything, as before the profiles | pending | pending |
-| LEDs off | baseline with the LEDs dark (`mu300-led idle`) | pending | pending |
+| LEDs off | baseline with the LEDs dark (`openf50-led idle`) | pending | pending |
 | hotspot off | modem on, Wi-Fi off | pending | pending |
 | LTE only | EN-DC off (`mobile-data suspend lte`), hotspot on | pending | pending |
 | modem off | `AT+SFUN=5`, hotspot on | pending | pending |
@@ -3183,28 +3183,28 @@ Open questions for the device:
 
 * Does `AT+SPENDC=2` without a stack restart really drop the NR leg (check `AT+SPENDC?` and the band readings), or
   only after the next attach?
-* Does procd's `term_timeout` apply on this OpenWrt build (that `/etc/init.d/mu300-power stop` waits for the wake
+* Does procd's `term_timeout` apply on this OpenWrt build (that `/etc/init.d/openf50-power stop` waits for the wake
   rather than being killed at the default timeout)?
 * What the bq256xx `charge_type` node does on writes: `N/A` stops charging, `Fast` resumes it, or the driver
   rewrites it from its own state.
 * The unit tests ran under dash and bash on the dev host; busybox ash (the shell on OpenWrt) has not run them there.
 
 **The device-test incident (2026-10-07, U30 Air, OpenWrt).** A measurement script took the device down with the raw
-actions while `mu300-power`'s state still said `active`: `mu300-led idle on`, `wifi down`, `mobile-data suspend lte`,
-`mobile-data suspend off`. The last one never returned and the script's later steps never ran; `mu300-power log`
-stopped writing at the same moment. Every key press then did nothing: `mu300-power wake` only left a flag for the
-daemon, which saw `active` and had nothing to do, and `mu300-led wake` lit nothing under the idle flag. Every LED
+actions while `openf50-power`'s state still said `active`: `openf50-led idle on`, `wifi down`, `mobile-data suspend lte`,
+`mobile-data suspend off`. The last one never returned and the script's later steps never ran; `openf50-power log`
+stopped writing at the same moment. Every key press then did nothing: `openf50-power wake` only left a flag for the
+daemon, which saw `active` and had nothing to do, and `openf50-led wake` lit nothing under the idle flag. Every LED
 dark, no reaction to any key, for hours - a device that looks powered off. xray meanwhile ran out of its 1024
 descriptors (`accept4: too many open files`) with the modem off and needed a restart.
 
 Why `suspend off` did not return, from the code (no device access for the analysis; the steps of `suspend off` after
 `suspend lte`, as of 4e62326): `do_suspend off` first resumes `lte` (`resume` -> `under_radio_lock resume_lte_raw`),
-then `down` (the script ran by hand, so without `MU300_NETIFD=1`: the systemd path, `ip`/`nft` on `sipa_eth0`
+then `down` (the script ran by hand, so without `OPENF50_NETIFD=1`: the systemd path, `ip`/`nft` on `sipa_eth0`
 behind netifd's back), then `under_radio_lock suspend_off_raw`, then one line to stderr. Every wait in it is bounded
-but long: the radio lock 120 s twice, each `mu300-at` call up to 90 s for the client lock plus `T + 31` s of budget
+but long: the radio lock 120 s twice, each `openf50-at` call up to 90 s for the client lock plus `T + 31` s of budget
 (`AT+SPENDC=1` 126 s, `AT+CGACT=0` 41 s with its 5 s lock wait, `AT+SFUN=5` 131 s) - about 9 minutes at worst, not
 hours. What is not bounded: the direct-tty path when no AT daemon runs (the `open` and `write` of the SIPC tty block
-in the driver; the drain loops of `mobile-data`'s `at()` and of `mu300-at` read for as long as the channel talks);
+in the driver; the drain loops of `mobile-data`'s `at()` and of `openf50-at` read for as long as the channel talks);
 `ip`, `nft` and the `disable_ipv6` write, which wait on the RTNL lock behind an OpenWrt `wifi down` (it returns at
 once and netifd tears the AP down afterwards; a Wi-Fi driver stuck in that teardown holds RTNL); and the write of the
 final message to a terminal that is gone. The last fits all three symptoms: the script ran in an SSH session, and an
@@ -3218,57 +3218,57 @@ its `/proc/PID/stack` and `wchan`; `logread` for the session's end).
 
 What changed (the design: bootability and "a key always shows life" over everything else):
 
-* **Keys always show life.** `mu300-buttons` runs `mu300-led wake` first on every press, before it looks at any
-  state, and `mu300-power wake` after it in the background. `mu300-led wake` lights the LEDs for `LED_TIMEOUT`
+* **Keys always show life.** `openf50-buttons` runs `openf50-led wake` first on every press, before it looks at any
+  state, and `openf50-power wake` after it in the background. `openf50-led wake` lights the LEDs for `LED_TIMEOUT`
   (a minute when it is 0) under the idle flag too; `sleep --if-due` puts them out again while idle. No daemon is
   involved.
-* **Wake by inspection.** `mu300-power wake` restores whatever is down by looking, not by the state file, and
-  needs no daemon: the AP down (no `hostapd.wlan0` on ubus / `mu300-hotspot` not active) and wanted -> up; the
-  modem's mode file -> `mobile-data resume`; the LED idle flag -> `mu300-led idle off`; `cpu7` offline -> online,
+* **Wake by inspection.** `openf50-power wake` restores whatever is down by looking, not by the state file, and
+  needs no daemon: the AP down (no `hostapd.wlan0` on ubus / `openf50-hotspot` not active) and wanted -> up; the
+  modem's mode file -> `mobile-data resume`; the LED idle flag -> `openf50-led idle off`; `cpu7` offline -> online,
   and eco's own 1.5 GHz cap on `policy4` -> `cpuinfo_max_freq` (another cap is the toolkit's or thermal-guard's and
-  is left, and nothing is lifted under thermal-guard's alarm); the VPN if mu300-power stopped it; then `active`.
-  The daemon's own wake is the same function. One idle entry or restore runs at a time (`/run/mu300/power/busy`,
+  is left, and nothing is lifted under thermal-guard's alarm); the VPN if openf50-power stopped it; then `active`.
+  The daemon's own wake is the same function. One idle entry or restore runs at a time (`/run/openf50/power/busy`,
   a dead or stale holder is taken over); a second wake while one restores returns at once. The panel's wake runs it
   in the background (rpcd ends a call at 30 s).
-* **Nothing can hang.** Every external step of `mu300-power` runs under a deadline (a background job, a watchdog
+* **Nothing can hang.** Every external step of `openf50-power` runs under a deadline (a background job, a watchdog
   that kills the job's whole process tree, and a USR1 to the waiting shell for a child stuck in the kernel; busybox
   has no `timeout` in `/bin`): probes 5 s, LEDs 10 s, wifi/systemctl/VPN 30 s, the modem 90 s, the background LED
-  sync 150 s (`MU300_POWER_*_DEADLINE`). The tree is stopped until a look finds nothing new, then every process
+  sync 150 s (`OPENF50_POWER_*_DEADLINE`). The tree is stopped until a look finds nothing new, then every process
   any look saw is killed (one reparented between two looks too). `mobile-data suspend|resume` end within
-  `MU300_SUSPEND_DEADLINE` (60 s) whatever the modem does: AT through `mu300-at` with `-t` <= 20, a 10 s
-  client-lock wait and a 22 s budget (`MU300_AT_LOCK_WAIT`, `MU300_AT_BUDGET`), the radio lock 20 s, each external
+  `OPENF50_SUSPEND_DEADLINE` (60 s) whatever the modem does: AT through `openf50-at` with `-t` <= 20, a 10 s
+  client-lock wait and a 22 s budget (`OPENF50_AT_LOCK_WAIT`, `OPENF50_AT_BUDGET`), the radio lock 20 s, each external
   step 15 s; HUP ignored; their output goes through a file and a bounded write. On a failure or a timeout they
   leave the files consistent - no mode file, no "down" flag of their own - so the watcher restores whatever is off,
   and they exit non-zero. An `lte` step that failed (also an `AT+SPENDC=1` answered ERROR or not at all: only OK
-  counts, as `mu300-at` exits 0 on ERROR) leaves `/run/mu300-mobile-data.endc-restore` (unless EN-DC was off
-  before): every `resume` sends `AT+SPENDC=1` until it answers OK, and mu300-power's wake and self-check call
+  counts, as `openf50-at` exits 0 on ERROR) leaves `/run/openf50-mobile-data.endc-restore` (unless EN-DC was off
+  before): every `resume` sends `AT+SPENDC=1` until it answers OK, and openf50-power's wake and self-check call
   `resume` while it is there; the watcher ignores it. The Wi-Fi key's toggles run in the background under a
   deadline too, and the hold's direction (is the hotspot up?) is asked within 5 s
-  (`MU300_BUTTONS_PROBE_DEADLINE`): no answer counts as down, and the key turns it on. On OpenWrt they go through
+  (`OPENF50_BUTTONS_PROBE_DEADLINE`): no answer counts as down, and the key turns it on. On OpenWrt they go through
   netifd (`ifdown`/`ifup wan`) also when run by hand.
-* **The VPN while the modem is off.** `RADIO_IDLE=off` stops `mu300-vpn` (systemd or procd) once the modem is off,
-  if it was running (`/run/mu300/power/vpn-stopped`; a suspend that keeps failing never touches it, and a Wi-Fi
+* **The VPN while the modem is off.** `RADIO_IDLE=off` stops `openf50-vpn` (systemd or procd) once the modem is off,
+  if it was running (`/run/openf50/power/vpn-stopped`; a suspend that keeps failing never touches it, and a Wi-Fi
   client uplink keeps it), and the wake starts it again before the modem, so a `KILL_SWITCH=0` dial is never ahead
-  of it - unless the service was disabled or `ENABLE=0` meanwhile (asked through `mu300-vpn enabled`, which prints
+  of it - unless the service was disabled or `ENABLE=0` meanwhile (asked through `openf50-vpn enabled`, which prints
   `ENABLE` and touches no network; a probe that fails or times out counts as wanted); a start that failed is
   retried by the self-check at most every 120 s; `lte` leaves it alone. The service stop keeps the kill switch
-  (`nft table inet mu300_vpn` stays; only `ENABLE=0` and `mu300-vpn off` remove it), and the engine's routes
+  (`nft table inet openf50_vpn` stays; only `ENABLE=0` and `openf50-vpn off` remove it), and the engine's routes
   go with the engine: with `KILL_SWITCH=1` nothing unmarked leaves on `sipa_eth*` or the Wi-Fi client while it is
   stopped; with `KILL_SWITCH=0` nothing holds traffic back, as on any stop, and the bearer is down anyway. Both
   service definitions raise the descriptor limit to 65536 (`LimitNOFILE`, procd `limits nofile`).
 * **Self-check.** Each loop, while the state says `active`: a modem mode file, or (with `WIFI_IDLE=0`) the hotspot
   down although nobody turned it off on purpose, is logged and restored. On purpose means the Wi-Fi key's hold
-  (`mu300-buttons` writes `/run/mu300/power/hotspot-off` with the hold's uptime before the wake of that press
+  (`openf50-buttons` writes `/run/openf50/power/hotspot-off` with the hold's uptime before the wake of that press
   starts, until the next hold; a marker older than the toggle's deadline + 30 s (180 s) is dropped once the hotspot
   is seen up), UCI (`wireless.@wifi-iface[0].disabled` or `wireless.@wifi-device[0].disabled` = 1: the panel,
-  `wifi-client`), the unit disabled on Ubuntu, a Wi-Fi client (`/run/mu300-wifi-client.active`) or the scan-mode
+  `wifi-client`), the unit disabled on Ubuntu, a Wi-Fi client (`/run/openf50-wifi-client.active`) or the scan-mode
   boot. A hotspot that idle took down (`hotspot-idled`) comes back whatever a hold marker says, but not for a Wi-Fi
   client or in scan mode. The hotspot is not looked at in the first 120 s of a boot nor within 120 s of any
   `hotspot on`; one that does not stay up is retried at a doubling interval up to 30 min, logged once per step. A
   modem left with EN-DC off is resumed too, and a VPN left stopped is started (see above).
 
 For measurements this means: the raw actions by hand are undone by the daemon's next loop (the modem) and by any key.
-Use `mu300-power idle` and the profiles, or stop the daemon first, and run long measurements under `nohup` or
+Use `openf50-power idle` and the profiles, or stop the daemon first, and run long measurements under `nohup` or
 `setsid` with the output in a file, never through the session the hotspot carries.
 
 ### 37. System suspend
@@ -3384,11 +3384,11 @@ SYSTEM_SUSPEND; no change was needed. With the radio on, the first sleeps ended 
 `irq read smsg: dst=5, channel=6, type=4` (the AT channel's sbuf event): the modem's unsolicited `+CSQ`/`+CESQ`
 signal reports on `stty_nr0`, every few seconds, and `mobile-data`'s registration poll (`up`, every 2 s, while
 there is no service). With `AT+CFUN=4` the sleep ran to the alarm. A long sleep with the radio on needs those
-reports off (what Android's RIL does on screen-off) - for `mu300-power`, not the kernel. Not tested yet (needs a
+reports off (what Android's RIL does on screen-off) - for `openf50-power`, not the kernel. Not tested yet (needs a
 hand or a SIM with service): the power key (it shares the PMIC irq 23 with the RTC), a USB plug (a PMIC EIC
 line), an incoming SMS (a `+CMTI` URC on the same channel as the reports, so it should).
 
-**What `mu300-power` can rely on:** `mem` with Wi-Fi up, down or the chip off; Wi-Fi as it was afterwards; sleeps
+**What `openf50-power` can rely on:** `mem` with Wi-Fi up, down or the chip off; Wi-Fi as it was afterwards; sleeps
 longer than the PMIC watchdog's 60 s; PCIe wakeup as an opt-in. What it has to arrange: the modem's signal
 reports and the mobile-data poll off before a long sleep, or the modem wakes the device every 10-20 s.
 
@@ -3402,7 +3402,7 @@ build of the branch compiles, kernel and all modules; it has not been booted yet
 
 ### 39. The SMS pool: durable before the SIM lets go, long messages that never complete, forwarding
 
-**Where a message can be lost.** This modem is told `AT+CNMI=2,1` (mu300-smsd): it stores a new message on the SIM
+**Where a message can be lost.** This modem is told `AT+CNMI=2,1` (openf50-smsd): it stores a new message on the SIM
 (or ME) and announces it with `+CMTI`, it does not hand over a `+CMT` that the host must acknowledge. The SIM is the
 safe copy, and the only "acknowledgement" is the pool's `AT+CMGD` once the message is pooled. That used to follow a
 global `sync`, which on this device flushes the SD card's loop image too and can stall for seconds. Now each new
@@ -3413,12 +3413,12 @@ left empty would have restarted the ids and overwritten message 1.
 
 **Parts that never come.** A long message waited on the SIM until all its parts were there - for ever, if one was
 lost. `$POOL/partial` now remembers when each waiting message was first seen and whether it was unread then
-(`AT+CMGL` marks what it lists read, §35); after `MU300_SMS_PARTIAL_WAIT` (an hour) the parts that did arrive are
+(`AT+CMGL` marks what it lists read, §35); after `OPENF50_SMS_PARTIAL_WAIT` (an hour) the parts that did arrive are
 pooled with `[...]` for each missing one and an `incomplete: HAVE/TOTAL` header (the panel says so under the text). A
 part that turns up later is pooled at once as a message of its own. `sms watch` (every system) holds a long message
 back the same way.
 
-**Forwarding** (Cellular > SMS forwarding, `mu300-sms-forward`): driven by the pool (mu300-sms hands over new ids),
+**Forwarding** (Cellular > SMS forwarding, `openf50-sms-forward`): driven by the pool (openf50-sms hands over new ids),
 never by the modem. HTTP goes through ucode's `uclient` module in a helper that reads the whole request on stdin, so
 the bot token in Telegram's URL and the webhook's headers are never in a command line; uclient sends a POST body
 chunked. Found on the device: `uclient.connect()` to a refused port returns null, and calling `request()` after it
@@ -3429,7 +3429,7 @@ Checked on the U30 Air (7.2.9, openwrt-luci, v2026.10.17 with these files copied
 SIM's own number failed (`+CMS ERROR: 28`, the line has no credit, as in §35), so received messages were stored with
 `AT+CMGW=<len>,0` (SMS-DELIVER PDUs, received-unread) and went through the same listing, pooling and `AT+CMGD` as a
 real one. A single message: pooled, off the SIM, forwarded to a webhook on the Mac (JSON, the custom header) within the
-30 s sync. With wrapped `fsync`/`sync`/`mu300-at`: fsync of the file, then of the directory and `next_id`, then
+30 s sync. With wrapped `fsync`/`sync`/`openf50-at`: fsync of the file, then of the directory and `next_id`, then
 `AT+CMGR`/`AT+CMGD`, and no global sync. Parts 1 and 3 of 3: waiting (state written once), pooled with the wait
 lowered as `first [...] third`, `incomplete: 2/3`; part 2 injected afterwards was pooled by the next periodic sync as
 `[...]second[...]`. Webhook down: `connect, attempt 1, next in 30 s`, `attempt 2, next in 60 s`, delivered when it
@@ -3485,20 +3485,20 @@ in the switch module is kept identical by a test). Nothing else, by a fixed list
   (`common_rs1_a` and `_b` differ on F50-B; the others are identical there).
 
 **How it is done** (every check before the first write; a refusal changes nothing and stops the installation):
-Android's slot from `ro.boot.slot_suffix` (`_a`/`_b` only); an F50/MU300 or U30 Air by model; `getprop` must
+Android's slot from `ro.boot.slot_suffix` (`_a`/`_b` only); an F50/OPENF50 or U30 Air by model; `getprop` must
 exist and the running slot's boot partition must not hold a Linux image (never from Linux); misc's
 `bootloader_control` must say Android's slot booted successfully, and the other slot may outrank it only when it
 holds our Linux image (an armed trial), not an OTA waiting for its reboot; both by-name links of each image present,
 two different devices, the same size. Then per image: the same sha256 on both slots - skipped; different - both
-slots' images are copied into the Linux filesystem (`.mu300/bootchain/<date>/<name>_<slot>.img` and `SHA256SUMS`,
+slots' images are copied into the Linux filesystem (`.openf50/bootchain/<date>/<name>_<slot>.img` and `SHA256SUMS`,
 each read back against the partition), then Android's image is written to the Linux slot (`dd conv=fsync`, `sync`,
 `blockdev --flushbufs` and `drop_caches` before the read-back) and its sha256 compared. A mismatch writes every
 image back that was already written, verifies those too, and stops the installation before the boot image is written:
 Linux is not armed, Android is untouched. The host installers also pull the backup into `work/bootchain/<date>`.
-`MU300_SYNC_BOOTCHAIN=0` (`install.ps1 -NoBootchainSync`, `MU300_SYNC_BOOTCHAIN=0` in the Magisk conf) skips it, and
+`OPENF50_SYNC_BOOTCHAIN=0` (`install.ps1 -NoBootchainSync`, `OPENF50_SYNC_BOOTCHAIN=0` in the Magisk conf) skips it, and
 a device taken as an F50 although its model is not recognised is never synced. Later, from Android:
-`su -c 'mu300-linux bootchain'` (what differs) and `su -c 'mu300-linux bootchain sync'` (backup in
-`/data/adb/mu300-bootchain/<date>`). There is no Linux-side command: from Linux the booted slot is the one to be
+`su -c 'openf50-linux bootchain'` (what differs) and `su -c 'openf50-linux bootchain sync'` (backup in
+`/data/adb/openf50-bootchain/<date>`). There is no Linux-side command: from Linux the booted slot is the one to be
 written.
 
 **On the test boards:** F50-B (B09, never updated) has `uboot`, `sml`, `teecfg`, `trustos`, `vbmeta` and every
@@ -3516,7 +3516,7 @@ them, checked against the code, and what the release carries.
 
 #### 38a. A read past the end of the eMMC never returns (#43, #52, #65)
 
-Every installer probes the free region for an existing `mu300root` with three tiny reads of its superblock:
+Every installer probes the free region for an existing `openf50root` with three tiny reads of its superblock:
 `dd if=/dev/block/mmcblk0 bs=1 skip=$((OFF + 1080)) count=2`, where `OFF` is the first 2 MiB boundary behind
 the last partition, and once more at the fixed offset of the first releases, 27762098176. On the F50 of #65 the
 partition table ends 2 MiB before the end of the eMMC (61079552 sectors, the last partition ends at 61075456), so
@@ -3546,7 +3546,7 @@ nothing is read past the end.
 #### 38b. RNDIS: the port kept the bridge's address (#45)
 
 An OpenWrt system installed with NCM (the default) and switched to RNDIS later has `usb0` in its bridge section
-and not `rndis0`; the LAN hook (`hotplug.d/iface/10-mu300-usb`, K9/K27) puts `rndis0` into `br-lan` on every LAN
+and not `rndis0`; the LAN hook (`hotplug.d/iface/10-openf50-usb`, K9/K27) puts `rndis0` into `br-lan` on every LAN
 ifup. It did that *after* the loop that takes the early server's address off the bridge's ports, and that loop
 only looks at ports: `rndis0` was not one yet, kept `192.168.77.1/24`, and then became a port - the bridge and
 one of its ports with the same address, two equal routes, and the device could not reach its own Wi-Fi client
@@ -3586,21 +3586,21 @@ renders both. Two things stack:
 
 So the LAN had no DHCP, no LuCI and no NAT on every boot of a 5.4 `openwrt-luci`, which is also what #61 reports
 (installed with 5.4 and the panel: detected as a USB network, "no ssh and no webui", Wi-Fi visible but nothing
-connects; the serial console at `ttyGS0` is the way to `mu300-next-boot android` in that state). The mainline
+connects; the serial console at `ttyGS0` is the way to `openf50-next-boot android` in that state). The mainline
 kernels update a flowtable in place and were never affected, which is why the maintainer's own tests (31, 35,
 on 6.18 and 7.2) did not see it.
 
 Two fixes, both in `openwrt/overlay`:
 
-* `uci-defaults/90-mu300` names the devices of the `lan` and `wan` zones (`br-lan`, `sipa_eth0`) next to their
+* `uci-defaults/90-openf50` names the devices of the `lan` and `wan` zones (`br-lan`, `sipa_eth0`) next to their
   networks, once, on every system (the reporter's workaround, the pattern of the `earlyusb` zone): the S19
   ruleset is complete whatever the reloads do. Verified by the reporter across reboots.
-* `hotplug.d/iface/19-mu300-fw4`, on a 5.4 kernel only, deletes the stale flowtable right before 20-firewall's
+* `hotplug.d/iface/19-openf50-fw4`, on a 5.4 kernel only, deletes the stale flowtable right before 20-firewall's
   reload, under the same conditions 20-firewall reloads on: an ifup of an interface that is in a zone. The reload
   succeeds; the offloaded flows of the moment take the ordinary path until the flowtable is back.
 
 Not covered by those two on 5.4: a reload that is not an ifup's - the firewall saved in LuCI, `fw4 reload` or
-`fw4 restart` by hand, a package's reload (PassWall2, #95), and `mu300-vpn`'s own `/etc/init.d/firewall reload`
+`fw4 restart` by hand, a package's reload (PassWall2, #95), and `openf50-vpn`'s own `/etc/init.d/firewall reload`
 after it adds the tunnel to the wan zone. Since #95 the flowtable is deleted from fw4's own path:
 `openwrt/patches/fw4-old-kernel-flowtable.patch` makes `/sbin/fw4` delete `inet fw4 ft` in a transaction of its
 own before `start`/`reload` apply the ruleset and before `restart` checks it, on kernels before 5.13 only. Turning
@@ -3614,7 +3614,7 @@ none other.
   failure - §31f, fixed on 2026-10-05 and in v2026.10.11's 6.18 bundle.
 * #64 (IPv6: relay or NAT66?): both, on purpose. The `openwrt-luci` system relays the carrier's RA and DHCPv6 to
   the LAN (clients get public addresses from the bearer's /64) *and* masquerades v6 egress through the device's
-  own address (`masq6`, `91-mu300-luci`, K30), because the carrier routes one address per bearer and replies to a
+  own address (`masq6`, `91-openf50-luci`, K30), because the carrier routes one address per bearer and replies to a
   client's public address would otherwise not come back; `ndp-learn` routes the /64 to `br-lan` for the same
   reason. The `masq '1'` of the wan zone is IPv4 only (fw4's `masq6` is the v6 one). Plain OpenWrt keeps `extend`
   and neither.
@@ -3627,8 +3627,8 @@ IPv6 over the relayed public addresses fails (connections hang) while NAT66 from
 brings it back for a while. Read in the code, not measured on a device:
 
 * `ndp-learn` routed one /64 to `br-lan`: the first sipa_eth0 global address `/proc/net/if_inet6` listed. A PDP
-  re-activation that `mu300cell-v6.sh` rides out without an ifdown (+CGEV, `refresh_bearer`) leaves the old SLAAC
-  address on `sipa_eth0` beside the new one (only setup and teardown flush; the carrier measured in `mu300cell.sh`
+  re-activation that `openf50cell-v6.sh` rides out without an ifdown (+CGEV, `refresh_bearer`) leaves the old SLAAC
+  address on `sipa_eth0` beside the new one (only setup and teardown flush; the carrier measured in `openf50cell.sh`
   gives infinite lifetimes), so after such a renumber the LAN route could stay on the old /64 while odhcpd relays the
   new RA and clients SLAAC in the new one: every NAT66 reply to them left by the bearer. A wan restart flushes the old
   address, which matches the report. Fixed: `ndp-learn` routes every /64 the bearer holds and drops the route of one
@@ -3656,12 +3656,12 @@ AT at all, stayed empty. The logs of that boot were in RAM and gone.
 
 **What could do that, measured on the U30 Air (2026-10-11):**
 
-* **`mu300-at`'s lock wait was ten times longer than asked.** It counted 0.1 s naps with `sleep 0.1 || sleep 1`, and
+* **`openf50-at`'s lock wait was ten times longer than asked.** It counted 0.1 s naps with `sleep 0.1 || sleep 1`, and
   OpenWrt's `/bin/sleep` refuses a fraction (`sleep: invalid number '0.1'`), so every nap was a second:
-  `MU300_AT_LOCK_WAIT=1` took 10 s on the device, the panel's 5 s wait 50 s, the 12 s of every collector and lock read
+  `OPENF50_AT_LOCK_WAIT=1` took 10 s on the device, the panel's 5 s wait 50 s, the 12 s of every collector and lock read
   two minutes, mobile-data's 90 s a quarter of an hour. rpcd ends a call at 30 s (`rpcd -t 30`) and the browser at 20 s
   (LuCI's `rpctimeout`), but the client went on waiting, took the lock long after nobody wanted the answer, and sent
-  the command anyway. The wait is now seconds on the clock (`MU300_AT_LOCK_WAIT=0` is one try).
+  the command anyway. The wait is now seconds on the clock (`OPENF50_AT_LOCK_WAIT=0` is one try).
 * **Requests that read the modem inline.** `lock_get` read eight AT commands inside the request whenever there was no
   cache - after every reboot, since the cache is in `/run`, and the home page asks at once. `signal` ran a collector
   round inside the request, and a collector waited each command's whole budget (T + 31 s) on each of four channels.
@@ -3693,13 +3693,13 @@ rejoin), so with an access point it waits for a click; System Log reads 250 line
 (the ~19 s AT round trips seen with it open were not reproduced: one 1000-line `log read` costs 0.02 s here).
 
 **A second per AT command on OpenWrt (fixed).** OpenWrt's `/bin/sh` refuses a fractional `read -t` too ("read:
-invalid timeout"), so `mu300-atd` drained a whole second before every command: every AT command took about a second
+invalid timeout"), so `openf50-atd` drained a whole second before every command: every AT command took about a second
 and the panel's fast collector round seven. The daemon now runs itself again under a shell that takes fractions when
-its own does not: the static busybox next to it (`/opt/mu300/bin/busybox ash`), else bash. On Ubuntu, dash already
-hands over to bash 5, which takes them, so nothing changes there. `mobile-data` and `mu300-nfc` nap through the
+its own does not: the static busybox next to it (`/opt/openf50/bin/busybox ash`), else bash. On Ubuntu, dash already
+hands over to bash 5, which takes them, so nothing changes there. `mobile-data` and `openf50-nfc` nap through the
 static busybox's `sleep` as well (bash has no `sleep` of its own, and `/bin/sleep` refuses "0.2": `mobile-data`'s lock
-polls waited whole seconds, and `mu300-nfc`'s bare `sleep 0.2` did not wait at all). Measured on the U30 Air, before
-and after a reboot onto the change (`mu300-at -t 2 AT+CSQ`, five in a row on each panel channel; a `cell fast` round):
+polls waited whole seconds, and `openf50-nfc`'s bare `sleep 0.2` did not wait at all). Measured on the U30 Air, before
+and after a reboot onto the change (`openf50-at -t 2 AT+CSQ`, five in a row on each panel channel; a `cell fast` round):
 
 | | nr1 | nr6 | nr7 | fast collector round |
 |---|---|---|---|---|
@@ -3726,13 +3726,13 @@ where the kernel has them. `modem_control` and `refnotify` ran as `ubuntu` too: 
   3010), `prctl(PR_SET_KEEPCAPS)`, `setuid(0x3e8)` (an immediate in the code, `mov w0, #0x3e8`), then `capset` down to
   what they keep. They never call `setgid` (they ran with gid 0) and nothing else checks the uid (`getuid` is not
   even imported). A failed `setgroups` or `setuid` is logged (`setgroups failed`, `uidset failed`) and they carry on.
-* Fix: a system account `mu300vnd` (the images: `rootfs/assemble.sh`, `arch/build-rootfs.sh`; a system without it:
+* Fix: a system account `openf50vnd` (the images: `rootfs/assemble.sh`, `arch/build-rootfs.sh`; a system without it:
   `android-vendor-start` makes it before anything else uses it). `android-run` starts the two daemons as it with
   `setpriv`: no other groups, no new privileges, and only the capabilities they keep on Android plus `CAP_SYS_CHROOT`
   for `chroot`, which their own `capset` drops - their `setuid(1000)` then fails, harmlessly. `android-vendor-start`
   starts `modem_control` through `android-run` (still an exec, so the task name stays `modem_control`).
   `cp_diskserver` never switches users on Android either and stays root.
-* `ueventd-perms.sh`: `system` and `radio` become `mu300vnd` (owner `$V`, group `$VG`), `graphics` on a node Android
+* `ueventd-perms.sh`: `system` and `radio` become `openf50vnd` (owner `$V`, group `$VG`), `graphics` on a node Android
   gives everyone (`mali0`, `ion`, `dma_heap/*`, `sprd_dmabuf`, `pvr_sync`: `0666`) the `video` group (`root:video
   0660`), anywhere else root, as is every other Android id and every id the generator does not know. No node is left
   with bits for others, nothing is writable by everyone, a node that is root's alone is `0600`. Root's alone: input
@@ -3748,13 +3748,13 @@ where the kernel has them. `modem_control` and `refnotify` ran as `ubuntu` too: 
   changed; the only one more open is the RTC, for the vendor group (it was not touched before).
 * The generator's inputs are in `android-vendor/ueventd/` now (the `/dev` rules of the device's `ueventd.rc` and the
   `chown`/`chmod` lines of its vendor init `*.rc`), and a test checks the committed script is the generator's.
-* Updates: `mu300-update` takes the new image's `/etc/passwd` and adds the old system's human accounts, so an updated
-  system has the image's `mu300vnd`; the nodes are handed out by name at every boot, so its uid does not matter.
+* Updates: `openf50-update` takes the new image's `/etc/passwd` and adds the old system's human accounts, so an updated
+  system has the image's `openf50vnd`; the nodes are handed out by name at every boot, so its uid does not matter.
 * Measured on F50-B (Ubuntu 24.04, 7.2.9, no SIM), the three files replaced on a v2026.10.18 system: the account
-  made at boot (`mu300vnd` 999/991); `modem_control` and `refnotify` Uid 999, Gid 991, no groups, NoNewPrivs 1,
+  made at boot (`openf50vnd` 999/991); `modem_control` and `refnotify` Uid 999, Gid 991, no groups, NoNewPrivs 1,
   CapEff `0x1000000001` and `0x2000000` (as on Android); `cp_diskserver` root; the modem booted (`modem@0..2 start
   over`), `AT` OK, `+CFUN: 1`, `+CPIN` `+CME ERROR: 10` (no SIM, as before), `AT+CGMR` answers; `nr_fixnv1_a` and
-  `persist` `mu300vnd:mu300vnd 0660` and `head` on them as `ubuntu` "Permission denied"; no world-writable node in
+  `persist` `openf50vnd:openf50vnd 0660` and `head` on them as `ubuntu` "Permission denied"; no world-writable node in
   `/dev` besides the standard ones, nothing in `/dev` or `/sys` owned by uid 1000; `mali0` `root:video 0660` and
   `cltest` (OpenCL) passes; Wi-Fi client still connected; `ttyGS0`, `input/event0` and the firmware path `root:root
 0600`, and a login on the serial console works (login gives `ttyGS0` to the user, getty takes it back); `timedatectl` reads the RTC; up past the PM watchdog's
@@ -3782,7 +3782,7 @@ channel 149 works.
 * **Decision.** The hotspot never goes onto a DFS channel; nothing tries to make DFS work. Every layer that picks or
   writes the channel keeps it off them, and a DFS channel is replaced, never refused, so the hotspot does not stay
   down:
-  * `opt/mu300/lib/wifi-channels.sh` (shared by the tools below): the firmware's channels a country allows without
+  * `opt/openf50/lib/wifi-channels.sh` (shared by the tools below): the firmware's channels a country allows without
     DFS and without NO-IR, from wireless-regdb's `db.txt` - the full 36-48 + 149-165 except in about 70 countries
     (no 149-165 in TR, JP and much of Europe's neighbourhood; no 36-48 in BD, PK and a few more; no 165 in ID; none
     at all in the world domain `00` and five countries, which use 2.4 GHz). The default is 36, else 149; the width
@@ -3793,7 +3793,7 @@ channel 149 works.
   * OpenWrt `openwrt-wifi-config`: the first configuration from `hotspot.conf` writes the resolved channel, the
     width as `VHT80/40/20`, `channels` (the country's list, hostapd's `chanlist` for ACS) and `acs_exclude_dfs 1`.
     At every later boot it rewrites a DFS channel set in LuCI to the default (the htmode narrowed to what fits),
-    so LuCI shows the channel the hotspot really uses. `mu300-wifi-band 5` writes the same. The Android import keeps
+    so LuCI shows the channel the hotspot really uses. `openf50-wifi-band 5` writes the same. The Android import keeps
     writing `CHANNEL=auto`.
   * wifi-scripts (`openwrt/patches/wifi-scripts-no-dfs.patch`, applied by `openwrt/build-rootfs.sh` with
     `--fuzz=0` like the fw4 patches, the build stops if it no longer applies): `hostapd.uc` reads the capability
@@ -3811,19 +3811,19 @@ channel 149 works.
   The Wi-Fi client (`wifi-client`) still joins networks on DFS channels: radar detection is the access point's job.
 * **Tested** (`tests/test_wifi_channels.py`): the table, the replacement and its one line, `auto`, the widths, under
   dash, bash and busybox ash; `hotspot-start`'s hostapd configuration with a stub `iw`; `openwrt-wifi-config` and
-  `mu300-wifi-band` with a stub `uci`, and again with the real `uci` and ash of the v2026.10.18 `openwrt-luci`
-  rootfs; and, with `MU300_WRT_IMAGE` naming an OpenWrt 25.12 image, the patch applied to the feed's wifi-scripts
+  `openf50-wifi-band` with a stub `uci`, and again with the real `uci` and ash of the v2026.10.18 `openwrt-luci`
+  rootfs; and, with `OPENF50_WRT_IMAGE` naming an OpenWrt 25.12 image, the patch applied to the feed's wifi-scripts
   (OpenWrt 25.12.5, ImmortalWrt 25.12.2 and the v2026.10.18 rootfs) and the hostapd configuration they generate for
   a fake wiphy with and without radar detection. Not yet on a device: the hotspot on 36 after LuCI was set to 60,
   and ACS (`auto` in LuCI) on this driver.
 
 ### 43. adb over USB to Linux: adbd in the gadget, and what FunctionFS does to the rest of it
 
-`mu300-usb adb on|off` (off by default) puts AOSP's adbd into the USB gadget next to the network function and the
+`openf50-usb adb on|off` (off by default) puts AOSP's adbd into the USB gadget next to the network function and the
 ACM console: `adb shell`, `push`, `pull`, `forward` from a computer, as with Android.
 
 **Update 2026-10-13:** adb is on by default now, and adbd lets every computer in unless it is told to take keys
-only (`mu300-usb adb auth open|keys`): §70. What this section says about the daemon, the gadget and FunctionFS
+only (`openf50-usb adb auth open|keys`): §70. What this section says about the daemon, the gadget and FunctionFS
 stands; "off by default", "`auth_required = true` on Linux, always" and "no setting that turns the check off" do not.
 
 **Which adbd.** Ubuntu 26.04 (not 24.04) packages Debian's `adbd` 34.0.5, but Debian patches it to require no
@@ -3832,10 +3832,10 @@ finds no FunctionFS: a root shell for anyone on the LAN and the hotspot. It is a
 `android-tools` build the host tools, not the daemon. So `tools/adbd/build.sh` builds it: the daemon's sources from
 nmeum's `android-tools` 34.0.5 release tarball (AOSP with BoringSSL vendored; SHA-256 pinned), a CMakeLists of its
 own for adbd alone, static against musl in Alpine 3.20: one aarch64 binary of 2.49 MB (stripped) for Ubuntu and
-OpenWrt, built in under two minutes, shipped in the images (`/opt/mu300/bin/adbd`). JDWP, adb over Wi-Fi (pairing)
-and mDNS are stubbed out (`stubs.cpp`), and protobuf with them. `mu300-adbd.patch`:
+OpenWrt, built in under two minutes, shipped in the images (`/opt/openf50/bin/adbd`). JDWP, adb over Wi-Fi (pairing)
+and mDNS are stubbed out (`stubs.cpp`), and protobuf with them. `openf50-adbd.patch`:
 
-* `auth_required = true` on Linux, always (ro.adb.secure=1). Keys come from `/etc/mu300/adb_keys` and
+* `auth_required = true` on Linux, always (ro.adb.secure=1). Keys come from `/etc/openf50/adb_keys` and
   `/root/.android/adb_keys` only; Android's framework socket, through which the "allow USB debugging?" dialog
   approves a key, is never taken (it would come from the environment, `ANDROID_SOCKET_adbd`). An unknown key gets
   `unauthorized` and stays there.
@@ -3854,26 +3854,26 @@ the interface by its class (ff/42/01). While adb is in the gadget, bcdDevice is 
 Windows caches MS OS descriptors per VID/PID/bcdDevice, and the descriptors are on with NCM/ECM too, so that adbd's
 WINUSB compatible ID reaches Windows (not tried on Windows: the Windows host was not reachable).
 
-boot/init makes and binds the gadget before any system runs; adbd comes later, so `mu300-adbd run` (the
-`mu300-adbd` service, systemd and procd) rebinds once: it starts adbd, waits for its descriptors (`ep1` appears),
+boot/init makes and binds the gadget before any system runs; adbd comes later, so `openf50-adbd run` (the
+`openf50-adbd` service, systemd and procd) rebinds once: it starts adbd, waits for its descriptors (`ep1` appears),
 unbinds, links `f3`, binds again. FunctionFS needs the descriptors before the bind and refuses a bind without
 them, so a gadget that will not bind with adb is bound without it. Two kernel behaviours shape the rest:
 
 * `ffs_closed()` calls `unregister_gadget_item()` - the whole gadget comes off the UDC - whenever the last file of
   a bound FunctionFS instance is closed, and adbd closes and reopens its endpoints at the end of every connection.
-  Android's init binds the gadget again (`sys.usb.ffs.ready`); here the loop of `mu300-adbd run` does, after five
-  seconds (mu300-usb-reset and OpenWrt's LAN hook unbind on purpose and bind again themselves), not in the U30 Air's
+  Android's init binds the gadget again (`sys.usb.ffs.ready`); here the loop of `openf50-adbd run` does, after five
+  seconds (openf50-usb-reset and OpenWrt's LAN hook unbind on purpose and bind again themselves), not in the U30 Air's
   host role.
 * adbd closes and rewrites its descriptors every second while no bind comes (`timed out while waiting for
   FUNCTIONFS_BIND`); a bind in that gap fails, so binds are retried 0.2 s apart.
 
 Measured on F50-B (Ubuntu 24.04, 7.2.9 with `CONFIG_USB_CONFIGFS_F_FS=y`, macOS host, adb 37.0.1): `adb devices`
-shows `MU300LINUX-324950664950-203d8329` (Android's adb on the same board is `324950664950`); with no key
+shows `OPENF50LINUX-324950664950-203d8329` (Android's adb on the same board is `324950664950`); with no key
 authorised and with the key file taken away, `unauthorized` ("adb: device unauthorized"); with the key, `adb shell`
 is root with a login bash on a pty, push 38.7 MB/s and pull 41.9 MB/s (20 MB, checksums equal), `adb forward`
-works. `mu300-usb adb on/off`, three boots with adb on (NCM, RNDIS, NCM) - with RNDIS a Mac has no network but adb
+works. `openf50-usb adb on/off`, three boots with adb on (NCM, RNDIS, NCM) - with RNDIS a Mac has no network but adb
 works, a way in that does not need the network - the gadget unbound by hand (as FunctionFS does it): adb and SSH
-back after 6-8 s; `mu300-usb-reset --ready`: adb stays. `adb off` leaves the gadget as boot/init made it (bcdDevice
+back after 6-8 s; `openf50-usb-reset --ready`: adb stays. `adb off` leaves the gadget as boot/init made it (bcdDevice
 0x0301, no MS OS descriptors, no FunctionFS mount). Not tried: OpenWrt, the vendor 5.4 kernel, a U30 Air being
 unplugged and plugged again, Windows.
 
@@ -3969,23 +3969,23 @@ Built for 6.18.56 and 7.2.10 (modules only). Device test: see the PR for #146.
 Reported on openwrt-luci v2026.10.20, China Broadnet (PLMN 46015), U30-class board (UMS9620): every send from the
 panel to the carrier's service number failed, incoming messages worked. The modem's URC log had
 `+SPIMSREASON: 1,512,"SMS FAILED: CODE:600 REASON:Busy Everywhere"` (the IMS stack's SIP 600 on the submission),
-and the panel's operations log `sms_send - killed`. The reporter's one-shot test through the same mu300-atd, with two
+and the panel's operations log `sms_send - killed`. The reporter's one-shot test through the same openf50-atd, with two
 changes made together, succeeded at once (`+CMGS: 1`, `OK`, and the service answered within seconds):
 
 - `AT+CSCA?` answered `"2B38...",145` (the modem's CSCS is `"HEX"`, so the address reads as hexadecimal: `+86...`),
   and that exact string and type were written back with `AT+CSCA="2B...",145` - the same value, not another SMSC, and
   CSCS left alone. What this puts right inside the modem is not known; SMSC state after the IMS registration is the
   guess. Only `OK` counted.
-- the whole send (CSCA, `AT+CMGF=0`, `AT+CMGS`) ran under one acquisition of mu300-at's client mutex
-  (`/run/mu300-at/lock`). mu300-sms took it once per command, so between its commands any other client (the panel's
-  collectors, mu300-smsd's sync) could run, and the modem's state between PDU mode and the submission was never
+- the whole send (CSCA, `AT+CMGF=0`, `AT+CMGS`) ran under one acquisition of openf50-at's client mutex
+  (`/run/openf50-at/lock`). openf50-sms took it once per command, so between its commands any other client (the panel's
+  collectors, openf50-smsd's sync) could run, and the modem's state between PDU mode and the submission was never
   guaranteed to be what the previous command left.
 
-The two were changed together, so which one was decisive is not known. Both are now in mu300-sms's send:
+The two were changed together, so which one was decisive is not known. Both are now in openf50-sms's send:
 
-- `at_lock`: mu300-sms takes `$ATDIR/lock` itself, the way mu300-at does (a holder that is gone is taken over, the
-  wait is `MU300_AT_LOCK_WAIT` seconds of the clock, `mu300-at: busy` when it gives up, so the panel's verdict is
-  unchanged), and tells the mu300-at calls under it with `MU300_AT_LOCK_HELD=<pid>`. mu300-at borrows the lock only
+- `at_lock`: openf50-sms takes `$ATDIR/lock` itself, the way openf50-at does (a holder that is gone is taken over, the
+  wait is `OPENF50_AT_LOCK_WAIT` seconds of the clock, `openf50-at: busy` when it gives up, so the panel's verdict is
+  unchanged), and tells the openf50-at calls under it with `OPENF50_AT_LOCK_HELD=<pid>`. openf50-at borrows the lock only
   when `lock/pid` names that live process; anything else and it takes the lock as before. The lock is released after
   the submission, before the pool lock (a path holding the pool lock makes no AT call, so send and sync never wait
   for each other - that rule stands).
@@ -3995,34 +3995,34 @@ The two were changed together, so which one was decisive is not known. Both are 
   says what is wrong. Nothing ever picks another SMSC or touches CSCS.
 
 The submission stays one write, `AT+CMGS=N<CR><PDU><Ctrl-Z>`, as before. Waiting for the modem's `> ` prompt first
-would need a byte-wise read in mu300-atd (the prompt has no newline, so the daemon's line reads never see it; it is
+would need a byte-wise read in openf50-atd (the prompt has no newline, so the daemon's line reads never see it; it is
 collected with the reply), and what `read -t` leaves in its variable when it times out on a partial line is not the
 same under every shell the daemon runs under (bash, busybox ash) and has not been measured on the device - in the one
 process that owns the channel, where a modem left waiting at the prompt for a PDU that never comes is a wedged
 channel. The reporter's successful send used the combined write too, as every send on the U30 Air has.
 
-The panel: `mu300dash sms_send` ran mu300-sms inside the rpcd call, which rpcd ends at 30 s, while mu300-sms waits
+The panel: `openf50dash sms_send` ran openf50-sms inside the rpcd call, which rpcd ends at 30 s, while openf50-sms waits
 up to 40 s for `+CMGS` (and its whole transaction longer). A slow send was killed with the call - the message gone out
 or not, with no result anywhere but a `killed` line. `sms_send` now validates and starts the send detached
-(`setsid mu300dash sms-job`, the at_job pattern), answering `started`; `sms_job` says `running` and then the verdict
+(`setsid openf50dash sms-job`, the at_job pattern), answering `started`; `sms_job` says `running` and then the verdict
 `sms_send` used to give (`ok`/`busy`/`Sending failed` with the modem's last line) with `done:1`; the page asks every
 second. A second send while one runs is `busy` (the AT channel is in use), never a second submission; a job that
 died without a result says so and is not resent. The job logs how the send went in the operations log (`sms_send
 result 2.31s ok`), which is what the report was missing.
 
-Device test (a U30 Air whose line answers `mu300-sms send 7000 KALAN` with a two-part reply): the send through
-`/opt/mu300/bin/mu300-sms send 7000 KALAN` must show `AT+CSCA?` and the same-value `AT+CSCA=` in the daemon's answer
-files, `/run/mu300-at/lock` gone afterwards, and the reply pooled; through the panel's SMS page the toast must go
+Device test (a U30 Air whose line answers `openf50-sms send 7000 KALAN` with a two-part reply): the send through
+`/opt/openf50/bin/openf50-sms send 7000 KALAN` must show `AT+CSCA?` and the same-value `AT+CSCA=` in the daemon's answer
+files, `/run/openf50-at/lock` gone afterwards, and the reply pooled; through the panel's SMS page the toast must go
 "Sending…" and then "Sent" with the operations log carrying `sms_send ... ok` and `sms_send result ... ok`.
 
 The Ubuntu side, `sms send` (every system's SMS tool, its own send path, no pool), has the same two since: the same
-`at_lock`/`at_unlock` and `smsc_refresh` (held only when the daemon's fifo is there - without it mu300-at opens the
+`at_lock`/`at_unlock` and `smsc_refresh` (held only when the daemon's fifo is there - without it openf50-at opens the
 tty itself and takes no lock either), and the submission as the same one request `AT+CMGS=N<CR><PDU><Ctrl-Z>`. It
 used to send `AT+CMGS=N` as a request of its own and the PDU as another: the `> ` prompt has no line ending, so the
 daemon never saw an answer to the first (its whole 10 s), counted it as a silent command and drained up to 25 s
 before writing the PDU - and between the two any other client could get in. Device test (an F50-B with a registered
 SIM): `sudo sms send 7000 KALAN` must answer `sent (reference N)` within seconds, with `AT+CSCA?` and the same-value
-`AT+CSCA=` in the daemon's answer files, `/run/mu300-at/lock` gone afterwards, and `sudo sms list` showing the reply.
+`AT+CSCA=` in the daemon's answer files, `/run/openf50-at/lock` gone afterwards, and `sudo sms list` showing the reply.
 
 ### 47. A system the Magisk zip added beside another had a password nobody saw (#167)
 
@@ -4030,11 +4030,11 @@ Reported as "cannot log in to openwrt-luci / openwrt" on a board that had Ubuntu
 added later with zips (F50-B). The one-boot image's `root:::` was the first suspect and a red herring: the installer
 always replaces that line. Found by mounting the board's Linux disk from Android and looking at the hashes without
 reading them: each added system's `root` had a proper SHA-512 hash - of a **random 12-character password** that
-`mu300-install.sh`'s `build_password` made because the install was a new system (`KEEP_PW=0`) and
-`mu300-install.conf` had no `MU300_PASSWORD`. That password was written only to `/data/adb/mu300-linux-password.txt`,
+`openf50-install.sh`'s `build_password` made because the install was a new system (`KEEP_PW=0`) and
+`openf50-install.conf` had no `OPENF50_PASSWORD`. That password was written only to `/data/adb/openf50-linux-password.txt`,
 a root-only file, and shown once in Magisk's output; every later zip replaced the file, so the second added system's
 password was in no file at all. The `ubuntu` account still had the password the user knew, and the panel's
-`mu300-os <os>` switch booted a system nobody could log in to. (`dropbear`/`rpcd` refusing *empty* passwords was not
+`openf50-os <os>` switch booted a system nobody could log in to. (`dropbear`/`rpcd` refusing *empty* passwords was not
 it.) The board was recovered with `tools/reset-password.sh openwrt-luci` from Android, which works for an added
 system too.
 
@@ -4042,26 +4042,26 @@ Decision (the project owner's): the zip's password for a system it installs is *
 images'** - Ubuntu's user `ubuntu` has the password `ubuntu`; OpenWrt's and openwrt-luci's `root` has no password
 (the empty field stock OpenWrt ships with: dropbear and LuCI let root in until one is set with `passwd` or in LuCI,
 System > Administration). No random password any more, neither for a first install nor for an added system. A
-`MU300_PASSWORD` in `/data/adb/mu300-install.conf` still wins when given (hashed with the bundled busybox's
+`OPENF50_PASSWORD` in `/data/adb/openf50-install.conf` still wins when given (hashed with the bundled busybox's
 `mkpasswd` as before, for every system it installs); it is never shown or written down. An update of a system that
 has accounts of its own keeps carrying them over (`KEEP_PW`), as before; an empty OpenWrt root or an Ubuntu `ubuntu`
 that is still `ubuntu` counts as the images' default, not as a password to keep, so an update of such a system gets
-the default again (the same thing). `MU300_PASSWORD_RESET=yes` now means "the images' own password again".
+the default again (the same thing). `OPENF50_PASSWORD_RESET=yes` now means "the images' own password again".
 
 How: `build_password` hashes `ubuntu` for Ubuntu (a fresh salt each time) and leaves the hash empty for OpenWrt;
-`mu300-install.env` gets one more line, `PW_SET=1`, which tells `android-install.sh` to put `PWHASH` into the
+`openf50-install.env` gets one more line, `PW_SET=1`, which tells `android-install.sh` to put `PWHASH` into the
 system's own account even when it is empty (OpenWrt's root without a password) - `PW_SET=0` is the update that keeps
 the accounts, and the computer installer, which never writes the key, behaves as before. `android-install.sh` no
 longer refuses a system whose account would be "empty or the image's default": those are the intended accounts now,
-and the mark that has `mu300-update` carry some `<os>.old`'s accounts over at boot is removed whatever the path. The
-plan, the closing message and the note in `/data/adb/mu300-linux-password.txt` say which account and password work
+and the mark that has `openf50-update` carry some `<os>.old`'s accounts over at boot is removed whatever the path. The
+plan, the closing message and the note in `/data/adb/openf50-linux-password.txt` say which account and password work
 (`password for root: none yet - set one with passwd, or in LuCI (System > Administration)`; `password for ubuntu:
 "ubuntu"`), in the three languages; the file keeps the other system's block as before, and holds no secret any more.
 Device test: a zip install of `openwrt` on a board that has Ubuntu must end with the `root: none yet` line, the file
 must note it under `user: root`, and `ssh root@192.168.77.1` into the booted OpenWrt must log in with no password;
 LuCI's login on openwrt-luci likewise, and `passwd` there must take.
 
-### 48. The stock virtual thermal zone on mainline (`mu300_thermal`), and thermal-guard's handoff to the kernel
+### 48. The stock virtual thermal zone on mainline (`openf50_thermal`), and thermal-guard's handoff to the kernel
 
 Under 6.18 and 7.2 nothing in the kernel throttled the CPUs: the mainline port registers the 19 on-die sensors
 (`sprd_thermal_r5p0`, §31) and the cpufreq cooling devices (`CONFIG_CPU_THERMAL`), but no thermal zone had a trip
@@ -4091,7 +4091,7 @@ that work.
 physical zone, because the kernel boots the vendor DTB as LK hands it over (a custom DTB hung in `setup_machine_fdt`,
 `upstream/README.md`). What is needed is a driver for that one sensor node; it can live in `upstream/port/` (built in,
 a new `Image`) or in `upstream/modules/` (loaded from the rootfs like the vendor modules). **Chosen: the module**,
-`upstream/modules/mu300_thermal` (after kanoqwq's, GPL-2.0, rewritten with the DT facts above and a probe that defers
+`upstream/modules/openf50_thermal` (after kanoqwq's, GPL-2.0, rewritten with the DT facts above and a probe that defers
 only while a physical zone is not registered yet and fails on a wrong tree): it needs no kernel image change, so no
 untested boot image on anyone's board; `build-modules.sh` builds it for both kernels and the bundles carry it; it is
 tested with `insmod`/`rmmod` on the release kernel; and the seconds between boot and `extra-modules` are covered by
@@ -4109,9 +4109,9 @@ registered cooling device's node), `step_wise` on the passive trips, and `therma
 
 **How the kernel's cap and ours compose.** `cpufreq_cooling` lowers a cluster through a frequency QoS request
 (`FREQ_QOS_MAX`); `scaling_max_freq` *shows* the resolved `policy->max` (the lowest of all requests) and *writing*
-it sets only the user request. So a profile's ceiling (`mu300-cpu`, `/run/mu300/cpu-ceiling`, PR #111) holds under
+it sets only the user request. So a profile's ceiling (`openf50-cpu`, `/run/openf50/cpu-ceiling`, PR #111) holds under
 the kernel's throttling without any help - the lower of the two wins, and when the kernel lifts its cap the ceiling
-is what is left - while `mu300-cpu status` reads the throttled value and reports `throttling` from the cooling
+is what is left - while `openf50-cpu status` reads the throttled value and reports `throttling` from the cooling
 devices' `cur_state`, as before. What must not happen is two controllers on one knob: `thermal-guard` stepping
 `scaling_max_freq` down at 85 °C while `step_wise` lowers the QoS at the same temperature, and later lifting a cap
 (ours) while the kernel still holds its own. Hence the handoff, in `thermal-guard`:
@@ -4124,7 +4124,7 @@ devices' `cur_state`, as before. What must not happen is two controllers on one 
   -ef`) and its `temp` **reads a number within 15 °C of the hottest reading** of the round (a zone whose sensors
   all fail reads nothing; a stale or zero value sits far below the die, and a kernel that sees no heat would not
   throttle), the kernel throttles and the guard only watches. On that transition it lifts the caps it set itself (a
-  marker, `/run/mu300/thermal-capped`, set at HOT and cleared when nothing is below the ceiling; it outlives a
+  marker, `/run/openf50/thermal-capped`, set at HOT and cleared when nothing is below the ceiling; it outlives a
   restart, so a cap from before the module loaded does not stick for ever) back to the profile's ceiling, and leaves
   `scaling_max_freq` alone from then on. A cap that is not ours (eco's 1.5 GHz, a profile's) is left. With the zone
   gone (`rmmod`), a cluster left out of the maps, the zone disabled or its reading not to be trusted, it caps again,
@@ -4132,8 +4132,8 @@ devices' `cur_state`, as before. What must not happen is two controllers on one 
 * The 105 °C power-off stays on mainline in both states; the kernel's own 110 °C critical trip is the second line.
   The LED alarm is unchanged on every kernel.
 
-`extra-modules` loads the module right after the PMIC watchdog: `modprobe mu300_thermal`, else `insmod` from the
-bundle's directory (`/lib/modules/<release>/mu300_thermal.ko` on OpenWrt, `extra/` on Ubuntu, where depmod may not
+`extra-modules` loads the module right after the PMIC watchdog: `modprobe openf50_thermal`, else `insmod` from the
+bundle's directory (`/lib/modules/<release>/openf50_thermal.ko` on OpenWrt, `extra/` on Ubuntu, where depmod may not
 have indexed a bundle yet); the vendor 5.4 kernel has no such file and nothing is tried. Tests
 (`tests/test_device_scripts.py`, `ThermalGuard` and `SipaDele`): the vendor kernel by release (LED only), mainline
 without the zone (caps, powers off), the handoff with the bound zone (no step at 90 °C, power-off at 105 °C still),
@@ -4143,33 +4143,33 @@ after a restart, capping again when the zone is gone, and the loader's
 `modprobe`/`insmod`/already-loaded/failed paths; under dash, bash and (`test -ef`, `grep -qsx` on an unmatched glob
 checked separately) busybox ash.
 
-Built against the release trees: `mu300_thermal.ko` for 6.18.56 (`vermagic=6.18.56 SMP mod_unload aarch64`, 9 000
+Built against the release trees: `openf50_thermal.ko` for 6.18.56 (`vermagic=6.18.56 SMP mod_unload aarch64`, 9 000
 bytes with BTF) and 7.2.10 (`vermagic=7.2.10 SMP preempt mod_unload aarch64`), no warning.
 
-**The panel.** System > CPU has a read-only "Thermal" card from standard thermal sysfs (`mu300-cpu status --json`'s
+**The panel.** System > CPU has a read-only "Thermal" card from standard thermal sysfs (`openf50-cpu status --json`'s
 new `thermal` array: every zone's type, temperature, trip points and the cooling devices bound to it with their
 states; zones with trips first). It writes nothing: the trips stay the device tree's (the fork's trip editor was not
 taken).
 
 **Device test (F50-B, Ubuntu 24.04, v2026.10.22, kernel 7.2.10, 2026-10-12).** The board had been up 5 minutes
-on the release kernel; the test copies of `thermal-guard` and `mu300-cpu` were put in place (the release ones kept
-and restored at the end) and `mu300_thermal.ko` (the 7.2.10 build) inserted by hand - nothing of the boot image or
+on the release kernel; the test copies of `thermal-guard` and `openf50-cpu` were put in place (the release ones kept
+and restored at the end) and `openf50_thermal.ko` (the 7.2.10 build) inserted by hand - nothing of the boot image or
 kernel changed.
 
 * Before: 19 zones, none with a trip point; cooling devices `cpufreq-cpu0` 0/9, `cpufreq-cpu4` 0/9, `cpufreq-cpu7`
   0/10, `devfreq-23140000.gpu` 0/2; hottest 39.2 °C.
-* `insmod`: `mu300-virtual-thermal virtual-sensor@0: soc-thmzone: the hottest of 11 zones`; `thermal_zone19`
+* `insmod`: `openf50-virtual-thermal virtual-sensor@0: soc-thmzone: the hottest of 11 zones`; `thermal_zone19`
   `type=soc-thmzone mode=enabled policy=step_wise`, trips `0 passive 70000 hyst 1000`, `1 passive 85000 hyst 1000`,
   `2 critical 110000 hyst 2000`; `cdev0 -> cooling_device2 (cpufreq-cpu7) trip 1 weight 410`, `cdev1 -> cooling_device1
   (cpufreq-cpu4) trip 1 weight 410`, `cdev2 -> cooling_device0 (cpufreq-cpu0) trip 1 weight 1024` - the three maps of
   the 85 °C trip, with the DT's contributions; the five vendor cooling nodes left out, as expected. Three seconds
   later `thermal-guard: kernel thermal zone soc-thmzone throttles the CPUs: watching only, power-off at 105000 mC
-  stays`. `mu300-cpu status --json` listed 20 zones; the soc entry: three trips, three cooling devices at state 0.
+  stays`. `openf50-cpu status --json` listed 20 zones; the soc entry: three trips, three cooling devices at state 0.
 * Load, `yes >/dev/null` on all 8 cores: 38.7 → 64.1 °C in 5 s, 78.0 at 30 s, 84.4 at 50 s, 85.3 °C at 65 s; then
   the kernel throttled: cooling states `cpu0=1 cpu4=1 cpu7=1` and `scaling_max_freq` **read** 1846/2171/2041 MHz
   against the user values 2002/2301/2210 (the QoS cap shows through `policy->max`), the temperature held at
   84.4-85.3 °C, the states flapping between 0 and 1 around the trip (100 ms passive polling, 1 °C hysteresis).
-  `thermal-guard` wrote nothing (its only line in that time: `too hot (SoC 85327 mC): LED alarm on`) and `mu300-cpu
+  `thermal-guard` wrote nothing (its only line in that time: `too hot (SoC 85327 mC): LED alarm on`) and `openf50-cpu
   status` said `thermal throttling: active` from the cooling states. Writing `cpuinfo_max_freq` into
   `policy7/scaling_max_freq` under the cap read back 2210000 with the state at 1 a moment later - inconclusive, the
   states were flapping at that second; the cool-down sample right after showed the cap again (`policy7 cur 1703 /
@@ -4178,13 +4178,13 @@ kernel changed.
   request was never changed), `cooled down (SoC 64103 mC): LED alarm off`.
 * `rmmod`: `kernel thermal zone soc-thmzone gone: capping cpufreq again` within 5 s, no zone with trips left. The
   loader path: the `.ko` copied to `/lib/modules/7.2.10/extra/` and the new `extra-modules` run - `loaded
-  mu300_thermal` (`modprobe` had no index, `insmod` by path took it), the zone back, `thermal-guard` handed over again
+  openf50_thermal` (`modprobe` had no index, `insmod` by path took it), the zone back, `thermal-guard` handed over again
   5 s later. The guard alone, with the service stopped and HOT set 2 °C under the current temperature for two rounds:
   `scaling_max_freq` 2002000 2301000 2210000 → 1703000 2054000 1872000 (two steps each) and the marker
-  `/run/mu300/thermal-capped` present; a cool run lifted them back to 2002000 2301000 2210000.
-* End state: the release `thermal-guard` and `mu300-cpu` restored (same md5 as the backup), the service active, the
-  module not loaded and no `mu300_thermal.ko` under `/lib/modules`, `/run/mu300` without thermal markers, `uname -r`
-  7.2.10 - the release kernel, which was never replaced (no `mu300-update kernel`, so no `rollback-boot` needed).
+  `/run/openf50/thermal-capped` present; a cool run lifted them back to 2002000 2301000 2210000.
+* End state: the release `thermal-guard` and `openf50-cpu` restored (same md5 as the backup), the service active, the
+  module not loaded and no `openf50_thermal.ko` under `/lib/modules`, `/run/openf50` without thermal markers, `uname -r`
+  7.2.10 - the release kernel, which was never replaced (no `openf50-update kernel`, so no `rollback-boot` needed).
 
 Open: the U30 Air (same SoC, its own DTB) is untested; its `thmzone-cells` may name other zones, which the module
 reads from the tree. Not taken, as the review decided: the fork's CPU voltage-offset driver.
@@ -4206,7 +4206,7 @@ in the fast tier"), measured so far on this machine only (unit tests; the device
   page is open): an empty answer is asked again on the next full round (two commands, about 0.3 s at the measured
   0.13 s per command, §40), a number found is kept in `/var/run/unisoc-modem/own-number` for the boot and not asked
   again (a SIM change goes through a reboot, the same assumption the identity cache makes). The fast tier (1.5 s)
-  never sends either command, and neither does `mu300dash`'s live `signal` read.
+  never sends either command, and neither does `openf50dash`'s live `signal` read.
 * **Personal data.** The number reaches the browser in `status`'s `cell.msisdn` / `cell.msisdn_src` (`sim` or
   `ims`), a read-only method of the existing ACL; the home page shows it under ICCID, masked like the IMSI
   (`+905****567`) until "Show SIM identifiers", and the row is not there at all when neither source has one. It is
@@ -4225,12 +4225,12 @@ that, taken here in our own shape - one `android-install.sh`, no slot layout of 
 `sd_release`:
 
 **1. The boot image is read back from the medium, into a file.** Both installers verified `boot_<linux slot>` after
-writing it - `install.sh` with `sha256sum` of the whole partition, the Magisk installer with `mu300-update`'s
+writing it - `install.sh` with `sha256sum` of the whole partition, the Magisk installer with `openf50-update`'s
 `write_boot`, which hashes a `dd | head -c | sha256sum` pipeline of the first pages - and a mismatch stopped before
 `misc`. Two things were weaker than they looked: a read that fails inside a pipeline leaves a short hash and no
 word of why, and a read right after the write may be served from the page cache rather than the eMMC. Now every
 install drops the caches (`echo 3 > /proc/sys/vm/drop_caches`) and reads back exactly the image's length in whole
-4096-byte blocks with one `dd` into a file (`$T/mu300-boot.rb` for the computer installers, `$W/boot/readback` for
+4096-byte blocks with one `dd` into a file (`$T/openf50-boot.rb` for the computer installers, `$W/boot/readback` for
 the zip), whose exit status counts; the sha256 of the file's first `len` bytes must be the image's. The Magisk
 installer's `boot_readback` does this after `write_boot`'s own check and reads the AVB footer block back too, and
 its refusal says which step failed (`dd failed`, `short read`, `sha256 differs`): `boot_b read back from the eMMC is
@@ -4249,22 +4249,22 @@ move while a request only waits) have not changed for 120 s. Then the group gets
 ignores both, and is never waited for), the run says what happened and what to do -
 `the unpack ubuntu stage timed out (no I/O progress on mmcblk1 for 120 s) and was stopped; nothing more is written` /
 `reboot Android before running the installer again` / `the card stays mounted at ..., with no sync and no unmount
-(both would wait on that request)` - and exits 1 before `MU300-INSTALL-OK`, so neither installer writes the boot
+(both would wait on that request)` - and exits 1 before `OPENF50-INSTALL-OK`, so neither installer writes the boot
 image or `misc`. The EXIT trap (`sd_exit`) then flushes and unmounts nothing: a `sync` or an `umount` would hang on
 the same request. On the eMMC the stages run as before (`STAGE_DISK` empty): Android keeps the eMMC's counters
 moving, and it has not failed this way. When the stat file cannot be read the stall rule is off and the run says so;
-the limit still applies. The counters are read from `$MU300_SYSFS`, the clock is `date +%s`, the knobs for tests are
-`MU300_STAGE_STALL` and `MU300_STAGE_POLL`.
+the limit still applies. The counters are read from `$OPENF50_SYSFS`, the clock is `date +%s`, the knobs for tests are
+`OPENF50_STAGE_STALL` and `OPENF50_STAGE_POLL`.
 
-**3. No second run in the same Android boot.** A timeout writes `mu300-install.stalled` - the first line Android's
-`/proc/sys/kernel/random/boot_id`, the second the stage, the time and the reason - into `MU300_LOCK_DIR`
+**3. No second run in the same Android boot.** A timeout writes `openf50-install.stalled` - the first line Android's
+`/proc/sys/kernel/random/boot_id`, the second the stage, the time and the reason - into `OPENF50_LOCK_DIR`
 (`/data/local/tmp` for the computer installers, `/data/adb` for the zip, whose work directory is new each run and
 gone at its end). `android-install.sh` checks it before anything else; the Magisk installer checks it in `main`
 right after `env_check`, before the plan: a lock of the running boot is a refusal (`an earlier run of the installer
 timed out in this Android boot (stage unpack ubuntu, ...): the SD card request it waited on is still stuck in the
 kernel` / `reboot Android, then run the installer again`), a lock of an earlier boot is stale and removed, and a
 run that goes through removes its own. The zip also keeps the device script's output at
-`/data/adb/mu300-device-install.log` (mode 600) when that script fails, and says so; `install.sh` names its
+`/data/adb/openf50-device-install.log` (mode 600) when that script fails, and says so; `install.sh` names its
 `work/device-install.log`, `install.ps1` now writes one.
 
 Tests: `tests/test_android_install.py` (`Stages`: the stall and the deadline end a stage and its grandchild and
@@ -4278,8 +4278,8 @@ so nothing else is needed. In a container where the test runner is PID 1 the kil
 which the test counts as dead.
 
 Not done here, for a device with a card: (a) a card installation from a computer and from a zip must still go through,
-with `[device] creating ext4 mu300sd`, `installing <os>` and `MU300-INSTALL-OK` in the log, no `mu300-install.stalled`
-afterwards, and `mu300-stage.*` gone from the work directory; (b) the stall path itself - pull the card during the
+with `[device] creating ext4 openf50sd`, `installing <os>` and `OPENF50-INSTALL-OK` in the log, no `openf50-install.stalled`
+afterwards, and `openf50-stage.*` gone from the work directory; (b) the stall path itself - pull the card during the
 unpack, or hold the SD host's clock - must end the stage within about two minutes with the three lines above, leave
 the lock in `/data/local/tmp` or `/data/adb`, and the next run must be refused until a reboot, after which it must
 go through; (c) `cat /sys/class/block/mmcblk1/stat` must change while `tar` writes to the card (if the counters do
@@ -4290,35 +4290,35 @@ device script's PATH; (f) the boot image read-back on both installers: `dd` into
 in `strace` or by the file's existence while it runs.
 ### 51. SMS delivered directly (+CMT), acknowledged only once the pool has it; the SIM path stays as the fallback
 
-Until v2026.10.22 the panel's SMS pool (openwrt-luci: mu300-smsd, mu300-sms, §46) learned of a new message the
-roundabout way: the modem stored it on the SIM and said `+CMTI: "SM",n` on nr0, mu300-smsd saw the line in
-mu300-atd's URC log and ran `mu300-sms sync` (`AT+CMGL=4`, decode, pool, `AT+CMGD` per slot). Two writes to the SIM
+Until v2026.10.22 the panel's SMS pool (openwrt-luci: openf50-smsd, openf50-sms, §46) learned of a new message the
+roundabout way: the modem stored it on the SIM and said `+CMTI: "SM",n` on nr0, openf50-smsd saw the line in
+openf50-atd's URC log and ran `openf50-sms sync` (`AT+CMGL=4`, decode, pool, `AT+CMGD` per slot). Two writes to the SIM
 per message, a listing of the whole store, and the SIM as the only safe copy until the pool had it. kanoqwq's fork
 delivers directly instead (GSM 27.005 `+CNMI` with mt=2: the modem forwards the SMS-DELIVER as a `+CMT:` frame and
 waits for `AT+CNMA`); this is that mechanism, ported into this tree's layout.
 
-**Mechanism.** mu300-smsd starts as before: `AT+CNMI=2,1,0,0,0`, a first `sync` (what the SIM holds), then
-`AT+CMGF=0`, `AT+CSMS=1`, `AT+CNMI=3,2,2,0,1`. If any of the three is not `OK` (or `MU300_SMS_DIRECT=0` says not to
+**Mechanism.** openf50-smsd starts as before: `AT+CNMI=2,1,0,0,0`, a first `sync` (what the SIM holds), then
+`AT+CMGF=0`, `AT+CSMS=1`, `AT+CNMI=3,2,2,0,1`. If any of the three is not `OK` (or `OPENF50_SMS_DIRECT=0` says not to
 ask), `AT+CNMI=2,1,0,0,0` is asked again and only the +CMTI path runs, exactly as before. With direct delivery on
-(`/run/mu300-smsd.direct` exists) every new message comes as two lines on nr0, where +CMTI came too: `+CMT: ,<length>`
-and the PDU. mu300-atd's nr0 drainer (and its drain and collect on the command channel, should a frame come there)
-hands both lines to `mu300-cmt-spool` on its **stdin** - never argv, which is public - and that writes the PDU as
+(`/run/openf50-smsd.direct` exists) every new message comes as two lines on nr0, where +CMTI came too: `+CMT: ,<length>`
+and the PDU. openf50-atd's nr0 drainer (and its drain and collect on the command channel, should a frame come there)
+hands both lines to `openf50-cmt-spool` on its **stdin** - never argv, which is public - and that writes the PDU as
 `$POOL/incoming/cmt-<epoch>.<random>.ready` via mktemp and rename, fsyncing the file and the directory (busybox
 `fsync`, or coreutils `sync FILE`; never a global sync). The URC log gets one fixed word, `+CMT (PDU spooled)` or
 `+CMT (not spooled)`: not the header, which in text mode would carry the sender, and never the second line. A frame
 inside a reply is taken out of it (a client parsing `AT+CMGL` would read the PDU line as one of its own). Every 5 s
-mu300-smsd pools each `*.ready` with `mu300-sms import-pdu FILE` and **only then** sends `AT+CNMA=1`; an import or an
+openf50-smsd pools each `*.ready` with `openf50-sms import-pdu FILE` and **only then** sends `AT+CNMA=1`; an import or an
 acknowledgement that fails ends the round and is retried, three failed rounds in a row set the files aside as
 `*.failed` and fall back to the SIM path. `import-pdu` refuses anything the codec makes no message of, then parks the
 PDU in `$POOL/parts` (mktemp, rename, fsync) and absorbs the parked parts with the same decoding and grouping a SIM
 listing goes through, so a long message's parts wait for each other there as they did on the SIM, with the same
-`MU300_SMS_PARTIAL_WAIT`; the periodic sync lists the SIM and the parked parts together, so a part whose siblings
+`OPENF50_SMS_PARTIAL_WAIT`; the periodic sync lists the SIM and the parked parts together, so a part whose siblings
 never come is pooled after the hour, and the parts of one message join across the SIM (a class 2 part) and the air.
 The pool's dedupe (fingerprint, tombstones) applies: a message the modem delivers again after a lost acknowledgement
-is not pooled twice, and one deleted from the pool stays deleted. The daemon exports `MU300_AT_LOCK_WAIT=8`, so a
-client stuck on the AT channel cannot hold the receiver behind mu300-at's 90 s default. Everything that writes as root
+is not pooled twice, and one deleted from the pool stays deleted. The daemon exports `OPENF50_AT_LOCK_WAIT=8`, so a
+client stuck on the AT channel cannot hold the receiver behind openf50-at's 90 s default. Everything that writes as root
 into the pool (`import-pdu`, the spooler, the daemon's spool loop) refuses symbolic links and directories that are not
-ours (`own_dir`/`own_file`, mu300-update's lock rule) and makes the directories mode 700.
+ours (`own_dir`/`own_file`, openf50-update's lock rule) and makes the directories mode 700.
 
 **What the modem does (U30 Air, Vodafone TR).** `AT+CNMI=?` gives `(0-3),(0-3),(0-3),(0-2),(0-1)`, `AT+CSMS=?`
 `(0-1)`. It answers `OK` to `AT+CNMI=3,2,2,0,1` and then reports `+CNMI: 3,2,1,0,1` - it keeps a bm of its own, so
@@ -4331,22 +4331,22 @@ would need an acknowledgement of its own, which is the one thing that makes the 
 accident: the daemon was stopped between the frame and its import, the spool kept both PDUs, the restarted daemon
 imported and acknowledged them and `+CNMI?` still said `3,2,1,0,1`).
 
-**Device test** (`mu300-sms send 7000 KALAN`, the line answers within seconds):
+**Device test** (`openf50-sms send 7000 KALAN`, the line answers within seconds):
 
 ```
-daemon.info mu300-smsd[9008]: sync: 0 new, 0 on the SIM, 42 in the pool, 0 moved off the SIM
-daemon.err  mu300-smsd[9008]: mu300-smsd: direct delivery is on (+CMT frames into /etc/mu300/sms-pool/incoming)
-daemon.info mu300-smsd[9008]: import: 0 new, 43 in the pool, 1 waiting for its other parts
-daemon.err  mu300-smsd[9008]: mu300-smsd: pooled and acknowledged cmt-1791808049.ePLCmA.ready
-daemon.info mu300-smsd[9008]: new: 000049 from 7000 2026-10-12 15:27:29
-daemon.info mu300-smsd[9008]: import: 1 new, 44 in the pool
-daemon.err  mu300-smsd[9008]: mu300-smsd: pooled and acknowledged cmt-1791808053.iFAgce.ready
-# /run/mu300-at/urc/stty_nr0.log:   +CMT (PDU spooled)  (twice; no PDU, no header fields)
+daemon.info openf50-smsd[9008]: sync: 0 new, 0 on the SIM, 42 in the pool, 0 moved off the SIM
+daemon.err  openf50-smsd[9008]: openf50-smsd: direct delivery is on (+CMT frames into /etc/openf50/sms-pool/incoming)
+daemon.info openf50-smsd[9008]: import: 0 new, 43 in the pool, 1 waiting for its other parts
+daemon.err  openf50-smsd[9008]: openf50-smsd: pooled and acknowledged cmt-1791808049.ePLCmA.ready
+daemon.info openf50-smsd[9008]: new: 000049 from 7000 2026-10-12 15:27:29
+daemon.info openf50-smsd[9008]: import: 1 new, 44 in the pool
+daemon.err  openf50-smsd[9008]: openf50-smsd: pooled and acknowledged cmt-1791808053.iFAgce.ready
+# /run/openf50-at/urc/stty_nr0.log:   +CMT (PDU spooled)  (twice; no PDU, no header fields)
 # AT+CPMS? -> +CPMS: "ME",0,0,"ME",0,0,"ME",0,0        AT+CNMI? -> +CNMI: 3,2,1,0,1
-# mu300-sms show 49 -> sim index:   not on the SIM; ubus call mu300dash sms_list lists 000049 (the panel's page)
+# openf50-sms show 49 -> sim index:   not on the SIM; ubus call openf50dash sms_list lists 000049 (the panel's page)
 ```
 
-The fallback, forced with `MU300_SMS_DIRECT=0`: `the modem did not take direct delivery (or MU300_SMS_DIRECT=0); new
+The fallback, forced with `OPENF50_SMS_DIRECT=0`: `the modem did not take direct delivery (or OPENF50_SMS_DIRECT=0); new
 messages are stored on the SIM and announced (+CMTI)`, `+CNMI: 2,1,0,0,0`, and the same send answered through the old
 path - `+CMTI: "SM",2` in the URC log, `new: 000053 from 7000`, `sync: 1 new, 1 on the SIM, 48 in the pool, 2 moved
 off the SIM`, `sim index: 1,2`, the SIM empty again afterwards. The service restarted went back to direct delivery.
@@ -4357,20 +4357,20 @@ sync, joins a SIM part with an air part, refuses non-hex/odd/undecodable/overlon
 the parts directory, the pool), fsyncs the parked part before the pool is touched; the spooler writes mode 600 into a
 700 directory with the two fsyncs and nothing else, refuses bad frames and linked directories; the daemon (Linux
 only: it tells a live holder by `/proc`) asks for direct delivery after the first sync, acknowledges after the import
-and in spool order, falls back on each refusal and on `MU300_SMS_DIRECT=0` with +CMTI still working, never
+and in spool order, falls back on each refusal and on `OPENF50_SMS_DIRECT=0` with +CMTI still working, never
 acknowledges a failed import, gives up after three rounds, keeps the file when the ack is refused, puts the routing
-back when `+CNMI?` says the modem dropped it, sets a linked spool entry aside; mu300-atd on a pty spools a frame from
+back when `+CNMI?` says the modem dropped it, sets a linked spool entry aside; openf50-atd on a pty spools a frame from
 nr0, from inside a reply (kept out of the answer), from a drain, logs the fixed word only, drops a text-mode frame
 (sender and text reach nothing), and goes on without the spooler.
 
-**Ubuntu.** mu300-atd and the spooler are on every system, so a `+CMT` frame there is spooled too and never logged -
+**Ubuntu.** openf50-atd and the spooler are on every system, so a `+CMT` frame there is spooled too and never logged -
 but nothing on Ubuntu asks for direct delivery, and that is deliberate: the system's SMS tool, `sms`, has no daemon
 and no pool; `sms watch` polls the store (`AT+CPMS?`/`AT+CMGL`), which cannot miss a message, and `sms list`/`read`
 read the SIM. A message routed to the TE needs something running to acknowledge it, or the modem drops the routing
 and stores the next ones unannounced; a daemon with a pool is what openwrt-luci has and Ubuntu does not. So on Ubuntu
 the modem stays in its storage mode (the fork's smsd is openwrt-luci only here as well), and a PDU that ever lands in
-`/etc/mu300/sms-pool/incoming` there (someone set `AT+CNMI` mt=2 by hand) is kept, unacknowledged, for an
-`mu300-sms import-pdu` that does not exist on that system - documented rather than half-built.
+`/etc/openf50/sms-pool/incoming` there (someone set `AT+CNMI` mt=2 by hand) is kept, unacknowledged, for an
+`openf50-sms import-pdu` that does not exist on that system - documented rather than half-built.
 ### 52. The lock reset deleted the saved locks whether or not the modem took them: a verified reset
 
 `lock reset` (PR #99; the Locks page's "Reset all to automatic", and "Reset locks and switch" before an OS switch)
@@ -4382,7 +4382,7 @@ gone and the page reading back whatever the modem had. kanoqwq's fork (23361ce, 
 lock-job queue (`lock-apply.sh`, `lock-jobs.sh`) that was not wanted here. The semantics are ported onto our
 synchronous tool; the job queue is not.
 
-**What `lock reset` does now** (`openwrt/luci-app-mu300/root/usr/libexec/unisoc-modem/lock`):
+**What `lock reset` does now** (`openwrt/luci-app-openf50/root/usr/libexec/unisoc-modem/lock`):
 
 1. One reset at a time, as before (the apply directory; a dead holder's directory is taken over). A tombstone an
    earlier reset left (below) is finished first.
@@ -4407,7 +4407,7 @@ synchronous tool; the job queue is not.
    The replay switch (`auto_apply`) stays, as before.
 7. The result - `{"state":ok|failed|interrupted|running,"ts","end","pid","error","step","cmd"}` - goes to
    `/var/run/unisoc-modem/lock-reset.json` and to stdout (exit 1 on a failure). `lock get` carries it as `reset`, so
-   `mu300dash lock_get` does too: the page polls that, since the reset was already started detached from the rpcd
+   `openf50dash lock_get` does too: the page polls that, since the reset was already started detached from the rpcd
    call (`setsid lock reset`, PR #137's budget) and now takes 8-10 s plus whatever the radio lock makes it wait. A
    result still `running` whose pid is gone is reported as `interrupted`. A failed reset keeps the saved settings,
    says why ("Reset failed: ... The saved lock settings were kept."), and refreshes the cache, because the modem may
@@ -4417,9 +4417,9 @@ synchronous tool; the job queue is not.
 
 **Measured on F50-B** (openwrt-luci v2026.10.22, kernel 7.2.10, Netgsm on LTE B1, EARFCN 100, PCI 69):
 
-- `lock apply lte 1` (CLI, 5.3 s) and `mu300dash lock_set cell=lte:100,69` (rpcd, detached, done 6 s later) read back
+- `lock apply lte 1` (CLI, 5.3 s) and `openf50dash lock_set cell=lte:100,69` (rpcd, detached, done 6 s later) read back
   as `+SPLBAND: 0,0,0,1,0` and `+SPFORCEFRQ: 12,3,100,69`, saved as `lte=1`, `cell=lte:100,69`.
-- `mu300dash lock_set reset=auto`: `lock_get` showed `reset.state=ok` 10 s after the call; the log: writes and first
+- `openf50dash lock_set reset=auto`: `lock_get` showed `reset.state=ok` 10 s after the call; the log: writes and first
   read-back in 2 s, `SFUN 5 -> 4` 7 s, the second read-back matched at its first try, `reset verified (8s)`. Read-back
   afterwards: `SPTESTMODE 134,134,0,19,3,1`, `SP5GRAN 1`, `ENDC 1`, `SPLBAND=0 -> 0,482,0,149,0`,
   `SPLBAND=3 -> 0,0,0` (a cleared NR mask reads back empty here; after a boot the same modem reported the full set
@@ -4482,14 +4482,14 @@ and dash with busybox 1.37 as awk in a Debian container); not sent from a device
   concatenation, with no replacement string; the test that pins it fails with the old code only where awk is
   busybox, which is why the macOS run never saw it.
 
-* **What was added.** A body template of the user's own (`webhook_body` in `/etc/mu300/sms-forward.conf`, stored on
+* **What was added.** A body template of the user's own (`webhook_body` in `/etc/openf50/sms-forward.conf`, stored on
   one line like the message template) with `{sender}`, `{time}`, `{text}`, `{device}` and `{message}` (the message
   template filled in), and a third type, plain text. The type is the `Content-Type` - which stays the device's to
   set, never a header of the user's - and decides how a value is written into the body: JSON as the inside of a
   string (quote, backslash and every control character escaped; the quotes are the template's), form
   percent-encoded, text as it is. An empty body is the standard one, byte for byte what it was; for plain text that
   is the message alone.
-* **Why a message cannot break out of the body.** One awk function (`fill` in `mu300-sms-forward`, which the message
+* **Why a message cannot break out of the body.** One awk function (`fill` in `openf50-sms-forward`, which the message
   template now uses too) gets the template and the values in its environment and only copies them: no shell, no
   `eval`, no `awk -v` (which reads escapes), and one pass - a `{sender}` that arrives inside an SMS is text. The
   tests send a sender and a text made of quotes, backslashes, `","admin":true`, `$(...)`, backticks, `&d=e` and
@@ -4512,15 +4512,15 @@ button. Both are §58. Section 53 is PR #195's (the carrier name); this branch d
 
 ### 55. Imported Android files nobody but root could read: the CP was never loaded (#127, #135, #170)
 
-Three users' F50s (China Telecom SIMs, OpenWrt on an SD card, mainline 6.18 and 7.2) had no modem: `mu300-atd`
+Three users' F50s (China Telecom SIMs, OpenWrt on an SD card, mainline 6.18 and 7.2) had no modem: `openf50-atd`
 restarted every 10 s with `can't create /dev/stty_nr1: No such device`, `radio.log` repeated `no valid answer to the
 RIL handshake (AT+SMMSWAP=0)`, `/sys/kernel/debug/modem/modem` said `run_state: 255`, `modem_base: 0x0`. Two of them
-found the five imported trees under `/opt/mu300/android` (`dev-properties`, `vendor`, `system`, `apex`,
+found the five imported trees under `/opt/openf50/android` (`dev-properties`, `vendor`, `system`, `apex`,
 `linkerconfig`) `0700 root:root`, files and directories alike, and got a modem by `chmod`. PR #143 (v2026.10.20) had
 changed the account the daemons run as and the device nodes, not these files; #127's reporter measured v2026.10.20
 and it still failed.
 
-**Why the modes matter.** `modem_control` and `refnotify` do not stay root: `mu300vnd` through `setpriv` where the
+**Why the modes matter.** `modem_control` and `refnotify` do not stay root: `openf50vnd` through `setpriv` where the
 system has the account (§41), else their own `setuid(1000)`. They keep `CAP_CHOWN`/`CAP_BLOCK_SUSPEND` and
 `CAP_SYS_TIME`, nothing that reads past a mode. `cp_diskserver` stays root and does not care.
 
@@ -4554,10 +4554,10 @@ under `SEC_KBC_STOP_CP` is printed on a good start too; the sign is what follows
 the same baseband, starts the CP on 7.2.10 from that release's own Magisk zip (below), and with the files unreadable
 5.4 fails exactly as 7.2 does. So the kernel is not what differed between that device's boots; what did is not
 known (asked in the issue: the modes of the trees, the vendor log, and how each kernel was put on - a Magisk zip
-imports the files again, `mu300-update kernel` does not).
+imports the files again, `openf50-update kernel` does not).
 
 **The Magisk zip's import** was measured for that reason (`magisk --install-module
-mu300-magisk-v2026.10.22-openwrt-luci-k7.2.zip` on the F50-B, Magisk 30.6): the modem started (run = 1 at 14 s, data
+openf50-magisk-v2026.10.22-openwrt-luci-k7.2.zip` on the F50-B, Magisk 30.6): the modem started (run = 1 at 14 s, data
 at 32 s), so that path does not make 0700 here - but what it installed was wrong the other way. Under `magisk
 --install-module` the umask is 000, and `collect_subset` names only files, so tar made the directories itself: 16
 directories `0777`, `linkerconfig/ld.config.txt` `0666`. And tar keeps Android's owners: 32 libraries (bionic, the
@@ -4574,13 +4574,13 @@ do not depend on it.) Under a umask of 077 the same code makes `vendor/etc` 0700
   write, 6 ms. Else five `find ... -exec` set owner and modes (links untouched, `-xdev`), the check runs again, and
   one line says how many entries and the first - to stderr and to `/dev/kmsg`, because OpenWrt starts this service
   before its log daemon - with a `vendor-modes-repaired` (or `vendor-modes-wrong`) mark in the boot timeline. This
-  is the part that repairs an installed system: `mu300-update` carries the vendor files over as they are.
+  is the part that repairs an installed system: `openf50-update` carries the vendor files over as they are.
 * `tools/vendor-overlay.py`: `host_free_mode` - the mode of an entry from where it goes (the same rule), never
   from the host. The same exFAT volume now gives `drwxr-xr-x`, `-rwxr-xr-x` in `bin`, `-r--r--r--` properties,
   `-rw-r--r--` for the rest.
 * `tools/android-boot-image.sh`: `collect_subset`, `collect_gpu`, `collect_firmware` and `vendor_overlay` run under
   umask 022 whatever the caller has (the caller's is not changed), and the overlay is `chown -hR 0:0` before it is
-  packed. `mu300-install.sh` and `android-install.sh` set umask 022 at the top. On the F50-B under Magisk's busybox,
+  packed. `openf50-install.sh` and `android-install.sh` set umask 022 at the top. On the F50-B under Magisk's busybox,
   with the caller's umask 000 and 077: 334 `-r--r--r--`, 73 `-rw-r--r--`, 7 `-rwxr-xr-x`, 19 `drwxr-xr-x`, the
   property directory `drwx--x--x`, all `root/root`.
 * `android-vendor-start` makes `/var/log` before it starts `logdw`. On OpenWrt the service is S09 and `/var/log`
@@ -4595,10 +4595,10 @@ do not depend on it.) Under a umask of 077 the same code makes `vendor/etc` 0700
   `kbc_verify_all_avb2` at 13.8 s, `up on sipa_eth0` at 31.7 s, daemons uid 1000, `android-logcat.txt` written.
 - openwrt-luci as the v2026.10.22 zip had just installed it: `[   12.053529] android-vendor-start: 57 imported
   Android files and directories had an owner or a mode the vendor daemons cannot work with (the first:
-  /opt/mu300/android/vendor); now root's, 0755/0644/0444`; marks `vendor-start` 11.98, `vendor-modes-repaired`
+  /opt/openf50/android/vendor); now root's, 0755/0644/0444`; marks `vendor-start` 11.98, `vendor-modes-repaired`
   12.07; afterwards nothing world-writable, nothing not root's; `run = 1` at 14.0 s, data at 31.9 s.
 - Ubuntu 24.04, 7.2.10, all five trees 0700: 427 entries repaired between 9.16 s and 9.23 s, `run = 1` at 11.5 s,
-  data at 34.8 s, daemons `mu300vnd`. The boot after it: no line, no mark, the modes unchanged.
+  data at 34.8 s, daemons `openf50vnd`. The boot after it: no line, no mark, the modes unchanged.
 
 Not measured: a Magisk zip built from this branch and installed end to end (its import functions were run on the
 device; the zip was not rebuilt), 6.18, the U30 Air.
@@ -4607,8 +4607,8 @@ device; the zip was not rebuilt), 6.18, the U30 Air.
 
 "There is a problem in the VPN part, mihomo and the like" (no details, no issue): the non-default engines were run
 end to end on the U30 Air (OpenWrt openwrt-luci v2026.10.22, kernel 7.2.10, VPN module v2.0.0), from the command line
-and through the page's own calls (`ubus call mu300vpn ...`). What was broken is in the module, and written up there
-([mu300-linux-vpn FINDINGS 26i-26m](https://github.com/dikeckaan/mu300-linux-vpn/blob/main/docs/FINDINGS.md)): on a SIM
+and through the page's own calls (`ubus call openf50vpn ...`). What was broken is in the module, and written up there
+([openf50-linux-vpn FINDINGS 26i-26m](https://github.com/dikeckaan/mu300-linux-vpn/blob/main/docs/FINDINGS.md)): on a SIM
 whose carrier lets DNS through to its own resolvers only, sing-box, mihomo and dae never found their server
 (`BOOTSTRAP_DNS` 1.1.1.1 did not answer); a mihomo config with GEOSITE/GEOIP rules could not start, and switching to
 it took the working tunnel down; dae was stopped every 40 s by a start check that cannot pass on kernels from 6.6 on;
@@ -4618,13 +4618,13 @@ the page calls, did not exist.
 
 Two defects were the page's own. Its check asked for `profile check ID`, the spec's name for a command the module
 only has as `check ID`: the backend now calls `check ID`, which every module version answers (the module gets the
-other name too). And `mu300-vpn` ends a refused import, edit or switch with a line that says only that
+other name too). And `openf50-vpn` ends a refused import, edit or switch with a line that says only that
 nothing was done, after the line that says why:
 
     the mihomo config has no proxies or proxy-providers at the top level
     profile not added
 
-`mu300vpn`'s `cli` took the last line of stderr as the message, so every refused config read "The profile could not
+`openf50vpn`'s `cli` took the last line of stderr as the message, so every refused config read "The profile could not
 be added - profile not added" (and "The config was not saved - profile t-mh not changed"), whatever was wrong with
 it: a YAML without proxies, a link dae cannot take, a config mihomo rejects. `cli_message` now takes the line before
 such a closing line (`profile [ID] not added|changed`, `subscription [ID] not added|refreshed`, `profile ID does not
@@ -4698,11 +4698,11 @@ Found while reviewing the call audio and voice API branches on F50-B (2026-10-13
 * `boot/init` mounts `/run` as a plain tmpfs, which is mode 1777 - like `/tmp`, not the 0755 systemd would give it.
   Any local user (a service account, the vendor daemons' own account of 41) can make `/run/<name>` before the
   daemon that expects to own it: measured, an unprivileged user created a file there.
-* `mu300-voice` moved its state from `/tmp/mu300-voice` to `/run/mu300-voice`, which was the same exposure under
-  another name: pid files it kills, the mixer undo log it writes back, files root writes there. `mu300-atd` did
-  `mkdir -p /run/mu300-at` and looked no further: in a stranger's directory, or behind his symlink, the command
+* `openf50-voice` moved its state from `/tmp/openf50-voice` to `/run/openf50-voice`, which was the same exposure under
+  another name: pid files it kills, the mixer undo log it writes back, files root writes there. `openf50-atd` did
+  `mkdir -p /run/openf50-at` and looked no further: in a stranger's directory, or behind his symlink, the command
   fifo is his to write (AT commands, as root's daemon) and every answer his to read.
-* `rootfs/overlay/opt/mu300/lib/run-dir.sh`, one helper for both so the two cannot drift: `run_dir_ours` (a real
+* `rootfs/overlay/opt/openf50/lib/run-dir.sh`, one helper for both so the two cannot drift: `run_dir_ours` (a real
   directory, not a symlink; the daemon's own uid; not writable by group or others) and `run_dir_take`, which makes
   the directory that - a plain `mkdir`, never `mkdir -p` (through a symlink that makes the directory where it
   points). The first version of the check refused a foreign directory and stayed down until somebody removed it,
@@ -4712,17 +4712,17 @@ Found while reviewing the call audio and voice API branches on F50-B (2026-10-13
   (neither follows a symlink at that name, each fails harmlessly on the other kind), a directory with contents is
   moved whole into `/run/.<name>.foreign.<pid>` (made by `mkdir`: ours and 0700, or nothing is moved) and left
   there to be looked at, and what counts in the end is the check again. A caller who is not the owner (a member
-  of the voice group running `mu300-voice events`) gets the check alone and never creates the directory.
-* The headset's control fifo moved from `/run/mu300-hfp.ctl` into `/run/mu300-voice`, and
-  `/etc/tmpfiles.d/mu300-run.conf` makes both directories at boot.
-* `/run/mu300-at/urc` is 0700 now: with caller id on (`AT+CLIP=1`, which `mu300-voice` sets) every ring writes
+  of the voice group running `openf50-voice events`) gets the check alone and never creates the directory.
+* The headset's control fifo moved from `/run/openf50-hfp.ctl` into `/run/openf50-voice`, and
+  `/etc/tmpfiles.d/openf50-run.conf` makes both directories at boot.
+* `/run/openf50-at/urc` is 0700 now: with caller id on (`AT+CLIP=1`, which `openf50-voice` sets) every ring writes
   the caller's number into that log, which was world-readable. Every reader is root.
 
 Measured on F50-B as root under dash, bash and busybox ash: a directory made first by another user (with a fifo
 named `cmd` in it) and a symlink to `/etc` were both put out of the way, `/etc` untouched, the second call silent;
-`mu300-voice status` then answered. Open: `/run` is still 1777 - `mount -t tmpfs -o mode=755` in `boot/init` is
-the real fix, and it is a boot change that wants its own device test. `/run/mu300-at/answer.<pid>` and
-`/run/mu300/` are as they were.
+`openf50-voice status` then answered. Open: `/run` is still 1777 - `mount -t tmpfs -o mode=755` in `boot/init` is
+the real fix, and it is a boot change that wants its own device test. `/run/openf50-at/answer.<pid>` and
+`/run/openf50/` are as they were.
 ### 58. A service's own error in an HTTP 200 answer to the SMS webhook, and a button that clears the delivery log (#171)
 
 The two points §54 left open. The webhook counted any 2xx as "Delivered"; chat services answer 200 and put their
@@ -4730,7 +4730,7 @@ refusal in the body. Measured on the U30 Air (openwrt-luci v2026.10.23, kernel 7
 LAN that answers like the services; **not sent to any real service**.
 
 * **One rule the user sets, not a table of services.** "The answer must contain": `KEY=VALUE` (`webhook_expect` in
-  `/etc/mu300/sms-forward.conf`). With it, a 2xx is a delivery only when the answer is a JSON object whose
+  `/etc/openf50/sms-forward.conf`). With it, a 2xx is a delivery only when the answer is a JSON object whose
   **top-level** `KEY` is the scalar `VALUE`. Empty (the default, and what a page from before the field sends): any
   2xx, exactly as before - the helper is not even asked for the answer then. The page's presets (`errcode=0`,
   `code=0`, `code=200`, `ok=true`) only fill the field in. A table of services in the code would be wrong the day
@@ -4748,9 +4748,9 @@ LAN that answers like the services; **not sent to any real service**.
   | DingTalk custom robot | **not read from its own documentation**: open.dingtalk.com renders its pages by script and gave navigation only. Alibaba Cloud's help page quotes the reply `310000: sign not match`; `{"errcode":0,"errmsg":"ok"}` is what every third-party write-up shows | `errcode=0` | help.aliyun.com/document_detail/421895.html |
 
 * **Where the answer is read, and what leaves that place.** `sms-forward-http.uc` still prints the status and nothing
-  of the reply. Only when the caller sets `MU300_FWD_ANSWER=4096` in its environment (never the request, which the
+  of the reply. Only when the caller sets `OPENF50_FWD_ANSWER=4096` in its environment (never the request, which the
   user writes) does it add the first 4096 bytes of a **2xx** reply's body after the status line; the rest is read and
-  dropped as before. Those bytes go down a pipe into one awk (`answer_verdict` in `mu300-sms-forward`), which keeps at
+  dropped as before. Those bytes go down a pipe into one awk (`answer_verdict` in `openf50-sms-forward`), which keeps at
   most 4096 bytes in memory and prints one line: `answer ok`, `answer differs [TOKEN]` or `answer none`. Nothing
   else of an answer exists outside that pipe: no file, no shell variable, no log.
 * **Why awk and not `jsonfilter` or ucode's `json()`.** A parser refuses an answer cut at 4096 bytes, and a delivery
@@ -4774,7 +4774,7 @@ LAN that answers like the services; **not sent to any real service**.
     number - is `the service answered another errcode`, without it.
   * One message, `no errcode in the answer`, for a missing key, an object or list under it, an empty answer,
     something that is no JSON object, and a key beyond the first 4096 bytes: no length, no type, no excerpt.
-  * "Send test" from the panel is refused when another was started under 5 s ago (`mu300-sms-forward test-gate`,
+  * "Send test" from the panel is refused when another was started under 5 s ago (`openf50-sms-forward test-gate`,
     asked by the adapter; the command line's own `test` is root's and is not gated). The page's other actions have
     no such limit; this one is the only way to ask about an answer at will, and one test at a time was already the
     rule (the `test` lock).
@@ -4794,11 +4794,11 @@ LAN that answers like the services; **not sent to any real service**.
   ten retries would then be ten copies of every SMS. A rule in the file that is not such a `KEY=VALUE` (the panel
   never writes one) sends nothing: `the answer check is not KEY=VALUE`.
 * **"Send test"** goes through the same `deliver`, so it shows the same verdict.
-* **Clear.** `forward_log_clear` (write ACL, no argument) -> `forward logclear` -> `mu300-sms-forward log-clear`,
-  which unlinks `/run/mu300-sms-forward/log` (and `log.part`) and never opens it: a link at that name goes, what it
+* **Clear.** `forward_log_clear` (write ACL, no argument) -> `forward logclear` -> `openf50-sms-forward log-clear`,
+  which unlinks `/run/openf50-sms-forward/log` (and `log.part`) and never opens it: a link at that name goes, what it
   points to stays. The queue and the retry state are not touched.
 
-Measured on the device, through `ubus call mu300dash forward_set` / `forward_test` / `forward_get` (forwarding
+Measured on the device, through `ubus call openf50dash forward_set` / `forward_test` / `forward_get` (forwarding
 itself left off; the device has no `timeout` command, so the helper ran without one):
 
 | The fake service answered | Rule | Log |
@@ -4823,7 +4823,7 @@ started. Through the queue (the installed forwarder on a pool, configuration and
 service that answers `errcode=-1` once and then `errcode=0` gave "Will retry", then "Delivered" after 2 s;
 `errcode=310000` every time gave two retries and "gave up after 3 attempts"; a missing key gave one "Failed" and one
 request. After all of it neither the answers' marker text nor `hunter2` was in any regular file under `/run`,
-`/tmp`, `/var` or `/etc/mu300`, nor in `logread`. `forward_log_clear` emptied a log of 29 lines; with a link at the
+`/tmp`, `/var` or `/etc/openf50`, nor in `logread`. `forward_log_clear` emptied a log of 29 lines; with a link at the
 log's name, the link went and its target kept its content; the next test wrote a new 0600 file. In a headless
 browser (Playwright) the page showed the field, a preset filled it in, Save kept it and Clear emptied the table
 (looked at before the rule and the messages were narrowed; the page's script did not change after).
@@ -4859,8 +4859,8 @@ a device:
 
 The control panel of openwrt-luci keeps its state in `/etc/unisoc-modem`: `lock-state.d` (the network mode, band
 and cell locks it applied, which `boot-replay` applies again at boot), the SIM identity cache and the operations
-log. `mu300-update` builds the new system from the release's image and copies over what `keep_list` names; for
-OpenWrt that was `etc/config etc/mu300 etc/dropbear etc/rc.local root`, and `tools/android-install.sh` has its own
+log. `openf50-update` builds the new system from the release's image and copies over what `keep_list` names; for
+OpenWrt that was `etc/config etc/openf50 etc/dropbear etc/rc.local root`, and `tools/android-install.sh` has its own
 copy of the list for an update from the computer. `/etc/unisoc-modem` was in neither, so every update left it
 behind in `<os>.old`.
 
@@ -4877,7 +4877,7 @@ the two lists are the same). To check on a device with openwrt-luci:
 
     # before the update: a band lock and a cell lock saved from the panel (Cellular -> Network locks)
     ls -l /etc/unisoc-modem/lock-state.d; /usr/libexec/unisoc-modem/lock get
-    mu300-update apply && reboot
+    openf50-update apply && reboot
     # after: the same files, the lock page shows the locks, and the log has the boot replay
     ls -l /etc/unisoc-modem/lock-state.d; /usr/libexec/unisoc-modem/lock get; logread -e unisoc-modem
     # the same once from the computer: install.sh --update (tools/android-install.sh's list)
@@ -4885,7 +4885,7 @@ the two lists are the same). To check on a device with openwrt-luci:
 ### 63. A reused SMS reference number mixed long messages, or kept them from ever being joined
 
 The parts of a long (concatenated) message carry a reference number, a total and a part number in their user data
-header. Both `sms` (every system) and `mu300-sms` (the panel's pool on openwrt-luci, the SIM path and the +CMT path
+header. Both `sms` (every system) and `openf50-sms` (the panel's pool on openwrt-luci, the SIM path and the +CMT path
 of section 51 alike) took **sender and reference number** as the identity of a message. The reference is eight bits
 wide in most headers; senders count it up, draw it at random, or send every long message under the same one. So the
 same sender and reference come round again, and two things went wrong, both found by reading and reproduced in unit
@@ -4918,7 +4918,7 @@ that a part delivered again is recognised. Changed against it:
 - Two messages of one sender, reference, total and second (a sender that numbers everything 0 and sends twice in a
   second) are told apart by a part number that is taken with another text; the parts go to the messages in the order
   they came. The fork refuses such a part and does not acknowledge it. Here a refused import is never acknowledged,
-  the network delivers it again, and three failed rounds make `mu300-smsd` give direct delivery up (section 51), so
+  the network delivers it again, and three failed rounds make `openf50-smsd` give direct delivery up (section 51), so
   one hostile or unlucky sender could switch +CMT off; a best guess that loses nothing was preferred.
 - A concatenation header that says nothing usable (part 0, part 5 of 3, no parts, an element of the wrong length or
   cut off by the header's end) makes the fork's decoder refuse the PDU. Ours now shows the text as a message of its
@@ -4931,9 +4931,9 @@ that a part delivered again is recognised. Changed against it:
   the same ten minutes of the pooled message's (`sms-pdu.awk -v mode=near`).
 - `part_ids: <md5 of each part's PDU>` on every long message in the pool, also on one pooled incomplete, and among
   the tombstones when it is deleted. A part delivered again (the acknowledgement of the last part did not reach the
-  network: `mu300-smsd` keeps the spool file and imports it once more, section 51) used to be parked alone, wait
+  network: `openf50-smsd` keeps the spool file and imports it once more, section 51) used to be parked alone, wait
   its hour and be pooled and forwarded as an incomplete message of its own; it is now dropped as known.
-- The listings `mu300-sms` keeps in `/tmp` while it works hold message text; they are now made with umask 077 (the
+- The listings `openf50-sms` keeps in `/tmp` while it works hold message text; they are now made with umask 077 (the
   first of them always was, by mktemp; the others took the caller's umask).
 
 What the fork does and this does not: it holds waiting parts in a directory of their own with one file per part and
@@ -4946,9 +4946,9 @@ any of it on a device with a real long message. To check on a device with openwr
 
     logread -f | grep -i sms &                       # must never show a number or text
     # 1. a long message (three parts or more) from the phone: one message in the pool, whole
-    mu300-sms list; mu300-sms show ID
-    grep -c . /etc/mu300/sms-pool/partial 2>/dev/null; ls /etc/mu300/sms-pool/parts    # nothing left waiting
-    sed -n '1,/^$/p' /etc/mu300/sms-pool/msg/ID      # a part_ids line with one hash per part
+    openf50-sms list; openf50-sms show ID
+    grep -c . /etc/openf50/sms-pool/partial 2>/dev/null; ls /etc/openf50/sms-pool/parts    # nothing left waiting
+    sed -n '1,/^$/p' /etc/openf50/sms-pool/msg/ID      # a part_ids line with one hash per part
     # 2. the same long message twice within a minute, then again after 15 minutes: three messages, each whole
     # 3. with the panel's forwarding on: each of them forwarded once, whole
     # 4. Ubuntu, or any system: sms list  with those still on the SIM (AT+CNMI=2,1 path): each shown whole
@@ -4956,7 +4956,7 @@ any of it on a device with a real long message. To check on a device with openwr
 ### 65. An APN with a user name and a password (`AT+CGPCO`), and what else kanoqwq's APN page does
 
 Until now the dial knew an APN and a PDP type and nothing else: `network.wan.apn` / `pdptype` on OpenWrt (LuCI,
-Network -> Interfaces -> wan), `MU300_APN` / `MU300_PDP_TYPE` in `/etc/mu300/mobile-data.conf` on Ubuntu, both kept
+Network -> Interfaces -> wan), `OPENF50_APN` / `OPENF50_PDP_TYPE` in `/etc/openf50/mobile-data.conf` on Ubuntu, both kept
 across updates. An APN that asks for credentials (a private APN, some MVNOs) could not be used at all.
 
 kanoqwq's fork added an APN page to its dashboard (clean-tf-7.2 `3826be8b`, "add persistent APN management and safe
@@ -4973,8 +4973,8 @@ SIM, taken from the stock RIL's trace: `AT+CGPCO=0,"","",1,0` between its `AT+CG
 Taken: that command and its place in the dial. Not his code: his dialer part is bash regular expressions in
 `mobile-data` and a ucode profile store behind his dashboard's RPC. Ours:
 
-- `mobile-data`'s context definition is a function of its own, `define_context`. With `MU300_APN_USER`,
-  `MU300_APN_PASSWORD` and `MU300_APN_AUTH` (`none`, `pap`, `chap`, `both`; left out with a user name or a
+- `mobile-data`'s context definition is a function of its own, `define_context`. With `OPENF50_APN_USER`,
+  `OPENF50_APN_PASSWORD` and `OPENF50_APN_AUTH` (`none`, `pap`, `chap`, `both`; left out with a user name or a
   password: `both`, as Android does) it sends the command above after `AT+CGDCONT` and requires `OK`.
 - OpenWrt: `username`, `password`, `auth` on the wan interface, on the interface's page next to the APN, for the
   external SIM (the internal one dials its own APN, and is never offered another carrier's credentials). Ubuntu:
@@ -4986,13 +4986,13 @@ Taken: that command and its place in the dial. Not his code: his dialer part is 
 
 | | |
 |---|---|
-| command lines | never. `mu300-at -` (new) takes the command on its stdin, and `mobile-data` uses that for this one command; `mu300cell.sh` hands the settings to `mobile-data` in its environment. As an argument it would be in `ps` for every user of the system. |
-| environment of other processes | `mobile-data` takes the credentials out of its environment before it starts anything, so `mu300-at`, `mu300-sim`, the LED, the VPN guard inherit none. `/proc/<pid>/environ` of the services is root's. |
-| logs, stderr, traces | never printed. Every refusal says what, not with what. `set -x` is off while the credentials are read and while `define_context` runs. `/tmp/mu300cell.err` and the system log get `mobile-data`'s stderr, which never holds them. |
-| the AT daemon | `mu300-atd` writes its answer files mode 600 now (a modem that echoes commands would put the command there, and the file of a client that gave up stays behind), and throws a late echo (a line that starts with `AT`) away instead of appending it to the URC log. Whether this modem echoes at all is not measured. |
-| settings files | `/etc/config/network` (OpenWrt) and `/etc/mu300/mobile-data.conf` (Ubuntu), written by the user, uci or LuCI, never by these scripts. One function for both, `settings_private`: before credentials are used the file is made mode 600, and unless it then is the owner's alone there is **no dial**. A link is not followed to change anything; what it leads to must be private already. OpenWrt's first boot makes `/etc/config/network` 600 (uci keeps the mode), so it is private before anybody types a password; the example file says `install -m 600`. A release tarball that holds `mobile-data.conf` is refused by `make-release.sh`. |
-| who can read it on OpenWrt | root; and a LuCI login that was granted the network settings (rpcd's `uci` ACL on `network`), the same as a PPPoE password or a WireGuard key. The panel's own ACL (`luci-app-mu300`) grants `uci` on `unisoc_modem` only. `ubus call network.interface.wan status` and `ifstatus wan` show no protocol options, by reading netifd and the handler, which adds no data to them (the commands below check it on a device). A password typed into the panel's AT terminal by hand is in that terminal's history, like anything typed there. |
-| the modem | holds them once given (`AT+CGPCO?` would show them to root). `/etc/mu300/apn-auth-set.sim0` (`.sim1` for the internal card), an empty file, says so: one per card, since each has its own context. |
+| command lines | never. `openf50-at -` (new) takes the command on its stdin, and `mobile-data` uses that for this one command; `openf50cell.sh` hands the settings to `mobile-data` in its environment. As an argument it would be in `ps` for every user of the system. |
+| environment of other processes | `mobile-data` takes the credentials out of its environment before it starts anything, so `openf50-at`, `openf50-sim`, the LED, the VPN guard inherit none. `/proc/<pid>/environ` of the services is root's. |
+| logs, stderr, traces | never printed. Every refusal says what, not with what. `set -x` is off while the credentials are read and while `define_context` runs. `/tmp/openf50cell.err` and the system log get `mobile-data`'s stderr, which never holds them. |
+| the AT daemon | `openf50-atd` writes its answer files mode 600 now (a modem that echoes commands would put the command there, and the file of a client that gave up stays behind), and throws a late echo (a line that starts with `AT`) away instead of appending it to the URC log. Whether this modem echoes at all is not measured. |
+| settings files | `/etc/config/network` (OpenWrt) and `/etc/openf50/mobile-data.conf` (Ubuntu), written by the user, uci or LuCI, never by these scripts. One function for both, `settings_private`: before credentials are used the file is made mode 600, and unless it then is the owner's alone there is **no dial**. A link is not followed to change anything; what it leads to must be private already. OpenWrt's first boot makes `/etc/config/network` 600 (uci keeps the mode), so it is private before anybody types a password; the example file says `install -m 600`. A release tarball that holds `mobile-data.conf` is refused by `make-release.sh`. |
+| who can read it on OpenWrt | root; and a LuCI login that was granted the network settings (rpcd's `uci` ACL on `network`), the same as a PPPoE password or a WireGuard key. The panel's own ACL (`luci-app-openf50`) grants `uci` on `unisoc_modem` only. `ubus call network.interface.wan status` and `ifstatus wan` show no protocol options, by reading netifd and the handler, which adds no data to them (the commands below check it on a device). A password typed into the panel's AT terminal by hand is in that terminal's history, like anything typed there. |
+| the modem | holds them once given (`AT+CGPCO?` would show them to root). `/etc/openf50/apn-auth-set.sim0` (`.sim1` for the internal card), an empty file, says so: one per card, since each has its own context. |
 
 **Nothing falls back to a dial without them, and nothing stays behind.** Credentials that cannot be used (a quote,
 a control character, 65 characters, an unknown authentication), credentials without an APN, a settings file others
@@ -5003,8 +5003,8 @@ only when the modem has answered `OK` to the empty form. So credentials taken ou
 to one without any, are taken back from the modem before the next dial; and a modem that does not let go of them
 gets no dial, rather than one that presents the old user name and password to the new APN's network.
 
-One fault of the old code came out on the way: `mu300-power`'s `mobile-data resume` and a `mobile-data up` run by
-hand have no environment from systemd, so on Ubuntu they dialled without `MU300_APN` (the modem usually still had
+One fault of the old code came out on the way: `openf50-power`'s `mobile-data resume` and a `mobile-data up` run by
+hand have no environment from systemd, so on Ubuntu they dialled without `OPENF50_APN` (the modem usually still had
 the context, which hid it). With credentials that would have been a dial without them. `mobile-data` now reads what
 its environment does not say from `mobile-data.conf` itself, on every run (parsed as `KEY=VALUE`, never executed).
 
@@ -5020,7 +5020,7 @@ Not taken, and why:
   ("the modem keeps the context the SIM already defines"); whether a context once defined by `AT+CGDCONT` outlives
   the setting (it is in the modem's NV on other Unisoc firmware) has not been measured here. If it does, an APN
   taken out of the settings stays in force until something else defines the context. To measure before changing
-  anything: `mu300-at 'AT+CGDCONT?'` before setting an APN, with it, after removing it and redialling, and after a
+  anything: `openf50-at 'AT+CGDCONT?'` before setting an APN, with it, after removing it and redialling, and after a
   reboot.
 - The patched `block-mount` of the same commit (and `0886ee00`, which fixes its build): fstools' `block info`
   opens everything that matches `/dev/sd*`, which on this SoC includes the SIPC channel nodes (`sdiag_*` and the
@@ -5030,38 +5030,38 @@ Not taken, and why:
   image build and a device to see both the fault and the fix, neither of which this work had. Worth doing before
   anybody documents mount points on a card. His guard header is LGPL-2.1-or-later (fstools' own licence).
 
-Unit tests only: `tests/test_mu300cell.py` (`MobileDataContext`: the commands and their order for both cards; in
-every run the password on `mu300-at`'s stdin and in no argument, no child's environment, no output and no trace;
+Unit tests only: `tests/test_openf50cell.py` (`MobileDataContext`: the commands and their order for both cards; in
+every run the password on `openf50-at`'s stdin and in no argument, no child's environment, no output and no trace;
 the refusals; the settings file gate for both systems; the mark; the file read by a run without an environment;
-and the protocol handler), `tests/test_device_scripts.py` (`mu300-at -`; `mu300-atd` on a pty with a modem that
+and the protocol handler), `tests/test_device_scripts.py` (`openf50-at -`; `openf50-atd` on a pty with a modem that
 echoes), `tests/test_sim_selection.py`. **No part of this has been sent to a modem**: neither that the F50/U30 Air
 firmware answers `OK` to the command with credentials on the external SIM's context, nor that it answers `OK` to
 the empty form there (if it does not, removing credentials ends in "did not take back the earlier APN credentials"
-and no dial, until `rm /etc/mu300/apn-auth-set.sim0`), nor that a network then accepts them. To check, with a SIM whose
+and no dial, until `rm /etc/openf50/apn-auth-set.sim0`), nor that a network then accepts them. To check, with a SIM whose
 APN checks credentials (or any SIM: most public APNs accept any user name and password, which shows the command is
 taken, not that it is used):
 
     # OpenWrt
     uci set network.wan.apn='<apn>'; uci set network.wan.username='<user>'; uci set network.wan.password='<password>'
     uci set network.wan.auth='chap'; uci commit network; ifup wan
-    logread -e mu300cell; cat /tmp/mu300cell.err      # no "refused the APN credentials", and never the password
+    logread -e openf50cell; cat /tmp/openf50cell.err      # no "refused the APN credentials", and never the password
     ifstatus wan | grep -m1 '"address"'; ping -c 3 1.1.1.1
     ifstatus wan | grep -c '<password>'; ubus call network.interface dump | grep -c '<password>'    # 0 and 0
     grep -rl '<password>' /run /tmp /var/log 2>/dev/null     # nothing (logread | grep -c '<password>': 0)
-    mu300-at 'AT+CGDCONT?'; mu300-at 'AT+CGPCO?'      # what the modem holds (CGPCO? may not be answered)
-    mu300-at 'ATE?'; cat /run/mu300-at*/urc/*.log     # does the modem echo; nothing of the command in the log
-    ls -l /etc/mu300/apn-auth-set.sim0 /etc/config/network # the mark; network is -rw-------
+    openf50-at 'AT+CGDCONT?'; openf50-at 'AT+CGPCO?'      # what the modem holds (CGPCO? may not be answered)
+    openf50-at 'ATE?'; cat /run/openf50-at*/urc/*.log     # does the modem echo; nothing of the command in the log
+    ls -l /etc/openf50/apn-auth-set.sim0 /etc/config/network # the mark; network is -rw-------
     # while it dials, from a second shell: no AT+CGPCO in any command line or environment
     while :; do grep -a -l CGPCO /proc/[0-9]*/cmdline 2>/dev/null; done
     # take them out again: the next dial sends AT+CGPCO=0,"","",1,0 once, the mark is gone, data still comes up
     uci delete network.wan.username; uci delete network.wan.password; uci delete network.wan.auth
-    uci commit network; ifup wan; ls /etc/mu300/apn-auth-set.sim0; logread -e mu300cell | tail -3
+    uci commit network; ifup wan; ls /etc/openf50/apn-auth-set.sim0; logread -e openf50cell | tail -3
     # refusals: chmod 644 /etc/config/network is put right by the dial (600 again); a user name without an APN
     #   gives "set without an APN" in the log and no address
     # a wrong password on an APN that checks it: the dial fails at the network (no address), nothing in the log
-    # Ubuntu: the same three as MU300_APN_USER, MU300_APN_PASSWORD, MU300_APN_AUTH in /etc/mu300/mobile-data.conf,
-    #   systemctl restart mu300-mobile-data; journalctl -u mu300-mobile-data -n 30; stat -c %a /etc/mu300/mobile-data.conf
-    #   then: mu300-power's suspend and resume (or  mobile-data down; mobile-data up  by hand): the APN and the
+    # Ubuntu: the same three as OPENF50_APN_USER, OPENF50_APN_PASSWORD, OPENF50_APN_AUTH in /etc/openf50/mobile-data.conf,
+    #   systemctl restart openf50-mobile-data; journalctl -u openf50-mobile-data -n 30; stat -c %a /etc/openf50/mobile-data.conf
+    #   then: openf50-power's suspend and resume (or  mobile-data down; mobile-data up  by hand): the APN and the
     #   credentials are used again (AT+CGDCONT? shows the APN)
     # the F50's internal SIM (sim_slot 1) once without credentials: it dials as before
 ### 70. adb to Linux on by default and open to every computer: the owner's decision, the exposure, and the state that decides it
@@ -5081,25 +5081,25 @@ vsock listener in either mode (below), so nothing changes for the LAN, the hotsp
 Before this change physical access already gave the same to someone with time (the serial console asks for a
 password, but the boot image and the filesystem are not encrypted or verified); what changes is that it now takes a
 cable and a second. The two commands that close it are in the README, the wiki (Installation, FAQ, Home, Glossary),
-the release notes' body, the installers' question and summary, and in the output of `mu300-usb adb on|auth|status`:
-`sudo mu300-usb adb auth keys` (only authorised keys) and `sudo mu300-usb adb off`.
+the release notes' body, the installers' question and summary, and in the output of `openf50-usb adb on|auth|status`:
+`sudo openf50-usb adb auth keys` (only authorised keys) and `sudo openf50-usb adb off`.
 
-**How adbd decides.** `mu300-adbd.patch` set `auth_required = true` on Linux unconditionally (§43). AOSP's own switch
+**How adbd decides.** `openf50-adbd.patch` set `auth_required = true` on Linux unconditionally (§43). AOSP's own switch
 is the property `ro.adb.secure` (0: `handle_new_connection` answers a `CNXN` with "authentication not required" and
 the transport is online at once; 1: it sends an `AUTH` token and waits for a signature of an authorised key). There
 are no Android properties on our systems, so the patch reads one environment variable instead:
-`MU300_ADB_AUTH=open` is `ro.adb.secure=0`, and a missing variable or any other value is `ro.adb.secure=1`.
-`mu300-adbd run` sets it when it starts adbd, from the state below. Nothing else in the patch assigns
+`OPENF50_ADB_AUTH=open` is `ro.adb.secure=0`, and a missing variable or any other value is `ro.adb.secure=1`.
+`openf50-adbd run` sets it when it starts adbd, from the state below. Nothing else in the patch assigns
 `auth_required`, and the listeners are untouched: adbd still returns before `setup_adb` on Linux, the `tcpip:`
 service (Android's `service.adb.tcp.port`) is inside `#if defined(__ANDROID__)` and `restart_service.cpp` is not in
-`CMakeLists.txt`. Checked on the binary built from this patch (2,493,480 bytes): `strings` finds `MU300_ADB_AUTH`
+`CMakeLists.txt`. Checked on the binary built from this patch (2,493,480 bytes): `strings` finds `OPENF50_ADB_AUTH`
 and "authentication not required", and none of `service.adb.tcp.port`, `ADBD_PORT`, `adbd listening on`.
 
-**The state, and which reading wins.** Two files in `/etc/mu300`, written by `mu300-usb`: `adb` (`on`/`off`) and
-`adb_auth` (`open`/`keys`). `/etc/mu300` is part of the root filesystem, so there is no mount to wait for at boot,
-and `mu300-update apply` copies the directory whole into the new system (`keep_list`, `cp -a`: owner and modes
+**The state, and which reading wins.** Two files in `/etc/openf50`, written by `openf50-usb`: `adb` (`on`/`off`) and
+`adb_auth` (`open`/`keys`). `/etc/openf50` is part of the root filesystem, so there is no mount to wait for at boot,
+and `openf50-update apply` copies the directory whole into the new system (`keep_list`, `cp -a`: owner and modes
 stay), so a choice is not lost by an update; `tests/test_update.py` has `off`, `keys` and a key in the system that
-is replaced. The rules (`mu300-adbd`: `adb_on`, `auth_read`):
+is replaced. The rules (`openf50-adbd`: `adb_on`, `auth_read`):
 
 | What is there | adb | Who is let in |
 |---|---|---|
@@ -5111,19 +5111,19 @@ is replaced. The rules (`mu300-adbd`: `adb_on`, `auth_read`):
 | `adb_auth` = `keys` | as `adb` says | keys |
 | `adb_auth` empty, cut short, unreadable, a symlink, writable by group or others, or any other word | as `adb` says | keys, and the log and `adb status` say why |
 | `adb` there and neither `on` nor `off` (empty, cut short) | **off**, and the log says why | - |
-| `/etc/mu300` missing, not root's, or writable by group or others | on | keys, and the log says why |
+| `/etc/openf50` missing, not root's, or writable by group or others | on | keys, and the log says why |
 | keys, and no key in either file | on | **nobody** (adbd has nothing a signature could match and no socket through which a key could be approved; measured in §43: `unauthorized` with the key file taken away) |
 
 So "open" has exactly two sources: no state at all, or the word `open` in a whole file that only root can write.
 A state that somebody set and that was damaged afterwards is never read as the default.
 
 * **Existing installations.** The old state file can tell "never set" (no file) from "set to off" (`off`), so a
-  device where `mu300-usb adb off` was run stays off. A device that never touched adb turns on, and open, with the
+  device where `openf50-usb adb off` was run stays off. A device that never touched adb turns on, and open, with the
   update: that is what the decision asks for, and the release notes must say it. A device where adb was turned on,
-  or a key authorised, under v2026.10.20-23 chose keys-only adb, and keeps it: `mu300-usb` writes `adb_auth` with
+  or a key authorised, under v2026.10.20-23 chose keys-only adb, and keeps it: `openf50-usb` writes `adb_auth` with
   every `adb on`, `off`, `key` and `auth` since, so "no `adb_auth`, but `on` or a key" can only be such a device.
-  It becomes open with `sudo mu300-usb adb auth open`.
-* **Written whole.** `mu300-usb` writes both files as a new file renamed over the old one (`adb_write`): a power cut
+  It becomes open with `sudo openf50-usb adb auth open`.
+* **Written whole.** `openf50-usb` writes both files as a new file renamed over the old one (`adb_write`): a power cut
   leaves the old word or the new one. A new file that the filesystem did not get to fill would be empty, which
   reads as keys (or off). The rename also replaces a symlink instead of writing through it; the new file is
   created with noclobber, mode 644 (anyone may read whom adb lets in), and the key file stays 600.
@@ -5133,11 +5133,11 @@ A state that somebody set and that was damaged afterwards is never read as the d
   its systems start open. A build of one's own (`install.sh --build`) builds adbd always.
 
 **Where adb cannot be on.** A mainline kernel from before v2026.10.20 (no `CONFIG_USB_CONFIGFS_F_FS`; a system
-updated without its kernel: `mu300-update kernel` brings one); an image without `/opt/mu300/bin/adbd` (built without
-`tools/adbd/adbd`, or older than v2026.10.20); the U30 Air while its port is a USB host (`mu300-usb host`: there is
-no gadget, `mu300-adbd` leaves it alone and binds again in the device role); and the seconds before the system's
-`mu300-adbd` service starts (boot/init makes the gadget without adb, so the fallback to Android and init's own
-recovery shell are as they were). In each case the network and the console are untouched and `mu300-usb adb
+updated without its kernel: `openf50-update kernel` brings one); an image without `/opt/openf50/bin/adbd` (built without
+`tools/adbd/adbd`, or older than v2026.10.20); the U30 Air while its port is a USB host (`openf50-usb host`: there is
+no gadget, `openf50-adbd` leaves it alone and binds again in the device role); and the seconds before the system's
+`openf50-adbd` service starts (boot/init makes the gadget without adb, so the fallback to Android and init's own
+recovery shell are as they were). In each case the network and the console are untouched and `openf50-usb adb
 status` says which it is. The vendor 5.4 kernel has FunctionFS (`CONFIG_USB_CONFIGFS_F_FS=y` in the stock config),
 so adb is expected to work there; it has not been tried (§43).
 
@@ -5151,31 +5151,31 @@ address does not change), which matters while its screen is locked. A host witho
 interface and ignores it. **Not measured: any Windows host** - whether Windows re-installs the drivers of the
 network and serial interfaces once for the new `bcdDevice`, whether the adb interface gets WinUSB by itself, and
 whether NCM is disturbed by the descriptors being on. Until that is measured, default-on is a change every Windows
-user meets at the first boot after the update, and `sudo mu300-usb adb off` is the way back to the gadget as
+user meets at the first boot after the update, and `sudo openf50-usb adb off` is the way back to the gadget as
 boot/init makes it.
 
 **The installers meet a device in Linux in `adb devices` now.** Its shell is root, so `su -c 'id -u'` says 0 there
 too: nothing but the installer's own check keeps it from being taken for a rooted Android (read from the code, not seen happen: it would wait two
 minutes for `sys.boot_completed`, ask "this does not look like an F50, continue?" and go on after a yes). Now
 (`tools/linux-mode.sh`, shared by `install.sh`, `uninstall.sh` and `tools/reset-password.sh`; the same in
-`install.ps1` and `uninstall.ps1`): a serial that starts with `MU300LINUX` (boot/init) is a device in Linux; it is
+`install.ps1` and `uninstall.ps1`): a serial that starts with `OPENF50LINUX` (boot/init) is a device in Linux; it is
 never on the list of devices to choose from, never the answer to "is an Android up", and `ANDROID_SERIAL` naming it
-is dropped. The installer says "The device is running MU300 Linux, not Android" and offers to reboot it into
-Android: over adb where the device lets the computer in (`/opt/mu300/bin/mu300-next-boot android && sync &&
-reboot`, after checking that `mu300-next-boot` is there; no password, and it works where SSH does not, e.g. RNDIS
+is dropped. The installer says "The device is running OPENF50 Linux, not Android" and offers to reboot it into
+Android: over adb where the device lets the computer in (`/opt/openf50/bin/openf50-next-boot android && sync &&
+reboot`, after checking that `openf50-next-boot` is there; no password, and it works where SSH does not, e.g. RNDIS
 on a Mac), else over SSH as before; with neither (keys-only adb, no USB network) it stops with the two commands to
-run on the device. After a device was selected, `ls -d /opt/mu300/bin` on it must print nothing, whatever its serial
-says. `tools/backup-device.sh` refuses a `MU300LINUX` serial. `backup-full.sh`, `collect-logs.sh` and
+run on the device. After a device was selected, `ls -d /opt/openf50/bin` on it must print nothing, whatever its serial
+says. `tools/backup-device.sh` refuses a `OPENF50LINUX` serial. `backup-full.sh`, `collect-logs.sh` and
 `boot/android-boot-linux.sh` take the device adb gives them and were not changed: the first two only read, the
 third compares `boot_b` first and stops.
 
-**For tools:** `adb shell /opt/mu300/bin/mu300-device --json`, one line with the device, the system, its release,
+**For tools:** `adb shell /opt/openf50/bin/openf50-device --json`, one line with the device, the system, its release,
 the kernel, whether the caller is root and what adb does; the contract is `docs/ADB-INTERFACE.md`.
 
 **Tested** (`tests/test_adb.py`, `test_installer.py`, `test_device_scripts.py`, `test_android_install.py`,
 `test_update.py`, `installer.Tests.ps1`; dash and bash here, busybox ash in CI): the patch's one switch and that
 nothing else assigns `auth_required` or reads the environment; every row of the table above; the state written
-whole and not through a symlink; the fake gadget joined with `MU300_ADB_AUTH` as the state says; the installers'
+whole and not through a symlink; the fake gadget joined with `OPENF50_ADB_AUTH` as the state says; the installers'
 device selection with a device in Linux alone, next to an F50 in Android, next to a tablet, in keys mode, with and
 without SSH, with a reboot that does not happen, and a Linux behind an Android-looking serial; the JSON line
 parsed, with values that try to break out of their quotes. The patched adbd was built (`tools/adbd/build.sh`,
@@ -5184,76 +5184,76 @@ Alpine 3.20, arm64) and its strings checked; it was not run, because it needs Fu
 **Not measured on a device** (all test boards were in use; this is the checklist, to be run before a release
 carries the change). `S` is the device's serial in `adb devices`, the computer a Mac unless it says Windows:
 
-1. *Fresh boot, each of Ubuntu 24.04 and OpenWrt (`openwrt-luci`) on 5.4, 6.18 and 7.2, with no `/etc/mu300/adb*`
-   files:* `adb devices` shows `MU300LINUX-... device` within a minute of power-on. On the device
-   `mu300-usb adb status` prints `adb: on`, `auth: open (...)`, `gadget: adb is in it (25100000.dwc3)`;
-   `cat /sys/kernel/config/usb_gadget/linux/bcdDevice` is `0x0303`; `journalctl -u mu300-adbd` (OpenWrt: `logread
-   -e mu300-adbd`) has `auth open: every computer on the USB cable gets a root shell` and `gadget bound on ... with
+1. *Fresh boot, each of Ubuntu 24.04 and OpenWrt (`openwrt-luci`) on 5.4, 6.18 and 7.2, with no `/etc/openf50/adb*`
+   files:* `adb devices` shows `OPENF50LINUX-... device` within a minute of power-on. On the device
+   `openf50-usb adb status` prints `adb: on`, `auth: open (...)`, `gadget: adb is in it (25100000.dwc3)`;
+   `cat /sys/kernel/config/usb_gadget/linux/bcdDevice` is `0x0303`; `journalctl -u openf50-adbd` (OpenWrt: `logread
+   -e openf50-adbd`) has `auth open: every computer on the USB cable gets a root shell` and `gadget bound on ... with
    adb`. On 5.4 this is the first run of adbd on that kernel at all: if `adb devices` stays empty, the status line
    `adbd: cannot run: ...` or the log says why, and the network must be up regardless.
 2. *A root shell from a Mac whose key was never on the device* (`mv ~/.android ~/.android.bak; adb kill-server`
-   first): `adb -s S shell id -u` prints `0`; `adb -s S shell /opt/mu300/bin/mu300-device --json` prints one line
-   such as `{"mu300":1,"device":"f50","system":"ubuntu","version_id":"24.04","release":"v...","kernel":"7.2.10","root":true,"adb":"open"}`;
+   first): `adb -s S shell id -u` prints `0`; `adb -s S shell /opt/openf50/bin/openf50-device --json` prints one line
+   such as `{"openf50":1,"device":"f50","system":"ubuntu","version_id":"24.04","release":"v...","kernel":"7.2.10","root":true,"adb":"open"}`;
    `adb -s S push` and `pull` of a 20 MB file, checksums equal.
 3. *No network listener:* on the device `ss -ltnp | grep -c adbd` (OpenWrt: `netstat -ltnp | grep -c adbd`) prints
    `0`; from the computer `adb connect 192.168.77.1:5555` says `Connection refused`; `adb -s S tcpip 5555` does not
    make it listen (the same `0` afterwards).
-4. *Keys:* `sudo mu300-usb adb auth keys` (prints `no key is authorised yet` on a device without keys); after the
+4. *Keys:* `sudo openf50-usb adb auth keys` (prints `no key is authorised yet` on a device without keys); after the
    replug `adb devices` shows `S unauthorized` and `adb -s S shell id` says `device unauthorized`, for as long as
-   one waits. `adb auth keys` with `/etc/mu300/adb_keys` deleted: the same. Then `scp ~/.android/adbkey.pub` to the
-   device, `sudo mu300-usb adb key adbkey.pub`: `adb -s S shell id -u` prints `0` without a replug (after
+   one waits. `adb auth keys` with `/etc/openf50/adb_keys` deleted: the same. Then `scp ~/.android/adbkey.pub` to the
+   device, `sudo openf50-usb adb key adbkey.pub`: `adb -s S shell id -u` prints `0` without a replug (after
    `adb kill-server` at most). A second computer, or the first with a new key (`rm ~/.android/adbkey*; adb
-   kill-server`): `unauthorized`. `sudo mu300-usb adb auth open`: both get in.
-5. *Damaged state:* `: > /etc/mu300/adb_auth; reboot` - `mu300-usb adb status` says `auth: keys (...; ... is
+   kill-server`): `unauthorized`. `sudo openf50-usb adb auth open`: both get in.
+5. *Damaged state:* `: > /etc/openf50/adb_auth; reboot` - `openf50-usb adb status` says `auth: keys (...; ... is
    empty, unreadable or says neither open nor keys)` and the computer sees `unauthorized`. `chmod 666
-   /etc/mu300/adb_auth` with `open` in it: keys as well. `: > /etc/mu300/adb; reboot`: no adb device, `adb: off
+   /etc/openf50/adb_auth` with `open` in it: keys as well. `: > /etc/openf50/adb; reboot`: no adb device, `adb: off
    (... says neither on nor off)`.
-6. *Off:* `sudo mu300-usb adb off` - the device leaves `adb devices`, `bcdDevice` is `0x0301` again, SSH and the
-   console come back. Still off after `reboot`, and after `mu300-update apply` and the reboot into the new system
-   (`cat /etc/mu300/adb` prints `off`). The same for `adb auth keys` with a key: after an update, still `keys`,
+6. *Off:* `sudo openf50-usb adb off` - the device leaves `adb devices`, `bcdDevice` is `0x0301` again, SSH and the
+   console come back. Still off after `reboot`, and after `openf50-update apply` and the reboot into the new system
+   (`cat /etc/openf50/adb` prints `off`). The same for `adb auth keys` with a key: after an update, still `keys`,
    the key still gets in, another computer does not.
-7. *An existing installation:* a device on v2026.10.23 that never touched adb, `mu300-update apply`, reboot: as 1.
-   A device where `mu300-usb adb on` was run with a key under v2026.10.23, updated: `auth: keys (...; adb was turned
+7. *An existing installation:* a device on v2026.10.23 that never touched adb, `openf50-update apply`, reboot: as 1.
+   A device where `openf50-usb adb on` was run with a key under v2026.10.23, updated: `auth: keys (...; adb was turned
    on when it took keys only ...)`, the key gets in, another computer sees `unauthorized`.
 8. *The USB network next to it, macOS:* with adb in the gadget, `ifconfig` shows the device's interface with an
    address in 192.168.77.0/24 (U30 Air: .78), `ping 192.168.77.1` and `ssh` work, `ls /dev/cu.usbmodem*` has the
    console; the same when the Mac's screen was locked during the device's boot; the same after ten `adb shell true`
    in a row (each ends a connection: FunctionFS unbinds the gadget and the loop binds it again after 5 s - the
    network is away for 6-8 s each time, §43; count them).
-9. *The USB network next to it, Windows 10 and 11, NCM (the default) and RNDIS (`MU300_USBNET`):* after the first
+9. *The USB network next to it, Windows 10 and 11, NCM (the default) and RNDIS (`OPENF50_USBNET`):* after the first
    boot with adb, Device Manager shows the network adapter and the COM port working, and "ADB Interface" under
    WinUSB devices without a driver having been installed by hand; `ping 192.168.77.1`; `adb devices` lists the
    device. Note whether Windows shows "setting up a device" for the network or the COM port again (the new
    `bcdDevice`), and whether it does so at every boot or once.
-10. *The U30 Air's host role:* `sudo mu300-usb host` with adb on, a flash drive on an OTG adapter mounts; `sudo
-    mu300-usb device`: network, console and adb are back within ten seconds.
-11. *The boot fallback:* a trial boot image that does not reach `mu300-boot-ok` falls back to Android as before
+10. *The U30 Air's host role:* `sudo openf50-usb host` with adb on, a flash drive on an OTG adapter mounts; `sudo
+    openf50-usb device`: network, console and adb are back within ten seconds.
+11. *The boot fallback:* a trial boot image that does not reach `openf50-boot-ok` falls back to Android as before
     (adb plays no part before the system's service starts).
 12. *The installers:* with the device in Linux and adb open, `./install.sh --check` says "The device is running
-    MU300 Linux, not Android", asks, prints `asking it over adb (MU300LINUX-...)`, and goes on once Android is up;
+    OPENF50 Linux, not Android", asks, prints `asking it over adb (OPENF50LINUX-...)`, and goes on once Android is up;
     the same with `install.ps1 -Check` on Windows. With `adb auth keys` and no key of that computer: over SSH as
     before.
 
-### 81. An update that brought another mu300-update ended with "another mu300-update is running"
+### 81. An update that brought another openf50-update ended with "another openf50-update is running"
 
 Found on the first device update to the v2026.10.24 pre-release (F50, Ubuntu 24.04, v2026.10.23 installed):
 
-    $ sudo mu300-update apply
-    another mu300-update is running (pid 33187)
+    $ sudo openf50-update apply
+    another openf50-update is running (pid 33187)
 
 and nothing was updated. No other run existed, and 33187 was the run itself. `apply` takes the release's own
-`mu300-update` when it differs from the installed one, replaces the installed file and execs the new one: the same
+`openf50-update` when it differs from the installed one, replaces the installed file and execs the new one: the same
 process, which then takes the lock again (`exec 9>>lock; flock -n 9`). The descriptor it replaces was the lock's
 holder, so that should succeed - but the dispatch starts the keep-alive after `lock_take`, a background loop of
 `ping` and `sleep 3` that inherits descriptor 9, and `keepalive_stop` ends the loop's shell, not the ping or sleep it
 is waiting for. For up to three seconds one of them still holds the lock, and the continued run's `flock -n` fails
 with its own process id in the message. It is a race: an update whose release has the same updater never execs
-(v2026.10.22 to v2026.10.23 on the same device went through), and one that does can win it. A second `mu300-update
+(v2026.10.22 to v2026.10.23 on the same device went through), and one that does can win it. A second `openf50-update
 apply` always works, because the installed updater is the release's by then.
 
 The updater that leaves the stragglers behind is the installed one, which no release can change; the one that
 meets them is the release's. So the fix is in what meets them: when `flock` fails in a run that was continued
-(`MU300_SELF_UPDATED`) and the lock file names this process, the lock is this run's; it waits up to ten seconds for
+(`OPENF50_SELF_UPDATED`) and the lock file names this process, the lock is this run's; it waits up to ten seconds for
 the descriptor to come free and goes on either way. Any other holder is refused as before. And the keep-alive now
 runs without the lock's descriptor (`9>&-`), so no later updater leaves this behind. Measured: the tests reproduce
 the failure with the old lock code under dash, bash and busybox sh on Linux (macOS has no `flock`; the pid-directory
@@ -5262,8 +5262,8 @@ affected by it again: their next update meets the fixed one.
 
 ### 82. adb on by default, and no OpenWrt had it after a boot
 
-The v2026.10.24 pre-release on an F50, openwrt-luci, kernel 7.2.10: `mu300-usb adb status` said `adb: on`, `auth:
-open`, and `gadget: without adb`; no adbd ran, and the computer saw no adb device. `/etc/init.d/mu300-adbd start` by
+The v2026.10.24 pre-release on an F50, openwrt-luci, kernel 7.2.10: `openf50-usb adb status` said `adb: on`, `auth:
+open`, and `gadget: without adb`; no adbd ran, and the computer saw no adb device. `/etc/init.d/openf50-adbd start` by
 hand brought it up at once. On Ubuntu, same device and kernel, adb was there after every boot (section 70).
 
 The service's own trace at boot (its command wrapped in `sh -x` into a file, because the log ring had already
@@ -5271,11 +5271,11 @@ turned over): it ran 13 s after power-on (S19), FunctionFS was not in `/proc/fil
 `mkdir functions/ffs.adb` failed - which the script takes for "this kernel has no FunctionFS", logs, and exits 0.
 procd does not start a service again that ended by itself. Some seconds later the same `mkdir` works (the module
 is loaded on demand then; what is not ready at second 13 was not looked into). Under systemd the unit starts later
-and never met this. Until adb was on by default nobody saw it: `mu300-usb adb on` starts the service long after
+and never met this. Until adb was on by default nobody saw it: `openf50-usb adb on` starts the service long after
 the boot, and the 5.4 kernel has FunctionFS built in.
 
-`mu300-adbd run` now asks again once a second for a minute (`MU300_ADB_WAIT`) before it believes the no and logs
-it. Measured after the change: adb in `adb devices` 38 s after power-on, `mu300-device --json` answering over it,
+`openf50-adbd run` now asks again once a second for a minute (`OPENF50_ADB_WAIT`) before it believes the no and logs
+it. Measured after the change: adb in `adb devices` 38 s after power-on, `openf50-device --json` answering over it,
 mobile data up. Not measured: OpenWrt on 6.18 and on 5.4, the U30 Air.
 
 ## The web installer
@@ -5308,7 +5308,7 @@ followed by a zero-length packet.
   for it, and Node's OpenSSL accepts the signature as adbd would (`tests/web/adb.test.mjs`).
 * *Against a real adbd over TCP.* Ubuntu 26.04's `adbd` package (AOSP 34.0.5) in a container: handshake and
   features, shell v2, stdin, timeouts, push/pull/stat of 0 to 5 MB with equal SHA-256, refused files, an aborted
-  push (`tests/web/interop.test.mjs`, run by hand: `MU300_ADBD_TCP=host:port`). Stock adbd gives a pushed file the
+  push (`tests/web/interop.test.mjs`, run by hand: `OPENF50_ADBD_TCP=host:port`). Stock adbd gives a pushed file the
   owner's mode bits for group and others too (0644 arrived as 0666, on the F50 as well): the page never relies on
   the mode of a pushed file, and a password does not travel in a file (below).
 * *Over USB, measured on the F50.* The transport, framing and sync work as written: connected in 2 to 100 ms, the
@@ -5317,7 +5317,7 @@ followed by a zero-length packet.
   file service, which root's directory rules out, below) with every file's checksum equal to the device's.
 * *Android's adbd on the F50 asks for no key.* `ro.adb.secure` is 1 and `/data/misc/adb` is empty, yet a key the
   device had never seen got `CNXN` at once: no `AUTH` packet, no question (there is no screen to ask on). So a
-  browser's own key needs nothing there. The adbd of MU300 Linux does authenticate when it is set to keys: after an
+  browser's own key needs nothing there. The adbd of OPENF50 Linux does authenticate when it is set to keys: after an
   installation with "only this browser" the page's key was accepted by its signature (`AUTH` once, then `CNXN`),
   and the Mac's own adb was `unauthorized`.
 * *The first packet of a session can be lost, and the device then waits for a host that waits for the device.*
@@ -5395,7 +5395,7 @@ every asset a `digest` (`sha256:...`). The files themselves can only come to a p
     in the adb user's directory refused the page's next push ("couldn't create file: Permission denied"): the
     download now goes to root's own directory.
 * *Second: the browser downloads the zip from a mirror* (`mirror.js`; on since 2026-10-13, the repository is
-  `dikeckaan/mu300-linux-mirror`): a branch `<tag>` of that repository with every zip in parts of at most 45 MiB and
+  `dikeckaan/openf50-linux-mirror`): a branch `<tag>` of that repository with every zip in parts of at most 45 MiB and
   a manifest (`tools/make-release-mirror.sh`; the last step of `magisk.yml` pushes it with a deploy key of the
   mirror repository, over ssh to GitHub's published host keys, no token), read from `raw.githubusercontent.com` with plain
   `GET`s (`redirect: "error"`, no credentials). A part must have the manifest's size and SHA-256, the parts must add
@@ -5406,7 +5406,7 @@ every asset a `digest` (`sha256:...`). The files themselves can only come to a p
   first push of a release to it; the page then finds no copy and offers the next way), and GitHub's limits on
   such use.
 * *Last: the user downloads the zip* (an ordinary download, which no CORS rule stops) and picks it; the page reads
-  the zip's directory and `mu300/manifest` in the browser and refuses a wrong one before anything is sent.
+  the zip's directory and `openf50/manifest` in the browser and refuses a wrong one before anything is sent.
 * The Magisk zip is the unit, not the separate assets: it holds the installer of its own release, and its payload is
   stored uncompressed, so nothing is unpacked twice. Two systems are two zips, one after the other, as in the Magisk
   app (measured: Ubuntu 24.04 and OpenWrt with the panel, two downloads and two runs, 92 s).
@@ -5424,7 +5424,7 @@ localhost. The page runs under its Content-Security-Policy with no violation; `f
   A permission a profile holds is in its `Preferences` (`usb_chooser_data`) and can be written there for a test;
   `navigator.usb.getDevices()` then returns the device, and the page offers it as "Connect to F50" without a
   chooser - the same way a user's second visit goes. The chooser lists the unit as "F50" in Android (`19d2:1353`)
-  and as "MU300 Linux USB Ethernet" in Linux (`0525:a4a1`): two devices to the browser, each allowed once.
+  and as "OPENF50 Linux USB Ethernet" in Linux (`0525:a4a1`): two devices to the browser, each allowed once.
 * *Windows:* WebUSB needs the interface bound to WinUSB. AOSP's adbd carries the Microsoft OS descriptor that asks
   for it (compatible ID `WINUSB` in its FunctionFS descriptors), and our Linux adbd announces the same (§43), so a
   stock Windows 10/11 should bind it without a driver. **Unknown:** whether ZTE's firmware leaves OS descriptors on
@@ -5451,15 +5451,15 @@ localhost. The page runs under its Content-Security-Policy with no violation; `f
   page says to wait a few seconds before "Try again". Not rooted at all (no `su`): reasoned from the code only.
 
 **4. What a closed tab or a pulled cable leaves.** The installation is not the page's: it is the Magisk zip's own
-installer (`mu300/install.sh`), started by `tools/android-web.sh` as a job in a session of its own (`setsid`, output
+installer (`openf50/install.sh`), started by `tools/android-web.sh` as a job in a session of its own (`setsid`, output
 to a file, HUP ignored). The page only watches (`follow`), and a watcher that goes away - tab closed, cable pulled on
 a U30 Air, computer asleep - changes nothing; a new connection reads the same log from its start. *Measured on the
 F50, under Magisk's `su`:* the Node client ended (nothing closed) 4 s into "systems" of an OpenWrt installation,
 and 5 s into it for Ubuntu; in Chrome the tab was closed during "Collecting the Wi-Fi and modem files". Each time
 the job went on: a new connection found it `running` at step 6 and followed it to the end, or found it `done` with
-status 0, and the log was there from its first line (`MU300-INSTALL-OK`, "Writing and verifying boot_b"). The device
+status 0, and the log was there from its first line (`OPENF50-INSTALL-OK`, "Writing and verifying boot_b"). The device
 then started the installed Linux. On an F50 a pulled cable is a power cut, as it is for the installer for
-computers. What is left, by stage (the installer prints the stage, `MU300-STEP n/9 name`, and the page shows this
+computers. What is left, by stage (the installer prints the stage, `OPENF50-STEP n/9 name`, and the page shows this
 sentence beside it):
 
 | stage | written so far | the device then |
@@ -5482,10 +5482,10 @@ cut anywhere for the same reason (measured: a quick uninstall, 7 steps in 5 s, `
 * *Not measured:* the stall guards of §50 through this path, a cable pulled from a U30 Air, a power cut.
 
 **Where root writes on Android, and how much.** `android-web.sh` runs as root and is handed files by the adb
-user, in `/data/local/tmp/mu300-web`. The first version wrote there as root too: the download (`wget -O`), the
+user, in `/data/local/tmp/openf50-web`. The first version wrote there as root too: the download (`wget -O`), the
 copies of a backup (`out/`, made readable for adb's file service), `rm -rf` of both, a `chown`. Whoever can write a
 directory can put a link at any name in it, and root then writes, truncates, chmods or deletes the link's target.
-Now root touches nothing there. A pushed file is moved into `/data/adb/mu300-web` (mode 700, root's; a rename takes
+Now root touches nothing there. A pushed file is moved into `/data/adb/openf50-web` (mode 700, root's; a rename takes
 the name as it is and follows no link) and judged there, where nobody else can change it: a regular file, not a
 link, not larger than its kind can be, with the checksum that was asked for. The download, the backup's copies, the
 answers, logs and the job's state live in root's directory only; the page reads a copy of the backup as base64
@@ -5506,18 +5506,18 @@ pushes them); the adb user is the one who asks `su` for root, so this is its own
   for a file of 100 000 bytes (the file stopped at that size rounded up to a block), one that never ends, one that stalls, and a full
   storage (`tests/test_android_web.py`, `Bounds`; the links: `Links`).
 
-**The device side, for a caller that is not Magisk** (in every zip from v2026.10.24 on): `MU300_ANSWERS=FILE`
-(the settings of the run from that file alone, which must be root's), `MU300_PROGRESS=1` (`MU300-STEP`, `MU300-PLAN
-key=value`), `mu300/extras/` (the VPN module), `MU300_ADB_KEY` (trusted only). Zips of v2026.10.23 and older do not
+**The device side, for a caller that is not Magisk** (in every zip from v2026.10.24 on): `OPENF50_ANSWERS=FILE`
+(the settings of the run from that file alone, which must be root's), `OPENF50_PROGRESS=1` (`OPENF50-STEP`, `OPENF50-PLAN
+key=value`), `openf50/extras/` (the VPN module), `OPENF50_ADB_KEY` (trusted only). Zips of v2026.10.23 and older do not
 have them, and the page refuses those releases. *Measured on the F50:* a password given on the stdin of
 `su -c '... android-web.sh password'` arrived (the plan said `password=given`, root's entry in the installed
 OpenWrt's `shadow` held a hash) and was in no line of the log; without one, Ubuntu has `ubuntu` and OpenWrt's root
-none. For Linux the page needs no key since §70 (adb on and open by default); it reads `mu300-device --json`
+none. For Linux the page needs no key since §70 (adb on and open by default); it reads `openf50-device --json`
 (docs/ADB-INTERFACE.md) and offers "only this browser" as a choice, off by default, which sets the installed
 system to authorised keys with the browser's key (per system: a second system added without the choice was open).
-* *"Restart into Android" is `mu300-next-boot android`*, which makes Android the default boot from then on, not
+* *"Restart into Android" is `openf50-next-boot android`*, which makes Android the default boot from then on, not
   for one start. The page said "the next system to start"; it now says what it does and has "Make Linux the default
-  again" (`mu300-next-boot linux`) in its Linux view, and the wizard proposes Linux as the default every time
+  again" (`openf50-next-boot linux`) in its Linux view, and the wizard proposes Linux as the default every time
   instead of taking over an "Android" that only the way to the wizard had set.
 
 **Privacy.** The page reads ten named properties and never a serial number property; serials come from the USB
@@ -5568,8 +5568,8 @@ page; this section is what was measured and what was decided from it. Not run on
 
 **What was decided**
 
-* **One model: one card's radio on at a time.** kanoqwq's fork (clean-tf-7.2 `25f8d0ce`: `mu300-dual-radio`,
-  `mu300-data-sim`) powers both stacks at boot and moves only the data route (`AT+SPSWDATA`, about 1.4 s, no
+* **One model: one card's radio on at a time.** kanoqwq's fork (clean-tf-7.2 `25f8d0ce`: `openf50-dual-radio`,
+  `openf50-data-sim`) powers both stacks at boot and moves only the data route (`AT+SPSWDATA`, about 1.4 s, no
   restart). Its boot step fails when the second card is absent or locked, and then neither card gets a radio; its
   own test unit's SIM2 was unpaid, so data over `sipa_eth8` that way is unproven; here the second radio would not
   even come on beside the first. Taken from it: the read-back of `AT+SPSWDATA?` as the verification of the route,
@@ -5591,14 +5591,14 @@ page; this section is what was measured and what was decided from it. Not run on
   card that failed. `network.wan.sim_restart '0'` turns the restarts off (the state then says "reboot required").
 * **A second card has to show data once.** The first time SIM2 is the boot's card it gets
   `network.wan.sim_data_wait` seconds (300; `0`: no check) from the radio coming on to have an address on
-  `sipa_eth8`. With data it is written to `/etc/mu300/sim-data-seen` and never checked again: an outage is not the
+  `sipa_eth8`. With data it is written to `/etc/openf50/sim-data-seen` and never checked again: an outage is not the
   card's failure. Without, the settings go back to SIM1 (reason `no-data`) and the device restarts. Whether SIM1
   has data is not asked. The reason: a card chosen over the device's own mobile data (ours is reached through a VPN
   over it) that registers and gets no data would keep the device off the network until somebody walked up to it;
   and a user whose SIM1 has no data either is at the device, reads the reason on the page, and loses a restart.
   No verdict on a card nobody was dialling: the wan taken down by hand, switched off in the settings, or suspended
   by the power profile. "Taken down" is netifd's word (`autostart: false`), not `mobile-data`'s marker
-  `/run/mu300-mobile-data-down`: every failed dial goes through a teardown that leaves that marker for a moment, and
+  `/run/openf50-mobile-data-down`: every failed dial goes through a teardown that leaves that marker for a moment, and
   a check that looked in that moment kept a card without data (measured, on the second of two identical boots).
 * **Issue #194's unit** (two built-in cards, SIM1 China Telecom registered without a data plan, SIM2 China Mobile
   working, kernel 5.4). "SIM1 is there" is never taken for "SIM1 is usable": a boot with SIM2 chosen does not touch
@@ -5616,7 +5616,7 @@ page; this section is what was measured and what was decided from it. Not run on
 
 | what goes wrong | reason on the page | where it ends | |
 |---|---|---|---|
-| the settings cannot be read, the marker cannot be written, bash is missing | `invalid-*`, `not-startable` | a SIM1 boot, at once: `init.d/mu300-atd` never returns without AT owners | T |
+| the settings cannot be read, the marker cannot be written, bash is missing | `invalid-*`, `not-startable` | a SIM1 boot, at once: `init.d/openf50-atd` never returns without AT owners | T |
 | the readiness line never appears (another kernel's seqfile) | `brokers-missing` | this boot: gives up at 104 s, the AT service starts over as SIM1's, radio on at 127 s, data at 132 s | U (the line's text changed by hand) |
 | no card answers with its SIM power on; a PIN; a card that is not the recorded one | `no-sim`, `sim-pin`, `wrong-card` | this boot: SIM1's ordinary warm-up through the owner of nr1 that is already there (10 s later than a plain boot) | T; U with the earlier rule, which took the unpowered card for none |
 | the radio was told to start SIM2 and does not come on | `no-radio`, `data-route`, `modem-refused` | restart into SIM1 (not before 120 s of uptime, so that the boot was marked good) | T |
@@ -5630,11 +5630,11 @@ page; this section is what was measured and what was decided from it. Not run on
 | live: the way back cannot be verified, the modem is silent, the deadline (300 s) | `restarting` | restart into the saved default, 20 s later: data back about 75 s after the failed switch | U (with the first sequence) |
 | live: the controller is killed (`SIGKILL`) | `restarting` | its guard declares the radio unknown within 5 s; restart; data 26.5 s into the next boot | U |
 
-**Who else talks to the modem meanwhile.** The switch holds a kernel `flock` on `/run/mu300/sim-control.lock`
+**Who else talks to the modem meanwhile.** The switch holds a kernel `flock` on `/run/openf50/sim-control.lock`
 (gone with its holder: no stale lock; a second request answers "SIM control is busy" at once), runs its commands
 under `mobile-data`'s radio lock (the dial's radio-on, the watchdog, the Locks page's SFUN restart), and while they
-run `mu300-at` tells every other client "busy" in the words they already handle (SMS, USSD, the panel's terminal
-and collectors): `/run/mu300/sim-sequence`, believed only while the lock is held, so a killed switch closes nothing
+run `openf50-at` tells every other client "busy" in the words they already handle (SMS, USSD, the panel's terminal
+and collectors): `/run/openf50/sim-sequence`, believed only while the lock is held, so a killed switch closes nothing
 (measured: `AT` answered 5 s after the kill). Lock writes, the modem reset and suspend are refused in a dual-SIM
 boot. Nothing from a caller reaches an AT command: the arguments are one of six fixed pairs, and every command is
 built from the two slot numbers; the work modes read from the modem go back out only as two numbers of at most
@@ -5650,24 +5650,24 @@ device and in any spelling, as kanoqwq's does: they move the data route under a 
 |---|---|---|---|
 | `AT+SMMSWAP=0` (nr1) | the RIL handshake | the same command every boot sends on the SIM1 path | nothing to put back |
 | `AT+SPTESTMODEM=<m0>,<m1>` (the card's data channel, cold start only) | the two work modes: the values just read, so nothing; `134,134` only when they cannot be read | yes (NV) | not needed; with unreadable modes the earlier ones are not known |
-| `AT+SPSWDATA` (the card's data channel) | which card carries packet data | not over a restart (measured) | by the cold start or switch for SIM1; and a plain SIM1 dial asks `AT+SPSWDATA?` and takes it back while `/etc/mu300/sim-data-route-2` exists (left when the route was given to SIM2). Without that mark nothing is asked |
+| `AT+SPSWDATA` (the card's data channel) | which card carries packet data | not over a restart (measured) | by the cold start or switch for SIM1; and a plain SIM1 dial asks `AT+SPSWDATA?` and takes it back while `/etc/openf50/sim-data-route-2` exists (left when the route was given to SIM2). Without that mark nothing is asked |
 | `AT+SPACTCARD=<n>;+SFUN=2` / `3` / `5`, `AT+SFUN=4` | SIM power and radio of one card | no | by the next boot; the switch and the cold start switch off what they switched on and could not use |
 
 Nothing writes a PIN, an IMSI, a band or a cell lock. A dual-SIM boot does not replay the Locks page's settings
 (they stay in the modem's NV; only the replay's own restart is left out).
 
-**Nobody who does not use it.** `init.d/mu300-atd` reads the settings on a U30 Air only; with the default (slot 0,
+**Nobody who does not use it.** `init.d/openf50-atd` reads the settings on a U30 Air only; with the default (slot 0,
 live switching off) it starts the same three instances as before, and a boot with the branch's files had the
-handshake at 24.6 s and data at 31.7 s (24.1 and 31.2 before). `mu300-sim active`, which every AT client asks
+handshake at 24.6 s and data at 31.7 s (24.1 and 31.2 before). `openf50-sim active`, which every AT client asks
 before every command, answers a pinned 0 from one file read again (2.8 ms; with the library and the device's name
-read first it was 6.7 ms). `mobile-data` asks the modem for the data route only where the mark is. `mu300-at`'s gate
+read first it was 6.7 ms). `mobile-data` asks the modem for the data route only where the mark is. `openf50-at`'s gate
 is one file test. The WAN's teardown now takes the bearer's name from netifd (`ifdown`/`ifup` on SIM1: address gone,
 up again in 5 s).
 
-**Privacy.** The cold start reads the CCID to compare it with `/etc/mu300/sim2-iccid` (a file only the owner
-creates) and never prints it; the logs (`/run/mu300/sim2-cold-start.log`, `sim-switch.log`, mode 600) hold the
+**Privacy.** The cold start reads the CCID to compare it with `/etc/openf50/sim2-iccid` (a file only the owner
+creates) and never prints it; the logs (`/run/openf50/sim2-cold-start.log`, `sim-switch.log`, mode 600) hold the
 commands sent and no answer; status, the page and the fallback reason carry words from a fixed list.
-`/etc/mu300/sim-data-seen` holds slot numbers.
+`/etc/openf50/sim-data-seen` holds slot numbers.
 
 **Not verified.** Data on `sipa_eth8` under this tree's dial on our hardware (our second card has no service; the
 contributor saw it on his unit with the earlier revision). The new switch order on a unit with two working cards.
@@ -5679,7 +5679,7 @@ F50: unit tests, and the default path on the U30 Air. An M3.
 ### 83. An update dropped the jobs of OpenWrt's System > Scheduled Tasks (`/etc/crontabs`)
 
 LuCI's System > Scheduled Tasks page writes `/etc/crontabs/root`, and busybox `crond` runs it (`init.d/cron`,
-START 50). `etc/crontabs` was in neither copy of the keep list - `keep_list` in `mu300-update` nor the one in
+START 50). `etc/crontabs` was in neither copy of the keep list - `keep_list` in `openf50-update` nor the one in
 `tools/android-install.sh` - so an update built the new system from the release's image and left the jobs behind
 in `<os>.old`. Two things follow, and the second is worse than the lost line: the page comes up empty after the
 reboot, and the image's own `/etc/crontabs` is an **empty directory**, while OpenWrt's `init.d/cron` begins with
@@ -5690,7 +5690,7 @@ so `crond` does not run at all in the updated system: every job, present or adde
 somebody notices.
 
 Reported by a user (U30 Air, openwrt-luci): the Scheduled Tasks page was empty after an update. The symptom is
-the report's; the cause is read from the code and from the release image (`mu300-openwrt-luci-rootfs.tar.gz`
+the report's; the cause is read from the code and from the release image (`openf50-openwrt-luci-rootfs.tar.gz`
 carries an empty `./etc/crontabs/`), not reproduced on a board here. OpenWrt's own `sysupgrade` keeps the
 directory - it is what this list means to mirror - and the two lists are kept equal by a test, which is why both
 changed together.
@@ -5706,7 +5706,7 @@ device with openwrt-luci:
 
     # before the update: a job saved in System > Scheduled Tasks
     cat /etc/crontabs/root; ps | grep crond
-    mu300-update apply && reboot
+    openf50-update apply && reboot
     # after: the same job, and crond running
     cat /etc/crontabs/root; ps | grep crond
 ### 80. WPA3 on the U30 Air's access point: the SC2355 firmware does SAE itself (PR #74, Snrat)
@@ -5760,24 +5760,24 @@ showed, on one U30 Air (OpenWrt 25.12.5, Linux 7.2.9):
   device, with `logread -f` over USB, the refusal still took the running WPA2 BSS down with it through netifd's
   reload. The cause of the r8 outage itself was never captured.
 * **A hotspot that could not start stayed down at every boot; now it goes back to WPA2 (2026-10-13).** Three roads
-  to it: `mu300-update` keeps `/etc/config` and replaces the packages, and the stock wpad refuses a configuration with
+  to it: `openf50-update` keeps `/etc/config` and replaces the packages, and the stock wpad refuses a configuration with
   a key it does not know; the firmware refuses the vendor command; the patch rejects the mode.
   `openwrt-wifi-sae-guard` (does nothing without the option) looks before the first `wifi up` whether the installed
   hostapd has the option, and about two minutes after boot whether the access point is `ENABLED`; if not, the BSS
-  becomes `psk2` with the same passphrase, the file as it was is kept in `/etc/mu300/wireless.sae-offload`, and
-  `mu300-wifi` logs one error line. WPA2 because hostapd's own SAE cannot work on this driver (first point).
+  becomes `psk2` with the same passphrase, the file as it was is kept in `/etc/openf50/wireless.sae-offload`, and
+  `openf50-wifi` logs one error line. WPA2 because hostapd's own SAE cannot work on this driver (first point).
 * **Measured on the U30 Air, 2026-10-13** (OpenWrt 25.12.5, 7.2.10, r9 built with the helper, this branch's
   `sprd_wlan_combo.ko`; no Wi-Fi client at hand, so no association with SAE was tried):
   * Without the option the guard changes nothing: `AP-ENABLED` at 40.1 / 41.5 / 43.3 / 43.4 s before, 41.2 / 41.3 /
     43.3 s with it; silent, the configuration byte-identical, a WPA2 client back by itself.
-  * netifd starts the radio once before `mu300-hw` does (15 to 23 s after power-on; `AP-DISABLED` under the world
+  * netifd starts the radio once before `openf50-hw` does (15 to 23 s after power-on; `AP-DISABLED` under the world
     regulatory domain). So the stock hostapd does see the option once and logs `unknown configuration item`; the
-    guard acts before `mu300-hw`'s `wifi down; wifi up` at about 37 s, and the hotspot was up as WPA2 at 39.9 s, the
+    guard acts before `openf50-hw`'s `wifi down; wifi up` at about 37 s, and the hotspot was up as WPA2 at 39.9 s, the
     configuration byte-identical to the one before the opt-in, the saved file mode 600.
   * A mode r9 refuses (`sae-mixed`; a second BSS): fallback 136 s after power-on, `AP-ENABLED` at 139.5 and 139.7 s.
     Off on purpose (the key's marker, interface or radio disabled): untouched.
   * **The log loses the guard's line.** 128 KiB, about 1300 lines, and one Wi-Fi restart writes hundreds: 135 s
-    after the fallback the line was gone. It is now also in `/etc/mu300/wireless.sae-offload.why`, with its time.
+    after the fallback the line was gone. It is now also in `/etc/openf50/wireless.sae-offload.why`, with its time.
   * r9 with the option: `U30 SAE: firmware runtime parameters configured`, `vendor_set_sae_password type : 8/6/7`,
     no `firmware not support softap wpa3`, `AP-ENABLED` 5 s after `wifi up`, 41.6 s after power-on; the generated
     file has `wpa_key_mgmt=SAE`, `ieee80211w=2`, `sae_pwe=0`, `u30_sae_offload=1`. A synthetic passphrase, as text
@@ -5849,50 +5849,50 @@ research".
 * Unit tests for every decision below, on dash, bash and busybox sh.
 
 **What was ported, and how a V50 is told apart.**
-* `mu300-device` and `boot/init` (one rule, the same code; a test holds them to it): the label (`/etc/mu300-device`,
-  `/run/mu300/device`) as before, except that **f50** on a device tree with the AW9523B node and without the charger
+* `openf50-device` and `boot/init` (one rule, the same code; a test holds them to it): the label (`/etc/openf50-device`,
+  `/run/openf50/device`) as before, except that **f50** on a device tree with the AW9523B node and without the charger
   policy service is a **v50** (an older installer took a V50 for an F50 when the user said yes), and **v50** on a
   device tree without that node is what the tree says (u30air with the charger policy service, else f50). The F50
-  and the U30 Air: no node, so the answer is the one of before in every case (`test_mu300_device_three_boards`,
+  and the U30 Air: no node, so the answer is the one of before in every case (`test_openf50_device_three_boards`,
   `tests/test_boot_init.py` `Device`).
 * Installers (`install.sh`, `install.ps1`, the Magisk zip, `tools/android-web.sh` for the web installer, the boot
   chain scripts): exactly `V50 / MU3351` on `ums9620` is a v50, with one line saying it is experimental; a model V50
   with another device, or a device MU3351 under another model, or another platform is refused, never offered as an
-  F50; `MU300_DEVICE` cannot make a V50 another device (`f50`/`u30air` only, as before). Kernel: mainline only
+  F50; `OPENF50_DEVICE` cannot make a V50 another device (`f50`/`u30air` only, as before). Kernel: mainline only
   (`install.sh --build`, the 5.4 choice, a zip whose kernel does not name the V50 and the web installer's 5.4 are
   refused with the way out).
 * Kernel bundles: a mainline bundle names `v50` in `devices` only when its kernel has `CONFIG_LEDS_AW9523B=y`; the 5.4
-  bundle never does, so `mu300-update` never puts 5.4 or an older kernel on a V50.
+  bundle never does, so `openf50-update` never puts 5.4 or an older kernel on a V50.
 * `leds-aw9523b` (kano's driver, `upstream/port/drivers/leds/`, built in): binds only `awinic,aw9523b` with ZTE's
   binding (`led_enable` 1, `gpio_enable` 0), checks the whole binding and the chip ID 0x23 before it touches the chip;
   registers the DT groups, each wired pin (`aw9523b:pinN`) and, for exactly the V50's binding, the lamps
-  (`v50:net1:white` ...). `mu300-led`: NET1 is the network lamp (blue 4G, white 5G, red no service), the Wi-Fi lamp
+  (`v50:net1:white` ...). `openf50-led`: NET1 is the network lamp (blue 4G, white 5G, red no service), the Wi-Fi lamp
   white on 5 GHz and blue on 2.4 GHz, NET2 dark; the PMIC's LEDs are never written on a V50.
 * Patch 0017 (`sdhci-sprd`): the eMMC host's runtime PM forbidden at probe where the AW9523B node is, his measured
   fix, not the later shared policy (that one changes every board, and nothing measured it on the V50 either). On the
   F50 and the U30 Air it is a lookup that finds nothing.
-* No battery: `mu300-power`, the dashboard's power tile and the USB role setter take the V50 as an F50.
+* No battery: `openf50-power`, the dashboard's power tile and the USB role setter take the V50 as an F50.
 * The charger at 0x1a (patch 0016, issue #225): bound only with `/charger_policy_service`; the V50 has none (kano's
   init tests for that node before the AW9523B and still took his unit for a v50; and he says it has no battery), so
   nothing is bound there, as on the F50.
 * USB network `192.168.79.1` (kano kept the F50's `192.168.77.1`, which collides with an F50 on one computer).
 
 **What does not work yet.** The second SIM (the dual-SIM code is the U30 Air's, §74, and kano's evidence is one card
-in SIM 2 that did not register); NFC (`mu300-nfc` says so; another reset line than the U30 Air's); SIM selection;
+in SIM 2 that did not register); NFC (`openf50-nfc` says so; another reset line than the U30 Air's); SIM selection;
 kernel 5.4; kano's CPU voltage whitelist entry for the V50's SML (this tree has no such list); his NET2/Wi-Fi LuCI LED
 page and his OpenWrt LED events for two SIMs.
 
 **Risks.** A V50 that does not boot falls back to Android after the usual attempts (misc's trial). The LED driver and
 patch 0017 do nothing without the node. A V50 installed earlier as an F50 becomes a v50 with the next update: its
 address moves to `192.168.79.1` (Ubuntu without `lan.conf`; OpenWrt keeps the LAN it was set up with) and its kernel
-is updated only to a mainline one that names it (`mu300-update kernel 6.18`). The eMMC trouble kano saw may have
+is updated only to a mainline one that names it (`openf50-update kernel 6.18`). The eMMC trouble kano saw may have
 another cause than runtime PM.
 
 **Checklist for a V50 owner (report in an issue).**
 1. Android: `getprop ro.product.model`, `ro.product.device`, `ro.board.platform` say V50, MU3351, ums9620.
 2. Install with kernel 6.18 (or 7.2) of a release that names the V50; the installer says "ZTE V50: EXPERIMENTAL".
-3. In Linux: `mu300-device` says `v50`; `ssh` to `192.168.79.1` works; `dmesg | grep -i -e aw9523b -e 'kept awake'`
-   shows "4 LED groups, pin mask 0xffff" and "MU300: ZTE V50, eMMC host kept awake".
-4. `ls /sys/class/leds` has `v50:net1:*`, `v50:wifi:*`; `sudo mu300-led test` lights each lamp in turn.
+3. In Linux: `openf50-device` says `v50`; `ssh` to `192.168.79.1` works; `dmesg | grep -i -e aw9523b -e 'kept awake'`
+   shows "4 LED groups, pin mask 0xffff" and "OPENF50: ZTE V50, eMMC host kept awake".
+4. `ls /sys/class/leds` has `v50:net1:*`, `v50:wifi:*`; `sudo openf50-led test` lights each lamp in turn.
 5. Mobile data on SIM 1, the hotspot on 5 GHz and 2.4 GHz (the Wi-Fi lamp white, then blue).
 6. Several reboots, then `sudo dumpe2fs -h` of the Linux filesystem: `FS Error count` absent or 0, files kept.

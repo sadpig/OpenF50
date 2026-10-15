@@ -398,7 +398,7 @@ static int tx_eachmode_data(struct sprd_hif *hif, enum sprd_mode mode)
 	else
 		send_num = sc2355_fc_test_send_num(hif, mode, total);
 	if (total != 0 && send_num <= 0) {
-		/* MU300 (from kanoqwq/mu300-linux): no credit is backpressure, the data waits for the next pass */
+		/* OPENF50 (from kanoqwq/openf50-linux): no credit is backpressure, the data waits for the next pass */
 		pr_debug_ratelimited("%s, %d: _fc_ no credit!\n", __func__, __LINE__);
 		return -ENOMEM;
 	}
@@ -2320,7 +2320,7 @@ int sprd_tx_special_data(struct sk_buff *skb, struct net_device *ndev)
 
 	if (skb->protocol == cpu_to_be16(ETH_P_PAE) ||
 		skb->protocol == cpu_to_be16(WAPI_TYPE)) {
-		/* MU300 (#140): every EAPOL frame of a (re)association takes this path, by design */
+		/* OPENF50 (#140): every EAPOL frame of a (re)association takes this path, by design */
 		pr_debug("send %s frame by CMD_TX_DATA\n",
 		skb->protocol == cpu_to_be16(ETH_P_PAE) ? "802.1X" : "WAI");
 		if (sprd_xmit_data2cmd_wq(skb, ndev) == -EAGAIN)

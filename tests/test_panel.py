@@ -1,6 +1,6 @@
-"""The web panel for Ubuntu, the panel extra (rootfs/panel): Cockpit and the MU300 page. mu300-update's checks of the
-extra's tarball, mu300-extra install (online from the release, offline --from), remove and link against a fake
-partition and a fake system (MU300_SYSROOT) with apt-get, systemctl and systemd-run stubbed; mu300-panel itself (its
+"""The web panel for Ubuntu, the panel extra (rootfs/panel): Cockpit and the OPENF50 page. openf50-update's checks of the
+extra's tarball, openf50-extra install (online from the release, offline --from), remove and link against a fake
+partition and a fake system (OPENF50_SYSROOT) with apt-get, systemctl and systemd-run stubbed; openf50-panel itself (its
 configuration: the LAN bridge only; info's JSON; the hotspot, its password on stdin); the firewall that keeps port
 9090 off the uplink; the page's manifest and translations; the page's JavaScript under Node against stub command
 outputs (argument arrays, secrets on stdin, text never as HTML); and `sms json`."""
@@ -19,16 +19,16 @@ from test_extra import ExtrasBase, sums
 from test_sms_pool import AT_STUB, AWK, PDU_GSM, PDU_UCS2, Pool
 
 PANEL = TOP / 'rootfs' / 'panel'
-CMD = PANEL / 'bin' / 'mu300-panel'
-PAGE = PANEL / 'cockpit' / 'mu300'
-FIREWALL = TOP / 'rootfs' / 'overlay' / 'etc' / 'mu300' / 'firewall.nft'
+CMD = PANEL / 'bin' / 'openf50-panel'
+PAGE = PANEL / 'cockpit' / 'openf50'
+FIREWALL = TOP / 'rootfs' / 'overlay' / 'etc' / 'openf50' / 'firewall.nft'
 
 
 def panel_tarball(path, release='v2026.10.20', debs=(), extra=(), name='panel'):
-    """the panel extra as tools/make-extra.sh builds it (the page's own files, bin/mu300-panel), DEBS: (release, file)"""
+    """the panel extra as tools/make-extra.sh builds it (the page's own files, bin/openf50-panel), DEBS: (release, file)"""
     files = [('./name', name + '\n', 0o644), ('./release', release + '\n', 0o644),
-             ('./components', 'mu300-panel\n', 0o644), ('./bin/mu300-panel', CMD.read_text(), 0o755)]
-    files += [(f'./cockpit/mu300/{p.name}', p.read_bytes(), 0o644) for p in sorted(PAGE.iterdir())]
+             ('./components', 'openf50-panel\n', 0o644), ('./bin/openf50-panel', CMD.read_text(), 0o755)]
+    files += [(f'./cockpit/openf50/{p.name}', p.read_bytes(), 0o644) for p in sorted(PAGE.iterdir())]
     files += [(f'./debs/{u}/{f}', b'!<arch>\n', 0o644) for u, f in debs]
     files += list(extra)
     with tarfile.open(path, 'w:gz') as t:
@@ -42,8 +42,8 @@ def panel_tarball(path, release='v2026.10.20', debs=(), extra=(), name='panel'):
 
 # apt-get: records its arguments; an install "installs" Cockpit (cockpit-ws appears in the fake system)
 APT = ('echo "apt-get $*" >> "$STUBLOG/apt"; '
-       'case " $* " in *" install "*) mkdir -p "$MU300_SYSROOT/usr/lib/cockpit" && : > "$MU300_SYSROOT/usr/lib/cockpit/cockpit-ws" '
-       '&& chmod 755 "$MU300_SYSROOT/usr/lib/cockpit/cockpit-ws" ;; *" purge "*) rm -f "$MU300_SYSROOT/usr/lib/cockpit/cockpit-ws" ;; esac; '
+       'case " $* " in *" install "*) mkdir -p "$OPENF50_SYSROOT/usr/lib/cockpit" && : > "$OPENF50_SYSROOT/usr/lib/cockpit/cockpit-ws" '
+       '&& chmod 755 "$OPENF50_SYSROOT/usr/lib/cockpit/cockpit-ws" ;; *" purge "*) rm -f "$OPENF50_SYSROOT/usr/lib/cockpit/cockpit-ws" ;; esac; '
        '[ -z "$APT_FAIL" ]')
 
 
@@ -81,8 +81,8 @@ class PanelExtra(ExtrasBase):
             r = self.up(shell, f'extra_unpack panel "{good}" && extra_release panel && extra_installed')
             self.assertEqual(r.returncode, 0, r.stderr)
             self.assertEqual(r.stdout.split(), ['v2026.10.20', 'panel'])
-            self.assertTrue(os.access(self.panel() / 'bin/mu300-panel', os.X_OK))
-            self.assertTrue((self.panel() / 'cockpit/mu300/manifest.json').is_file())
+            self.assertTrue(os.access(self.panel() / 'bin/openf50-panel', os.X_OK))
+            self.assertTrue((self.panel() / 'cockpit/openf50/manifest.json').is_file())
             for bad in (panel_tarball(self.tmp / 'b1.tar.gz', extra=[('./etc/sudoers', 'x', 0o644)]),
                         panel_tarball(self.tmp / 'b2.tar.gz', extra=[('./bin/other', '#!/bin/sh\n', 0o755)]),
                         panel_tarball(self.tmp / 'b3.tar.gz', extra=[('./debs/24.04/x.sh', 'x', 0o644)]),
@@ -91,18 +91,18 @@ class PanelExtra(ExtrasBase):
                         panel_tarball(self.tmp / 'b6.tar.gz', name='lang')):
                 r = self.up(shell, f'extra_unpack panel "{bad}"; echo "rc=$?"')
                 self.assertIn('rc=1', r.stdout, bad.name)
-                self.assertTrue((self.panel() / 'cockpit/mu300/manifest.json').is_file(), bad.name)
+                self.assertTrue((self.panel() / 'cockpit/openf50/manifest.json').is_file(), bad.name)
 
     # ---- install, remove, link --------------------------------------------------------------------------------
     def installed_files(self):
-        page = self.root / 'usr/share/cockpit/mu300'
+        page = self.root / 'usr/share/cockpit/openf50'
         conf = (self.root / 'etc/cockpit/cockpit.conf')
-        drop = (self.root / 'etc/systemd/system/cockpit.socket.d/mu300-listen.conf')
+        drop = (self.root / 'etc/systemd/system/cockpit.socket.d/openf50-listen.conf')
         return page, conf, drop
 
     def test_offline_install_from_the_extra_packages(self):
         (self.tmp / 'off').mkdir()
-        off = panel_tarball(self.tmp / 'off' / 'mu300-extra-panel-offline.tar.gz',
+        off = panel_tarball(self.tmp / 'off' / 'openf50-extra-panel-offline.tar.gz',
                             debs=[('24.04', 'cockpit-ws_314-1_arm64.deb'), ('24.04', 'python3_3.12_arm64.deb'),
                                   ('26.04', 'cockpit-ws_360-1_arm64.deb')])
         for shell in self.each_shell():
@@ -118,34 +118,34 @@ class PanelExtra(ExtrasBase):
             self.assertNotIn('26.04', apt)
             self.assertNotIn('update', apt)
             page, conf, drop = self.installed_files()
-            self.assertEqual(os.path.realpath(page), os.path.realpath(self.panel() / 'cockpit/mu300'))
+            self.assertEqual(os.path.realpath(page), os.path.realpath(self.panel() / 'cockpit/openf50'))
             self.assertIn('LoginTo = false', conf.read_text())
             self.assertIn('IdleTimeout = 15', conf.read_text())
             self.assertEqual([l for l in drop.read_text().splitlines() if not l.startswith('#')],
                              ['[Socket]', 'ListenStream=', 'ListenStream=9090', 'BindToDevice=br-lan'])
-            self.assertTrue((self.links / 'mu300-panel').is_symlink())
+            self.assertTrue((self.links / 'openf50-panel').is_symlink())
             self.assertIn('restart cockpit.socket', self.log('systemctl'))
 
     def test_offline_copies_are_checked(self):
         d = self.tmp / 'dir'
         d.mkdir()
-        panel_tarball(d / 'mu300-extra-panel-offline.tar.gz')
+        panel_tarball(d / 'openf50-extra-panel-offline.tar.gz')
         for shell in self.each_shell():
             self.reset(shell)
             r = self.ex(shell, 'install', 'panel', '--from', d)          # a directory needs its SHA256SUMS
             self.assertNotEqual(r.returncode, 0)
             self.assertIn('SHA256SUMS', r.stderr)
-            (d / 'SHA256SUMS').write_text('0' * 64 + '  mu300-extra-panel-offline.tar.gz\n')
+            (d / 'SHA256SUMS').write_text('0' * 64 + '  openf50-extra-panel-offline.tar.gz\n')
             r = self.ex(shell, 'install', 'panel', '--from', d)
             self.assertIn('does not match', r.stderr)
-            sums(d, 'mu300-extra-panel-offline.tar.gz')
+            sums(d, 'openf50-extra-panel-offline.tar.gz')
             r = self.ex(shell, 'install', 'panel', '--from', d)
             self.assertEqual(r.returncode, 0, r.stderr)
             (d / 'SHA256SUMS').unlink()
             self.assertFalse((self.disk / 'extra/.panel.new').exists())
 
     def test_online_install_takes_cockpit_from_the_archive(self):
-        self.serve('v2026.10.20', assets={'mu300-extra-panel.tar.gz': panel_tarball(self.tmp / 'on.tar.gz')})
+        self.serve('v2026.10.20', assets={'openf50-extra-panel.tar.gz': panel_tarball(self.tmp / 'on.tar.gz')})
         self.versions('v2026.10.20')
         for shell in self.each_shell():
             self.reset(shell)
@@ -159,13 +159,13 @@ class PanelExtra(ExtrasBase):
             self.assertTrue(self.installed_files()[2].is_file())
 
     def test_offline_without_packages_says_how(self):
-        self.serve('v2026.10.20', assets={'mu300-extra-panel.tar.gz': panel_tarball(self.tmp / 'on.tar.gz')})
+        self.serve('v2026.10.20', assets={'openf50-extra-panel.tar.gz': panel_tarball(self.tmp / 'on.tar.gz')})
         self.versions('v2026.10.20')
         for shell in self.each_shell():
             self.reset(shell)
             r = self.ex(shell, 'install', 'panel', APT_FAIL=1)
             self.assertNotEqual(r.returncode, 0)
-            self.assertIn('mu300-extra-panel-offline.tar.gz', r.stderr)
+            self.assertIn('openf50-extra-panel-offline.tar.gz', r.stderr)
 
     def test_openwrt_refuses(self):
         (self.root / 'etc/openwrt_release').write_text('x\n')
@@ -190,7 +190,7 @@ class PanelExtra(ExtrasBase):
             for p in self.installed_files():
                 self.assertFalse(p.exists() or p.is_symlink(), p)
             self.assertFalse(self.panel().exists())
-            self.assertFalse((self.links / 'mu300-panel').is_symlink())
+            self.assertFalse((self.links / 'openf50-panel').is_symlink())
 
     def test_link_after_an_update_puts_cockpit_back_in_the_background(self):
         off = panel_tarball(self.tmp / 'p.tar.gz', debs=[('24.04', 'cockpit-ws_314-1_arm64.deb')])
@@ -210,7 +210,7 @@ class PanelExtra(ExtrasBase):
             run = self.log('systemd-run')
             self.assertIn('--no-block', run)
             self.assertIn('After=network-online.target', run)
-            self.assertIn(f'{self.panel()}/bin/mu300-panel restore', run)
+            self.assertIn(f'{self.panel()}/bin/openf50-panel restore', run)
             self.assertEqual(self.log('apt'), '')                  # the boot never runs apt itself
             page, conf, drop = self.installed_files()
             self.assertTrue(page.is_symlink() and conf.is_file() and drop.is_file())
@@ -220,8 +220,8 @@ class PanelExtra(ExtrasBase):
         for shell in self.each_shell():
             self.reset(shell)
             self.up(shell, f'extra_unpack panel "{off}"')
-            env = dict(MU300_SYSROOT=self.root, MU300_PANEL_DIR=self.panel(), MU300_RUN=self.tmp / 'run',
-                       MU300_PANEL_RETRY=0, MU300_PANEL_TRIES=3)
+            env = dict(OPENF50_SYSROOT=self.root, OPENF50_PANEL_DIR=self.panel(), OPENF50_RUN=self.tmp / 'run',
+                       OPENF50_PANEL_RETRY=0, OPENF50_PANEL_TRIES=3)
             r = self.script(shell, CMD, 'restore', APT_FAIL=1, **env)
             self.assertNotEqual(r.returncode, 0)
             self.assertEqual(self.log('apt').count('update'), 3)
@@ -231,14 +231,14 @@ class PanelExtra(ExtrasBase):
 
 
 class Command(ShellTest):
-    """mu300-panel info and hotspot-set"""
+    """openf50-panel info and hotspot-set"""
 
     def setUp(self):
         super().setUp()
         self.root = self.tmp / 'root'
-        (self.root / 'etc/mu300').mkdir(parents=True)
+        (self.root / 'etc/openf50').mkdir(parents=True)
         (self.root / 'etc/os-release').write_text('ID=ubuntu\nVERSION_ID="26.04"\n')
-        (self.root / 'etc/mu300/hotspot.conf').write_text('SSID=MU300-1\nPSK=oldpassword\nBAND=5\nCHANNEL=auto\n')
+        (self.root / 'etc/openf50/hotspot.conf').write_text('SSID=OPENF50-1\nPSK=oldpassword\nBAND=5\nCHANNEL=auto\n')
         z = self.root / 'sys/class/thermal/thermal_zone0'
         z.mkdir(parents=True)
         (z / 'type').write_text('soc-thmzone\n')
@@ -249,20 +249,20 @@ class Command(ShellTest):
             (b / k).write_text(v + '\n')
         self.stub('id', 'echo 0')
         self.stub('systemctl', 'echo "systemctl $*" >> "$STUBLOG/systemctl"; [ "$1" = is-active ] && echo active; exit 0')
-        self.stub('mu300-device', 'cat "$STUBLOG/device"')
+        self.stub('openf50-device', 'cat "$STUBLOG/device"')
         (self.tmp / 'device').write_text('u30air\n')
-        self.stub('mu300-lan-ip', 'echo 192.168.77.1')
-        self.stub('mu300-cpu', 'echo \'{"ok":1,"profile":"saving"}\'')
+        self.stub('openf50-lan-ip', 'echo 192.168.77.1')
+        self.stub('openf50-cpu', 'echo \'{"ok":1,"profile":"saving"}\'')
         self.stub('ip', 'echo "5: sipa_eth0    inet 10.0.0.2/30 scope global sipa_eth0"')
         # an operator name with a backslash and markup, as a hostile network could name itself
         (self.tmp / 'cops').write_text('+COPS: 0,0,"Evil\\x <b>",7\r\nOK\r\n')
-        self.stub('mu300-at', 'echo "$*" >> "$STUBLOG/at"; case "$*" in '
+        self.stub('openf50-at', 'echo "$*" >> "$STUBLOG/at"; case "$*" in '
                   '*COPS*) cat "$STUBLOG/cops" ;; '
                   '*CEREG*) printf \'+CEREG: 0,5\\r\\nOK\\r\\n\' ;; *CESQ*) printf \'+CESQ: 99,99,255,255,30,60\\r\\nOK\\r\\n\' ;; esac')
 
     def env(self, **extra):
         e = super().env(**extra)
-        e.update(MU300_SYSROOT=str(self.root), MU300_RUN=str(self.tmp / 'run'))
+        e.update(OPENF50_SYSROOT=str(self.root), OPENF50_RUN=str(self.tmp / 'run'))
         return e
 
     def test_info_is_json(self):
@@ -280,7 +280,7 @@ class Command(ShellTest):
             self.assertEqual(i['battery']['capacity'], 81)
             self.assertEqual(i['temperatures'], [{'name': 'soc-thmzone', 'millicelsius': 48250}])
             self.assertEqual(i['cpu']['profile'], 'saving')
-            self.assertEqual(i['hotspot'], {'ssid': 'MU300-1'})
+            self.assertEqual(i['hotspot'], {'ssid': 'OPENF50-1'})
             self.assertNotIn('oldpassword', r.stdout)
             # the radio readings are cached: a second call within 15 s sends no AT command
             (self.tmp / 'at').unlink()
@@ -292,9 +292,9 @@ class Command(ShellTest):
             (self.tmp / 'device').write_text('u30air\n')
 
     def test_hotspot_set(self):
-        conf = self.root / 'etc/mu300/hotspot.conf'
+        conf = self.root / 'etc/openf50/hotspot.conf'
         for shell in self.each_shell():
-            conf.write_text('SSID=MU300-1\nPSK=oldpassword\nBAND=5\nCHANNEL=auto\n')
+            conf.write_text('SSID=OPENF50-1\nPSK=oldpassword\nBAND=5\nCHANNEL=auto\n')
             for ssid, psk in (('', 'longenough'), ('x' * 33, 'longenough'), ('ok', 'short'), ('ok', 'x' * 64),
                               ('a\tb', 'longenough'), (' lead', 'longenough'), ('ok', 'pässword1')):
                 r = self.script(shell, CMD, 'hotspot-set', ssid, stdin=psk + '\n')
@@ -305,7 +305,7 @@ class Command(ShellTest):
             self.assertEqual(conf.read_text().splitlines(),
                              ['BAND=5', 'CHANNEL=auto', 'SSID=Café $(id) "x"', 'PSK=p@ss $(reboot)'])
             self.assertEqual(conf.stat().st_mode & 0o777, 0o600)
-            self.assertIn('restart mu300-hotspot', (self.tmp / 'systemctl').read_text())
+            self.assertIn('restart openf50-hotspot', (self.tmp / 'systemctl').read_text())
 
     def test_not_on_openwrt(self):
         (self.root / 'etc/openwrt_release').write_text('x\n')
@@ -334,12 +334,12 @@ class Static(unittest.TestCase):
 
     def test_manifest_and_page(self):
         m = json.loads((PAGE / 'manifest.json').read_text())
-        self.assertEqual(m['menu']['index']['label'], 'MU300')
+        self.assertEqual(m['menu']['index']['label'], 'OPENF50')
         html = (PAGE / 'index.html').read_text()
-        for s in ('../base1/cockpit.js', 'po.js', 'mu300.js', 'mu300.css'):
+        for s in ('../base1/cockpit.js', 'po.js', 'openf50.js', 'openf50.css'):
             self.assertIn(s, html)
         self.assertNotRegex(html, r'<script>[^<]')            # Cockpit's policy: no inline script
-        js = (PAGE / 'mu300.js').read_text()
+        js = (PAGE / 'openf50.js').read_text()
         for bad in ('innerHTML', 'eval(', "'sh'", '"sh"', "'-c'", 'bash'):
             self.assertNotIn(bad, js)
         self.assertIn("superuser: 'try'", js)
@@ -347,7 +347,7 @@ class Static(unittest.TestCase):
     def test_translations(self):
         r = subprocess.run(['python3', str(TOP / 'tools/cockpit-i18n.py'), 'check'], capture_output=True, text=True)
         self.assertEqual(r.returncode, 0, r.stdout)
-        d = Path(tempfile.mkdtemp(prefix='mu300-cockpit-po-'))
+        d = Path(tempfile.mkdtemp(prefix='openf50-cockpit-po-'))
         try:
             subprocess.run(['python3', str(TOP / 'tools/cockpit-i18n.py'), 'build', str(d)], check=True)
             for lang in ('tr', 'zh_CN'):
@@ -359,19 +359,19 @@ class Static(unittest.TestCase):
 
     def test_release_and_installers(self):
         rel = (TOP / 'tools/make-release.sh').read_text()
-        self.assertIn('make-extra.sh" panel "$D/mu300-extra-panel.tar.gz"', rel)
-        self.assertIn('make-extra.sh" panel-offline "$D/mu300-extra-panel-offline.tar.gz"', rel)
-        self.assertIn('EXTRAS="vpn lang vpn-mihomo panel vpn-xray vpn-singbox vpn-dae"', (BIN / 'mu300-update').read_text())
+        self.assertIn('make-extra.sh" panel "$D/openf50-extra-panel.tar.gz"', rel)
+        self.assertIn('make-extra.sh" panel-offline "$D/openf50-extra-panel-offline.tar.gz"', rel)
+        self.assertIn('EXTRAS="vpn lang vpn-mihomo panel vpn-xray vpn-singbox vpn-dae"', (BIN / 'openf50-update').read_text())
         sh = (TOP / 'install.sh').read_text()
-        self.assertIn('adb push "$EXTRA_PANEL" $T/mu300-extra-panel.tar.gz', sh)
+        self.assertIn('adb push "$EXTRA_PANEL" $T/openf50-extra-panel.tar.gz', sh)
         self.assertIn("Install the web panel for Ubuntu (about 24 MB more to download, 50 MB on the device)? (yes/no)')\" no", sh)
         ps = (TOP / 'install.ps1').read_text()
-        self.assertIn('& adb push $EXTRA_PANEL "$T/mu300-extra-panel.tar.gz"', ps)
+        self.assertIn('& adb push $EXTRA_PANEL "$T/openf50-extra-panel.tar.gz"', ps)
 
 
 @unittest.skipUnless(shutil.which('node'), 'Node.js is needed for the page tests')
 class Page(unittest.TestCase):
-    """mu300.js under Node: a small DOM, and a cockpit object whose spawn records the argument arrays and answers
+    """openf50.js under Node: a small DOM, and a cockpit object whose spawn records the argument arrays and answers
     from a table of stub outputs."""
 
     HARNESS = r'''
@@ -415,34 +415,34 @@ global.TextEncoder = TextEncoder;
 const setInterval_ = () => 0;
 new Function('cockpit', 'document', 'window', 'setInterval', 'clearInterval', fs.readFileSync(process.argv[2], 'utf8'))(
   cockpit, document, window, setInterval_, () => {});
-window.MU300 = window.MU300;
+window.OPENF50 = window.OPENF50;
 const flush = () => new Promise((r) => setTimeout(r, 5));
 (async function() { __BODY__ })().then((r) => process.stdout.write(JSON.stringify({ result: r, calls: calls })),
   (e) => { console.error(e); process.exit(1); });
 '''
 
     OUT = {
-        'mu300-panel info': json.dumps({'device': 'u30air', 'version': 'v1', 'mobile_data': {'service': 'active'},
+        'openf50-panel info': json.dumps({'device': 'u30air', 'version': 'v1', 'mobile_data': {'service': 'active'},
                                         'signal': {'operator': '<img src=x onerror=alert(1)>', 'rat': 'LTE'},
                                         'battery': None, 'temperatures': [], 'cpu': None,
-                                        'hotspot': {'ssid': 'MU300'}}),
-        'mu300-traffic json': json.dumps({'today': {'rx': 1, 'tx': 1}}),
+                                        'hotspot': {'ssid': 'OPENF50'}}),
+        'openf50-traffic json': json.dumps({'today': {'rx': 1, 'tx': 1}}),
         'sms json': json.dumps({'messages': [{'index': [1, 2], 'sender': '<b>x</b>', 'time': 't', 'parts': 2,
                                               'text': 'hello'}, {'index': ['3;CFUN=0'], 'sender': 'y', 'time': 't',
                                                                  'parts': 1, 'text': 'z'}]}),
         'sms send': 'sent', 'sms delete': 'deleted',
-        'mu300-vpn status --json': json.dumps({'enabled': False, 'running': False}),
-        'mu300-vpn profile list --json': json.dumps([{'id': 'ok-1', 'name': 'A', 'type': 'xray'},
+        'openf50-vpn status --json': json.dumps({'enabled': False, 'running': False}),
+        'openf50-vpn profile list --json': json.dumps([{'id': 'ok-1', 'name': 'A', 'type': 'xray'},
                                                      {'id': '../x', 'name': 'B', 'type': 'xray'}]),
-        'mu300-vpn profile use': 'used', 'mu300-panel hotspot-set': 'hotspot', 'wifi-client': 'status',
-        # the VPN module is installed (mu300-extra's test, the page runs it as test -x); a stub table without this
+        'openf50-vpn profile use': 'used', 'openf50-panel hotspot-set': 'hotspot', 'wifi-client': 'status',
+        # the VPN module is installed (openf50-extra's test, the page runs it as test -x); a stub table without this
         # key is a device without the module
-        'test -x /mnt/mu300-disk/extra/vpn/bin/mu300-vpn': '',
+        'test -x /mnt/openf50-disk/extra/vpn/bin/openf50-vpn': '',
     }
 
     def run_page(self, body, out=None):
         h = self.HARNESS.replace('__OUT__', json.dumps(self.OUT if out is None else out)).replace('__BODY__', body)
-        r = subprocess.run(['node', '-', str(PAGE / 'mu300.js')], input=h, capture_output=True, text=True)
+        r = subprocess.run(['node', '-', str(PAGE / 'openf50.js')], input=h, capture_output=True, text=True)
         self.assertEqual(r.returncode, 0, r.stderr)
         return json.loads(r.stdout)
 
@@ -450,12 +450,12 @@ const flush = () => new Promise((r) => setTimeout(r, 5));
         out = self.run_page("await flush(); await flush(); return document.getElementById('app').textContent;")
         self.assertIn('<img src=x onerror=alert(1)>', out['result'])
         argvs = [c['argv'] for c in out['calls']]
-        self.assertIn(['mu300-panel', 'info'], argvs)
+        self.assertIn(['openf50-panel', 'info'], argvs)
         self.assertTrue(all(c['opts'] == {'superuser': 'try', 'err': 'message'} for c in out['calls']))
 
     def test_sms_send_and_delete(self):
         out = self.run_page(r'''
-window.MU300.show('sms'); await flush(); await flush();
+window.OPENF50.show('sms'); await flush(); await flush();
 ids['mu-sms-number'].value = '+905551112233'; ids['mu-sms-text'].value = 'hi $(reboot); `id`';
 find(ids['mu-sms-send'], (n) => n.tag === 'button').click(); await flush();
 ids['mu-sms-number'].value = '123; reboot'; find(ids['mu-sms-send'], (n) => n.tag === 'button').click(); await flush();
@@ -471,32 +471,32 @@ return document.getElementById('app').textContent;''')
 
     def test_secrets_go_on_stdin(self):
         out = self.run_page(r'''
-window.MU300.show('wifi'); await flush();
+window.OPENF50.show('wifi'); await flush();
 ids['mu-hs-ssid'].value = 'Net'; ids['mu-hs-psk'].value = 'secret123';
 find(ids['mu-hotspot'], (n) => n.tag === 'button').click(); await flush();
 ids['mu-wc-ssid'].value = 'Cafe'; ids['mu-wc-psk'].value = 'cafepass';
 all(ids['mu-wifi-client'], (n) => n.tag === 'button')[0].click(); await flush();
 return null;''')
         calls = {' '.join(c['argv']): c.get('input') for c in out['calls']}
-        self.assertEqual(calls['mu300-panel hotspot-set Net'], 'secret123\n')
+        self.assertEqual(calls['openf50-panel hotspot-set Net'], 'secret123\n')
         self.assertEqual(calls['wifi-client connect Cafe -'], 'cafepass\n')
         self.assertFalse(any('secret123' in k or 'cafepass' in k for k in calls))
 
     def test_vpn_profile_ids_are_checked(self):
         out = self.run_page(r'''await flush();
-window.MU300.show('vpn'); await flush(); await flush(); await flush();
+window.OPENF50.show('vpn'); await flush(); await flush(); await flush();
 all(ids['mu-vpn-profiles'], (n) => n.tag === 'button').forEach((b) => b.click()); await flush();
 return null;''')
-        uses = [c['argv'] for c in out['calls'] if c['argv'][:3] == ['mu300-vpn', 'profile', 'use']]
-        self.assertEqual(uses, [['mu300-vpn', 'profile', 'use', 'ok-1']])
+        uses = [c['argv'] for c in out['calls'] if c['argv'][:3] == ['openf50-vpn', 'profile', 'use']]
+        self.assertEqual(uses, [['openf50-vpn', 'profile', 'use', 'ok-1']])
 
     def test_the_vpn_tab_only_with_the_module(self):
         body = r'''await flush(); await flush();
 const tabs = all(ids.app, (n) => n.tag === 'button' && n.attrs['data-tab']).map((n) => n.attrs['data-tab']);
-window.MU300.show('vpn'); await flush(); await flush();
+window.OPENF50.show('vpn'); await flush(); await flush();
 return { tabs: tabs, shown: cockpit.location.path[0], main: document.getElementById('mu-main').textContent };'''
-        check = ['test', '-x', '/mnt/mu300-disk/extra/vpn/bin/mu300-vpn']
-        # with the module (its mu300-vpn in the vpn extra, mu300-extra's test): the tab, and the VPN page opens
+        check = ['test', '-x', '/mnt/openf50-disk/extra/vpn/bin/openf50-vpn']
+        # with the module (its openf50-vpn in the vpn extra, openf50-extra's test): the tab, and the VPN page opens
         out = self.run_page(body)
         self.assertIn('vpn', out['result']['tabs'])
         self.assertEqual(out['result']['shown'], 'vpn')
@@ -510,10 +510,10 @@ return { tabs: tabs, shown: cockpit.location.path[0], main: document.getElementB
         self.assertNotIn('VPN', out['result']['main'])
         self.assertNotIn('VPN', ''.join(t for t in self.run_page(
             "await flush(); return document.getElementById('app').textContent;", without)['result']))
-        self.assertFalse([c['argv'] for c in out['calls'] if c['argv'][0] == 'mu300-vpn'])
+        self.assertFalse([c['argv'] for c in out['calls'] if c['argv'][0] == 'openf50-vpn'])
 
     def test_helpers(self):
-        out = self.run_page(r'''const M = window.MU300;
+        out = self.run_page(r'''const M = window.OPENF50;
 return [M.netDev('Inter-|\n  lo: 1 0 0 0 0 0 0 0 2 0\n sipa_eth0: 300 5 0 0 0 0 0 0 400 6 0 0 0 0 0 0\n'),
         M.fmtBytes(1536), M.fmtRate(125000), M.errText({ problem: 'not-found' })];''')
         self.assertEqual(out['result'], [{'lo': {'rx': 1, 'tx': 2}, 'sipa_eth0': {'rx': 300, 'tx': 400}}, '1.5 KiB',
@@ -525,13 +525,13 @@ class SmsJson(ShellTest):
 
     def setUp(self):
         super().setUp()
-        self.stub('mu300-at', AT_STUB)
+        self.stub('openf50-at', AT_STUB)
         (self.tmp / 'at').mkdir()
         (self.tmp / 'at' / 'CPMS').write_text('+CPMS: 2,50,2,50,2,50\nOK\n')
 
     def run_json(self, shell, cmgl):
         (self.tmp / 'at' / 'CMGL4').write_text(cmgl)
-        r = self.script(shell, BIN / 'sms', 'json', MU300_SMS_AWK=AWK, MU300_SMS_STATE=self.tmp / 'state')
+        r = self.script(shell, BIN / 'sms', 'json', OPENF50_SMS_AWK=AWK, OPENF50_SMS_STATE=self.tmp / 'state')
         self.assertEqual(r.returncode, 0, r.stderr)
         return json.loads(r.stdout)
 

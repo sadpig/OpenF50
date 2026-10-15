@@ -6,7 +6,7 @@ Boards: U30 Air (OpenWrt 25.12.5, kernel 7.2.9, Vodafone TR SIM, PLMN 286/02, IM
 `+CIREG:0,1,0`, `+CAVIMS:1`, `+CEVDP:3`). F50-B (192.168.79.1) did not answer ssh during this study, so the
 Android side was read from the U30 Air's full eMMC backup (`backup/u30air-20260927-205614/super.img.gz`, slot `_a`,
 EROFS partitions unpacked with a small LP-metadata parser plus `fsck.erofs --extract`). The F50 build is the same
-ZTE/Unisoc UMS9620 MBB base. The Linux-side Android subset under `/opt/mu300/android` holds only what
+ZTE/Unisoc UMS9620 MBB base. The Linux-side Android subset under `/opt/openf50/android` holds only what
 `modem_control` needs, so it contains no IMS or VoWiFi files.
 
 ## Summary
@@ -25,7 +25,7 @@ side.
   technology.
 - **Track 2** is the product path: re-enable the modem's own CP VoWiFi by reimplementing the AP half (the
   `ims_bridge` relay plus the AT control sequence). If it works, calls and SMS keep using the modem's IMS stack
-  and the audio path that `mu300-voice` already drives.
+  and the audio path that `openf50-voice` already drives.
 
 A Linux IMS client (doubango, baresip or similar) is a NO-GO as the product: it duplicates what the modem already
 does, and IMS sec-agree, AMR-WB/EVS and emergency handling would turn it into a project of several months.
@@ -131,8 +131,8 @@ The exact argument values in steps 1-4 are not known yet. Getting them is Track 
   - (b) Write a userspace relay that reads and writes the spool devices and uses raw sockets / nftables on `wlan0`.
     Option (a) is the faithful one, because the protocol (packet headers, the AP and CP version handshake) lives
     in that source. Option (b) needs the same knowledge, re-coded.
-- **The control path.** A small daemon (`mu300-vowifi`) that follows Wi-Fi state and sends the
-  `+VOWIFIEN/+IMSHOWFINF/+IMSWFATT/+VOWFREG` sequence through `mu300-at`. It handles `+IKEATTU`, `+IMSHOU` and
+- **The control path.** A small daemon (`openf50-vowifi`) that follows Wi-Fi state and sends the
+  `+VOWIFIEN/+IMSHOWFINF/+IMSWFATT/+VOWFREG` sequence through `openf50-at`. It handles `+IKEATTU`, `+IMSHOU` and
   `+IMSHORSTU`, and drives the bridge netlink commands that `libimsbrd` sends (SPI, tuple, call state, MAC).
   SRMI may also be needed: the modem may ask the AP for things such as DNS resolution, the local IP or the Wi-Fi
   state through it. `libsrmi.so` and `srmi_proxyd` are small (28 to 44 KB) and readable, but whether the modem
@@ -142,7 +142,7 @@ The exact argument values in steps 1-4 are not known yet. Getting them is Track 
   (`sc2355_is_vowifi_pkt`, `vowifi_enabled` in `upstream/modules/sprd_wlan_combo/sc2355/tx.c`): it marks them for
   QoS and power saving.
 - **Audio and SMS.** These do not change. Calls appear as ordinary `+CLCC` calls and audio uses the AGDSP voice
-  path that `mu300-voice` already drives. SMS over IMS keeps working the way it does today.
+  path that `openf50-voice` already drives. SMS over IMS keeps working the way it does today.
 
 ### 2.2 Track 1: Linux-side SWu with strongSwan (proof of concept and diagnostic)
 
@@ -156,13 +156,13 @@ The exact argument values in steps 1-4 are not known yet. Getting them is Track 
   - What is needed is a new plugin, `eap-aka-atcsim` (about 300-500 lines of C). It implements
     `get_quintuplet()` by sending the USIM AUTHENTICATE APDU through `AT+CSIM`:
     `00 88 00 81 22 10<RAND> 10<AUTN>`, then `GET RESPONSE`, which returns `DB` RES/CK/IK or `DC` AUTS for
-    resync. It also implements `resync()` and talks to `mu300-atd` instead of opening the tty. If the USIM's basic
+    resync. It also implements `resync()` and talks to `openf50-atd` instead of opening the tty. If the USIM's basic
     channel is busy, it can open a logical channel with `AT+CCHO` / `AT+CGLA` on the USIM AID.
   - osmocom's "FOSS IMS client" project wrote an equivalent for its modified strongSwan: an "AKA socket" with
     PC/SC or AT+CSIM providers. It was tested against the T-Mobile DE ePDG.
 - **An alternative for the first experiment:** fasferraz's `SWu-IKEv2` (Python 3, GPL-3.0). It already gets
   RES/CK/IK from "a USB modem supporting AT+CSIM", a PC/SC reader or an HTTPS helper, and brings the tunnel up on a
-  TUN device. Pointing it at a small `mu300-at` shim is about one day of work. It is a test tool, not something
+  TUN device. Pointing it at a small `openf50-at` shim is about one day of work. It is a test tool, not something
   to ship.
 - **ePDG discovery** (resolved from the Mac, through the user's VPN):
   - `epdg.epc.mnc002.mcc286.pub.3gppnetwork.org` gives A **217.31.231.85, 217.31.231.69, 217.31.231.77** (no
@@ -210,7 +210,7 @@ The exact argument values in steps 1-4 are not known yet. Getting them is Track 
 - **SIM access concurrency (medium).** AT+CSIM on the basic channel can race with the modem's own USIM and ISIM
   use, and a USIM AUTHENTICATE moves the SIM's SQN forward. Normal SQN window handling (an array of 32 values)
   tolerates this, and a sync failure gets an AUTS resync. Mitigations: use a logical channel (`AT+CCHO`), run AKA
-  only during an IKE_AUTH, and go through `mu300-atd` so that no other AT command interleaves.
+  only during an IKE_AUTH, and go through `openf50-atd` so that no other AT command interleaves.
 - **Emergency calls (must not regress).** 112 has to stay on CS or LTE. Track 1 never touches the modem's call
   handling. In Track 2, the modem's own logic (`dialEmergencyCall over cpvowifi`, `KEY_CARRIER_DEREG_VOWIFI_BEFORE_ECALL`)
   decides; default to "cellular preferred" and leave the SOS ePDG unused. An E911-style address entitlement is
@@ -224,7 +224,7 @@ The exact argument values in steps 1-4 are not known yet. Getting them is Track 
 - **Maintenance.** Track 2 depends on undocumented Unisoc interfaces that could change with a modem firmware
   update (the `ims_bridge` "version conflict AP vs CP" check). Keep the port pinned to the firmware version.
   Track 1 depends only on strongSwan and 3GPP standards.
-- **Board rule.** `/etc/mu300/vpn.conf` and the Wi-Fi passphrase stay untouched. VoWiFi in client mode uses its
+- **Board rule.** `/etc/openf50/vpn.conf` and the Wi-Fi passphrase stay untouched. VoWiFi in client mode uses its
   own STA config.
 
 ## 5. Phased plan
@@ -234,8 +234,8 @@ The exact argument values in steps 1-4 are not known yet. Getting them is Track 
 | **1. SWu tunnel with the real SIM** (Track 1) | IKE_AUTH succeeds against 217.31.231.x and the CP payload returns an inner IP and P-CSCFs | 2-4 days | tunnel up, P-CSCF list logged; or a clean carrier refusal code |
 | 2a. Learn the CP-VoWiFi protocol | Get the `ims_bridge` source (Unisoc 5.4 GPL tree or the ZTE F50 GPL release) and decompile `ims.apk` n3am, `libimsbrd` and the RIL argument encodings; optionally capture `logcat -b radio` on an Android unit with `persist.sys.vowifi.lab.sim=true` and `srmi_proxyd` started | 3-5 days | documented AT sequence and bridge message format |
 | 2b. Data path on Linux | Port `ims_bridge` to 7.2 and rebind DT channels 2/3, or write a userspace relay | 1-2 weeks | IKE packets from the modem appear on `wlan0` |
-| 2c. Control daemon | `mu300-vowifi`: Wi-Fi state, then VOWIFIEN, IMSHOWFINF, IMSWFATT and VOWFREG; URC handling; OpenWrt and Ubuntu packaging | 1 week | `+IKEATTU` reports success, `+CIREG` stays registered with LTE data off, SMS works over Wi-Fi |
-| 2d. Calls and handover | Voice over Wi-Fi with `mu300-voice`; LTE↔Wi-Fi handover; check that 112 stays on cellular | 1-2 weeks | MO and MT call on Wi-Fi; 112 test on a test number only |
+| 2c. Control daemon | `openf50-vowifi`: Wi-Fi state, then VOWIFIEN, IMSHOWFINF, IMSWFATT and VOWFREG; URC handling; OpenWrt and Ubuntu packaging | 1 week | `+IKEATTU` reports success, `+CIREG` stays registered with LTE data off, SMS works over Wi-Fi |
+| 2d. Calls and handover | Voice over Wi-Fi with `openf50-voice`; LTE↔Wi-Fi handover; check that 112 stays on cellular | 1-2 weeks | MO and MT call on Wi-Fi; 112 test on a test number only |
 
 Total: about 1 week to a go/no-go answer (phases 1 and 2a), then 4-6 weeks for the full Track 2.
 
@@ -250,7 +250,7 @@ Total: about 1 week to a go/no-go answer (phases 1 and 2a), then 4-6 weeks for t
 1. Use the U30 Air on its normal LTE data, or, in the user's region, through a path where 217.31.231.85:500/4500
    is reachable (see the VPN note in `test-device-access`). Wi-Fi client mode is not needed to prove the tunnel:
    the ePDG accepts IKE from any IP.
-2. Build an `mu300-at`-backed AKA helper: `aka RAND AUTN`. It selects the USIM (`AT+CSIM` SELECT by AID from
+2. Build an `openf50-at`-backed AKA helper: `aka RAND AUTN`. It selects the USIM (`AT+CSIM` SELECT by AID from
    EF_DIR, read with `AT+CRSM`), sends `00 88 00 81 22 …` and parses `DB`/`DC`. This APDU is the only
    state-changing step, and only for the SIM's SQN. No modem set commands are sent.
 3. Run `SWu-IKEv2` (fastest) or strongSwan with the new `eap-aka-atcsim` plugin from Ubuntu or a host that sees
@@ -269,6 +269,6 @@ Total: about 1 week to a go/no-go answer (phases 1 and 2a), then 4-6 weeks for t
   `vendor_a`, `product_a`, `odm_a` and `vendor_dlkm_a` are EROFS and were extracted with `fsck.erofs --extract`
   (Debian trixie container). `ims.apk` was disassembled with `dexdump`. The modem strings come from
   `nr_modem_a.img`.
-- The AT probe ran on the U30 Air through `mu300-at -t 5`, with `?` and `=?` forms only.
+- The AT probe ran on the U30 Air through `openf50-at -t 5`, with `?` and `=?` forms only.
 - The DNS lookups and whois ran from the Mac through the user's VPN.
 - None of the proprietary files are added to the repository.

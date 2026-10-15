@@ -31,7 +31,7 @@
 #include <mmu/mali_kbase_mmu_internal.h>
 
 #ifdef SPRD_SUPPORT_FAULT_KEYWORD
-extern s64 time[FAULT_KEYWORD_NUM];	/* MU300: s64 is gone from the kernel headers */
+extern s64 time[FAULT_KEYWORD_NUM];	/* OPENF50: s64 is gone from the kernel headers */
 #endif
 
 void kbase_mmu_get_as_setup(struct kbase_mmu_table *mmut,

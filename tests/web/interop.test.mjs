@@ -1,7 +1,7 @@
-// The adb client against a real adbd over TCP. Skipped unless MU300_ADBD_TCP=host:port names one, for example
+// The adb client against a real adbd over TCP. Skipped unless OPENF50_ADBD_TCP=host:port names one, for example
 // Ubuntu 26.04's adbd package in a container (it needs no key and listens on 5555):
 //   docker run --rm -d -p 127.0.0.1:15555:5555 ubuntu:26.04 sh -c 'apt-get update && apt-get install -y adbd && exec adbd'
-//   MU300_ADBD_TCP=127.0.0.1:15555 node --test tests/web/interop.test.mjs
+//   OPENF50_ADBD_TCP=127.0.0.1:15555 node --test tests/web/interop.test.mjs
 // Never point this at a device: the tests write files under /tmp of whatever answers.
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -13,8 +13,8 @@ import { pull, push, stat } from "../../site/assets/web-installer/adb/sync.js";
 import { generateKey } from "../../site/assets/web-installer/adb/key.js";
 import { tcpTransport } from "./tcp-transport.mjs";
 
-const target = process.env.MU300_ADBD_TCP;
-const opts = { skip: target ? false : "MU300_ADBD_TCP is not set" };
+const target = process.env.OPENF50_ADBD_TCP;
+const opts = { skip: target ? false : "OPENF50_ADBD_TCP is not set" };
 
 // run(fn): fn(conn) with a connection that is closed whatever happens (an open socket keeps Node alive)
 async function run(fn) {
@@ -44,7 +44,7 @@ test("real adbd: handshake, features, shell with exit codes and stderr", opts, (
 test("real adbd: push and pull, 5 MB and sizes around the chunk and USB packet boundaries, checksums equal", opts, () => run(async (conn) => {
   for (const size of [0, 1, 504, 65535, 65536, 65537, 5 * 1024 * 1024 + 3]) {
     const data = new Uint8Array(crypto.randomBytes(size));
-    const path = `/tmp/mu300-interop-${size}.bin`;
+    const path = `/tmp/openf50-interop-${size}.bin`;
     let last = -1;
     await push(conn, data, path, { mode: 0o640, onProgress: (s) => { assert.ok(s >= last); last = s; } });
     assert.equal(last, size);
@@ -69,7 +69,7 @@ test("real adbd: push and pull, 5 MB and sizes around the chunk and USB packet b
 test("real adbd: an abort in the middle of a push leaves the connection usable", opts, () => run(async (conn) => {
   const ac = new AbortController();
   const data = new Uint8Array(crypto.randomBytes(8 * 1024 * 1024));
-  await assert.rejects(push(conn, data, "/tmp/mu300-interop-abort.bin", { signal: ac.signal, onProgress: (s) => { if (s > 1024 * 1024) ac.abort(); } }),
+  await assert.rejects(push(conn, data, "/tmp/openf50-interop-abort.bin", { signal: ac.signal, onProgress: (s) => { if (s > 1024 * 1024) ac.abort(); } }),
     (e) => e.code === "aborted");
-  assert.equal((await shell(conn, "echo ok; rm -f /tmp/mu300-interop-abort.bin")).stdout, "ok\n");
+  assert.equal((await shell(conn, "echo ok; rm -f /tmp/openf50-interop-abort.bin")).stdout, "ok\n");
 }));

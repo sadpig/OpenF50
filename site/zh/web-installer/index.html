@@ -7,21 +7,21 @@
      to anything but this site and GitHub's API. (The hash is the theme script below; no web fonts here.) -->
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'sha256-OMJkqZr7SKqxdIEl/JawS5rmqBdCOZaNDw1i12YqLwg='; style-src 'self'; img-src 'self' data:; connect-src 'self' https://api.github.com https://raw.githubusercontent.com; base-uri 'none'; form-action 'none'">
 <meta name="referrer" content="no-referrer">
-<script>try{var t=localStorage.getItem("mu300-theme");if(t==="light"||t==="dark")document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
+<script>try{var t=localStorage.getItem("openf50-theme");if(t==="light"||t==="dark")document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
 <title>网页安装器：在浏览器中为 ZTE F50 / U30 Air 安装和管理 Linux</title>
-<meta name="description" content="在 Chrome 或 Edge 中通过 USB 为已 root 的 ZTE F50 / MU300 或 U30 Air 安装 Ubuntu 或 OpenWrt，电脑上无需 adb、Python 或脚本。">
-<link rel="canonical" href="https://kaandikec.com/mu300-linux/zh/web-installer/">
-<link rel="alternate" hreflang="en" href="https://kaandikec.com/mu300-linux/web-installer/">
-<link rel="alternate" hreflang="tr" href="https://kaandikec.com/mu300-linux/tr/web-installer/">
-<link rel="alternate" hreflang="zh-Hans" href="https://kaandikec.com/mu300-linux/zh/web-installer/">
-<link rel="alternate" hreflang="x-default" href="https://kaandikec.com/mu300-linux/web-installer/">
+<meta name="description" content="在 Chrome 或 Edge 中通过 USB 为已 root 的 ZTE F50 / OPENF50 或 U30 Air 安装 Ubuntu 或 OpenWrt，电脑上无需 adb、Python 或脚本。">
+<link rel="canonical" href="https://kaandikec.com/openf50-linux/zh/web-installer/">
+<link rel="alternate" hreflang="en" href="https://kaandikec.com/openf50-linux/web-installer/">
+<link rel="alternate" hreflang="tr" href="https://kaandikec.com/openf50-linux/tr/web-installer/">
+<link rel="alternate" hreflang="zh-Hans" href="https://kaandikec.com/openf50-linux/zh/web-installer/">
+<link rel="alternate" hreflang="x-default" href="https://kaandikec.com/openf50-linux/web-installer/">
 <meta property="og:type" content="website">
-<meta property="og:site_name" content="MU300 Linux">
+<meta property="og:site_name" content="OPENF50 Linux">
 <meta property="og:title" content="网页安装器：在浏览器中为 ZTE F50 / U30 Air 安装和管理 Linux">
-<meta property="og:description" content="在 Chrome 或 Edge 中通过 USB 为已 root 的 ZTE F50 / MU300 或 U30 Air 安装 Ubuntu 或 OpenWrt，电脑上无需 adb、Python 或脚本。">
-<meta property="og:url" content="https://kaandikec.com/mu300-linux/zh/web-installer/">
+<meta property="og:description" content="在 Chrome 或 Edge 中通过 USB 为已 root 的 ZTE F50 / OPENF50 或 U30 Air 安装 Ubuntu 或 OpenWrt，电脑上无需 adb、Python 或脚本。">
+<meta property="og:url" content="https://kaandikec.com/openf50-linux/zh/web-installer/">
 <meta property="og:locale" content="zh_CN">
-<meta property="og:image" content="https://kaandikec.com/mu300-linux/assets/img/og-image.png">
+<meta property="og:image" content="https://kaandikec.com/openf50-linux/assets/img/og-image.png">
 <meta name="theme-color" content="#f3f6fa" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#0d1520" media="(prefers-color-scheme: dark)">
 <link rel="icon" href="../../assets/favicon.svg" type="image/svg+xml">
@@ -34,8 +34,8 @@
  "@context": "https://schema.org",
  "@type": "BreadcrumbList",
  "itemListElement": [
-  {"@type": "ListItem", "position": 1, "name": "首页", "item": "https://kaandikec.com/mu300-linux/zh/"},
-  {"@type": "ListItem", "position": 2, "name": "网页安装器", "item": "https://kaandikec.com/mu300-linux/zh/web-installer/"}
+  {"@type": "ListItem", "position": 1, "name": "首页", "item": "https://kaandikec.com/openf50-linux/zh/"},
+  {"@type": "ListItem", "position": 2, "name": "网页安装器", "item": "https://kaandikec.com/openf50-linux/zh/web-installer/"}
  ]
 }
 </script>
@@ -44,7 +44,7 @@
 <a class="skip" href="#content">跳到正文</a>
 <header class="site-header">
 <div class="wrap">
-<a class="brand" href="../../zh/"><svg viewBox="0 0 64 64" aria-hidden="true"><rect x="6" y="8" width="52" height="50" rx="12" fill="none" stroke="currentColor" stroke-width="4"/><circle cx="22" cy="20" r="3.5" fill="#2259d6"/><circle cx="32" cy="20" r="3.5" fill="currentColor"/><circle cx="42" cy="20" r="3.5" fill="#f2b23a"/><path d="M17 32 l9 7 l-9 7" fill="none" stroke="#f2b23a" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M30 47 h15" stroke="#f2b23a" stroke-width="4.5" stroke-linecap="round"/></svg>MU300 Linux</a>
+<a class="brand" href="../../zh/"><svg viewBox="0 0 64 64" aria-hidden="true"><rect x="6" y="8" width="52" height="50" rx="12" fill="none" stroke="currentColor" stroke-width="4"/><circle cx="22" cy="20" r="3.5" fill="#2259d6"/><circle cx="32" cy="20" r="3.5" fill="currentColor"/><circle cx="42" cy="20" r="3.5" fill="#f2b23a"/><path d="M17 32 l9 7 l-9 7" fill="none" stroke="#f2b23a" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M30 47 h15" stroke="#f2b23a" stroke-width="4.5" stroke-linecap="round"/></svg>OPENF50 Linux</a>
 <nav class="site-nav" id="site-nav" aria-label="Main">
 <a href="../../zh/install/">安装</a>
 <a href="../../zh/web-installer/" aria-current="page">网页安装器</a>
@@ -52,7 +52,7 @@
 <a href="../../zh/features/">功能</a>
 <a href="../../zh/updates/">更新与安全</a>
 <a href="../../zh/troubleshooting/">故障排除</a>
-<a href="https://github.com/dikeckaan/mu300-linux">GitHub</a>
+<a href="https://github.com/dikeckaan/openf50-linux">GitHub</a>
 <span class="langs" role="group" aria-label="语言"><a href="../../web-installer/" hreflang="en" lang="en">English</a><a href="../../tr/web-installer/" hreflang="tr" lang="tr">Türkçe</a><a href="../../zh/web-installer/" hreflang="zh-Hans" lang="zh-Hans" aria-current="true">中文</a></span>
 </nav>
 <button class="theme-btn" type="button" hidden data-labels="主题|自动|浅色|深色|跟随系统|切换颜色主题"><svg class="i-auto" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 3.5a8.5 8.5 0 0 1 0 17z" fill="currentColor"/></svg><svg class="i-light" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1 7 17M17 7l2.1-2.1" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><svg class="i-dark" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg><span class="theme-name"></span></button>
@@ -69,7 +69,7 @@
 <div class="callout wi-tested">
 <strong>已在一台 F50 上用 macOS 的 Chrome 测试</strong>
 <p>2026-10-13，本页面在一台 ZTE F50（64 GB，Android 13，Magisk 30.6）上用 macOS 的 Chrome 155 和版本 v2026.10.25 从头到尾运行过：安装一个系统和两个系统（由设备自行下载版本，以及手动选择文件两种方式）、安装中途关闭标签页、启动 Linux、管理它、回到 Android，以及卸载。</p>
-<p><strong>尚未测试：</strong>Windows（那里 adb 接口需要 WinUSB 驱动）和以 Linux 作为电脑系统（需要下文的 udev 规则）；U30 Air；以 SD 卡为安装目标；Magisk 以外的 root 管理器；以及设备通过真实移动数据自行下载（测试设备的 Android 没有网络，它的下载是经由测试电脑到达 GitHub 的）。这些情况下，经过测试的方式是<a href="../install/">电脑安装器</a>和 <a href="../install/#magisk">Magisk zip</a>。如果这里出了问题，请保留日志（页面可以保存），并<a href="https://github.com/dikeckaan/mu300-linux/issues">告诉我们</a>。</p>
+<p><strong>尚未测试：</strong>Windows（那里 adb 接口需要 WinUSB 驱动）和以 Linux 作为电脑系统（需要下文的 udev 规则）；U30 Air；以 SD 卡为安装目标；Magisk 以外的 root 管理器；以及设备通过真实移动数据自行下载（测试设备的 Android 没有网络，它的下载是经由测试电脑到达 GitHub 的）。这些情况下，经过测试的方式是<a href="../install/">电脑安装器</a>和 <a href="../install/#magisk">Magisk zip</a>。如果这里出了问题，请保留日志（页面可以保存），并<a href="https://github.com/dikeckaan/openf50-linux/issues">告诉我们</a>。</p>
 </div>
 </div>
 </header>
@@ -87,7 +87,7 @@
 <li><a href="#before">开始之前</a></li>
 <li><a href="#does">页面做什么，设备上运行什么</a></li>
 <li><a href="#cannot-open">如果浏览器无法打开设备</a></li>
-<li><a href="#linux-adb">管理 MU300 Linux：先打开 adb</a></li>
+<li><a href="#linux-adb">管理 OPENF50 Linux：先打开 adb</a></li>
 <li><a href="#safety">如果标签页被关闭或数据线脱落</a></li>
 <li><a href="#privacy">页面能看到和保存什么</a></li>
 <li><a href="#phone">用手机行吗？</a></li>
@@ -96,7 +96,7 @@
 
 <h2 id="before">开始之前</h2>
 <ul>
-<li>一台<strong>已用 Magisk 26 或更新版本 root</strong> 的 ZTE F50 / MU300 或 U30 Air。页面会显示设备是否已 root，以及 bootloader 对其锁定状态的说明，但两者都不改动：它不给设备 root，也不解锁 bootloader。</li>
+<li>一台<strong>已用 Magisk 26 或更新版本 root</strong> 的 ZTE F50 / OPENF50 或 U30 Air。页面会显示设备是否已 root，以及 bootloader 对其锁定状态的说明，但两者都不改动：它不给设备 root，也不解锁 bootloader。</li>
 <li><strong>Windows、macOS 或 Linux 上的 Chrome、Edge 或其他 Chromium 浏览器。</strong>Firefox 和 Safari 没有 WebUSB。</li>
 <li>Android 中已打开 USB 调试，设备已接好，且没有其他程序占用它。正在运行的 adb 服务会占用它（用 <code>adb kill-server</code> 停止），另一个打开了本页面并已连接设备的浏览器窗口也会。</li>
 <li>设备最好能上网（装有带移动数据的 SIM 卡）：这样设备会自行下载版本。否则由您下载文件再交给页面。</li>
@@ -107,7 +107,7 @@
 <p>页面是一个小型 adb 客户端。它通过 USB 与设备通信，在设备上做三件事：把项目的几个脚本和该版本的 Magisk zip 放到设备上，用您的选择启动 <strong>zip 自带的安装器</strong>（也就是 Magisk 应用运行的那个），并显示该安装器的输出。安装、检查和写入顺序都由设备完成，与在 Magisk 中刷入 zip 完全相同。</p>
 <ul>
 <li>从已 root 的 Android <strong>安装</strong>：一个或两个系统、内核、内部存储或 SD 卡、VPN 模块。</li>
-<li><strong>管理</strong>运行 MU300 Linux（已打开 adb）的设备：版本、更新、内核、启动哪个系统、重启、回到 Android、日志。</li>
+<li><strong>管理</strong>运行 OPENF50 Linux（已打开 adb）的设备：版本、更新、内核、启动哪个系统、重启、回到 Android、日志。</li>
 <li><strong>备份</strong>安装会写入的内容，以及<strong>卸载</strong>。</li>
 </ul>
 <p>它不会在 32 GB 型号上缩小 Android 的数据分区（只显示数字并指向<a href="../install/#variant-32gb">电脑安装器</a>），也不会把它扩回去。</p>
@@ -132,10 +132,10 @@ sudo udevadm control --reload &amp;&amp; sudo udevadm trigger</code></pre>
 <div>退出该程序。</div></div>
 <p>在浏览器能告知的范围内，页面会说明遇到的是哪一种情况。</p>
 
-<h2 id="linux-adb">管理 MU300 Linux：先打开 adb</h2>
-<p>从 v2026.10.23 之后的版本起，Linux 通过同一根线向所有电脑提供 adb，页面无需任何准备即可管理它。更早的 Linux 默认关闭 adb（<code>sudo mu300-usb adb on</code>）；被设置为只接受已授权密钥的系统，则只让它认识其 adb 密钥的电脑接入；没有可供询问的屏幕。此浏览器有自己的密钥（页面在“此浏览器的 adb 密钥”下显示）。要为它授权，请在设备上通过 SSH 运行：</p>
-<pre><code>echo '&lt;页面显示的密钥行&gt;' | sudo mu300-usb adb key -
-sudo mu300-usb adb on</code></pre>
+<h2 id="linux-adb">管理 OPENF50 Linux：先打开 adb</h2>
+<p>从 v2026.10.23 之后的版本起，Linux 通过同一根线向所有电脑提供 adb，页面无需任何准备即可管理它。更早的 Linux 默认关闭 adb（<code>sudo openf50-usb adb on</code>）；被设置为只接受已授权密钥的系统，则只让它认识其 adb 密钥的电脑接入；没有可供询问的屏幕。此浏览器有自己的密钥（页面在“此浏览器的 adb 密钥”下显示）。要为它授权，请在设备上通过 SSH 运行：</p>
+<pre><code>echo '&lt;页面显示的密钥行&gt;' | sudo openf50-usb adb key -
+sudo openf50-usb adb on</code></pre>
 <p>持有已授权密钥的人可以获得设备的 root shell，所以只给您自己的浏览器和电脑授权。</p>
 
 <h2 id="safety">如果标签页被关闭或数据线脱落</h2>
@@ -169,17 +169,17 @@ sudo mu300-usb adb on</code></pre>
 <div>
 <h2>项目</h2>
 <ul>
-<li><a href="https://github.com/dikeckaan/mu300-linux">GitHub 上的源代码</a></li>
-<li><a href="https://github.com/dikeckaan/mu300-linux/releases">发布版本（下载）</a></li>
+<li><a href="https://github.com/dikeckaan/openf50-linux">GitHub 上的源代码</a></li>
+<li><a href="https://github.com/dikeckaan/openf50-linux/releases">发布版本（下载）</a></li>
 <li><a href="https://github.com/dikeckaan/mu300-linux-vpn">VPN 模块</a></li>
 </ul>
 </div>
 <div>
 <h2>帮助</h2>
 <ul>
-<li><a href="https://github.com/dikeckaan/mu300-linux/wiki">Wiki（英文）</a></li>
+<li><a href="https://github.com/dikeckaan/openf50-linux/wiki">Wiki（英文）</a></li>
 <li><a href="../../zh/troubleshooting/">故障排除</a></li>
-<li><a href="https://github.com/dikeckaan/mu300-linux/issues">报告问题</a></li>
+<li><a href="https://github.com/dikeckaan/openf50-linux/issues">报告问题</a></li>
 <li><a href="https://t.me/mu300project">Telegram 频道（动态与新版本）</a></li>
 </ul>
 </div>

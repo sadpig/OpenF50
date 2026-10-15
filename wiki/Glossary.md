@@ -24,9 +24,9 @@ Every word in plain language first, then what it means for this device. Grouped 
 
 **KVM:** A Linux feature for running virtual machines fast. *Here:* `/dev/kvm` exists on all three kernels.
 
-**zram:** Compressed swap kept in RAM, so more fits in memory. *Here:* `mu300-zram` adds lz4 zram of half the RAM.
+**zram:** Compressed swap kept in RAM, so more fits in memory. *Here:* `openf50-zram` adds lz4 zram of half the RAM.
 
-**OTG / USB host:** Normally the device is the "guest" on your computer's USB; in host mode it is the "boss" and you can plug things into it. *Here:* the U30 Air can be a USB host on the mainline kernels (`sudo mu300-usb host`); the F50's port is its power supply, so no.
+**OTG / USB host:** Normally the device is the "guest" on your computer's USB; in host mode it is the "boss" and you can plug things into it. *Here:* the U30 Air can be a USB host on the mainline kernels (`sudo openf50-usb host`); the F50's port is its power supply, so no.
 
 ## Starting up
 
@@ -44,11 +44,11 @@ Every word in plain language first, then what it means for this device. Grouped 
 
 **initramfs:** A tiny temporary system inside the boot image that prepares everything before the real system starts. *Here:* it loads the drivers, finds the Linux filesystem (SD card or free eMMC space) and counts failed boots.
 
-**Trial boot:** Starting something on probation: if it does not report back as healthy, it does not count as good. *Here:* each Linux boot must be confirmed by `mu300-boot-ok` about 30 s after the USB network and SSH are up.
+**Trial boot:** Starting something on probation: if it does not report back as healthy, it does not count as good. *Here:* each Linux boot must be confirmed by `openf50-boot-ok` about 30 s after the USB network and SSH are up.
 
 **Fallback:** Going back to the safe option automatically. *Here:* after N unconfirmed Linux boots in a row (1-6, default 5) the device starts Android.
 
-**Rollback:** Undoing an update. *Here:* `mu300-update rollback` (system) and `rollback-boot` (kernel and boot image).
+**Rollback:** Undoing an update. *Here:* `openf50-update rollback` (system) and `rollback-boot` (kernel and boot image).
 
 ## Android side
 
@@ -56,9 +56,9 @@ Every word in plain language first, then what it means for this device. Grouped 
 
 **Unlock:** Allowing the bootloader to start software it was not shipped with. *Here:* the device must already boot a modified Android boot image.
 
-**Magisk:** A popular tool that gives Android root and can install "modules". *Here:* the installer adds a module whose Action button (or `su -c mu300-linux`) starts Linux; releases also ship Magisk zips that install Linux from the device.
+**Magisk:** A popular tool that gives Android root and can install "modules". *Here:* the installer adds a module whose Action button (or `su -c openf50-linux`) starts Linux; releases also ship Magisk zips that install Linux from the device.
 
-**adb:** Android Debug Bridge, a computer program that talks to an Android device over USB. *Here:* the installer uses it; Linux offers it too, on by default and for every computer, with a root shell and no password (`sudo mu300-usb adb auth keys` lets in only computers whose key you authorised, `sudo mu300-usb adb off` turns it off).
+**adb:** Android Debug Bridge, a computer program that talks to an Android device over USB. *Here:* the installer uses it; Linux offers it too, on by default and for every computer, with a root shell and no password (`sudo openf50-usb adb auth keys` lets in only computers whose key you authorised, `sudo openf50-usb adb off` turns it off).
 
 **USB debugging:** The Android setting that lets `adb` connect. *Here:* must be on.
 
@@ -68,7 +68,7 @@ Every word in plain language first, then what it means for this device. Grouped 
 
 **Ubuntu:** A widely used general-purpose Linux distribution, with `apt` for software. *Here:* 24.04 LTS (default) or 26.04 LTS (needs a mainline kernel).
 
-**OpenWrt:** A Linux distribution made for routers: small and network-focused. *Here:* 25.12, plain or with the MU300 control panel.
+**OpenWrt:** A Linux distribution made for routers: small and network-focused. *Here:* 25.12, plain or with the OPENF50 control panel.
 
 **LuCI:** OpenWrt's web interface. *Here:* at http://192.168.77.1 (U30 Air: .78.1).
 
@@ -76,7 +76,7 @@ Every word in plain language first, then what it means for this device. Grouped 
 
 **rootfs / filesystem:** The tree of folders and files a system lives in. *Here:* each system is a folder on the Linux disk (`/ubuntu`, `/openwrt`, `/openwrt-luci`).
 
-**ext4:** The standard Linux way of organising files on a disk. *Here:* the Linux disk is ext4, labelled `mu300root` (internal) or `mu300sd` (SD card).
+**ext4:** The standard Linux way of organising files on a disk. *Here:* the Linux disk is ext4, labelled `openf50root` (internal) or `openf50sd` (SD card).
 
 **SSH:** A secure way to type commands on another computer over the network. *Here:* `ssh ubuntu@192.168.77.1`.
 
@@ -100,13 +100,13 @@ Every word in plain language first, then what it means for this device. Grouped 
 
 **APN:** The name of the "door" into your carrier's data network. *Here:* leave it empty to use what the SIM defines.
 
-**PDP context:** The data session the modem opens with the carrier, using the APN. *Here:* `MU300_PDP_TYPE` sets its type on Ubuntu.
+**PDP context:** The data session the modem opens with the carrier, using the APN. *Here:* `OPENF50_PDP_TYPE` sets its type on Ubuntu.
 
-**AT commands:** Short text commands for talking to a modem (they start with `AT`). *Here:* the panel has a guarded AT terminal; all tools share one channel through `mu300-atd`.
+**AT commands:** Short text commands for talking to a modem (they start with `AT`). *Here:* the panel has a guarded AT terminal; all tools share one channel through `openf50-atd`.
 
 **SMS / PDU:** Text messages; PDU is the raw encoded form a modem uses. *Here:* `sms` uses PDU mode because text mode garbles some senders.
 
-**USSD:** The short codes like `*101#` that ask the carrier for your balance. *Here:* `sudo mu300-ussd '*101#'`.
+**USSD:** The short codes like `*101#` that ask the carrier for your balance. *Here:* `sudo openf50-ussd '*101#'`.
 
 **DHCP:** How devices get an address automatically when they join a network. *Here:* the device hands out addresses to its clients.
 
@@ -118,13 +118,13 @@ Every word in plain language first, then what it means for this device. Grouped 
 
 **NAT / NAT66:** Sharing one public address among many devices; NAT66 is the IPv6 version. *Here:* how clients share the mobile connection.
 
-**TTL:** A counter in every packet that drops by one at each router. *Here:* `mu300-ttl set 64` fixes it for mobile data. Check your operator's terms first.
+**TTL:** A counter in every packet that drops by one at each router. *Here:* `openf50-ttl set 64` fixes it for mobile data. Check your operator's terms first.
 
 ## VPN
 
-**VPN:** A protected tunnel to another server that your traffic goes through. *Here:* the optional `mu300-vpn` module.
+**VPN:** A protected tunnel to another server that your traffic goes through. *Here:* the optional `openf50-vpn` module.
 
-**Kill switch:** A rule that blocks all traffic when the VPN is down, so nothing leaks. *Here:* on by default in `mu300-vpn`.
+**Kill switch:** A rule that blocks all traffic when the VPN is down, so nothing leaks. *Here:* on by default in `openf50-vpn`.
 
 **WireGuard:** A modern, fast VPN built into the Linux kernel. *Here:* available on the mainline kernels.
 
@@ -136,8 +136,8 @@ Every word in plain language first, then what it means for this device. Grouped 
 
 **DFS channel:** A 5 GHz Wi-Fi channel (52-144) that radar also uses; an access point there must first listen for radar. *Here:* the Wi-Fi driver cannot, so the hotspot never uses one (a DFS channel you pick is replaced by 36 or 149).
 
-**Cockpit:** Ubuntu's web console (terminal, logs, services, networking). *Here:* the optional `panel` extra on Ubuntu, with an MU300 page for the modem, SMS, VPN and power.
+**Cockpit:** Ubuntu's web console (terminal, logs, services, networking). *Here:* the optional `panel` extra on Ubuntu, with an OPENF50 page for the modem, SMS, VPN and power.
 
-**Subscription (VPN):** A URL your VPN provider gives you that yields a list of profiles. *Here:* `mu300-vpn subscription add`, refreshed by hand or on a schedule; also in the panel's VPN menu.
+**Subscription (VPN):** A URL your VPN provider gives you that yields a list of profiles. *Here:* `openf50-vpn subscription add`, refreshed by hand or on a schedule; also in the panel's VPN menu.
 
 **Tailscale:** A mesh VPN for reaching your own devices. *Here:* its traffic goes through the active tunnel by default.

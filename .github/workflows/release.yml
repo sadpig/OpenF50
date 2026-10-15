@@ -3,7 +3,7 @@ name: Release
 # The whole release on a GitHub arm64 runner: the vendor 5.4 kernel (kernel/build-all.sh), the mainline 6.18 and 7.2
 # kernels with their modules (upstream/build.sh, build-modules.sh), then tools/make-release.sh, which builds the root
 # filesystems and the extras, audits every asset and publishes the release. Actions > Release > Run workflow on main,
-# with the tag: a prerelease by default, which the installers and mu300-update do not offer until the maintainer has
+# with the tag: a prerelease by default, which the installers and openf50-update do not offer until the maintainer has
 # tried it on a device and promoted it on GitHub (gh release edit TAG --prerelease=false --latest). The release's commit
 # is the main commit the workflow ran on, and nothing else: the job refuses another ref, and a tag or release that
 # already exists. The Magisk zips follow by the Magisk installers workflow, started at the end (a release made with the
@@ -40,7 +40,7 @@ jobs:
     env:
       TAG: ${{ inputs.tag }}
       GH_TOKEN: ${{ github.token }}
-      MU300_REPO: ${{ github.repository }}
+      OPENF50_REPO: ${{ github.repository }}
     steps:
       - name: Tag and ref
         run: |
@@ -102,7 +102,7 @@ jobs:
         env:
           # the config merge logs and the rejected fragment options, which build-all.sh otherwise removes with its
           # scratch copy of kernel/ (the compiler's errors are on stdout above)
-          MU300_KBUILD_LOGS: ${{ runner.temp }}/kernel-5.4-logs
+          OPENF50_KBUILD_LOGS: ${{ runner.temp }}/kernel-5.4-logs
         run: sudo -E sh kernel/build-all.sh
       - name: Vendor 5.4 kernel logs
         if: failure()
@@ -131,15 +131,15 @@ jobs:
       - name: Mainline build environment
         if: steps.c618.outputs.cache-hit != 'true' || steps.c72.outputs.cache-hit != 'true'
         run: |
-          sudo -E docker build -t mu300-mainline-build upstream/
-          sudo -E docker volume create mu300-mainline
+          sudo -E docker build -t openf50-mainline-build upstream/
+          sudo -E docker volume create openf50-mainline
       - name: Mainline 6.18
         if: steps.c618.outputs.cache-hit != 'true'
         env:
           KV: ${{ steps.kv.outputs.kv618 }}
         run: |
-          sudo -E docker run --rm -e KV="$KV" -v mu300-mainline:/src -v "$PWD/upstream":/work mu300-mainline-build bash /work/build.sh
-          sudo -E docker run --rm -e KV="$KV" -v mu300-mainline:/src -v "$PWD/upstream":/work mu300-mainline-build bash /work/build-modules.sh > /dev/null
+          sudo -E docker run --rm -e KV="$KV" -v openf50-mainline:/src -v "$PWD/upstream":/work openf50-mainline-build bash /work/build.sh
+          sudo -E docker run --rm -e KV="$KV" -v openf50-mainline:/src -v "$PWD/upstream":/work openf50-mainline-build bash /work/build-modules.sh > /dev/null
           ls upstream/out/modules/*.ko | wc -l
       - if: steps.c618.outputs.cache-hit != 'true'
         uses: actions/cache/save@v4
@@ -151,8 +151,8 @@ jobs:
         env:
           KV: ${{ steps.kv.outputs.kv72 }}
         run: |
-          sudo -E docker run --rm -e KV="$KV" -e OUTDIR=out-7.2 -v mu300-mainline:/src -v "$PWD/upstream":/work mu300-mainline-build bash /work/build.sh
-          sudo -E docker run --rm -e KV="$KV" -e OUTDIR=out-7.2 -v mu300-mainline:/src -v "$PWD/upstream":/work mu300-mainline-build bash /work/build-modules.sh > /dev/null
+          sudo -E docker run --rm -e KV="$KV" -e OUTDIR=out-7.2 -v openf50-mainline:/src -v "$PWD/upstream":/work openf50-mainline-build bash /work/build.sh
+          sudo -E docker run --rm -e KV="$KV" -e OUTDIR=out-7.2 -v openf50-mainline:/src -v "$PWD/upstream":/work openf50-mainline-build bash /work/build-modules.sh > /dev/null
           ls upstream/out-7.2/modules/*.ko | wc -l
       - if: steps.c72.outputs.cache-hit != 'true'
         uses: actions/cache/save@v4

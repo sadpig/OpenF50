@@ -8,7 +8,7 @@
 #   done is this Kbuild file
 #
 
-# MU300: Marlin3 BT over PCIe
+# OPENF50: Marlin3 BT over PCIe
 BSP_BOARD_UNISOC_WCN_SOCKET := pcie
 
 ifeq ($(filter $(strip $(BSP_BOARD_UNISOC_WCN_SOCKET)),sipc sdio pcie sipc2),)
@@ -32,7 +32,7 @@ KO_MODULE_SRC += \
 # Build Options
 #
 ccflags-y += -DDEBUG
-ccflags-y += -include $(src)/../wcn_bsp/kinclude/mu300_compat.h -I$(src)/../wcn_bsp/kinclude
+ccflags-y += -include $(src)/../wcn_bsp/kinclude/openf50_compat.h -I$(src)/../wcn_bsp/kinclude
 
 #
 # Final Objects

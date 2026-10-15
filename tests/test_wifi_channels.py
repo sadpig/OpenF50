@@ -2,12 +2,12 @@
 start_dfs_cac() fails and the AP stays down).
 
 * `lib/wifi-channels.sh`: the country table, a DFS or disallowed channel replaced with one line why, "auto", widths;
-* `hotspot-start` (Ubuntu): the hostapd configuration it writes (MU300_HOTSPOT_DRYRUN), with the kernel's channel
+* `hotspot-start` (Ubuntu): the hostapd configuration it writes (OPENF50_HOTSPOT_DRYRUN), with the kernel's channel
   flags (a stub `iw list`) taking another channel of the country before 2.4 GHz;
-* `openwrt-wifi-config` and `mu300-wifi-band` on OpenWrt (a stub `uci`): the channel, htmode, the channel list for
+* `openwrt-wifi-config` and `openf50-wifi-band` on OpenWrt (a stub `uci`): the channel, htmode, the channel list for
   auto, and a DFS channel set in LuCI rewritten at boot;
-* `openwrt/patches/wifi-scripts-no-dfs.patch`: how the build applies it, and - with MU300_WRT_IMAGE naming an
-  OpenWrt 25.12 docker image (e.g. mu300-openwrt-base:25.12.5, as openwrt/build-rootfs.sh imports it) - the hostapd
+* `openwrt/patches/wifi-scripts-no-dfs.patch`: how the build applies it, and - with OPENF50_WRT_IMAGE naming an
+  OpenWrt 25.12 docker image (e.g. openf50-openwrt-base:25.12.5, as openwrt/build-rootfs.sh imports it) - the hostapd
   configuration the patched wifi-scripts generate for a fake wiphy with and without radar detection.
 """
 import json
@@ -20,7 +20,7 @@ from pathlib import Path
 
 from helpers import BIN, TOP, ShellTest
 
-LIB = TOP / 'rootfs' / 'overlay' / 'opt' / 'mu300' / 'lib' / 'wifi-channels.sh'
+LIB = TOP / 'rootfs' / 'overlay' / 'opt' / 'openf50' / 'lib' / 'wifi-channels.sh'
 PATCH = TOP / 'openwrt' / 'patches' / 'wifi-scripts-no-dfs.patch'
 FIXTURES = TOP / 'tests' / 'fixtures' / 'wifi-scripts'
 FIVE = [36, 40, 44, 48, 52, 56, 60, 64, 100, 104, 108, 112, 116, 120, 124, 128, 132, 136, 140, 144,
@@ -137,8 +137,8 @@ class HotspotStart(ShellTest):
     def run_start(self, conf, **env):
         self.conf.write_text(conf)
         r = subprocess.run(['bash', str(BIN / 'hotspot-start')], capture_output=True, text=True, timeout=60,
-                           env=self.env(MU300_HOTSPOT_CONF=self.conf, MU300_HOSTAPD_CONF=self.out,
-                                        MU300_HOTSPOT_DRYRUN=1, **env))
+                           env=self.env(OPENF50_HOTSPOT_CONF=self.conf, OPENF50_HOSTAPD_CONF=self.out,
+                                        OPENF50_HOTSPOT_DRYRUN=1, **env))
         self.assertEqual(r.returncode, 0, r.stderr)
         cfg = dict(l.split('=', 1) for l in self.out.read_text().splitlines() if '=' in l)
         return cfg, r.stderr
@@ -216,7 +216,7 @@ class OpenWrt(ShellTest):
     def setUp(self):
         super().setUp()
         self.root = self.tmp / 'root'
-        (self.root / 'etc' / 'mu300').mkdir(parents=True)
+        (self.root / 'etc' / 'openf50').mkdir(parents=True)
         (self.root / 'etc' / 'config').mkdir()
         (self.root / 'sys' / 'class' / 'ieee80211' / 'phy0').mkdir(parents=True)
         (self.root / 'etc' / 'openwrt_release').write_text('DISTRIB_ID=OpenWrt\n')
@@ -235,9 +235,9 @@ class OpenWrt(ShellTest):
         return p.read_text() if p.exists() else ''
 
     def config(self, shell, hotspot):
-        (self.root / 'etc' / 'mu300' / 'wifi-configured').unlink(missing_ok=True)
-        (self.root / 'etc' / 'mu300' / 'hotspot.conf').write_text(hotspot)
-        r = self.script(shell, BIN / 'openwrt-wifi-config', MU300_SYSROOT=self.root)
+        (self.root / 'etc' / 'openf50' / 'wifi-configured').unlink(missing_ok=True)
+        (self.root / 'etc' / 'openf50' / 'hotspot.conf').write_text(hotspot)
+        r = self.script(shell, BIN / 'openwrt-wifi-config', OPENF50_SYSROOT=self.root)
         self.assertEqual(r.returncode, 0, r.stderr)
         return r
 
@@ -253,7 +253,7 @@ class OpenWrt(ShellTest):
             self.assertIn("set wireless.radio0.country='CN'\n", b)
             self.assertIn('channel 60 is a DFS channel', r.stderr)
             self.assertIn('wireless configured: 5g channel 36', r.stdout)
-            self.assertTrue((self.root / 'etc' / 'mu300' / 'wifi-configured').exists())
+            self.assertTrue((self.root / 'etc' / 'openf50' / 'wifi-configured').exists())
             # auto: the default, silently; 165: 20 MHz; a country without 149
             for conf, ch, ht, chans in (('CHANNEL=auto\nCOUNTRY=CN', '36', 'VHT80', None),
                                         ('CHANNEL=165\nCOUNTRY=CN', '165', 'VHT20', None),
@@ -279,13 +279,13 @@ class OpenWrt(ShellTest):
             self.assertIn("set wireless.radio0.channel='6'\n", self.batch())
 
     def test_dfs_channel_from_luci_rewritten_at_boot(self):
-        (self.root / 'etc' / 'mu300' / 'wifi-configured').write_text('')
+        (self.root / 'etc' / 'openf50' / 'wifi-configured').write_text('')
         for shell in self.each_shell():
             for ch, ht, want_ch, want_ht in (('60', 'VHT80', '36', 'VHT80'), ('100', 'HE160', '36', 'HE80'),
                                              ('52', 'HT40', '36', 'HT40'), ('120', 'VHT80', '36', 'VHT80')):
                 self.state(f'wireless.radio0.band=5g\nwireless.radio0.channel={ch}\nwireless.radio0.htmode={ht}\n'
                            'wireless.radio0.country=CN\n')
-                r = self.script(shell, BIN / 'openwrt-wifi-config', MU300_SYSROOT=self.root)
+                r = self.script(shell, BIN / 'openwrt-wifi-config', OPENF50_SYSROOT=self.root)
                 self.assertEqual(r.returncode, 0, r.stderr)
                 b = self.batch()
                 self.assertIn(f"set wireless.radio0.channel='{want_ch}'\n", b, ch)
@@ -298,7 +298,7 @@ class OpenWrt(ShellTest):
                        'wireless.radio0.band=5g\nwireless.radio0.channel=auto\nwireless.radio0.country=CN\n',
                        'wireless.radio0.band=2g\nwireless.radio0.channel=11\n', ''):
                 self.state(st)
-                r = self.script(shell, BIN / 'openwrt-wifi-config', MU300_SYSROOT=self.root)
+                r = self.script(shell, BIN / 'openwrt-wifi-config', OPENF50_SYSROOT=self.root)
                 self.assertEqual((r.returncode, self.batch(), r.stderr), (0, '', ''), st)
 
     def test_wifi_band(self):
@@ -307,7 +307,7 @@ class OpenWrt(ShellTest):
                                       ('JP', '36', 'VHT80', '36 40 44 48'), ('BD', '149', 'VHT80', '149 153 157 161 165'),
                                       ('', '36', 'VHT80', '36 40 44 48')):
                 self.state(f'wireless.radio0.band=2g\nwireless.radio0.country={cc}\n')
-                r = self.script(shell, BIN / 'mu300-wifi-band', '5', MU300_SYSROOT=self.root)
+                r = self.script(shell, BIN / 'openf50-wifi-band', '5', OPENF50_SYSROOT=self.root)
                 self.assertEqual((r.returncode, r.stdout.strip()), (0, 'hotspot: 5 GHz'), r.stderr)
                 b = self.batch()
                 self.assertIn(f"set wireless.radio0.channel='{ch}'\n", b, cc)
@@ -315,13 +315,13 @@ class OpenWrt(ShellTest):
                 self.assertIn(f"set wireless.radio0.channels='{chans}'\n", b, cc)
                 self.assertIn("set wireless.radio0.acs_exclude_dfs='1'\n", b, cc)
             self.state('wireless.radio0.band=5g\nwireless.radio0.country=CN\n')
-            r = self.script(shell, BIN / 'mu300-wifi-band', '2.4', MU300_SYSROOT=self.root)
+            r = self.script(shell, BIN / 'openf50-wifi-band', '2.4', OPENF50_SYSROOT=self.root)
             self.assertEqual(r.returncode, 0, r.stderr)
             self.assertIn('delete wireless.radio0.channels\n', self.batch())
             self.assertIn("set wireless.radio0.channel='6'\n", self.batch())
             # no 5 GHz channel without DFS: refused, nothing changed
             self.state('wireless.radio0.band=2g\nwireless.radio0.country=00\n')
-            r = self.script(shell, BIN / 'mu300-wifi-band', '5', MU300_SYSROOT=self.root)
+            r = self.script(shell, BIN / 'openf50-wifi-band', '5', OPENF50_SYSROOT=self.root)
             self.assertEqual(r.returncode, 1)
             self.assertIn('no 5 GHz channel without DFS in country 00', r.stderr)
             self.assertEqual(self.batch(), '')
@@ -350,8 +350,8 @@ class WifiScriptsPatch(unittest.TestCase):
         self.assertIn('device_no_dfs(config);', added)
 
 
-@unittest.skipUnless(os.environ.get('MU300_WRT_IMAGE') and shutil.which('docker'),
-                     'MU300_WRT_IMAGE (an OpenWrt 25.12 arm64 docker image) not set')
+@unittest.skipUnless(os.environ.get('OPENF50_WRT_IMAGE') and shutil.which('docker'),
+                     'OPENF50_WRT_IMAGE (an OpenWrt 25.12 arm64 docker image) not set')
 class WifiScriptsInOpenWrt(unittest.TestCase):
     """The patched wifi-scripts of the OpenWrt feed, for a fake wiphy: the hostapd configuration they write."""
 
@@ -374,7 +374,7 @@ class WifiScriptsInOpenWrt(unittest.TestCase):
         cfg = {'band': '5g', 'channel': str(channel), 'htmode': htmode, 'country': 'CN'}
         cfg.update(extra or {})
         return {'phy': 'phy0', 'phy_suffix': '', 'vif_phy_suffix': '', 'config': cfg,
-                'interfaces': {'ap0': {'config': {'mode': 'ap', 'ssid': 'MU300-TEST', 'encryption': 'psk2',
+                'interfaces': {'ap0': {'config': {'mode': 'ap', 'ssid': 'OPENF50-TEST', 'encryption': 'psk2',
                                                   'key': '12345678', 'ifname': 'wlan0', 'network': ['lan']},
                                        'bridge': 'br-lan', 'vlans': {}, 'stas': {}}}}
 
@@ -417,7 +417,7 @@ done
 '''
             r = subprocess.run(['docker', 'run', '--rm', '--platform', 'linux/arm64',
                                 '-v', f'{PATCH.parent}:/in:ro', '-v', f'{FIXTURES}:/fx:ro', '-v', f'{d}:/t',
-                                os.environ['MU300_WRT_IMAGE'], '/bin/sh', '-c', script],
+                                os.environ['OPENF50_WRT_IMAGE'], '/bin/sh', '-c', script],
                                capture_output=True, text=True, timeout=900)
             self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
 

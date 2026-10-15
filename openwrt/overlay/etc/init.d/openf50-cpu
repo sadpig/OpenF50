@@ -1,0 +1,8 @@
+#!/bin/sh /etc/rc.common
+# apply the CPU performance profile saved by openf50-cpu (/etc/openf50/cpu.conf)
+START=95
+
+start() {
+	[ -r /etc/openf50/cpu.conf ] || return 0
+	/opt/openf50/bin/openf50-cpu apply
+}

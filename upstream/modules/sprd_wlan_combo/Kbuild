@@ -33,7 +33,7 @@ KO_MODULE_NAME := sprd_wlan_combo
 KO_MODULE_PATH := $(src)
 
 # vendor headers and 5.4 compat shared with wcn_bsp
-ccflags-y += -include $(src)/../wcn_bsp/kinclude/mu300_compat.h -I$(src)/../wcn_bsp/kinclude
+ccflags-y += -include $(src)/../wcn_bsp/kinclude/openf50_compat.h -I$(src)/../wcn_bsp/kinclude
 
 ccflags-y += -I$(KO_MODULE_PATH)
 ccflags-y += -I$(KO_MODULE_PATH)/common
@@ -127,7 +127,7 @@ SC2355_SIPC_WLAN := \
 		merlion/sipc_txrx_mm.o \
 		merlion/sipc_debug.o \
 
-# MU300: only the SC2355 (Marlin3) PCIe variant
+# OPENF50: only the SC2355 (Marlin3) PCIe variant
 $(KO_MODULE_NAME)-y += \
 		$(SPRD_WLAN_COMMON) \
 		$(SC2355_WLAN) \

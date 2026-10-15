@@ -153,7 +153,7 @@ static void sprd_pcie_notify_client(struct sprd_pcie *ctrl,
  * signal to low. After AP is activated, the endpoint must pull the wake signal
  * to high.
  *
- * MU300: a wakeup only when power/wakeup asks for one. The Marlin3 pulls WAKE# within 0-2 s of every L2 entry, so
+ * OPENF50: a wakeup only when power/wakeup asks for one. The Marlin3 pulls WAKE# within 0-2 s of every L2 entry, so
  * as a wakeup it ended every system sleep with Wi-Fi up at once (FINDINGS 37). Off by default; writing "enabled"
  * to the controller's power/wakeup arms it.
  */
@@ -274,7 +274,7 @@ static int sprd_add_pcie_port(struct dw_pcie *pci, struct platform_device *pdev)
 	snprintf(ctrl->wakeup_label, ctrl->label_len,
 		 "%s wakeup", dev_name(dev));
 	/*
-	 * MU300: not IRQF_NO_SUSPEND and not wake-armed for good. A system sleep disables the line like any other,
+	 * OPENF50: not IRQF_NO_SUSPEND and not wake-armed for good. A system sleep disables the line like any other,
 	 * and unlazily, so that it is masked in the EIC: PSCI SYSTEM_SUSPEND returns on any interrupt that reaches
 	 * the GIC, whatever the kernel thinks of it. sprd_pcie_pm_suspend() arms it only when power/wakeup is
 	 * enabled, which it is not by default.
@@ -793,7 +793,7 @@ static int sprd_pcie_resume_noirq(struct device *dev)
 	return 0;
 }
 
-/* MU300: WAKE# as a system wakeup only when power/wakeup is enabled (see sprd_pcie_wakeup_irq()) */
+/* OPENF50: WAKE# as a system wakeup only when power/wakeup is enabled (see sprd_pcie_wakeup_irq()) */
 static int sprd_pcie_pm_suspend(struct device *dev)
 {
 	struct sprd_pcie *ctrl = dev_get_drvdata(dev);

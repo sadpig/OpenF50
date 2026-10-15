@@ -1,0 +1,42 @@
+#!/bin/sh /etc/rc.common
+# Hardware bring-up before netifd: vendor drivers, zram, Wi-Fi (SC2355), first-boot Wi-Fi config, Bluetooth off
+START=12
+export PATH="$PATH:/opt/openf50/busybox-bin"
+
+# Everything here runs in the background on purpose. busybox init only spawns the consoles after sysinit has
+# finished, so anything slow (or hanging) in here costs the device its serial console *and* its network - which
+# is exactly what a hanging wifi-start did on the mainline kernel, leaving no way in at all.
+boot() {
+	/opt/openf50/bin/openf50-led power on
+	/opt/openf50/bin/openf50-usb boot
+	hw_bringup > /tmp/openf50-hw.log 2>&1 &
+}
+
+hw_bringup() {
+	/opt/openf50/bin/extra-modules >/tmp/openf50-extra-modules.log 2>&1
+	/opt/openf50/bin/zram-start >/dev/null 2>&1
+	/opt/openf50/bin/wifi-start >/tmp/openf50-wifi-start.log 2>&1
+	# cfg80211 looked for regulatory.db before the rootfs was mounted; load it now so hostapd sees the country rules
+	/opt/openf50/bin/regdb-load >>/tmp/openf50-wifi-start.log 2>&1
+	/opt/openf50/bin/openwrt-wifi-config >>/tmp/openf50-wifi-start.log 2>&1
+	# a WPA3 hotspot with the U30 SAE offload (opt-in, docs/U30AIR-SAE.md) on a hostapd that does not have it: WPA2,
+	# before the Wi-Fi restart below, which is the start that brings the hotspot up (netifd's own, earlier
+	# one ends AP-DISABLED under the world regulatory domain, or refused by that hostapd)
+	/opt/openf50/bin/openwrt-wifi-sae-guard precheck >>/tmp/openf50-wifi-start.log 2>&1
+	# the U30 Air's NFC tag: the hotspot's name and password, if that is what it holds (see openf50-nfc)
+	[ "$(/opt/openf50/bin/openf50-device)" = u30air ] && /opt/openf50/bin/openf50-nfc sync >/tmp/openf50-nfc.log 2>&1
+	# apply the country before netifd starts hostapd, otherwise 5 GHz channels are still NO-IR under world rules
+	country=$(uci -q get wireless.radio0.country)
+	if [ -n "$country" ]; then
+		iw reg set "$country"
+		for n in $(seq 1 10); do iw reg get | grep -q "country $country:" && break; sleep 1; done
+	fi
+	# a reload does not restart a hostapd interface that went AP-DISABLED while the world regulatory domain
+	# was still active; one down/up right after the country is live does
+	wifi down >>/tmp/openf50-wifi-start.log 2>&1
+	wifi up >>/tmp/openf50-wifi-start.log 2>&1
+}
+
+start() {
+	boot
+}

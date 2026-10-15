@@ -449,7 +449,7 @@ function failureBox(f) {
 function keyBox() {
   if (!S.key) return null;
   const line = publicKeyLine(S.key);
-  const cmd = `echo '${line}' | sudo mu300-usb adb key - && sudo mu300-usb adb on`;
+  const cmd = `echo '${line}' | sudo openf50-usb adb key - && sudo openf50-usb adb on`;
   const pre = h("pre", { class: "wi-key" }, h("code", {}, cmd));
   return h("div", {}, h("p", { class: "small" }, t("key.text", S.keyFp || "")), pre,
     btn(t("button.copy"), async (ev) => { try { await navigator.clipboard.writeText(cmd + "\n"); ev.target.textContent = t("button.copied"); } catch (e) { /* select by hand */ } }, "small"),
@@ -462,7 +462,7 @@ function helpPanel() {
   return h("section", { class: "wi-help" },
     h("ul", {},
       h("li", {}, h("a", { href: page("install/") }, t("help.text-installer"))),
-      h("li", {}, h("a", { href: "https://github.com/dikeckaan/mu300-linux/issues" }, t("help.issues"))),
+      h("li", {}, h("a", { href: "https://github.com/dikeckaan/openf50-linux/issues" }, t("help.issues"))),
       h("li", {}, h("a", { href: TELEGRAM, rel: "noopener" }, t("help.telegram")))),
     S.key ? h("details", { class: "wi-explain" }, h("summary", {}, t("key.title")), h("p", {}, t("key.what")), keyBox()) : null);
 }
@@ -489,8 +489,8 @@ function stamp() {
   return `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}`;
 }
 function saveLog() {
-  const head = `MU300 Linux web installer log, ${new Date().toISOString()}\n${navigator.userAgent}\nserial numbers, identity numbers, phone numbers and MAC addresses are masked\n\n`;
-  saveBlob(new Blob([head + LOG.join("\n") + "\n"], { type: "text/plain" }), `mu300-web-installer-${stamp()}.log`);
+  const head = `OPENF50 Linux web installer log, ${new Date().toISOString()}\n${navigator.userAgent}\nserial numbers, identity numbers, phone numbers and MAC addresses are masked\n\n`;
+  saveBlob(new Blob([head + LOG.join("\n") + "\n"], { type: "text/plain" }), `openf50-web-installer-${stamp()}.log`);
 }
 
 // ---------------------------------------------------------------------------------------------------- Android: home
@@ -551,7 +551,7 @@ function androidHome() {
   return out;
 }
 
-const SYS_LABEL = { "ubuntu-24.04": "Ubuntu 24.04", "ubuntu-26.04": "Ubuntu 26.04", openwrt: "OpenWrt", "openwrt-luci": "OpenWrt + MU300 panel" };
+const SYS_LABEL = { "ubuntu-24.04": "Ubuntu 24.04", "ubuntu-26.04": "Ubuntu 26.04", openwrt: "OpenWrt", "openwrt-luci": "OpenWrt + OPENF50 panel" };
 function sysName(os, ubuntu) {
   if (os === "ubuntu") return "Ubuntu" + (ubuntu ? " " + ubuntu : "");
   return SYS_LABEL[os] ? (os === "openwrt-luci" ? t("sys.openwrt-luci") : SYS_LABEL[os]) : os;
@@ -927,7 +927,7 @@ function setProgress(id, done, total, text, textId) {
   if (tx && text) tx.textContent = text;
 }
 function backupReadme(result) {
-  return [`MU300 Linux: backup made by the web installer, ${new Date().toISOString()}`,
+  return [`OPENF50 Linux: backup made by the web installer, ${new Date().toISOString()}`,
     `Android ran from slot ${result.androidSlot}; these are the images of slot ${result.linuxSlot} (the Linux slot), misc and the partition table,`,
     "as they were before the installation. They hold no IMEI and no calibration data: those partitions are never read",
     "by the web installer (tools/backup-device.sh of the project backs them up).", "",
@@ -943,8 +943,8 @@ async function runBackup(useDir) {
   let open, where, store = null, dir = null;
   try {
     if (useDir) {
-      const top = await window.showDirectoryPicker({ mode: "readwrite", id: "mu300-backup" });
-      const name = `mu300-backup-${stamp()}`;
+      const top = await window.showDirectoryPicker({ mode: "readwrite", id: "openf50-backup" });
+      const name = `openf50-backup-${stamp()}`;
       dir = await top.getDirectoryHandle(name, { create: true });
       open = directorySink(dir); where = `${top.name}/${name}`;
     } else {
@@ -1021,7 +1021,7 @@ async function preparePlan() {
     await S.dev.start("plan", nameFor(w.choices.systems[0]));
     const lines = [], errors = [];
     const rc = await S.dev.follow((e) => {
-      if (e.type === "plan") lines.push(`MU300-PLAN ${e.key}=${e.value}`);
+      if (e.type === "plan") lines.push(`OPENF50-PLAN ${e.key}=${e.value}`);
       else if (e.type === "error") errors.push(e.text);
       else if (e.type === "text" && e.text.trim()) w.planLog.push(e.text);
     });
@@ -1130,7 +1130,7 @@ async function startInstall() {
         await giveAnswers(i);
         await S.dev.start("plan", nameFor(c.systems[i]));
         const lines = [];
-        const prc = await S.dev.follow((e) => { if (e.type === "plan") lines.push(`MU300-PLAN ${e.key}=${e.value}`); else if (e.type === "error") j.errors.push(e.text); });
+        const prc = await S.dev.follow((e) => { if (e.type === "plan") lines.push(`OPENF50-PLAN ${e.key}=${e.value}`); else if (e.type === "error") j.errors.push(e.text); });
         const plan = parsePlan(lines);
         if (prc !== 3 || plan.format !== "0" || plan.update !== "1") { j.rc = prc === 3 ? "plan" : prc; j.secondRefused = true; break; }
       }
@@ -1284,7 +1284,7 @@ async function startUninstall() {
   }
 }
 
-// ---------------------------------------------------------------------------------------------------- MU300 Linux
+// ---------------------------------------------------------------------------------------------------- OPENF50 Linux
 
 function linuxView() {
   const i = S.linux, d = S.dev;
@@ -1331,7 +1331,7 @@ function linuxView() {
     h("div", { class: "actions" },
       btn(t("linux.reboot"), act(t("linux.reboot"), async () => { await d.reboot(); }, { confirm: t("linux.reboot.confirm"), leaves: true }), "", { disabled: off }),
       btn(t("linux.to-android"), act(t("linux.to-android"), (on) => d.toAndroid(on), { confirm: t("linux.to-android.confirm"), leaves: true }), "", { disabled: off }),
-      // "restart into Android" makes Android the default boot (mu300-next-boot android); this is the way back
+      // "restart into Android" makes Android the default boot (openf50-next-boot android); this is the way back
       i.defaultBoot !== "linux" ? btn(t("linux.default-linux"), act(t("linux.default-linux"), (on) => d.nextBoot("linux", on), { refresh: true }), "", { disabled: off }) : null),
     h("p", { class: "small muted" }, t("linux.to-android.note")));
   if (i.defaultBoot !== "linux") out.append(h("p", { class: "small muted" }, t("linux.default-android.note")));
@@ -1342,7 +1342,7 @@ function linuxView() {
     out.append(h("div", { class: "wi-action" },
       h("h3", {}, S.action.title, " ", S.action.running ? chip(t("action.running"), "wait") : chip(S.action.rc === 0 ? t("action.ok") : t("action.failed", String(S.action.rc)), S.action.rc === 0 ? "ok" : "bad")),
       h("pre", { class: "wi-log", id: "wi-action-pre", tabindex: "0" }, S.action.lines.join("\n") + (S.action.lines.length ? "\n" : "")),
-      S.action.running ? null : h("div", { class: "actions" }, btn(t("log.save"), () => saveBlob(new Blob([S.action.lines.join("\n") + "\n"], { type: "text/plain" }), `mu300-${stamp()}.log`), "small"))));
+      S.action.running ? null : h("div", { class: "actions" }, btn(t("log.save"), () => saveBlob(new Blob([S.action.lines.join("\n") + "\n"], { type: "text/plain" }), `openf50-${stamp()}.log`), "small"))));
   }
   if (i.source === "commands") out.append(h("p", { class: "small muted" }, t("linux.source.commands")));
   return out;
@@ -1353,7 +1353,7 @@ function linuxView() {
 async function demoConnect() {
   const demo = await import("./demo.js");
   const d = demo.makeDemo(DEMO, (l) => logLine(l));
-  S.usb = { productName: d.kind === "linux" ? "MU300 Linux" : "F50", manufacturerName: "ZTE" };
+  S.usb = { productName: d.kind === "linux" ? "OPENF50 Linux" : "F50", manufacturerName: "ZTE" };
   S.serial = d.serial; masker.add(S.serial);
   S.keyInfo = await loadKey("web-installer"); S.key = S.keyInfo.key; S.keyFp = await fingerprint(S.key);
   S.conn = { close: async () => {} };

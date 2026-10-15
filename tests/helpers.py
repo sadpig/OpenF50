@@ -1,7 +1,7 @@
 """Shared helpers for the tests: the shells the scripts run under, stub commands, a scratch directory.
 
 The device scripts run under dash (Ubuntu's /bin/sh), bash and busybox ash (OpenWrt); every shell test runs under
-each of them that this machine has (MU300_TEST_SHELLS="dash,busybox sh" picks others). Commands a script calls that
+each of them that this machine has (OPENF50_TEST_SHELLS="dash,busybox sh" picks others). Commands a script calls that
 touch the device (nft, ip, id, ...) are replaced by stubs in a directory put first on PATH.
 """
 import os
@@ -12,7 +12,7 @@ import unittest
 from pathlib import Path
 
 TOP = Path(__file__).resolve().parents[1]
-BIN = TOP / 'rootfs' / 'overlay' / 'opt' / 'mu300' / 'bin'
+BIN = TOP / 'rootfs' / 'overlay' / 'opt' / 'openf50' / 'bin'
 # the tests that read what git tracks (file modes, ls-files) skip where there is no git or no checkout of this tree,
 # e.g. a container with the worktree mounted but not the repository it belongs to
 GIT_CHECKOUT = bool(shutil.which('git')) and subprocess.run(['git', '-C', str(TOP), 'rev-parse', '--git-dir'],
@@ -28,7 +28,7 @@ def _works(argv):
 
 def shells():
     """[argv, ...] of the POSIX shells available here, e.g. [['dash'], ['bash'], ['busybox', 'sh']]."""
-    names = os.environ.get('MU300_TEST_SHELLS', 'dash,bash,busybox sh,sh').split(',')
+    names = os.environ.get('OPENF50_TEST_SHELLS', 'dash,bash,busybox sh,sh').split(',')
     found, seen = [], set()
     for n in names:
         argv = n.split()
@@ -47,7 +47,7 @@ class ShellTest(unittest.TestCase):
     """A scratch directory (self.tmp) with a stub directory first on PATH (self.stub)."""
 
     def setUp(self):
-        self.tmp = Path(tempfile.mkdtemp(prefix='mu300-test-'))
+        self.tmp = Path(tempfile.mkdtemp(prefix='openf50-test-'))
         self.stubs = self.tmp / 'stubs'
         self.stubs.mkdir()
         self.shells = shells()

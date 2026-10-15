@@ -280,7 +280,7 @@ int kbase_device_misc_init(struct kbase_device * const kbdev)
 
 	/* There is no limit for Mali, so set to max. */
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 1, 0)
-	/* MU300: dma_set_max_seg_size() returns void since 6.1 */
+	/* OPENF50: dma_set_max_seg_size() returns void since 6.1 */
 	if (kbdev->dev->dma_parms)
 		dma_set_max_seg_size(kbdev->dev, UINT_MAX);
 #else

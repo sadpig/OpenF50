@@ -1,6 +1,6 @@
 // Running a command on the device: adb's shell service.
 //
-// With the shell_v2 feature (Android 7 and newer, and the adbd of MU300 Linux) the command runs without a pty
+// With the shell_v2 feature (Android 7 and newer, and the adbd of OPENF50 Linux) the command runs without a pty
 // ("shell,v2,raw:"), its stdout and stderr come separately and its exit status is reported. Without it the old
 // "shell:" service gives one merged stream and no status, so the status is asked for with an echo at the end.
 //
@@ -10,7 +10,7 @@ import { concat, readU32le, text, u32le, utf8, LineSplitter } from "./bytes.js";
 import { AdbError } from "./errors.js";
 
 const ID_STDIN = 0, ID_STDOUT = 1, ID_STDERR = 2, ID_EXIT = 3, ID_CLOSE_STDIN = 4;
-const RC_MARK = "MU300-ADB-RC=";
+const RC_MARK = "OPENF50-ADB-RC=";
 // how much output is kept when the caller does not take it as it comes
 const KEEP = 4 * 1024 * 1024;
 

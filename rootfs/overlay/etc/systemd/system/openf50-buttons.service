@@ -1,0 +1,12 @@
+[Unit]
+Description=OPENF50 buttons: power wakes the LEDs (held: shut down), the U30 Air's Wi-Fi key switches the hotspot band
+ConditionPathExists=/opt/openf50/bin/openf50-keys
+After=openf50-fixups.service
+
+[Service]
+ExecStart=/opt/openf50/bin/openf50-buttons
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

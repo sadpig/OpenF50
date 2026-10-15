@@ -1,0 +1,21 @@
+# Mobile data settings for the OPENF50 (Ubuntu). To use it:
+#   sudo install -m 600 /etc/openf50/mobile-data.conf.example /etc/openf50/mobile-data.conf
+# and edit that (root's alone from the start: it may hold an APN password).
+# The OpenWrt build does not read this - there the same settings live in /etc/config/network on the
+# 'wan' interface (option apn / option pdptype) and are editable in LuCI under Network -> Interfaces.
+
+# Access point name. Leave empty unless your carrier needs a specific one: empty means the modem keeps the
+# context the SIM already defines, which is what most SIMs expect and what this device has been using.
+#OPENF50_APN=internet
+
+# PDP type. IP (IPv4 only) is what Android asks this modem for and what has been measured working here;
+# IPV4V6 asks for both, for a carrier that requires it.
+#OPENF50_PDP_TYPE=IP
+
+# Only for an APN that asks for a user name and a password (a private APN, some MVNOs); they need OPENF50_APN.
+# Printable ASCII, at most 64 characters each, no quote and no backslash. This file then holds a password and
+# must be root's alone (chmod 600): mobile-data makes it so, and does not dial when it cannot.
+# OPENF50_APN_AUTH: none, pap, chap, or both (the network picks). Left out with a user name: both.
+#OPENF50_APN_USER=
+#OPENF50_APN_PASSWORD=
+#OPENF50_APN_AUTH=both

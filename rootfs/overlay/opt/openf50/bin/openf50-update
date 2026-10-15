@@ -1,0 +1,2044 @@
+#!/bin/sh
+# Update the installed systems from a published release, on the device itself.
+#   openf50-update check            what is installed, what is the newest release
+#   openf50-update version          what is installed (no network needed)
+#   openf50-update apply [OS...]    download, unpack and switch (default: every installed system), then the kernel and
+#                                 the boot image (OPENF50_UBUNTU=24.04|26.04: move Ubuntu to that release). Packages
+#                                 installed on the device are installed again at the first boot (--no-reinstall: not)
+#   openf50-update boot             only the kernel and the boot image
+#   openf50-update rollback [OS]    go back to the previous version kept as <os>.old
+#   openf50-update rollback-boot    go back to the previous boot image
+#   openf50-update kernel [5.4|6.18|7.2]  show, or change, the kernel (vendor 5.4, mainline 6.18 LTS or the newest
+#                                 stable mainline, 7.2) and install it
+#   openf50-update clean            delete the kept <os>.old copies
+#   openf50-update notice           only look: a note for the login message and openf50-toolkit when a newer release is
+#                                 out (at boot and every 6 hours; nothing is installed without apply)
+# Installed extras (openf50-extra: LuCI's languages) are updated with the release, the VPN module (openf50-vpn and its
+# engines, from github.com/dikeckaan/mu300-linux-vpn) to its latest release. A device that uses the VPN is never left
+# without it or its engines: when they cannot be had, apply stops before it changes anything (OPENF50_VPN_MODULE=FILE|DIR,
+# or the module's tarballs and SHA256SUMS copied to /mnt/openf50-disk/.openf50-update/vpn/, serve them offline).
+#
+# How it works: the new filesystem is unpacked next to the old one as <os>.new on the Linux partition, your settings
+# and the vendor files are carried over, and only then are the directories swapped (<os> -> <os>.old, <os>.new ->
+# <os>). Renaming the directory a running system boots from is safe - the running processes keep the old one until
+# the next boot - so an interrupted download or unpack can never leave a half-updated system behind.
+#
+# The kernel and the boot image are updated here too, from releases that carry the generic boot ramdisk segment (see
+# boot_update). An openf50-update from before that installs the new system, which brings the new openf50-update: after
+# a reboot (the running system is still the old one until then), "openf50-update apply" updates the boot image too.
+export PATH="$PATH:/opt/openf50/bin:/opt/openf50/busybox-bin:/usr/sbin:/sbin"
+REPO=${OPENF50_REPO:-sadpig/OpenF50}
+DISK=${OPENF50_DISK:-/mnt/openf50-disk}
+CONF=/etc/openf50
+VERSION_FILE=$CONF/image-version
+SYSTEMS="ubuntu openwrt openwrt-luci"
+# a system's kind decides which files are its settings and how its accounts look (spec D2)
+os_kind() { case $1 in ubuntu) echo ubuntu ;; openwrt|openwrt-*) echo openwrt ;; *) return 1 ;; esac; }
+
+say() { printf '\n==> %s\n' "$*"; }
+# (the private copies of the VPN module's tarballs go with it: MODULE_VDIR, module_vdir)
+die() { [ -z "${MODULE_VDIR:-}" ] || rm -rf "$MODULE_VDIR"; printf '\nERROR: %s\n' "$*" >&2; exit 1; }
+have() { command -v "$1" >/dev/null 2>&1; }
+
+# A transfer that stalls is cut off and retried rather than waited for: with older boot images the IPA's downlink
+# can die in the middle of one (docs/FINDINGS.md 32), and without a timeout the update hung for good.
+# A network error is tried again a few times (OPENF50_FETCH_DELAY s apart): right after boot the VPN comes up some
+# seconds after mobile data, and a request in between is reset - "check" then said GitHub could not be reached.
+# curl's own --retry leaves resets alone. Only a failed connection is retried here (curl 6 7 35 52 56; wget 4, GNU's
+# network failure - busybox wget says 1 for everything and is not): an HTTP error (22, a 404) is an answer, and a
+# timeout (28) has been retried by curl already (four more rounds would hold "check" for half an hour).
+fetch_stdout() {  # fetch_stdout URL
+    _try=1
+    while :; do
+        if have curl; then _out=$(curl -fsSL --connect-timeout 30 --max-time 120 --retry 3 "$1"); _rc=$?
+            case $_rc in 0|6|7|35|52|56) ;; *) return 1 ;; esac
+        else _out=$(wget -T 60 -qO- "$1"); _rc=$?
+            case $_rc in 0|4) ;; *) return 1 ;; esac
+        fi
+        [ "$_rc" = 0 ] && { printf '%s\n' "$_out"; return 0; }
+        [ "$_try" -ge 4 ] && return 1
+        _try=$((_try + 1))
+        sleep "${OPENF50_FETCH_DELAY:-4}"
+    done
+}
+fetch_file() {  # fetch_file URL OUT (resumes a partial OUT)
+    if have curl; then curl -fL --retry 5 --retry-delay 5 --connect-timeout 30 --speed-limit 1024 --speed-time 60 -C - -o "$2" "$1"
+    else wget -c -T 60 -O "$2" "$1"; fi
+}
+
+# fetch_verified TAG ASSET: the release file in $STAGE, checked against the release's SHA256SUMS; a file that is
+# already there and matches is not downloaded again, a partial one is resumed
+STAGE=$DISK/.openf50-update
+fetch_verified() {
+    # OPENF50_RELEASE_URL: another server with the same files and SHA256SUMS (a local test server), as for install.sh
+    base=${OPENF50_RELEASE_URL:-https://github.com/$REPO/releases/download/$1}
+    mkdir -p "$STAGE"
+    # SHA256SUMS is fetched once per run, never trusted from an earlier one: a release published again under the
+    # same tag left a stale copy that every file then failed (and the updater it had verified replaced this one).
+    # Only without GitHub does the kept copy of the same tag stand in.
+    if [ "${SUMS_FETCHED:-}" != "$1" ]; then
+        if _sums=$(fetch_stdout "$base/SHA256SUMS") && [ -n "$_sums" ]; then
+            printf '%s\n' "$_sums" > "$STAGE/SHA256SUMS"
+            echo "$1" > "$STAGE/SHA256SUMS.tag"
+            SUMS_FETCHED=$1
+        elif [ "$(cat "$STAGE/SHA256SUMS.tag" 2>/dev/null)" != "$1" ] || [ ! -s "$STAGE/SHA256SUMS" ]; then
+            echo "cannot download SHA256SUMS of $1" >&2
+            return 1
+        fi
+    fi
+    want=$(awk -v f="$2" '$2 == f || $2 == "*" f {print $1}' "$STAGE/SHA256SUMS")
+    [ -n "$want" ] || { echo "$2 is not part of release $1" >&2; return 2; }
+    for try in 1 2 3; do
+        [ -s "$STAGE/$2" ] && [ "$(sha256sum "$STAGE/$2" | cut -d' ' -f1)" = "$want" ] && return 0
+        fetch_file "$base/$2" "$STAGE/$2" && [ "$(sha256sum "$STAGE/$2" | cut -d' ' -f1)" = "$want" ] && return 0
+        # a corrupt or stale file cannot be resumed: start over. The kept SHA256SUMS may be the stale part - a
+        # release published again under the same tag - so it is fetched again too.
+        rm -f "$STAGE/$2"
+        if _sums=$(fetch_stdout "$base/SHA256SUMS") && [ -n "$_sums" ]; then
+            printf '%s\n' "$_sums" > "$STAGE/SHA256SUMS"
+            want=$(awk -v f="$2" '$2 == f || $2 == "*" f {print $1}' "$STAGE/SHA256SUMS")
+            [ -n "$want" ] || { echo "$2 is not part of release $1" >&2; return 2; }
+        fi
+        sleep 5
+    done
+    echo "downloading $2 failed" >&2
+    return 1
+}
+
+# The release file of a system. Ubuntu comes as 24.04 (openf50-ubuntu-rootfs.tar.gz) and as 26.04: an update keeps the
+# release that is installed (its os-release says which); OPENF50_UBUNTU=24.04|26.04 moves to the other one.
+rootfs_asset() {  # rootfs_asset OS
+    [ "$1" = ubuntu ] || { echo "openf50-$1-rootfs.tar.gz"; return; }
+    u=${OPENF50_UBUNTU:-$(sed -n 's/^VERSION_ID="\(.*\)"/\1/p' "$DISK/ubuntu/etc/os-release" 2>/dev/null)}
+    case $u in 26.04) echo openf50-ubuntu-26.04-rootfs.tar.gz ;; *) echo openf50-ubuntu-rootfs.tar.gz ;; esac
+}
+
+# Unpack with GNU tar, and with busybox tar when that fails: the GNU tar of Ubuntu 26.04 needs openat2(), which
+# kernel 5.4 does not have ("Cannot open: Function not implemented" for everything below the top directory), and
+# busybox tar is on both systems. Without this a 26.04 that ended up on 5.4 could not even install another kernel.
+untar() {
+    tar "$@" 2>/dev/null && return 0
+    command -v busybox >/dev/null && busybox tar "$@"
+}
+
+installed_version() { [ -r "$VERSION_FILE" ] && cat "$VERSION_FILE" || echo unknown; }
+this_device() { "${OPENF50_BIN:-/opt/openf50/bin}/openf50-device"; }
+# A new boot image must never meet a locked slot (openf50-next-boot lock): its first boots are the usual attempts, and
+# the first one that gets to openf50-boot-ok locks again. Two states leave it without them, and saying nothing about
+# either is how an update on such a device ended with the operator rebooting into Android while the screen said
+# "Reboot to start the updated openwrt-luci" (2026-10-12, a U30 Air): the default boot is Android, so the image is
+# not tried at all and a reboot goes there (exit 3), or this slot's block cannot be rebuilt, so the image gets one
+# boot instead of N (any other failure, and openf50-next-boot's own line is passed on). Quiet when it was armed.
+# Never fails the update: the boot image is written either way, and a warning is no reason to roll it back.
+unlock_for_trial() {
+    _nb=${OPENF50_BIN:-/opt/openf50/bin}/openf50-next-boot
+    [ -x "$_nb" ] || return 0
+    _rc=0; _out=$("$_nb" --trial 2>&1) || _rc=$?
+    case $_rc in
+        0) ;;
+        3) echo "boot: the default boot is Android, so this boot image gets no trial: only a boot from Android" >&2
+           echo "      tries it (openf50-linux, or the panel)" >&2 ;;
+        *) echo "boot: could not arm the Linux slot for a trial (openf50-next-boot --trial)${_out:+: $_out}" >&2 ;;
+    esac
+}
+
+# Where the next boot goes: openf50-next-boot's file (OPENF50_DEFAULT_BOOT, /etc/openf50/default-boot - the knob is for
+# tests). With Android as the default boot every Linux boot is a one-shot trial armed from Android (openf50-linux, the
+# panel's switch), so a plain reboot does not start what was just written or switched. Says what to do instead and
+# returns true then; false when Linux is the default, and the caller's own "Reboot to start it" is what happens.
+reboot_goes_to_android() {
+    [ "$(cat "${OPENF50_DEFAULT_BOOT:-/etc/openf50/default-boot}" 2>/dev/null)" = linux ] && return 1
+    echo 'The default boot is Android, so a reboot goes to Android by itself. Start Linux by hand (openf50-linux, or'
+    echo '"Switch to Linux" on the panel), and keep it: openf50-next-boot linux'
+    return 0
+}
+
+# bundle_runs_here BUNDLE LIST DIR: does this kernel bundle (LIST: its file list) run on this device? Bundles name
+# their devices in ./devices; one without it is from before the U30 Air and runs on the F50 only (see boot_update).
+bundle_runs_here() {
+    _me=$(this_device)
+    [ "$_me" = f50 ] && return 0
+    grep -qx './devices' "$2" || return 1
+    untar -xzf "$1" -C "$3" ./devices && grep -qw "$_me" "$3/devices"
+}
+# A system on the SD card boots only with a kernel that has the SD host (the bundle says so in ./features). Installing
+# an older bundle there would leave a device that cannot find its own root filesystem. A missing /run/openf50-root-dev
+# means "not on the card"; the internal region is "<eMMC>@<offset>", and the eMMC is not always mmcblk0 (31l).
+root_on_sd() { d=$(cat "${OPENF50_ROOT_DEV_FILE:-/run/openf50-root-dev}" 2>/dev/null); [ -n "$d" ] && case $d in *@*) return 1 ;; esac; }
+# bundle_has BUNDLE LIST FEATURE: does the bundle (LIST: its file list) list FEATURE in ./features?
+bundle_has() { grep -qx './features' "$2" && untar -xzOf "$1" ./features 2>/dev/null | grep -qx "$3"; }
+# bundle_has_sd BUNDLE LIST: does the bundle say it has the SD host?
+bundle_has_sd() { bundle_has "$1" "$2" sdcard; }
+# bundle_fits_slot BUNDLE LIST: can its init run from the slot Linux is on? One from before linux-slot knows only b:
+# on a it would restore the block that boots Linux, marked successful, and log into Android's boot partition.
+bundle_fits_slot() { [ "$(linux_slot)" = b ] || bundle_has "$1" "$2" linux-slot; }
+# copy_missing FROM TO: copy what FROM has and TO lacks, never replacing anything of TO. Not `cp -an FROM/. TO/`:
+# busybox cp -n skips a directory that exists without looking into it, so an update run from OpenWrt copied none of
+# the vendor files into the image's own opt/openf50/android and lib/firmware (no modem, no Wi-Fi after the reboot).
+# Nothing is written below a link of TO (find lists a directory before what is in it).
+copy_missing() {
+    ( cd "$1" ) || return 1
+    ( cd "$1" && find . ! -name . ) | {
+        skip=
+        while IFS= read -r p; do
+            case $p in "$skip"/*) continue ;; esac
+            if [ -e "$2/$p" ] || [ -L "$2/$p" ]; then
+                { [ -d "$2/$p" ] && [ ! -L "$2/$p" ]; } || skip=$p
+                continue
+            fi
+            cp -a "$1/$p" "$2/$p" || exit 1
+            skip=$p
+        done
+    }
+}
+# the directory the running system booted from (it stays in use under any name until the reboot)
+is_root() { [ -d "$1" ] && [ / -ef "$1" ]; }
+# the directory this system booted from; /etc/openwrt_release alone cannot tell the two OpenWrt systems apart
+running_os() {
+    # between apply and the reboot / is the kept copy: $n.old
+    for n in $SYSTEMS; do
+        for d in "$DISK/$n" "$DISK/$n.old"; do
+            [ -d "$d" ] && [ "${OPENF50_ROOT:-/}" -ef "$d" ] && { echo "$n"; return; }
+        done
+    done
+    [ -e /etc/openwrt_release ] && echo openwrt || echo ubuntu
+}
+
+# systems present on the Linux partition
+installed_systems() {
+    for os in $SYSTEMS; do
+        [ -d "$DISK/$os" ] && printf '%s ' "$os"
+    done
+}
+
+latest_release() {
+    fetch_stdout "https://api.github.com/repos/$REPO/releases/latest" \
+        | sed -n 's/.*"tag_name"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -n1
+}
+
+mounted_disk() {
+    for n in $SYSTEMS; do [ -d "$DISK/$n" ] && return 0; done
+    die "the Linux partition is not mounted at $DISK"
+}
+
+# notice: the note that a newer release is out. It is shown at login (Ubuntu: the motd, OpenWrt: /etc/profile.d)
+# and at the top of openf50-toolkit. Nothing is ever installed by itself: an update that went wrong on a device
+# nobody is watching could leave it unreachable.
+NOTICE=${OPENF50_NOTICE:-/run/openf50/update-available}
+MOTD_DIR=${OPENF50_MOTD_DIR:-/run/motd.d}
+notice() {
+    latest=$(latest_release)
+    [ -n "$latest" ] || return 1   # offline: the note stays as it was, the next round asks again
+    inst=$(installed_version)
+    mkdir -p "${NOTICE%/*}"
+    # tags are dates (vYYYY.MM.DD), so they sort as text; a test release newer than the newest is no reason to note
+    if [ "$inst" != "$latest" ] && [ "$(printf '%s\n%s\n' "$inst" "$latest" | sort | tail -n1)" = "$latest" ]; then
+        printf 'openf50-linux %s is out (this is %s): sudo openf50-update apply\n' "$latest" "$inst" > "$NOTICE"
+    else
+        rm -f "$NOTICE"
+    fi
+    [ -e /etc/openwrt_release ] && [ -z "${OPENF50_MOTD_DIR:-}" ] && return 0
+    mkdir -p "$MOTD_DIR" && chmod 755 "$MOTD_DIR"
+    if [ -s "$NOTICE" ]; then cp "$NOTICE" "$MOTD_DIR/60-openf50-update"; else rm -f "$MOTD_DIR/60-openf50-update"; fi
+}
+
+# version: what is installed, without the network (openf50-toolkit's summary shows it)
+version() {
+    mounted_disk
+    printf 'installed image   %s\n' "$(installed_version)"
+    printf 'systems on disk   %s\n' "$(installed_systems_versions)"
+    printf 'running now       %s\n' "$(running_os)"
+    _xs=; for x in $(extra_installed); do _xs="$_xs $x ($(extra_release "$x"))"; done
+    printf 'extras           %s\n' "${_xs:- none (openf50-extra list)}"
+    printf 'kernel            %s (boot image: %s; kernel choice %s)\n' "$(uname -r)" "$(cat "$BOOTDIR/installed.tag" 2>/dev/null || echo "from the installer")" "$(kernel_choice)"
+}
+# "openwrt v2026.10.18 ubuntu v2026.10.17": each system with the release its image came from
+installed_systems_versions() {
+    for os in $(installed_systems); do
+        printf '%s %s ' "$os" "$(cat "$DISK/$os/etc/openf50/image-version" 2>/dev/null || echo unknown)"
+    done
+}
+check() {
+    mounted_disk
+    latest=$(latest_release)
+    [ -n "$latest" ] || die "could not reach GitHub (is the device online?)"
+    printf 'installed image   %s\n' "$(installed_version)"
+    printf 'newest release    %s\n' "$latest"
+    printf 'systems on disk   %s\n' "$(installed_systems)"
+    printf 'running now       %s\n' "$(running_os)"
+    _xs=; for x in $(extra_installed); do _xs="$_xs $x ($(extra_release "$x"))"; done
+    printf 'extras           %s\n' "${_xs:- none (openf50-extra list)}"
+    printf 'kernel            %s (boot image: %s; kernel choice %s)\n' "$(uname -r)" "$(cat "$BOOTDIR/installed.tag" 2>/dev/null || echo "from the installer")" "$(kernel_choice)"
+    _up=${OPENF50_BIN:-/opt/openf50/bin}/openf50-user-packages
+    [ ! -x "$_up" ] || [ ! -s "$CONF/user-packages/wanted" ] || printf 'your packages     %s\n' "$("$_up" brief)"
+    for os in $(installed_systems); do
+        [ -d "$DISK/$os.old" ] && printf 'rollback available for %s (%s)\n' "$os" "$(cat "$DISK/$os.old/etc/openf50/image-version" 2>/dev/null || echo unknown)"
+    done
+    # tags are dates (vYYYY.MM.DD), so they sort as text; a device ahead of the newest release runs a test one
+    if [ "$(printf '%s\n%s\n' "$(installed_version)" "$latest" | sort | tail -n1)" != "$latest" ]; then
+        printf '\nThis is newer than the newest release (a test release); openf50-update apply would go back to %s.\n' "$latest"
+    elif [ "$(installed_version)" = "$latest" ] && [ "$(cat "$BOOTDIR/installed.tag" 2>/dev/null)" != "$latest" ]; then
+        printf '\nThe system is up to date; the boot image may not be. Run: openf50-update apply\n'
+    elif [ "$(installed_version)" = "$latest" ]; then
+        printf '\nUp to date.\n'
+    else
+        printf '\nRun: openf50-update apply\n'
+    fi
+}
+
+# everything that belongs to this device and must survive an update
+# etc/unisoc-modem: the control panel's state (openwrt-luci), above all lock-state.d, the network, band and cell
+# locks it saved and replays at boot. The modem keeps a lock by itself; without this directory the panel came up
+# after an update showing none, while the modem was still locked (FINDINGS 64). tools/android-install.sh has the
+# same list.
+# etc/crontabs: the jobs of OpenWrt's System > Scheduled Tasks (LuCI writes /etc/crontabs/root) and of every package
+# or user that installs one. OpenWrt's sysupgrade keeps the directory; an update used to leave it behind in
+# <os>.old, and the image's own /etc/crontabs is empty, so cron's init refused to start at all (FINDINGS 83).
+keep_list() {
+    case $(os_kind "$1") in
+        ubuntu) echo "etc/openf50 etc/ssh etc/hostname etc/localtime etc/timezone etc/fstab home root srv usr/local var/lib/bluetooth" ;;
+        openwrt) echo "etc/config etc/openf50 etc/unisoc-modem etc/dropbear etc/rc.local etc/crontabs root" ;;
+    esac
+}
+# vendor files that the published images deliberately do not contain
+vendor_list() {
+    case $(os_kind "$1") in
+        ubuntu) echo "opt/openf50/android usr/lib/firmware" ;;
+        # lib/modules: the release only ships modules for the kernel it was built with, so a hand-built set for
+        # another kernel (the experimental 6.18 port) would be thrown away by an update without this
+        openwrt) echo "opt/openf50/android lib/firmware lib/modules" ;;
+    esac
+}
+
+# Accounts are settings too, and /etc/shadow is not in keep_list: an update used to leave the image's own password
+# (the well-known ubuntu/ubuntu, or OpenWrt's empty root) and drop the users added on the device. Take the old
+# entry of every account both systems have (password hashes, group memberships merged), and bring over the users
+# and groups the old system added (ids 1000-59999).
+ACCOUNTS_MARK=/etc/.openf50-accounts-from-image   # in the images; removed once the accounts are the device's own
+merge_accounts() {  # merge_accounts OLD_ROOT NEW_ROOT   ("" is the running system)
+    o=$1 n=$2
+    [ -f "$o/etc/shadow" ] && [ -f "$n/etc/shadow" ] || return 0
+    for f in passwd group shadow gshadow; do
+        [ -f "$o/etc/$f" ] && [ -f "$n/etc/$f" ] || continue
+        awk -F: -v OFS=: -v f="$f" -v op="$o/etc/passwd" -v og="$o/etc/group" '
+            BEGIN {
+                while ((getline l < op) > 0) { split(l, a, ":"); if (a[3] >= 1000 && a[3] < 60000) lu[a[1]] = 1 }
+                while ((getline l < og) > 0) { split(l, a, ":"); if (a[3] >= 1000 && a[3] < 60000) lg[a[1]] = 1 }
+            }
+            NR == FNR { old[$1] = $0; next }
+            {
+                seen[$1] = 1
+                if ((f == "shadow" || f == "gshadow") && ($1 in old)) { print old[$1]; next }
+                if (f == "group" && ($1 in old)) {
+                    split(old[$1], og4, ":"); m = $4; k = split(og4[4], om, ",")
+                    for (i = 1; i <= k; i++)
+                        if (om[i] != "" && index("," m ",", "," om[i] ",") == 0) m = (m == "" ? om[i] : m "," om[i])
+                    $4 = m
+                }
+                print
+            }
+            END {
+                for (x in old) if (!(x in seen)) {
+                    if ((f == "passwd" || f == "shadow") && (x in lu)) print old[x]
+                    if ((f == "group" || f == "gshadow") && (x in lg)) print old[x]
+                }
+            }' "$o/etc/$f" "$n/etc/$f" > "$n/etc/$f.openf50" || { rm -f "$n/etc/$f.openf50"; return 1; }
+        # renamed into place, never rewritten: a crash (or a reader at boot) never sees a half-written passwd.
+        # The copy made with cp -p keeps the file's owner and mode (shadow is root:shadow 0640; no stat on OpenWrt).
+        if [ -s "$n/etc/$f.openf50" ]; then
+            cp -p "$n/etc/$f" "$n/etc/$f.openf50-new" && cat "$n/etc/$f.openf50" > "$n/etc/$f.openf50-new" && sync &&
+                mv -f "$n/etc/$f.openf50-new" "$n/etc/$f" || { rm -f "$n/etc/$f.openf50" "$n/etc/$f.openf50-new"; return 1; }
+        fi
+        rm -f "$n/etc/$f.openf50"
+    done
+    rm -f "$n$ACCOUNTS_MARK"
+}
+
+# at boot (openf50-accounts): a system that an older openf50-update installed still has the image's accounts, and the
+# system it replaced is still on the disk as <os>.old - take them from there before anyone can log in
+accounts() {
+    [ -e "$ACCOUNTS_MARK" ] || return 0
+    os=$(running_os)
+    if [ -f "$DISK/$os.old/etc/shadow" ]; then
+        merge_accounts "$DISK/$os.old" "" && echo "accounts and passwords carried over from the previous $os"
+    fi
+    rm -f "$ACCOUNTS_MARK"
+}
+
+# --- user-packages begin
+# Packages installed on the device are not in the release's image, and an update puts the image in place while it
+# keeps /etc/config (OpenWrt) and /etc/openf50: their programs were gone and their settings stayed - OpenClash's left
+# the device without DNS (#116). So before the switch the update writes down what was added - the packages asked for
+# by hand (OpenWrt: /etc/apk/world; Ubuntu: dpkg's packages that apt did not pull in by itself) less the image's
+# own set (etc/openf50/image-packages, written when the image is built) - into etc/openf50/user-packages/ of the new
+# system, and sets the UCI files of those packages aside (etc/openf50/orphaned-config/): a package that is not there
+# leaves no settings behind. At its first boot the new system installs them again (openf50-user-packages, a service)
+# and puts their settings back. tools/android-install.sh (the installers' update) has a copy of this block; tests
+# hold the two to one text. It runs on Android too: sh, awk, sed, grep, sort - nothing else, and safe under set -e.
+UPK_DIR=etc/openf50/user-packages
+UPK_ORPH=etc/openf50/orphaned-config
+# what is never installed again: kernel modules (the feed's are for another kernel), and what the images take out on
+# purpose (sysupgrade would flash the eMMC; ujail crash-loops services on 5.4)
+upk_skip() {
+    case $1 in
+        kmod-*|kernel|procd-ujail|procd-seccomp|luci-app-attendedsysupgrade|attendedsysupgrade-common|owut) return 0 ;;
+        linux-image-*|linux-modules-*|linux-headers-*|linux-generic*|linux-firmware) return 0 ;;
+    esac
+    return 1
+}
+upk_kind() { case $1 in ubuntu) echo ubuntu ;; *) echo openwrt ;; esac; }
+# upk_dpkg ROOT [manual]: dpkg's installed packages in ROOT; with manual, less those apt installed as dependencies
+# (what apt-mark showmanual says, read from the files: ROOT need not be the running system)
+upk_dpkg() {
+    [ -f "$1/var/lib/dpkg/status" ] || return 0
+    { [ "${2:-}" != manual ] || cat "$1/var/lib/apt/extended_states" 2>/dev/null || :; echo '@dpkg'; cat "$1/var/lib/dpkg/status"; } |
+        awk '$0 == "@dpkg" { s = 1; next }
+             $1 == "Package:" { p = $2; next }
+             !s && $1 == "Auto-Installed:" && $2 == 1 { auto[p] = 1; next }
+             s && $1 == "Status:" && $3 == "ok" && $4 == "installed" { inst[p] = 1 }
+             END { for (p in inst) if (!(p in auto)) print p }' | sort
+}
+# upk_manual ROOT KIND: the packages asked for by name (OpenWrt: the world file, versions and pins taken off)
+upk_manual() {
+    if [ "$2" = ubuntu ]; then upk_dpkg "$1" manual; return 0; fi
+    [ -f "$1/etc/apk/world" ] || return 0
+    sed 's/[<>=~@ ].*//' "$1/etc/apk/world" | awk 'NF' | sort -u
+}
+# upk_installed ROOT KIND: every installed package
+upk_installed() {
+    if [ "$2" = ubuntu ]; then upk_dpkg "$1"; return 0; fi
+    [ -f "$1/lib/apk/db/installed" ] || return 0
+    sed -n 's/^P://p' "$1/lib/apk/db/installed" | sort -u
+}
+# upk_txt_names FILE: the names in etc/openf50/packages.txt ("apk list --installed": name-version-rN arch ...)
+upk_txt_names() {
+    [ -f "$1" ] || return 0
+    awk '{print $1}' "$1" | sed 's/-r[0-9][0-9]*$//; s/-[^-]*$//'
+}
+# upk_pending DIR: the packages of a record not installed again yet (nor given up on)
+upk_pending() {
+    [ -f "$1/wanted" ] || return 0
+    { for _uf in done failed; do [ ! -f "$1/$_uf" ] || sed 's/^/x /' "$1/$_uf"; done; sed 's/^/w /' "$1/wanted"; } |
+        awk '$1 == "x" { d[$2] = 1; next } NF > 1 && !($2 in d) { print $2 }'
+}
+# What belongs to the new image, not to the device, in the directories an update keeps: its version and package
+# lists in etc/openf50 (an update carried the old ones over: every update then reported the version it replaced), and
+# the names of its own files in etc/config (never set aside). image_own_save NEW before the settings are copied,
+# image_own_restore NEW after; upk_record removes what they keep in NEW/.openf50-image.
+image_own_save() {
+    rm -rf "$1/.openf50-image"; mkdir -p "$1/.openf50-image" || return 1
+    for _uf in image-version image-packages packages.txt; do
+        [ ! -f "$1/etc/openf50/$_uf" ] || cp "$1/etc/openf50/$_uf" "$1/.openf50-image/$_uf" || return 1
+    done
+    for _uf in "$1"/etc/config/*; do [ ! -e "$_uf" ] || echo "${_uf##*/}"; done > "$1/.openf50-image/config"
+}
+image_own_restore() {
+    [ -d "$1/.openf50-image" ] || return 0
+    mkdir -p "$1/etc/openf50" || return 1
+    for _uf in image-version image-packages packages.txt; do
+        if [ -f "$1/.openf50-image/$_uf" ]; then cp "$1/.openf50-image/$_uf" "$1/etc/openf50/$_uf" || return 1
+        # a list of the old image would describe the wrong one (the version stays: "unknown" says less)
+        elif [ "$_uf" != image-version ]; then rm -f "$1/etc/openf50/$_uf"; fi
+    done
+}
+# upk_os_codename ROOT: Ubuntu's release name (noble, ...)
+upk_os_codename() {
+    sed -n 's/^VERSION_CODENAME=//p' "$1/usr/lib/os-release" 2>/dev/null | tr -d '"' | head -n 1
+}
+# upk_apt_keep OLD NEW [checked]: Ubuntu keeps only parts of /etc, and apt's sources were not among them: a PPA's
+# packages could not come back. The source files added in etc/apt/sources.list.d are copied where the new image
+# has no file of that name (the image's own are never replaced), with the keys they need: one in etc/apt/keyrings
+# or usr/share/keyrings that a kept source names, and etc/apt/trusted.gpg.d's - each only where the new image has
+# no file of that name. checked: the first boot tries apt-get update and disables a kept source that makes it fail
+# (openf50-user-packages); without it (nothing to install again) a source of another Ubuntu release (24.04 -> 26.04)
+# is copied disabled (NAME.disabled, which apt skips) and said so. NEW/.openf50-image/apt-kept: the sources kept on.
+upk_apt_keep() {
+    _ua=$2/.openf50-image/apt-kept _ul=
+    : > "$_ua" || return 1
+    _uoc=$(upk_os_codename "$1") _unc=$(upk_os_codename "$2")
+    for _uf in "$1"/etc/apt/sources.list.d/*.list "$1"/etc/apt/sources.list.d/*.sources; do
+        [ -f "$_uf" ] || continue
+        _ur=etc/apt/sources.list.d/${_uf##*/}
+        { [ ! -e "$2/$_ur" ] && [ ! -L "$2/$_ur" ]; } || continue
+        mkdir -p "$2/etc/apt/sources.list.d" || return 1
+        if [ -z "${3:-}" ] && [ "$_uoc" != "$_unc" ]; then
+            cp -p "$_uf" "$2/$_ur.disabled" || return 1
+            echo "  apt: /$_ur is for Ubuntu $_uoc, this is $_unc: kept disabled (/$_ur.disabled)"
+        else
+            cp -p "$_uf" "$2/$_ur" || return 1
+            echo "$_ur" >> "$_ua"
+            echo "  apt: /$_ur kept"
+        fi
+        _ul="$_ul $_uf"
+    done
+    [ -n "$_ul" ] || return 0
+    # their pinning (etc/apt/preferences.d), where the new image has no file of that name; a pin whose source is
+    # turned off later does nothing on its own (openf50-user-packages status names it). NEW/.openf50-image/apt-prefs.
+    : > "$2/.openf50-image/apt-prefs" || return 1
+    for _uf in "$1"/etc/apt/preferences.d/*; do
+        [ -f "$_uf" ] || continue
+        _ur=etc/apt/preferences.d/${_uf##*/}
+        { [ ! -e "$2/$_ur" ] && [ ! -L "$2/$_ur" ]; } || continue
+        mkdir -p "$2/etc/apt/preferences.d" && cp -p "$_uf" "$2/$_ur" || return 1
+        echo "$_ur" >> "$2/.openf50-image/apt-prefs"
+        echo "  apt: /$_ur kept"
+    done
+    # shellcheck disable=SC2086
+    _us=$(cat $_ul 2>/dev/null)
+    for _uf in "$1"/etc/apt/keyrings/* "$1"/usr/share/keyrings/* "$1"/etc/apt/trusted.gpg.d/*; do
+        [ -f "$_uf" ] || continue
+        _ur=${_uf#"$1"/}
+        { [ ! -e "$2/$_ur" ] && [ ! -L "$2/$_ur" ]; } || continue
+        case $_ur in
+            etc/apt/trusted.gpg.d/*) ;;
+            *) printf '%s\n' "$_us" | grep -qF "/$_ur" || continue ;;
+        esac
+        mkdir -p "$2/${_ur%/*}" && cp -p "$_uf" "$2/$_ur" || return 1
+    done
+}
+# upk_units OLD: "PACKAGE UNIT enabled|disabled|masked" for the systemd units the packages named on stdin have in
+# OLD (dpkg's file lists), as OLD had them - openf50-user-packages puts that back after it installs them again
+upk_units() {
+    while read -r _up; do
+        for _ul in "$1/var/lib/dpkg/info/$_up.list" "$1/var/lib/dpkg/info/$_up":*.list; do
+            [ -f "$_ul" ] || continue
+            grep -E '^/(usr/)?lib/systemd/system/[A-Za-z0-9_.:-]+\.(service|socket|timer|path)$' "$_ul" |
+                while read -r _uu; do
+                    # an alias (a link to the unit, smartd.service) follows its unit
+                    [ ! -L "$1$_uu" ] || continue
+                    _uu=${_uu##*/}
+                    case $_uu in *@*) continue ;; esac
+                    _us=disabled
+                    for _uw in "$1"/etc/systemd/system/*.wants/"$_uu" "$1"/etc/systemd/system/*.requires/"$_uu"; do
+                        [ ! -L "$_uw" ] || _us=enabled
+                    done
+                    [ "$(readlink "$1/etc/systemd/system/$_uu" 2>/dev/null)" != /dev/null ] || _us=masked
+                    echo "$_up $_uu $_us"
+                done
+        done
+    done | sort -u
+}
+# upk_record OLD NEW OS: after the settings are in NEW, before the switch. Writes NEW/etc/openf50/user-packages/
+# (wanted: the names; files: "package path" of their files in etc/; rc.d: the services enabled in OLD; from; state)
+# and moves their etc/config files out of the way. OPENF50_KEEP_PACKAGES=0: they are not installed again (state
+# skipped; openf50-user-packages retry does it later), their settings are set aside all the same.
+upk_record() {
+    _uo=$1 _un=$2 _uk=$(upk_kind "$3")
+    _ut=$2/.openf50-image _ud=$2/$UPK_DIR
+    mkdir -p "$_ut" || return 1
+    # the old image's own set; a system from before that list: the new image's and the one packages.txt names
+    if [ -s "$_uo/etc/openf50/image-packages" ]; then cat "$_uo/etc/openf50/image-packages"
+    else
+        cat "$_ut/image-packages" 2>/dev/null || :
+        upk_manual "$_un" "$_uk"
+        upk_txt_names "$_uo/etc/openf50/packages.txt"
+    fi > "$_ut/not"
+    upk_installed "$_un" "$_uk" >> "$_ut/not"
+    # what an earlier update recorded and the device never got back (offline since, or skipped) stays wanted
+    { upk_manual "$_uo" "$_uk"; upk_pending "$_uo/$UPK_DIR"; } > "$_ut/had"
+    { sed 's/^/x /' "$_ut/not"; sed 's/^/w /' "$_ut/had"; } |
+        awk '$1 == "x" { n[$2] = 1; next } NF > 1 && !($2 in n) { print $2 }' | sort -u > "$_ut/added"
+    rm -rf "$_ud"
+    : > "$_ut/wanted"
+    while read -r _up; do upk_skip "$_up" || echo "$_up" >> "$_ut/wanted"; done < "$_ut/added"
+    # Ubuntu: the apt sources added on the device (a PPA's packages cannot come back without it), see upk_apt_keep
+    if [ "$_uk" = ubuntu ]; then
+        upk_apt_keep "$_uo" "$_un" "$([ -s "$_ut/wanted" ] && echo checked)" || return 1
+    fi
+    if [ ! -s "$_ut/wanted" ]; then
+        echo "  none: everything installed is part of the new image"
+        rm -rf "$_ut"
+        return 0
+    fi
+    mkdir -p "$_ud" || return 1
+    mv "$_ut/wanted" "$_ud/wanted"
+    [ ! -s "$_ut/apt-kept" ] || mv "$_ut/apt-kept" "$_ud/apt-sources"
+    [ ! -s "$_ut/apt-prefs" ] || mv "$_ut/apt-prefs" "$_ud/apt-prefs"
+    : > "$_ud/done"; : > "$_ud/failed"
+    cat "$_uo/etc/openf50/image-version" > "$_ud/from" 2>/dev/null || echo unknown > "$_ud/from"
+    # their files in etc/, from the package database of OLD (and of the record a pending one came from)
+    if [ "$_uk" = openwrt ]; then
+        { cat "$_uo/$UPK_DIR/files" 2>/dev/null || :
+          [ ! -f "$_uo/lib/apk/db/installed" ] || awk '
+            $0 ~ /^P:/ { p = substr($0, 3); next }
+            $0 ~ /^F:/ { d = substr($0, 3); next }
+            $0 ~ /^R:/ && (d == "etc" || d ~ /^etc\//) { print p " " d "/" substr($0, 3) }' "$_uo/lib/apk/db/installed"
+        } | { sed 's/^/w /' "$_ud/wanted"; sed 's/^/f /'; } |
+            awk '$1 == "w" { w[$2] = 1; next } ($2 in w) && NF > 2 { print substr($0, 3) }' | sort -u > "$_ud/files"
+        for _uf in "$_uo"/etc/rc.d/*; do { [ -L "$_uf" ] || [ -e "$_uf" ]; } && echo "${_uf##*/}"; done > "$_ud/rc.d" || :
+    else
+        : > "$_ud/files"; : > "$_ud/rc.d"
+        upk_units "$_uo" < "$_ud/wanted" > "$_ud/units"
+    fi
+    if [ "${OPENF50_KEEP_PACKAGES:-1}" = 0 ]; then echo skipped > "$_ud/state"; else echo pending > "$_ud/state"; fi
+    echo "  $(tr '\n' ' ' < "$_ud/wanted")"
+    if [ "$(cat "$_ud/state")" = skipped ]; then
+        echo "  The new system does not have them, and they are not installed again (OPENF50_KEEP_PACKAGES=0 or"
+        echo "  --no-reinstall; later: openf50-user-packages retry)."
+    else
+        echo "  The new system does not have them: its first boot installs them again once the device is online"
+        echo "  (the result: openf50-user-packages status)."
+    fi
+    # their UCI files: a package that is not there must leave nothing behind that acts on the network. Only a file
+    # its package owns, in etc/config, that the new image does not have itself (dhcp, firewall, luci: never).
+    _um=
+    while read -r _up _uf; do
+        case $_uf in etc/config/?*) ;; *) continue ;; esac
+        { [ -f "$_un/$_uf" ] && [ ! -L "$_un/$_uf" ]; } || continue
+        ! grep -qxF "${_uf#etc/config/}" "$_ut/config" 2>/dev/null || continue
+        mkdir -p "$_un/$UPK_ORPH/etc/config" && mv -f "$_un/$_uf" "$_un/$UPK_ORPH/$_uf" || return 1
+        [ -n "$_um" ] || echo "  Their settings are set aside until they are back, so that they cannot act without them:"
+        echo "    /$_uf -> /$UPK_ORPH/$_uf ($_up)"
+        _um=1
+    done < "$_ud/files"
+    rm -rf "$_ut"
+}
+# stale_config_clean NEW: what the images of v2026.10.18 left in etc/config and an update then copied onto every
+# device (the config files of the image are added to the kept ones): attendedsysupgrade, of a package the images
+# remove on purpose, and the .apk-new copies apk leaves beside a changed config. Gone from NEW's etc/config unless
+# the package is installed there (attendedsysupgrade stays with attendedsysupgrade-common or its LuCI app).
+stale_config_clean() {
+    for _uf in "$1"/etc/config/*.apk-new; do [ ! -e "$_uf" ] || rm -f "$_uf"; done
+    [ -e "$1/etc/config/attendedsysupgrade" ] || return 0
+    upk_installed "$1" openwrt | grep -qx 'attendedsysupgrade-common\|luci-app-attendedsysupgrade' && return 0
+    rm -f "$1/etc/config/attendedsysupgrade"
+}
+# --- user-packages end
+
+apply_one() {  # apply_one OS TAG
+    os=$1 tag=$2
+    old=$DISK/$os
+    new=$DISK/$os.new
+    [ -d "$old" ] || die "$os is not installed"
+    tarball=$(rootfs_asset "$os")
+    tmp=$STAGE
+    # downloaded and checked in apply() already, together with everything else this update needs
+    [ -s "$tmp/$tarball" ] || die "$tarball was not downloaded"
+
+    say "$os: unpacking"
+    rm -rf "$new"; mkdir -p "$new"
+    untar -xzpf "$tmp/$tarball" -C "$new" || { rm -rf "$new" "$tmp/$tarball"; die "unpacking failed, nothing was changed"; }
+    rm -f "$tmp/$tarball"
+    [ -x "$new/sbin/init" ] || [ -L "$new/sbin/init" ] || [ -x "$new/bin/busybox" ] || { rm -rf "$new"; die "the unpacked system looks wrong, nothing was changed"; }
+
+    say "$os: keeping your settings and the vendor files"
+    # etc/openf50 is kept as a whole (hotspot.conf, vpn.conf, ...), but the version of the image and its package lists
+    # belong to the new filesystem: copying the old directory over them made every update report the version it
+    # replaced
+    image_own_save "$new" || { rm -rf "$new"; die "$os: could not read the new image, nothing was changed"; }
+    for k in $(keep_list "$os"); do
+        [ -e "$old/$k" ] || continue
+        mkdir -p "$new/$(dirname "$k")"
+        rm -rf "$new/$k.image"
+        [ "$k" = etc/config ] && [ -d "$new/$k" ] && mv "$new/$k" "$new/$k.image"
+        rm -rf "$new/$k"
+        cp -a "$old/$k" "$new/$k"
+        # OpenWrt's settings are the old system's, plus the files of the image's own packages the old one did not
+        # have (as sysupgrade keeps them): copied whole, the old etc/config dropped e.g. /etc/config/sqm of a
+        # package the new image brought, and its LuCI page failed with "uci/get: Resource not found"
+        if [ -d "$new/$k.image" ]; then
+            copy_missing "$new/$k.image" "$new/$k" || echo "$os: could not add the image's new settings files" >&2
+            rm -rf "$new/$k.image"
+            # the stray files of v2026.10.18 (the old system's, or that image's own) do not stay
+            stale_config_clean "$new"
+        fi
+    done
+    merge_accounts "$old" "$new" || echo "$os: could not carry the accounts over; the image's default password applies" >&2
+    image_own_restore "$new" || { rm -rf "$new"; die "$os: could not write the new image's version, nothing was changed"; }
+    # firmware and the Android userspace come from this device, never from the release
+    # then what only <os>.old still has: the updaters of 2026-09-18 to this fix, run from OpenWrt, left the system
+    # they put in place without them, so on such a device the only copy is in <os>.old, which this update removes
+    # (gaps only, after the main copy; not from <os>.old while it is the running root: that update stops below)
+    for v in $(vendor_list "$os"); do
+        for from in "$old" "$DISK/$os.old"; do
+            [ -d "$from/$v" ] || continue
+            [ "$from" = "$old" ] || ! is_root "$from" || continue
+            mkdir -p "$new/$v"
+            copy_missing "$from/$v" "$new/$v" || { rm -rf "$new"; die "$os: copying the vendor files failed, nothing was changed"; }
+        done
+    done
+    # services enabled by hand (the links point into the system, so test with -L)
+    if [ "$os" = ubuntu ]; then
+        for w in "$old"/etc/systemd/system/*.wants; do
+            [ -d "$w" ] || continue
+            t=${w##*/}
+            for l in "$w"/*; do
+                [ -L "$l" ] || continue
+                u=${l##*/}
+                [ -L "$new/etc/systemd/system/$t/$u" ] && continue
+                [ -e "$new/etc/systemd/system/$u" ] || [ -e "$new/usr/lib/systemd/system/$u" ] || continue
+                mkdir -p "$new/etc/systemd/system/$t"
+                cp -a "$l" "$new/etc/systemd/system/$t/$u"
+            done
+        done
+    else
+        for l in "$old"/etc/rc.d/*; do
+            [ -L "$l" ] || continue
+            u=${l##*/}
+            [ -L "$new/etc/rc.d/$u" ] && continue
+            # only for a service the new system has (as the installers do): the one of a package it does not have
+            # comes back with the package (openf50-user-packages)
+            [ -x "$new/etc/init.d/${u#[SK][0-9][0-9]}" ] || continue
+            cp -a "$l" "$new/etc/rc.d/$u" 2>/dev/null || true
+        done
+    fi
+    # the packages installed on the device: written down, their settings set aside, put back at the first boot
+    say "$os: packages installed on the device"
+    upk_record "$old" "$new" "$os" || { rm -rf "$new"; die "$os: could not write down the packages installed on the device, nothing was changed"; }
+    rm -rf "$new/.openf50-image"
+
+    say "$os: switching over"
+    sync
+    is_root "$DISK/$os.old" && { rm -rf "$new"; die "$os was updated already and is still running the old copy: reboot first"; }
+    rm -rf "$DISK/$os.old"
+    mv "$old" "$DISK/$os.old" || die "could not move the old system aside"
+    mv "$new" "$old" || { mv "$DISK/$os.old" "$old"; die "could not put the new system in place (old one restored)"; }
+    sync
+    printf '%s: updated %s -> %s\n' "$os" "$(cat "$DISK/$os.old$VERSION_FILE" 2>/dev/null || echo unknown)" "$(cat "$old$VERSION_FILE" 2>/dev/null || echo unknown)"
+}
+
+# ---- extras -----------------------------------------------------------------------------------------------------
+# Optional parts that are not in the images, installed on the Linux partition next to the systems, so both systems use
+# one copy and nothing that replaces a system touches it. openf50-extra is the command; the functions are here
+# because an update installs and refreshes them too, and the updater of the new release runs before the system
+# that has openf50-extra exists. Two kinds:
+#   lang         a release asset of openf50-linux, openf50-extra-lang.tar.gz (tools/make-extra.sh: ./name, ./release,
+#                ./components, ./languages, ./manifest, ./i18n/<catalogs>), for the release it was published with
+#   vpn, vpn-xray, vpn-singbox, vpn-mihomo, vpn-dae   the VPN module, released on its own by
+#                github.com/dikeckaan/mu300-linux-vpn under fixed names (openf50-linux-vpn-core.tar.gz for vpn - the
+#                core, openf50-vpn without an engine - and openf50-linux-vpn-ENGINE.tar.gz for the engines, SHA256SUMS):
+#                ./VERSION, ./components, ./requires ("openf50-linux vYYYY.MM.DD", the oldest system it works with),
+#                ./bin/<programs>, ./hooks/link, ./hooks/unlink - which make one system use it (sh hooks/link SYSROOT,
+#                "" for the running system), and for vpn ./lib/vpn, ./service, ./etc, so the images carry no openf50-vpn
+#                at all. openf50-linux-vpn.tar.gz is vpn as module v1 was, the core with xray and sing-box in it (the
+#                bundle, which openf50-extra and openf50-update from before the engine extras download): taken when the
+#                core is not to be had (a pinned v1 release, a copy brought by hand), and as the fallback of a set.
+EXTRA=$DISK/extra
+EXTRAS="vpn lang vpn-mihomo panel vpn-xray vpn-singbox vpn-dae"
+# the engines, each an extra of the VPN module
+VPN_ENGINE_EXTRAS="vpn-xray vpn-singbox vpn-mihomo vpn-dae"
+VPN_REPO=dikeckaan/mu300-linux-vpn
+# OPENF50_VPN_URL: another place with the module's files and SHA256SUMS (a pinned tag: .../releases/download/v1.0.0,
+# or a local server)
+VPN_URL=${OPENF50_VPN_URL:-https://github.com/$VPN_REPO/releases/latest/download}
+# where an update looks for a module copied onto the device by hand (the tarball and its SHA256SUMS)
+VPN_STAGED=$DISK/.openf50-update/vpn
+extra_desc() {
+    case $1 in
+        vpn) echo "the VPN toolkit (openf50-vpn: profiles, kill switch), the module of github.com/$VPN_REPO; the engines are the vpn-* extras, the ones the profiles need come along (about 0.1 MB, with xray 15 MB)" ;;
+        lang) echo "LuCI (the web interface) in 40 more languages, the OPENF50 panel in 29 of them; OpenWrt only (about 2 MB to download, 6 MB installed)" ;;
+        vpn-xray) echo "Xray-core and hev-socks5-tunnel, the engine of openf50-vpn's VLESS, VMess, Trojan, Shadowsocks and Xray JSON profiles (about 15 MB to download, 40 MB installed)" ;;
+        vpn-singbox) echo "sing-box, the engine of openf50-vpn's sing-box JSON profiles, and of VLESS links behind the kill switch (about 15 MB to download, 40 MB installed)" ;;
+        vpn-mihomo) echo "mihomo (Clash.Meta), the engine of openf50-vpn's mihomo profiles, from the same module repository (about 15 MB to download, 40 MB installed)" ;;
+        vpn-dae) echo "dae (eBPF transparent proxy) with its geodata, for openf50-vpn's dae profiles; needs a kernel with BTF (mainline) (about 25 MB to download, 60 MB installed)" ;;
+        panel) echo "the web panel for Ubuntu: Cockpit (terminal, logs, services) and the OPENF50 page, on the LAN only (port 9090); Cockpit from Ubuntu's archive (about 12 MB, 45 MB installed), or offline with --from openf50-extra-panel-offline.tar.gz" ;;
+    esac
+}
+extra_asset() { echo "openf50-extra-$1.tar.gz"; }
+extra_is_module() { case $1 in vpn|vpn-mihomo|vpn-xray|vpn-singbox|vpn-dae) return 0 ;; esac; return 1; }
+# module_asset NAME: the release file of a module extra (vpn-bundle: the vpn extra as the bundle)
+module_asset() {
+    case $1 in
+        vpn) echo openf50-linux-vpn-core.tar.gz ;; vpn-bundle) echo openf50-linux-vpn.tar.gz ;;
+        vpn-mihomo|vpn-xray|vpn-singbox|vpn-dae) echo "openf50-linux-$1.tar.gz" ;;
+    esac
+}
+extra_known() { case " $EXTRAS " in *" $1 "*) return 0 ;; esac; return 1; }
+extra_installed() {
+    for d in "$EXTRA"/*; do
+        { [ -d "$d/bin" ] || [ -d "$d/i18n" ]; } && printf '%s ' "${d##*/}"
+    done
+    return 0
+}
+extra_release() {
+    if [ -f "$EXTRA/$1/release" ]; then cat "$EXTRA/$1/release"
+    elif [ -f "$EXTRA/$1/VERSION" ]; then cat "$EXTRA/$1/VERSION"
+    else echo unknown; fi
+}
+# vpn_module_in DIR: DIR is the VPN module (an older vpn extra had the engines only, no openf50-vpn)
+vpn_module_in() { [ -f "$1/bin/openf50-vpn" ] && [ -x "$1/bin/openf50-vpn" ]; }
+
+# extra_put NAME DIR: DIR (on the same filesystem) becomes the extra; the one it replaces is removed afterwards.
+# Running programs keep their files, as with a system that is updated while it runs.
+extra_put() {
+    # an earlier swap cut off between its two renames: the old one is still the one there is
+    [ -d "$EXTRA/$1" ] || [ ! -d "$EXTRA/.$1.old" ] || mv "$EXTRA/.$1.old" "$EXTRA/$1" || return 1
+    rm -rf "$EXTRA/.$1.old"
+    if [ -d "$EXTRA/$1" ]; then mv "$EXTRA/$1" "$EXTRA/.$1.old" || return 1; fi
+    if ! mv "$2" "$EXTRA/$1"; then
+        [ -d "$EXTRA/.$1.old" ] && mv "$EXTRA/.$1.old" "$EXTRA/$1"
+        return 1
+    fi
+    rm -rf "$EXTRA/.$1.old"
+    sync
+}
+
+# An extra holds plain files and directories only, under names of its own. It may come from a file someone uploaded
+# through the web page, not only from a verified release download, and tar implementations (GNU, busybox) list and
+# extract differently, so nothing rests on one check: the listing is checked before anything is unpacked (names,
+# and every entry's type), and the unpacked tree is checked again by what is really on disk (find: no link, device,
+# FIFO or socket, no file with a second name; for lang every path one of its own) before it is put in place.
+# extra_tar_ok TARBALL: the listing - each name relative, without a .. component; each entry a file or directory
+extra_tar_ok() {
+    _l=$(untar -tzf "$1") || return 1
+    [ -n "$_l" ] || return 1
+    ! printf '%s\n' "$_l" | LC_ALL=C grep -Eq -- '^/|(^|/)\.\.(/|$)' || return 1
+    _v=$(untar -tvzf "$1") || return 1
+    # one line per entry (a name with a newline makes a line that is not one), a file or directory each, and no
+    # link targets (GNU: "link to", "->"; busybox: "->")
+    [ "$(printf '%s\n' "$_v" | wc -l)" = "$(printf '%s\n' "$_l" | wc -l)" ] || return 1
+    ! printf '%s\n' "$_v" | cut -c1 | LC_ALL=C grep -vq '^[-d]$' || return 1
+    ! printf '%s\n' "$_v" | LC_ALL=C grep -Eq -- ' -> | link to ' || return 1
+}
+# extra_tree_ok NAME DIR: the unpacked tree, as it is on disk
+extra_tree_ok() {
+    # (find's own failure fails the check: its output is taken whole, not through a pipe)
+    _t=$(find "$2" ! -type f ! -type d) || return 1
+    [ -z "$_t" ] || return 1
+    _t=$(find "$2" -type f -exec ls -ld {} +) || return 1
+    [ -z "$(printf '%s\n' "$_t" | awk '$2 != 1')" ] || return 1
+    _t=$(cd "$2" && find .) || return 1
+    # the VPN module: plain names, four levels at most (bin/, lib/vpn/, service/systemd/, hooks/, ...)
+    if extra_is_module "$1"; then
+        ! printf '%s\n' "$_t" | LC_ALL=C grep -Evxq -- "$MODULE_ENTRY"
+        return
+    fi
+    # panel: its four files, bin/, the Cockpit page (cockpit/openf50/<files>) and, offline, Cockpit's packages for each
+    # Ubuntu release (debs/<release>/<name>.deb)
+    if [ "$1" = panel ]; then
+        ! printf '%s\n' "$_t" | LC_ALL=C grep -Evxq -- "$PANEL_ENTRY"
+        return
+    fi
+    # the other extras: their four files and programs in bin/, nothing else (whatever a tar did to the names)
+    if [ "$1" != lang ]; then
+        ! printf '%s\n' "$_t" | LC_ALL=C grep -Evxq -- '\.|\./(name|release|components|manifest|bin|bin/[A-Za-z0-9._+-]+)'
+        return
+    fi
+    ! printf '%s\n' "$_t" | LC_ALL=C grep -Evxq -- "$LANG_ENTRY" || return 1
+    # the catalogs are files, never directories under a catalog's name
+    _t=$(find "$2/i18n" -mindepth 1 ! -type f) || return 1
+    [ -z "$_t" ]
+}
+# extra_manifest_ok NAME DIR: ./manifest (sha256sum lines, "HASH  ./path") lists every plain file of the tree but
+# itself, and each one has that hash. The lang extra must carry one; for the others it is checked when there is one
+# (extras from before it have none). With a download the manifest is covered by the release's SHA256SUMS, which
+# the whole tarball was checked against.
+extra_manifest_ok() {
+    _m=$2/manifest
+    [ -f "$_m" ] || { [ "$1" != lang ]; return; }
+    ! LC_ALL=C grep -Evxq -- '[0-9a-f]{64}  \./[A-Za-z0-9._+/-]+' "$_m" || return 1
+    _want=$(cut -c67- "$_m" | LC_ALL=C sort) || return 1
+    _have=$(cd "$2" && find . -type f ! -path ./manifest | LC_ALL=C sort) || return 1
+    [ -n "$_want" ] && [ "$_want" = "$_have" ] || return 1
+    (cd "$2" && sha256sum -c manifest >/dev/null 2>&1)
+}
+# extra_size_ok NAME TARBALL: unpacked, it fits (a small archive must not fill the Linux partition every system
+# lives on): at most 32 MB and 1000 entries for lang, 600 MB for the others. Counted by decompressing, which every
+# gzip does alike, not from a listing format.
+extra_size_ok() {
+    case $1 in lang) _max=$((32 << 20)) ;; *) _max=$((600 << 20)) ;; esac
+    _sz=$(gzip -dc < "$2" 2>/dev/null | head -c $((_max + 1)) | wc -c) || return 1
+    [ "$_sz" -le "$_max" ] || return 1
+    [ "$1" != lang ] || [ "$(untar -tzf "$2" | wc -l)" -le 1000 ]
+}
+# lang_tar_ok TARBALL: the lang extra holds only its four files and catalogs
+LANG_ENTRY='\.|\./|\./(name|release|components|languages|manifest|i18n/?|i18n/[a-z0-9-]+\.[a-z]{2,3}(-[a-z]{2})?\.lmo)'
+lang_tar_ok() {
+    _l=$(untar -tzf "$1") || return 1
+    [ -n "$_l" ] && ! printf '%s\n' "$_l" | LC_ALL=C grep -Evxq -- "$LANG_ENTRY"
+}
+# a language line of the lang extra: the uci key (LuCI's code, - as _), a tab, the name the list shows (no quote,
+# backslash, $, backquote, <, >, & or control character: it goes into /etc/config/luci, into JSON and into a page)
+# ./release: a tag
+EXTRA_RELEASE='[A-Za-z0-9._-]{1,40}'
+PANEL_ENTRY='\.|\./(name|release|components|manifest|bin|bin/openf50-panel|cockpit|cockpit/openf50|cockpit/openf50/[A-Za-z0-9_-][A-Za-z0-9._-]*|debs|debs/[0-9]{2}\.[0-9]{2}|debs/[0-9]{2}\.[0-9]{2}/[A-Za-z0-9][A-Za-z0-9._+~-]*\.deb)'
+MODULE_ENTRY='\.|\./[A-Za-z0-9_+-][A-Za-z0-9._+-]*(/[A-Za-z0-9_+-][A-Za-z0-9._+-]*){0,3}'
+LANG_LINE='[a-z]{2,3}(_[a-z]{2})?	[^	"`$<>&\\'"'"'[:cntrl:]]{1,100}'
+
+# extra_unpack NAME TARBALL [FOR]: install a downloaded (and verified) extra; the old one stays when anything is wrong.
+# FOR: the openf50-linux release the systems will run, which a module's ./requires must not be newer than.
+# The tarball is read once, into a directory only root can enter, and checked and unpacked from that copy: a file
+# swapped at TARBALL's path after the copy (a /tmp upload, a link planted there) changes nothing.
+extra_unpack() {
+    case $1 in ''|*[!a-z0-9-]*) echo "extra: bad name '$1'" >&2; return 1 ;; esac
+    _in=$EXTRA/.$1.in
+    rm -rf "$_in"; mkdir -p "$EXTRA" && mkdir -m 700 "$_in" || return 1
+    if ! cat < "$2" > "$_in/x.tar.gz" 2>/dev/null; then
+        rm -rf "$_in"; echo "extra $1: $2 is not readable" >&2; return 1
+    fi
+    if ! extra_size_ok "$1" "$_in/x.tar.gz"; then
+        rm -rf "$_in"; echo "extra $1: $2 is too large unpacked" >&2; return 1
+    fi
+    if ! extra_tar_ok "$_in/x.tar.gz" || { [ "$1" = lang ] && ! lang_tar_ok "$_in/x.tar.gz"; }; then
+        rm -rf "$_in"; echo "extra $1: $2 is not a $1 extra (links, odd names or unexpected files in it)" >&2; return 1
+    fi
+    # unpacked into a new, empty directory only root can enter; it becomes the extra only after the checks
+    _new=$EXTRA/.$1.new
+    rm -rf "$_new"; mkdir -m 700 "$_new" || { rm -rf "$_in"; return 1; }
+    # -o: owned by root (who unpacks), not by the ids in the archive
+    _ok=1; untar -xozf "$_in/x.tar.gz" -C "$_new" 2>/dev/null || _ok=
+    rm -rf "$_in"
+    if [ -z "$_ok" ]; then
+        rm -rf "$_new"; echo "extra $1: $2 is not a readable tar.gz" >&2; return 1
+    fi
+    if ! extra_tree_ok "$1" "$_new"; then
+        rm -rf "$_new"; echo "extra $1: $2 unpacked to links or unexpected files; not installed" >&2; return 1
+    fi
+    if ! extra_manifest_ok "$1" "$_new"; then
+        rm -rf "$_new"; echo "extra $1: $2 does not match its manifest; not installed" >&2; return 1
+    fi
+    # modes are ours too: the disk is shared with Ubuntu's users and mounted without nosuid. Catalogs are plain
+    # read-only files; programs keep their execute bits, never set-id or writable by others.
+    chown -R 0:0 "$_new" 2>/dev/null
+    if [ "$1" = lang ]; then
+        find "$_new" -type d -exec chmod 755 {} + && find "$_new" -type f -exec chmod 644 {} +
+    else
+        chmod -R u-s,g-s,go-w "$_new"
+    fi || { rm -rf "$_new"; echo "extra $1: could not set its file modes" >&2; return 1; }
+    chmod 755 "$_new"
+    if extra_is_module "$1"; then
+        _rel=$_new/VERSION
+    else
+        _rel=$_new/release
+        if [ "$(cat "$_new/name" 2>/dev/null)" != "$1" ]; then
+            rm -rf "$_new"; echo "extra $1: $2 is not the $1 extra" >&2; return 1
+        fi
+    fi
+    if ! LC_ALL=C grep -Eqx -- "$EXTRA_RELEASE" "$_rel" 2>/dev/null || [ "$(wc -l < "$_rel")" -ne 1 ]; then
+        rm -rf "$_new"; echo "extra $1: $2 has no valid ${_rel##*/}" >&2; return 1
+    fi
+    if extra_is_module "$1"; then
+        # an older vpn extra (the engines alone) is not the module: the images have no openf50-vpn of their own any more
+        if [ "$1" = vpn ] && { ! vpn_module_in "$_new" || [ ! -f "$_new/hooks/link" ] || [ ! -f "$_new/hooks/unlink" ]; }; then
+            rm -rf "$_new"; echo "extra $1: $2 is not the VPN module (bin/openf50-vpn, hooks/link or hooks/unlink missing)" >&2; return 1
+        fi
+        _need=$(module_needs "$_new")
+        if ! version_ok "$_need" "${3:-}"; then
+            rm -rf "$_new"
+            echo "extra $1: $2 needs openf50-linux $_need or newer, and the system is ${3:-unknown}: update it first (openf50-update apply)" >&2
+            return 1
+        fi
+    fi
+    _n=0
+    if [ "$1" = lang ]; then
+        for _f in "$_new"/i18n/*.lmo; do [ -f "$_f" ] && [ ! -L "$_f" ] && _n=$((_n + 1)); done
+        if [ "$_n" = 0 ] || ! [ -s "$_new/languages" ] || LC_ALL=C grep -Evxq -- "$LANG_LINE" "$_new/languages"; then
+            rm -rf "$_new"; echo "extra $1: no catalogs or no valid language list in $2" >&2; return 1
+        fi
+    else
+        for _f in "$_new"/bin/*; do [ -f "$_f" ] && [ -x "$_f" ] && _n=$((_n + 1)); done
+        if [ "$_n" = 0 ]; then rm -rf "$_new"; echo "extra $1: no programs in $2" >&2; return 1; fi
+    fi
+    extra_put "$1" "$_new" || { rm -rf "$_new"; echo "extra $1: could not put it in place" >&2; return 1; }
+}
+
+# does the system at ROOT use the VPN? (only the switch is read, never the rest of the file)
+extra_vpn_wanted() { grep -q '^ENABLE=1' "$1/etc/openf50/vpn.conf" 2>/dev/null; }
+# vpn_killswitch_wanted ROOT: the VPN on with its kill switch in the system at ROOT - a copy of lib/vpn-orphan.sh's
+# (this updater runs before the system that has that file exists; tests/test_vpn_hooks.py holds both to one matrix)
+vpn_conf_value() {
+    [ -r "$1" ] || return 0
+    sed -n "s/^$2=//p" "$1" 2>/dev/null | tail -n1 | sed "s/[[:space:]]#.*//; s/[\"' ]//g"
+}
+vpn_killswitch_wanted() {
+    [ "$(vpn_conf_value "${1:-}/etc/openf50/vpn.conf" ENABLE)" = 1 ] || return 1
+    if [ -d "${1:-}/etc/openf50/vpn/profiles" ] && [ -r "${1:-}/etc/openf50/vpn/settings" ]; then
+        _vks=$(vpn_conf_value "${1:-}/etc/openf50/vpn/settings" KILL_SWITCH)
+    else
+        _vks=$(vpn_conf_value "${1:-}/etc/openf50/vpn.conf" KILL_SWITCH)
+    fi
+    [ "$_vks" != 0 ]
+}
+
+# ---- the VPN module -----------------------------------------------------------------------------------------------
+# module_needs DIR: the openf50-linux release the module in DIR needs (./requires: "openf50-linux vYYYY.MM.DD"; none: any)
+module_needs() { awk '$1 == "openf50-linux" {print $2; exit}' "$1/requires" 2>/dev/null; }
+# version_ok NEED HAVE: HAVE is NEED or newer. Tags are dates (vYYYY.MM.DD) and sort as text; a system that is no
+# release (a build of one's own, "dev", unknown) is not judged.
+version_ok() {
+    [ -n "$1" ] || return 0
+    case $2 in v[0-9]*) ;; *) return 0 ;; esac
+    [ "$(printf '%s\n%s\n' "$1" "$2" | sort | tail -n1)" = "$2" ]
+}
+# sha_ok HASH: a SHA-256 as sha256sum writes it (64 lowercase hex digits); nothing else ever counts as a hash, so an
+# empty or broken value can never compare equal to anything
+sha_ok() { case $1 in ''|*[!0-9a-f]*) return 1 ;; esac; [ ${#1} -eq 64 ]; }
+# sha_of FILE: its SHA-256, or nothing and 1 (no sha256sum, a read error): a failure is never a hash
+sha_of() { _so=$(sha256sum "$1" 2>/dev/null) || return 1; _so=${_so%% *}; sha_ok "$_so" || return 1; printf '%s\n' "$_so"; }
+# sums_want SUMS NAME: the hash SUMS lists for NAME, only when it is a hash
+sums_want() { _sw=$(awk -v f="$2" '$2 == f || $2 == "*" f {print $1; exit}' "$1" 2>/dev/null); ! sha_ok "$_sw" || printf '%s\n' "$_sw"; }
+
+# The module's tarball, checked, as MODULE_FILE (its hash: MODULE_SHA). Status 0 with a file, 3 when the installed
+# one is that release's already (nothing downloaded), 1 when it cannot be had (offline, GitHub down), 2 when what
+# there is fails its check.
+# What is checked is what is installed: every tarball (and the SHA256SUMS it is checked against) is first copied, as a
+# regular file and not through a link, into a directory of this run's own (MODULE_VDIR, 0700, root's), and the hash is
+# taken of that copy, which is the file extra_unpack reads. A file swapped at the source after the check - in a --from
+# directory, the staging directory or a download directory another process can write - changes nothing.
+# module_asset_ok NAME: a release file name of the module, as module_asset gives them and nothing else
+module_asset_ok() {
+    case $1 in openf50-linux-vpn.tar.gz|openf50-linux-vpn-*.tar.gz) ;; *) return 1 ;; esac
+    case ${1%.tar.gz} in *[!a-z0-9-]*) return 1 ;; esac
+}
+# module_vdir: MODULE_VDIR made (once per run), fresh and private
+MODULE_VDIR=
+module_vdir() {
+    [ -n "$MODULE_VDIR" ] && [ -d "$MODULE_VDIR" ] && [ ! -L "$MODULE_VDIR" ] && return 0
+    mkdir -p "$EXTRA" || return 1
+    # (one left by a run that died: nothing reads it again)
+    rm -rf "$EXTRA"/.verified.*
+    MODULE_VDIR=$EXTRA/.verified.$$
+    ( umask 077; mkdir -m 700 "$MODULE_VDIR" ) || { MODULE_VDIR=; return 1; }
+}
+module_vdir_clean() { [ -z "$MODULE_VDIR" ] || rm -rf "$MODULE_VDIR"; MODULE_VDIR=; }
+# module_copy SRC NAME: SRC - a regular file, not a symbolic link - copied to MODULE_VDIR/NAME (prints that path)
+module_copy() {
+    [ -f "$1" ] && [ ! -L "$1" ] || { echo "$1 is not a regular file (a link or something else): not used" >&2; return 2; }
+    module_asset_ok "$2" || [ "$2" = SHA256SUMS ] || { echo "not a file name of the VPN module: refused" >&2; return 2; }
+    [ -n "$MODULE_VDIR" ] && [ -d "$MODULE_VDIR" ] || { echo "no private directory to check $2 in" >&2; return 1; }
+    rm -f "$MODULE_VDIR/$2"
+    ( umask 077; cat < "$1" > "$MODULE_VDIR/$2" ) 2>/dev/null || { rm -f "$MODULE_VDIR/$2"; echo "cannot read $1" >&2; return 2; }
+    printf '%s\n' "$MODULE_VDIR/$2"
+}
+# module_from DIR|FILE NAME [ASSET]: a copy brought onto the device. A directory must hold the tarball and its
+# SHA256SUMS and is verified; a file is checked against a SHA256SUMS next to it that lists it (else it is the user's
+# own choice).
+module_from() {
+    # (here, not in module_copy: that runs in a command substitution, whose MODULE_VDIR would be lost)
+    module_vdir || { echo "cannot create a private directory under $EXTRA" >&2; return 1; }
+    if [ -d "$1" ]; then
+        _a=${3:-$(module_asset "$2")}
+        module_asset_ok "$_a" || { echo "not a file name of the VPN module: refused" >&2; return 2; }
+        [ -s "$1/$_a" ] || { echo "no $_a in $1" >&2; return 2; }
+        _sc=$(module_copy "$1/SHA256SUMS" SHA256SUMS) ||
+            { echo "$1/SHA256SUMS is missing or not a regular file: $_a not installed unverified" >&2; return 2; }
+        _w=$(sums_want "$_sc" "$_a")
+        [ -n "$_w" ] || { echo "$1/SHA256SUMS does not list $_a: not installed unverified" >&2; return 2; }
+        _c=$(module_copy "$1/$_a" "$_a") || return 2
+        [ "$(sha_of "$_c")" = "$_w" ] || { rm -f "$_c"; echo "$1/$_a does not match its SHA256SUMS" >&2; return 2; }
+        MODULE_FILE=$_c MODULE_SHA=$_w
+        return 0
+    fi
+    [ -s "$1" ] || { echo "$1 not found" >&2; return 2; }
+    case $1 in */*) _d=${1%/*}; [ -n "$_d" ] || _d=/ ;; *) _d=. ;; esac
+    _w=
+    if _sc=$(module_copy "$_d/SHA256SUMS" SHA256SUMS 2>/dev/null); then _w=$(sums_want "$_sc" "${1##*/}"); fi
+    # a file that no SHA256SUMS next to it vouches for is refused, unless OPENF50_VPN_UNVERIFIED=1 says it is wanted
+    # unchecked (a build of one's own)
+    if [ -z "$_w" ] && [ "${OPENF50_VPN_UNVERIFIED:-}" != 1 ]; then
+        echo "no SHA256SUMS next to $1 lists it: not installed unverified (copy the release's SHA256SUMS next to it, or OPENF50_VPN_UNVERIFIED=1 for a build of your own)" >&2
+        return 2
+    fi
+    _c=$(module_copy "$1" "$(module_asset "$2")") || return 2
+    MODULE_SHA=$(sha_of "$_c") || { rm -f "$_c"; echo "cannot compute the SHA-256 of $1 (sha256sum): not installed" >&2; return 2; }
+    [ -z "$_w" ] || [ "$MODULE_SHA" = "$_w" ] || { rm -f "$_c"; echo "$1 does not match $_d/SHA256SUMS" >&2; return 2; }
+    [ -n "$_w" ] || echo "note: $1 is installed unverified (OPENF50_VPN_UNVERIFIED=1)" >&2
+    MODULE_FILE=$_c
+}
+# module_download NAME DIR [ASSET]: the module's latest release (VPN_URL) into DIR, checked against that release's
+# SHA256SUMS (fetched every time: under releases/latest the same name is a new file with every release)
+module_download() {
+    _a=${3:-$(module_asset "$1")}
+    module_asset_ok "$_a" || { echo "not a file name of the VPN module: refused" >&2; return 1; }
+    module_vdir || { echo "cannot create a private directory under $EXTRA" >&2; return 1; }
+    mkdir -p "$2" || return 1
+    _s=$(fetch_stdout "$VPN_URL/SHA256SUMS") && [ -n "$_s" ] ||
+        { echo "cannot download SHA256SUMS of the VPN module ($VPN_URL)" >&2; return 1; }
+    _w=$(printf '%s\n' "$_s" | awk -v f="$_a" '$2 == f || $2 == "*" f {print $1; exit}')
+    sha_ok "$_w" || { echo "$_a is not part of the VPN module's release ($VPN_URL), or its SHA256SUMS line is no hash" >&2; return 1; }
+    MODULE_SHA=$_w
+    # the installed one is this release's: nothing to download
+    [ -d "$EXTRA/$1/bin" ] && [ "$(cat "$EXTRA/.$1.sha256" 2>/dev/null)" = "$_w" ] && return 3
+    for _try in 1 2 3; do
+        if [ -s "$2/$_a" ] || { rm -f "$2/$_a"; fetch_file "$VPN_URL/$_a" "$2/$_a"; }; then
+            if _c=$(module_copy "$2/$_a" "$_a") && [ "$(sha_of "$_c")" = "$_w" ]; then
+                rm -f "$2/$_a"; MODULE_FILE=$_c; return 0
+            fi
+            [ -z "${_c:-}" ] || rm -f "$_c"
+        fi
+        rm -f "$2/$_a"
+    done
+    echo "downloading $_a failed" >&2
+    return 1
+}
+
+# module_get NAME DIR [FROM]: FROM (a file or a directory) when given, else the download into DIR. For vpn, the core
+# (openf50-linux-vpn-core.tar.gz), else the bundle (openf50-linux-vpn.tar.gz: a release or a copy from before the
+# engine extras); MODULE_BUNDLE=1 when what it got (or what is installed, status 3) carries xray and sing-box.
+# module_get vpn-bundle DIR [FROM]: the bundle alone, as the vpn extra (FROM a directory)
+module_get() {
+    MODULE_FILE= MODULE_SHA= MODULE_BUNDLE=
+    if [ "$1" = vpn-bundle ]; then
+        _mg=0
+        if [ -n "${3:-}" ]; then module_from "$3" vpn "$(module_asset vpn-bundle)" || _mg=$?
+        else module_download vpn "$2" "$(module_asset vpn-bundle)" || _mg=$?; fi
+        case $_mg in 0) MODULE_BUNDLE=1 ;; 3) [ ! -x "$EXTRA/vpn/bin/xray" ] || MODULE_BUNDLE=1 ;; esac
+        return "$_mg"
+    fi
+    if [ "$1" != vpn ] || { [ -n "${3:-}" ] && [ ! -d "$3" ]; }; then
+        if [ -n "${3:-}" ]; then module_from "$3" "$1"; else module_download "$1" "$2"; fi
+        _mg=$?
+    else
+        _mg=0
+        if [ -n "${3:-}" ]; then module_from "$3" vpn 2>/dev/null || _mg=$?; else module_download vpn "$2" 2>/dev/null || _mg=$?; fi
+        if [ "$_mg" != 0 ] && [ "$_mg" != 3 ]; then
+            _mg2=0
+            if [ -n "${3:-}" ]; then module_from "$3" vpn "$(module_asset vpn-bundle)" || _mg2=$?
+            else module_download vpn "$2" "$(module_asset vpn-bundle)" || _mg2=$?; fi
+            # (the core's status when neither is to be had: offline stays offline)
+            case $_mg2 in 0|3) _mg=$_mg2 ;; esac
+        fi
+    fi
+    if [ "$1" = vpn ]; then
+        case $_mg in
+            0) ! untar -tzf "$MODULE_FILE" 2>/dev/null | grep -qx '\./bin/xray' || MODULE_BUNDLE=1 ;;
+            3) [ ! -x "$EXTRA/vpn/bin/xray" ] || MODULE_BUNDLE=1 ;;
+        esac
+    fi
+    return "$_mg"
+}
+# module_install NAME FILE SHA FOR: extra_unpack, and the hash kept, to know the installed release next time
+module_install() {
+    extra_unpack "$1" "$2" "$4" || return 1
+    printf '%s\n' "$3" > "$EXTRA/.$1.sha256"
+}
+
+# ---- which engines the device needs ------------------------------------------------------------------------------
+# vpn_type_engine TYPE: the engine extra of a profile type (wireguard and openvpn are the system's packages)
+vpn_type_engine() {
+    case $1 in xray) echo vpn-xray ;; sing-box) echo vpn-singbox ;; mihomo) echo vpn-mihomo ;; dae) echo vpn-dae ;; esac
+}
+# vpn_engines_of ROOT: the engine extras the profiles of the system at ROOT run on (every profile, not only the
+# active one: profile use must not find its engine gone); a vpn.conf with a link and no profile store (never
+# migrated) runs on xray, or on sing-box behind the kill switch
+vpn_engines_of() {
+    if [ -d "$1/etc/openf50/vpn/profiles" ]; then
+        for _vm in "$1"/etc/openf50/vpn/profiles/*/meta; do
+            [ -r "$_vm" ] && vpn_type_engine "$(vpn_conf_value "$_vm" TYPE)"
+        done
+    elif grep -q '^VLESS_URI=' "$1/etc/openf50/vpn.conf" 2>/dev/null; then
+        echo vpn-xray; echo vpn-singbox
+    fi
+    return 0
+}
+# vpn_engine_have X: the device runs on engine X now - its extra, or the vpn extra that carries it (module v1, the
+# bundle)
+vpn_engine_have() {
+    [ -d "$EXTRA/$1/bin" ] && return 0
+    case $1 in vpn-xray) [ -x "$EXTRA/vpn/bin/xray" ] ;; vpn-singbox) [ -x "$EXTRA/vpn/bin/sing-box" ] ;; *) return 1 ;; esac
+}
+# vpn_engines_wanted: the engine extras the VPN module comes with - every one the device has now (installed, or in
+# the vpn extra, which v1 and the bundle are: all of v1's engines stay), every one a profile of an installed system
+# needs, and for a first install OPENF50_VPN_ENGINES (default vpn-xray; none: the core alone)
+vpn_engines_wanted() {
+    {
+        for _x in $VPN_ENGINE_EXTRAS; do vpn_engine_have "$_x" && echo "$_x"; done
+        for _o in $(installed_systems); do vpn_engines_of "$DISK/$_o"; done
+        [ -z "${OPENF50_SYSROOT:-}" ] || vpn_engines_of "$OPENF50_SYSROOT"
+        if [ ! -d "$EXTRA/vpn/bin" ]; then
+            for _x in $(printf '%s' "${OPENF50_VPN_ENGINES-vpn-xray}" | tr ',' ' '); do
+                case $_x in xray|singbox|sing-box|mihomo|dae) _x=vpn-$_x ;; esac
+                [ "$_x" != vpn-sing-box ] || _x=vpn-singbox
+                case " $VPN_ENGINE_EXTRAS " in *" $_x "*) echo "$_x" ;; esac
+            done
+        fi
+    } | sort -u
+}
+# vpn_engine_in_use X [ROOT...]: a system (default: every installed one) has the VPN on with an active profile that
+# runs on engine X
+vpn_engine_in_use() {
+    _x=$1; shift
+    [ $# -gt 0 ] || set -- $(for _o in $(installed_systems); do echo "$DISK/$_o"; done) "${OPENF50_SYSROOT:-}"
+    for _r; do
+        # the engine the running service recorded (module v2's /run/openf50-vpn/engine: sing-box for a VLESS xray profile
+        # behind the kill switch; the service writes it when it starts the tunnel, openf50-vpn off removes it)
+        case $(head -n1 "$_r/run/openf50-vpn/engine" 2>/dev/null) in
+            xray) [ "$_x" != vpn-xray ] || return 0 ;; sing-box) [ "$_x" != vpn-singbox ] || return 0 ;;
+            mihomo) [ "$_x" != vpn-mihomo ] || return 0 ;; dae) [ "$_x" != vpn-dae ] || return 0 ;;
+        esac
+        extra_vpn_wanted "$_r" || continue
+        _a=$(head -n1 "$_r/etc/openf50/vpn/active" 2>/dev/null | tr -cd 'a-z0-9-')
+        if [ -n "$_a" ] && [ -r "$_r/etc/openf50/vpn/profiles/$_a/meta" ]; then
+            _t=$(vpn_conf_value "$_r/etc/openf50/vpn/profiles/$_a/meta" TYPE)
+            [ "$(vpn_type_engine "$_t")" = "$_x" ] && return 0
+            # an xray profile runs on sing-box only with a VLESS link behind the kill switch (as openf50-vpn's
+            # engine_in_use); without sing-box it runs on xray, so otherwise vpn-singbox is free to go
+            if [ "$_t" = xray ] && [ "$_x" = vpn-singbox ] && vpn_killswitch_wanted "$_r"; then
+                case $(head -c 8 "$_r/etc/openf50/vpn/profiles/$_a/uri" 2>/dev/null) in vless://) return 0 ;; esac
+            fi
+        elif [ ! -d "$_r/etc/openf50/vpn/profiles" ]; then
+            # a vpn.conf never migrated: its link runs on xray or sing-box
+            case $_x in vpn-xray|vpn-singbox) grep -q '^VLESS_URI=' "$_r/etc/openf50/vpn.conf" 2>/dev/null && return 0 ;; esac
+        fi
+    done
+    return 1
+}
+
+# ---- the module as a set -----------------------------------------------------------------------------------------
+# vpn_module_get STAGEDIR [FROM]: before anything is changed, the VPN module the device will have: VPN_SET gets
+# "NAME FILE SHA" lines for modules_install, the engine extras first and the core (vpn) last; every file checked and
+# all from one source - FROM (a directory, or a file whose directory has the engines), or the download. An engine
+# the device runs on now (vpn_engine_have) that is not to be had, while the core would replace the vpn extra that
+# carries it, makes the set the bundle instead (the core with xray and sing-box), and when there is no bundle either,
+# nothing (status 4): an update must never leave a profile without the engine it had. An engine that is installed on
+# its own and is not to be had stays as it is; one a profile wants and that was never there is said and skipped.
+# Status: 0 (VPN_SET may be empty: everything is up to date), 1 the core is not to be had, 2 a file failed its
+# check, 4 an engine is missing (above).
+VPN_SET=
+vpn_module_get() {
+    VPN_SET=
+    _vs=$1; _vf=${2:-}
+    _ef=$_vf; [ -z "$_vf" ] || [ -d "$_vf" ] || _ef=$(dirname "$_vf")
+    module_get vpn "$_vs" "$_vf"; _vr=$?
+    case $_vr in 0|3) ;; *) return "$_vr" ;; esac
+    _core=; [ "$_vr" = 3 ] || _core="vpn $MODULE_FILE $MODULE_SHA"
+    _bundle=$MODULE_BUNDLE
+    _set=; _missing=
+    for _x in $(vpn_engines_wanted); do
+        if [ -n "$_bundle" ]; then case $_x in vpn-xray|vpn-singbox) continue ;; esac; fi
+        _xr=0; module_get "$_x" "$_vs" "$_ef" || _xr=$?
+        case $_xr in
+            0) _set="$_set$_x $MODULE_FILE $MODULE_SHA
+" ;;
+            3) ;;
+            *) if [ -d "$EXTRA/$_x/bin" ]; then
+                   echo "extra $_x: not to be had; the installed one ($(extra_release "$_x")) stays" >&2
+               elif vpn_engine_have "$_x"; then
+                   _missing="$_missing $_x"
+               else
+                   echo "extra $_x: a profile runs on it and it is not to be had; install it later (openf50-extra install $_x)" >&2
+               fi ;;
+        esac
+    done
+    if [ -n "$_missing" ]; then
+        # the bundle carries xray and sing-box: the set it makes needs no engine extra for them
+        _br=0; module_get vpn-bundle "$_vs" "$_ef" 2>/dev/null || _br=$?
+        if { [ "$_br" = 0 ] || [ "$_br" = 3 ]; } && [ -n "$MODULE_BUNDLE" ]; then
+            echo "the VPN module's engines$_missing are not to be had: taking openf50-linux-vpn.tar.gz (the core with xray and sing-box) instead" >&2
+            VPN_SET=$(printf '%s' "$_set" | grep -v -e '^vpn-xray ' -e '^vpn-singbox ' || true)
+            [ "$_br" = 3 ] || VPN_SET="${VPN_SET:+$VPN_SET
+}vpn $MODULE_FILE $MODULE_SHA"
+            return 0
+        fi
+        echo "the VPN module needs its engines$_missing, which the device runs on now, and they are not to be had" >&2
+        return 4
+    fi
+    VPN_SET="$_set$_core"
+    return 0
+}
+
+# module_hook NAME link|unlink SYSROOT: the module's hook for one system (SYSROOT "" is the running one, $DISK/<os>
+# another). Run with sh: the disk may be mounted noexec. OPENF50_DISK and OPENF50_EXTRA_DIR tell it where it is.
+module_hook() {
+    [ -f "$EXTRA/$1/hooks/$2" ] || return 0
+    OPENF50_DISK=$DISK OPENF50_EXTRA_DIR=$EXTRA/$1 sh "$EXTRA/$1/hooks/$2" "$3" ||
+        { echo "extra $1: hooks/$2 failed for ${3:-this system}" >&2; return 1; }
+}
+# module_hook_fits NAME link|unlink SYSROOT VERSION: link only a system the module works with (./requires); an older
+# one keeps what its image has (its own openf50-vpn finds the engines in the extra)
+module_hook_fits() {
+    if [ "$2" = link ] && ! version_ok "$(module_needs "$EXTRA/$1")" "$4"; then
+        echo "extra $1: ${3:-this system} is $4, the module needs openf50-linux $(module_needs "$EXTRA/$1"): not linked there" >&2
+        return 0
+    fi
+    module_hook "$1" "$2" "$3"
+}
+# module_hook_all NAME link|unlink: every installed system; the running one as OPENF50_SYSROOT ("" on the device)
+module_hook_all() {
+    _rc=0
+    for _o in $(installed_systems); do
+        if [ "${OPENF50_ROOT:-/}" -ef "$DISK/$_o" ]; then _r=${OPENF50_SYSROOT:-}; else _r=$DISK/$_o; fi
+        module_hook_fits "$1" "$2" "$_r" "$(cat "$DISK/$_o$VERSION_FILE" 2>/dev/null || echo unknown)" || _rc=1
+    done
+    return $_rc
+}
+
+# vpn_in_use "OS...": must the device have the VPN module after an update of OS...? A vpn extra is installed (the
+# module, or the engines alone of an older release), openf50-vpn of the running system says it is enabled, or a system
+# being updated has ENABLE=1.
+vpn_in_use() {
+    [ -d "$EXTRA/vpn/bin" ] && return 0
+    _v=${OPENF50_VPN_CMD:-${OPENF50_BIN:-/opt/openf50/bin}/openf50-vpn}
+    [ -x "$_v" ] && [ "$("$_v" enabled </dev/null 2>/dev/null)" = 1 ] && return 0
+    for _o in $1; do extra_vpn_wanted "$DISK/$_o" && return 0; done
+    return 1
+}
+vpn_stage_hint() {
+    _eng=$(vpn_engines_wanted | sed 's/^vpn-//' | tr '\n' ' ')
+    printf '\nCopy SHA256SUMS and openf50-linux-vpn-core.tar.gz with the engines this device needs (%s:\n' "${_eng% }" >&2
+    printf 'openf50-linux-vpn-ENGINE.tar.gz each) - or openf50-linux-vpn.tar.gz, the core with xray and sing-box - from\n' >&2
+    printf 'https://github.com/%s/releases/latest into %s/ on this device\n' "$VPN_REPO" "$VPN_STAGED" >&2
+    printf '(or: OPENF50_VPN_MODULE=/path/to/that/directory openf50-update apply), or get the device online, and run\n' >&2
+    printf 'openf50-update apply again.\n' >&2
+}
+
+# extras_to_fetch TAG: the extras of the openf50-linux release an update to TAG downloads - the installed ones that are
+# not TAG's (the VPN module comes from its own repository: modules_fetch)
+extras_to_fetch() {
+    _want=
+    for _x in $(extra_installed); do
+        extra_known "$_x" && ! extra_is_module "$_x" || continue
+        [ "$(extra_release "$_x")" = "$1" ] || _want="$_want $_x"
+    done
+    echo $_want
+}
+
+# modules_fetch TAG "OS...": before anything is changed, the VPN module the device will have after the update (the core
+# and the engines, vpn_module_get): MODULES_NEW gets its "NAME FILE SHA" lines for modules_install. OPENF50_VPN_MODULE
+# (a file or a directory), else the copies in VPN_STAGED, else the download. When the VPN is in use, the update
+# replaces a system and there is no module, it stops here: the new systems have no openf50-vpn, and a VPN with its kill
+# switch would leave the device with no connection after the reboot. An installed module whose set cannot be had
+# stays as it is, engines and all.
+MODULES_NEW=
+modules_fetch() {
+    MODULES_NEW=
+    _from=${OPENF50_VPN_MODULE:-}
+    if [ -z "$_from" ] && { [ -s "$VPN_STAGED/$(module_asset vpn)" ] || [ -s "$VPN_STAGED/$(module_asset vpn-bundle)" ]; }; then
+        _from=$VPN_STAGED
+    fi
+    if ! vpn_in_use "$2"; then
+        # engines without the core (it was removed): each follows its latest release, never fatal
+        _ef=$_from; [ -z "$_from" ] || [ -d "$_from" ] || _ef=$(dirname "$_from")
+        for _x in $VPN_ENGINE_EXTRAS; do
+            [ -d "$EXTRA/$_x/bin" ] || continue
+            _r=0; module_get "$_x" "$STAGE/module" "$_ef" || _r=$?
+            case $_r in
+                0) MODULES_NEW="$MODULES_NEW$_x $MODULE_FILE $MODULE_SHA
+" ;;
+                3) ;;
+                *) echo "extra $_x: not updated; the installed one ($(extra_release "$_x")) stays" >&2 ;;
+            esac
+        done
+        return 0
+    fi
+    _r=0; vpn_module_get "$STAGE/module" "$_from" || _r=$?
+    case $_r in
+        0) MODULES_NEW=$VPN_SET ;;
+        *) if vpn_module_in "$EXTRA/vpn"; then
+               echo "extra vpn: the VPN module could not be updated; the installed one ($(extra_release vpn)) stays, with its engines" >&2
+           elif [ -n "$2" ]; then
+               vpn_stage_hint
+               die "this device uses the VPN, whose toolkit (openf50-vpn) is a module of its own now that the new systems do not carry, and it could not be had: nothing was changed"
+           else
+               echo "extra vpn: the VPN module could not be had; once the device is online: openf50-extra install vpn" >&2
+           fi ;;
+    esac
+    return 0
+}
+# modules_install TAG: install what modules_fetch got, before the systems are switched, the engines first and the core
+# last: a core is never put in place without the engines its set came with. One that fails its checks (./requires newer
+# than TAG, a broken tarball) stops a device that needs it while nothing is changed. The running system keeps working
+# meanwhile: its own openf50-vpn finds the engines where they were (a running engine keeps its open files).
+modules_install() {
+    # own names: module_install -> extra_unpack counts files in _n and _f, which named the module here ("extra 4")
+    _mi_bad=
+    while read -r _mi_name _mi_file _mi_sha; do
+        [ -n "$_mi_name" ] || continue
+        if [ "$_mi_name" = vpn ] && [ -n "$_mi_bad" ]; then
+            if vpn_module_in "$EXTRA/vpn"; then
+                echo "extra vpn: not updated, because its engine$_mi_bad could not be installed; the installed one ($(extra_release vpn)) stays" >&2
+                continue
+            fi
+            vpn_stage_hint
+            die "the VPN module's engine$_mi_bad could not be installed (see above): nothing was changed"
+        fi
+        if module_install "$_mi_name" "$_mi_file" "$_mi_sha" "$1"; then
+            printf 'extra %s: %s\n' "$_mi_name" "$(extra_release "$_mi_name")"
+            EXTRA_CHANGED=1
+        elif [ "$_mi_name" = vpn ] && ! vpn_module_in "$EXTRA/vpn"; then
+            vpn_stage_hint
+            die "the VPN module could not be installed (see above): nothing was changed"
+        else
+            echo "extra $_mi_name: not updated (see above)" >&2
+            # an engine the core of this set needs, which the device has not got otherwise
+            [ "$_mi_name" = vpn ] || vpn_engine_have "$_mi_name" || _mi_bad="$_mi_bad $_mi_name"
+        fi
+    done <<EOF
+$MODULES_NEW
+EOF
+    rm -rf "$STAGE/module"
+    module_vdir_clean
+}
+# modules_link "OS...": the updated systems use the module (their images have no openf50-vpn); one the hook could not
+# link gets another try at its first boot (openf50-extra link)
+modules_link() {
+    for _x in vpn $VPN_ENGINE_EXTRAS; do
+        [ -f "$EXTRA/$_x/hooks/link" ] || continue
+        for _o in $1; do
+            module_hook_fits "$_x" link "$DISK/$_o" "$(cat "$DISK/$_o$VERSION_FILE" 2>/dev/null || echo unknown)" ||
+                echo "extra $_x: $_o gets it at its first boot instead (openf50-extra link)" >&2
+        done
+    done
+    for _o in $1; do
+        extra_vpn_wanted "$DISK/$_o" || continue
+        [ ! -e "$DISK/$_o/opt/openf50/bin/openf50-vpn" ] && [ ! -L "$DISK/$_o/opt/openf50/bin/openf50-vpn" ] || continue
+        if vpn_killswitch_wanted "$DISK/$_o"; then
+            # the systems are switched already: the system itself fails closed (mobile-data and wifi-client keep
+            # their uplinks down while its kill switch has no VPN behind it, lib/vpn-orphan.sh) until it is linked
+            printf '\n!!! WARNING: %s has the VPN on with its kill switch and no openf50-vpn: mobile data and the Wi-Fi client\n' "$_o" >&2
+            printf '!!! stay DOWN there until the module is linked (its first boot tries: openf50-extra link; else\n' >&2
+            printf '!!! openf50-extra install vpn on it, or ENABLE=0 in its /etc/openf50/vpn.conf)\n' >&2
+        else
+            echo "WARNING: $_o uses the VPN and has no openf50-vpn yet: its first boot links it (openf50-extra link), else run openf50-extra install vpn there" >&2
+        fi
+    done
+    return 0
+}
+
+# extras_install TAG "NAMES": after the systems are in place, the extras of the release downloaded into $STAGE
+extras_install() {
+    for _x in $2; do
+        if extra_unpack "$_x" "$STAGE/$(extra_asset "$_x")"; then
+            printf 'extra %s: %s\n' "$_x" "$1"
+            EXTRA_CHANGED=1
+        else
+            echo "extra $_x: not updated (see above)" >&2
+        fi
+        rm -f "$STAGE/$(extra_asset "$_x")"
+    done
+    return 0
+}
+
+# ---- the kernel and the boot image ------------------------------------------------------------------------------
+# The boot image in the Linux slot's boot partition (boot_b, or boot_a when Android runs from b) is the stock header
+# and AVB tail of this device, the kernel, and a ramdisk that holds this device's own Android files next to the
+# generic part (init, busybox, modules). The kernel unpacks concatenated ramdisk segments in turn and a later file
+# replaces an earlier one, so an update keeps the device's ramdisk as it is and appends the release's generic segment
+# (ramdisk-generic.lz4 in openf50-kernel.tar.gz): nothing has to be unpacked or compressed here, and nothing from
+# Android is needed. The device's segment is kept in $BOOTDIR, so the image does not grow with every update; it is
+# taken from the partition again whenever it was not written by us (a new install from a computer).
+BOOTDIR=$DISK/boot
+PERSIST_LOG=$((48 << 20))   # the boot partition keeps the persistent init log from 48 MiB on (boot/build-boot-image.py)
+
+# Which kernel this device runs: the vendor 5.4 (openf50-kernel.tar.gz) or a mainline one (openf50-kernel-<version>.tar.gz:
+# 6.18, the long-term release, and 7.2, the newest stable one).
+# Kept on the Linux partition, so both systems and every update follow it - without it an update of a device on
+# 6.18 installed the release's 5.4 kernel. "openf50-update kernel 6.18" changes it.
+KERNEL_CHOICE=$BOOTDIR/kernel
+KERNELS="5.4 6.18 7.2"
+kernel_choice() { c=$(cat "$KERNEL_CHOICE" 2>/dev/null); case " $KERNELS " in *" $c "*) echo "$c" ;; *) echo 5.4 ;; esac; }
+kernel_asset() { case $(kernel_choice) in 5.4) echo openf50-kernel.tar.gz ;; *) echo "openf50-kernel-$(kernel_choice).tar.gz" ;; esac; }
+
+# The slot Linux runs from (Android may be on either): what the initramfs published, else the slot LK booted
+# (androidboot.slot_suffix on the command line, or in the bootargs a mainline kernel leaves in the device tree), and
+# b only when nothing says - an initramfs from before slot a, which LK can only have booted from b.
+linux_slot() {
+    _s=$(cat "${OPENF50_SYSROOT:-}/run/openf50/linux-slot" 2>/dev/null)
+    case $_s in a|b) echo "$_s"; return ;; esac
+    for _f in "${OPENF50_SYSROOT:-}/proc/cmdline" "${OPENF50_SYSROOT:-}/proc/device-tree/chosen/bootargs"; do
+        [ -r "$_f" ] || continue
+        _s=$(tr '\000' ' ' < "$_f" | sed -n 's/.*androidboot\.slot_suffix=_\([ab]\).*/\1/p')
+        [ -n "$_s" ] && { echo "$_s"; return; }
+    done
+    echo b
+}
+# The partition named NAME on the eMMC: the disk of type MMC, else the first mmcblk disk that is not a card, whatever
+# its number (FINDINGS 31l). Never a card's - one can carry the same GPT names (a raw clone of a device backup), and the
+# kernel is written to what this finds.
+part_dev() {  # part_dev NAME -> /dev/<block device of that partition>; status 1 when the eMMC has none
+    _e=
+    for _b in "${OPENF50_SYSROOT:-}"/sys/block/mmcblk*; do
+        case ${_b##*/mmcblk} in ''|*[!0-9]*) continue ;; esac
+        _t=$(cat "$_b/device/type" 2>/dev/null)
+        [ "$_t" = MMC ] && { _e=${_b##*/}; break; }
+        [ "$_t" = SD ] || [ -n "$_e" ] || _e=${_b##*/}
+    done
+    [ -n "$_e" ] || return 1
+    for u in "${OPENF50_SYSROOT:-}/sys/block/$_e/$_e"p*/uevent; do
+        grep -qx "PARTNAME=$1" "$u" 2>/dev/null || continue
+        d=${u%/uevent}
+        echo "/dev/${d##*/}"
+        return 0
+    done
+    return 1
+}
+u32() { od -An -tu4 -j "$2" -N4 "$1" | tr -d ' \n'; }                 # u32 FILE OFFSET (little endian)
+be64() { printf '%d' "0x$(od -An -tx1 -j "$2" -N8 "$1" | tr -d ' \n')"; }  # be64 FILE OFFSET
+bytes() {  # bytes VALUE COUNT le|be: the value as raw bytes
+    v=$1 n=$2 i=0
+    while [ "$i" -lt "$n" ]; do
+        if [ "$3" = le ]; then s=$((8 * i)); else s=$((8 * (n - 1 - i))); fi
+        printf "\\$(printf %o $(( (v >> s) & 255 )))"
+        i=$((i + 1))
+    done
+}
+poke() { dd of="$1" bs=1 seek="$2" conv=notrunc 2>/dev/null; }      # poke FILE OFFSET < bytes
+fsize() { wc -c < "$1" | tr -d ' '; }
+pad_page() { p=$(( (4096 - $(fsize "$1") % 4096) % 4096 )); [ "$p" = 0 ] || head -c "$p" /dev/zero >> "$1"; }
+head_sha() { dd if="$1" bs=4096 count=$(( ($2 + 4095) / 4096 )) 2>/dev/null | head -c "$2" | sha256sum | cut -d' ' -f1; }
+
+# write BODY (from offset 0), VBMETA right behind it and FOOTER into the last 64 bytes of the boot partition, then
+# read it back
+write_boot() {  # write_boot DEV PSIZE BODY VBMETA FOOTER
+    cat "$3" "$4" > "$3.all"
+    dd if="$3.all" of="$1" bs=4096 conv=notrunc 2>/dev/null && sync || return 1
+    dd if="$5" of="$1" bs=64 seek=$(($2 / 64 - 1)) conv=notrunc 2>/dev/null && sync || return 1
+    echo 3 > /proc/sys/vm/drop_caches 2>/dev/null
+    [ "$(head_sha "$1" "$(fsize "$3.all")")" = "$(sha256sum < "$3.all" | cut -d' ' -f1)" ] || return 1
+    [ "$(dd if="$1" bs=64 skip=$(($2 / 64 - 1)) count=1 2>/dev/null | sha256sum | cut -d' ' -f1)" = \
+      "$(sha256sum < "$5" | cut -d' ' -f1)" ] || return 1
+    rm -f "$3.all"
+}
+
+part_size() { blockdev --getsize64 "$1" 2>/dev/null || fsize "$1"; }   # part_size DEV: bytes (a file in tests)
+
+# The part of a new boot image both builders share. DIR/new holds the header page (the caller has set what is its
+# own: the command line, the signature size), DIR/footer the footer to copy. This puts the kernel's and the ramdisks'
+# sizes into the header, appends kernel and ramdisks page-aligned, refuses a result that would reach the persistent
+# init log, and writes DIR/newfooter with the new sizes.
+bootimg_assemble() {  # bootimg_assemble DIR VBMETA_SIZE KERNEL RAMDISK...
+    _dir=$1 _vs=$2 _kernel=$3; shift 3
+    _rsz=0
+    for _r in "$@"; do _rsz=$((_rsz + $(fsize "$_r"))); done
+    bytes "$(fsize "$_kernel")" 4 le | poke "$_dir/new" 8
+    bytes "$_rsz" 4 le | poke "$_dir/new" 12
+    _hs=$(fsize "$_dir/new") _ksz=$(fsize "$_kernel")
+    cat "$_kernel" >> "$_dir/new"; pad_page "$_dir/new"
+    cat "$@" >> "$_dir/new"; pad_page "$_dir/new"
+    _os=$(fsize "$_dir/new")
+    # the file must be what was just put together: two updaters in the same directory once both appended their
+    # kernel to it, and the size check below then refused a 56 MB "image" (lock_take keeps them apart now)
+    [ "$_os" = $(( (_hs + _ksz + 4095) / 4096 * 4096 + (_rsz + 4095) / 4096 * 4096 )) ] ||
+        { echo "boot: $_dir/new is not the image just assembled ($_os bytes; another openf50-update in the same directory?)" >&2; return 1; }
+    [ $((_os + _vs)) -le "$PERSIST_LOG" ] ||
+        { echo "boot: the new image ($_os bytes: kernel $_ksz, ramdisks $_rsz, with vbmeta $_vs) would reach the persistent log area at $PERSIST_LOG bytes" >&2; return 1; }
+    cp "$_dir/footer" "$_dir/newfooter"
+    { bytes "$_os" 8 be; bytes "$_os" 8 be; bytes "$_vs" 8 be; } | poke "$_dir/newfooter" 12
+}
+
+# A boot image for the Linux slot made from Android's own (STOCK, a partition or a file): the Magisk installer has
+# no image of ours to start from, only Android's. Its header page with this kernel's and ramdisk's sizes, the
+# command line loglevel=5 and no signature; its vbmeta and its AVB footer with the new sizes. The same bytes
+# boot/build-boot-image.py makes on a computer (tests/test_update.py compares them). Writes DIR/new, DIR/vbmeta and
+# DIR/newfooter, which write_boot takes.
+bootimg_from_stock() {  # bootimg_from_stock STOCK KERNEL RAMDISK DIR
+    _ps=$(part_size "$1") || return 1
+    dd if="$1" of="$4/hdr" bs=4096 count=1 2>/dev/null
+    dd if="$1" of="$4/footer" bs=64 skip=$((_ps / 64 - 1)) count=1 2>/dev/null
+    [ "$(head -c 8 "$4/hdr")" = ANDROID! ] && [ "$(u32 "$4/hdr" 40)" = 4 ] ||
+        { echo "boot: $1 does not hold a boot image header v4" >&2; return 1; }
+    [ "$(head -c 4 "$4/footer")" = AVBf ] || { echo "boot: $1 has no AVB footer" >&2; return 1; }
+    _vo=$(be64 "$4/footer" 20); _vs=$(be64 "$4/footer" 28)
+    # vbmeta need not start on a page: read the pages that hold it and cut it out
+    dd if="$1" bs=4096 skip=$((_vo / 4096)) count=$(( (_vo % 4096 + _vs + 4095) / 4096 )) 2>/dev/null |
+        tail -c +$((_vo % 4096 + 1)) | head -c "$_vs" > "$4/vbmeta"
+    [ "$(fsize "$4/vbmeta")" = "$_vs" ] || { echo "boot: cannot read the vbmeta of $1" >&2; return 1; }
+    cp "$4/hdr" "$4/new"
+    { printf 'loglevel=5'; head -c 1526 /dev/zero; } | poke "$4/new" 44
+    bytes 0 4 le | poke "$4/new" 1580
+    bootimg_assemble "$4" "$_vs" "$2" "$3" || return 1
+    rm -f "$4/hdr" "$4/footer"
+}
+
+# A kernel the systems were not built with (a mainline bundle) brings its modules along: they go into every system
+# on the Linux filesystem, next to the ones of the other kernel, which stay for a switch back. Ubuntu keeps them under
+# extra/ and indexes them (depmod; OPENF50_NO_DEPMOD=1 leaves that to its next boot, as the Magisk installer must: the
+# depmod Android has is busybox's); OpenWrt keeps them flat and loads by path.
+# modules_dir OS KREL: where the modules of a kernel bundle go in OS
+modules_dir() { case $1 in ubuntu) echo "$DISK/$1/lib/modules/$2/extra" ;; *) echo "$DISK/$1/lib/modules/$2" ;; esac; }
+
+# The set a bundle replaces belongs to the boot image it replaces: two builds of one kernel release (6.18.55 of two
+# releases) share the directory, and a kernel with the other build's modules does not come up (the one-boot fallback
+# takes the device back to Android). So the set in place is kept with the previous image, and goes back with it -
+# in rollback-boot, and when writing the new image fails.
+prev_modules_save() {  # prev_modules_save BUNDLE_DIR (unpacked; a bundle without kernel.release keeps nothing)
+    rm -rf "$BOOTDIR/prev.modules"
+    _krel=$(cat "$1/kernel.release" 2>/dev/null) || return 0
+    case $_krel in ''|*/*|.*) return 0 ;; esac
+    mkdir -p "$BOOTDIR/prev.modules" && echo "$_krel" > "$BOOTDIR/prev.modules/kernel.release" || return 1
+    for _os in $(installed_systems); do
+        _d=$(modules_dir "$_os" "$_krel")
+        ls "$_d"/*.ko >/dev/null 2>&1 || continue
+        mkdir -p "$BOOTDIR/prev.modules/$_os" && cp "$_d"/*.ko "$BOOTDIR/prev.modules/$_os/" || return 1
+    done
+}
+prev_modules_restore() {
+    _krel=$(cat "$BOOTDIR/prev.modules/kernel.release" 2>/dev/null) || return 0
+    case $_krel in ''|*/*|.*) return 0 ;; esac
+    for _os in $(installed_systems); do
+        _d=$(modules_dir "$_os" "$_krel")
+        [ -d "$_d" ] || continue
+        rm -f "$_d"/*.ko
+        # a system that had no set of this release then gets none now (the kernel back is another release)
+        [ -d "$BOOTDIR/prev.modules/$_os" ] || continue
+        cp "$BOOTDIR/prev.modules/$_os"/*.ko "$_d/" || { echo "boot: the previous modules of $_os did not go back" >&2; return 1; }
+        if [ "$_os" = ubuntu ] && [ -z "${OPENF50_NO_DEPMOD:-}" ] && command -v depmod >/dev/null; then
+            depmod -b "$DISK/$_os" "$_krel" 2>/dev/null || true
+        fi
+    done
+    printf 'boot: the modules of the previous image (%s) are back in: %s\n' "$_krel" "$(installed_systems)"
+}
+
+kernel_modules_into_systems() {  # kernel_modules_into_systems BUNDLE_DIR (unpacked)
+    _krel=$(cat "$1/kernel.release" 2>/dev/null)
+    case $_krel in ''|*/*|.*) echo "boot: bad kernel release '$_krel' in the bundle" >&2; return 1 ;; esac
+    for _os in $(installed_systems); do
+        _d=$(modules_dir "$_os" "$_krel")
+        # the set of the bundle replaces the one of an earlier bundle of this release: a module it no longer has
+        # would otherwise stay loadable (and the set is some 360 modules, 20 MiB, since FINDINGS 31o)
+        mkdir -p "$_d" && rm -f "$_d"/*.ko && cp "$1"/modules/*.ko "$_d/" ||
+            { echo "boot: installing the modules into $_os failed" >&2; return 1; }
+        if [ "$_os" = ubuntu ]; then
+            # what the kernel has built in (bundles from v2026.09.29 on): modprobe of a built-in driver then
+            # succeeds, and depmod stops warning
+            for _f in modules.builtin modules.builtin.modinfo; do [ ! -f "$1/$_f" ] || cp "$1/$_f" "$DISK/$_os/lib/modules/$_krel/"; done
+            [ -e "$DISK/$_os/lib/modules/$_krel/modules.order" ] || : > "$DISK/$_os/lib/modules/$_krel/modules.order"
+            if [ -z "${OPENF50_NO_DEPMOD:-}" ] && command -v depmod >/dev/null; then depmod -b "$DISK/$_os" "$_krel" 2>/dev/null || true; fi
+        fi
+    done
+    printf 'boot: %s modules for %s installed into: %s\n' "$(ls "$1/modules" | wc -l | tr -d ' ')" "$_krel" "$(installed_systems)"
+}
+
+boot_update() {  # boot_update TAG   (OPENF50_KERNEL_BUNDLE=FILE uses a local openf50-kernel.tar.gz instead)
+    tag=$1 bp=boot_$(linux_slot)
+    dev=$(part_dev "$bp") || { echo "boot: no $bp partition found, boot image not updated" >&2; return 1; }
+    psize=$(( $(cat "/sys/class/block/${dev##*/}/size") * 512 ))
+    tmp=$STAGE/boot
+    rm -rf "$tmp"; mkdir -p "$tmp" "$BOOTDIR"
+
+    say "boot: kernel and boot image"
+    bundle=${OPENF50_KERNEL_BUNDLE:-}
+    if [ -z "$bundle" ]; then
+        # apply() has fetched it already; for "boot" and "kernel" this is the download
+        asset=$(kernel_asset)
+        fetch_verified "$tag" "$asset" || { echo "boot: no verified $asset of $tag (kernel $(kernel_choice)), nothing was changed" >&2; return 1; }
+        bundle=$STAGE/$asset
+    fi
+    [ -s "$bundle" ] || { echo "boot: $bundle not found" >&2; return 1; }
+    tar -tzf "$bundle" > "$tmp/list" 2>/dev/null || { echo "boot: $bundle is not a readable tar.gz" >&2; return 1; }
+    if ! grep -qx './ramdisk-generic.lz4' "$tmp/list"; then
+        printf 'boot: release %s predates on-device boot updates; the boot image is unchanged\n' "$tag"
+        rm -rf "$tmp"; return 0
+    fi
+    # A bundle names the devices it runs on (./devices). One without that file is from before the U30 Air: its 5.4
+    # ramdisk does not load the U30 Air's modules and its mainline kernel does not bring up its USB (FINDINGS 33,
+    # 33c) - on a U30 Air either one boots to a device with no USB at all.
+    if ! bundle_runs_here "$bundle" "$tmp/list" "$tmp"; then
+        printf 'boot: the kernel of %s does not support the %s; the boot image is unchanged\n' "$tag" "$(this_device)" >&2
+        rm -rf "$tmp"; return 1
+    fi
+    if root_on_sd && ! bundle_has_sd "$bundle" "$tmp/list"; then
+        echo "boot: this kernel bundle cannot read the SD card, and this system runs from it; nothing was changed" >&2
+        rm -rf "$tmp"; return 1
+    fi
+    if ! bundle_fits_slot "$bundle" "$tmp/list"; then
+        echo "boot: this kernel bundle's init runs only from slot b, and Linux is on $bp; nothing was changed" >&2
+        rm -rf "$tmp"; return 1
+    fi
+    untar -xzf "$bundle" -C "$tmp" ./Image ./ramdisk-generic.lz4 || { echo "boot: unpacking $bundle failed" >&2; return 1; }
+    [ -s "$tmp/Image" ] && [ -s "$tmp/ramdisk-generic.lz4" ] || { echo "boot: no kernel in the bundle" >&2; return 1; }
+    # the modules of a kernel the systems were not built with (mainline): they go in below, before the boot image
+    # changes, and also when the image is up to date (a system the update just replaced has none yet)
+    mods=
+    if grep -qx './kernel.release' "$tmp/list"; then
+        untar -xzf "$bundle" -C "$tmp" ./kernel.release ./modules || { echo "boot: unpacking the modules failed" >&2; return 1; }
+        for f in modules.builtin modules.builtin.modinfo; do
+            if grep -qx "./$f" "$tmp/list"; then untar -xzf "$bundle" -C "$tmp" "./$f" || true; fi
+        done
+        mods=1
+    fi
+    id=$(cat "$tmp/Image" "$tmp/ramdisk-generic.lz4" | sha256sum | cut -d' ' -f1)
+
+    # the image in the Linux slot now: stock header page, kernel, ramdisk; AVB footer in the last 64 bytes
+    dd if="$dev" of="$tmp/hdr" bs=4096 count=1 2>/dev/null
+    dd if="$dev" of="$tmp/footer" bs=64 skip=$((psize / 64 - 1)) count=1 2>/dev/null
+    [ "$(head -c 8 "$tmp/hdr")" = ANDROID! ] && [ "$(u32 "$tmp/hdr" 40)" = 4 ] ||
+        { echo "boot: $bp does not hold a boot image header v4, not touching it" >&2; return 1; }
+    [ "$(head -c 4 "$tmp/footer")" = AVBf ] || { echo "boot: $bp has no AVB footer, not touching it" >&2; return 1; }
+    ksz=$(u32 "$tmp/hdr" 8); rsz=$(u32 "$tmp/hdr" 12)
+    osize=$(be64 "$tmp/footer" 12); vbs=$(be64 "$tmp/footer" 28)
+    dd if="$dev" of="$tmp/body" bs=4096 count=$((osize / 4096)) 2>/dev/null
+    dd if="$dev" bs=4096 skip=$((osize / 4096)) count=$(( (vbs + 4095) / 4096 )) 2>/dev/null | head -c "$vbs" > "$tmp/vbmeta"
+    cur=$(sha256sum < "$tmp/body" | cut -d' ' -f1)
+    if [ "$cur" = "$(cat "$BOOTDIR/written.sha256" 2>/dev/null)" ] && [ "$id" = "$(cat "$BOOTDIR/installed.id" 2>/dev/null)" ]; then
+        [ -z "$mods" ] || kernel_modules_into_systems "$tmp" || return 1
+        printf 'boot: already up to date (%s)\n' "$(cat "$BOOTDIR/installed.tag" 2>/dev/null || echo "$tag")"
+        rm -rf "$tmp"; return 0
+    fi
+    if [ "$cur" != "$(cat "$BOOTDIR/written.sha256" 2>/dev/null)" ] || [ ! -s "$BOOTDIR/device-ramdisk.lz4" ]; then
+        # the image comes from an installer: its whole ramdisk becomes the device segment (its generic files are
+        # replaced by the ones appended below)
+        roff=$((4096 + (ksz + 4095) / 4096 * 4096))
+        head -c "$((roff + rsz))" "$tmp/body" | tail -c "$rsz" > "$BOOTDIR/device-ramdisk.lz4.new"
+        [ "$(od -An -tx1 -N4 "$BOOTDIR/device-ramdisk.lz4.new" | tr -d ' \n')" = 02214c18 ] ||
+            { rm -f "$BOOTDIR/device-ramdisk.lz4.new"; echo "boot: the ramdisk in $bp is not LZ4 legacy, not touching it" >&2; return 1; }
+        mv "$BOOTDIR/device-ramdisk.lz4.new" "$BOOTDIR/device-ramdisk.lz4"
+    fi
+
+    # new image: same header with the new sizes, kernel, device segment + generic segment, AVB tail
+    nksz=$(fsize "$tmp/Image")
+    nrsz=$(( $(fsize "$BOOTDIR/device-ramdisk.lz4") + $(fsize "$tmp/ramdisk-generic.lz4") ))
+    cp "$tmp/hdr" "$tmp/new"
+    bootimg_assemble "$tmp" "$vbs" "$tmp/Image" "$BOOTDIR/device-ramdisk.lz4" "$tmp/ramdisk-generic.lz4" ||
+        { echo "boot: not touching $bp" >&2; return 1; }
+
+    # keep the current image and the module set it runs with for rollback-boot, then the new modules, then write
+    prev_modules_save "$tmp" || { echo "boot: keeping the modules in place failed; nothing was changed" >&2; return 1; }
+    if [ -n "$mods" ] && ! kernel_modules_into_systems "$tmp"; then
+        prev_modules_restore >/dev/null; echo "boot: the boot image is unchanged" >&2; return 1
+    fi
+    cp "$tmp/body" "$BOOTDIR/prev.body"; cp "$tmp/vbmeta" "$BOOTDIR/prev.vbmeta"; cp "$tmp/footer" "$BOOTDIR/prev.footer"
+    linux_slot > "$BOOTDIR/prev.slot"     # rollback-boot puts it back only on the slot it came from
+    unlock_for_trial
+    cat "$BOOTDIR/installed.tag" > "$BOOTDIR/prev.tag" 2>/dev/null || echo installer > "$BOOTDIR/prev.tag"
+    cat "$BOOTDIR/installed.kernel" > "$BOOTDIR/prev.kernel" 2>/dev/null || echo 5.4 > "$BOOTDIR/prev.kernel"
+    sync
+    if ! write_boot "$dev" "$psize" "$tmp/new" "$tmp/vbmeta" "$tmp/newfooter"; then
+        echo "boot: writing $bp failed verification; restoring the previous image" >&2
+        write_boot "$dev" "$psize" "$BOOTDIR/prev.body" "$BOOTDIR/prev.vbmeta" "$BOOTDIR/prev.footer" ||
+            echo "boot: RESTORE FAILED - do not reboot into Linux; reinstall with ./install.sh from a computer" >&2
+        prev_modules_restore >&2
+        return 1
+    fi
+    sha256sum < "$tmp/new" | cut -d' ' -f1 > "$BOOTDIR/written.sha256"
+    echo "$id" > "$BOOTDIR/installed.id"
+    echo "$tag" > "$BOOTDIR/installed.tag"
+    kernel_choice > "$BOOTDIR/installed.kernel"
+    sync
+    rm -rf "$tmp"
+    [ -n "${OPENF50_KERNEL_BUNDLE:-}" ] || rm -f "$bundle"
+    printf 'boot: updated to %s (kernel %s bytes, ramdisk %s bytes). If it does not start, the device falls back\n' "$tag" "$nksz" "$nrsz"
+    printf '      to Android by itself; openf50-update rollback-boot restores the previous image.\n'
+    BOOT_CHANGED=1
+}
+
+# Ubuntu 26.04 needs a mainline kernel: its GNU tar opens every file below the top with openat2(RESOLVE_BENEATH),
+# which 5.4 does not have (5.6 brought it), and fails with ENOSYS instead of falling back - no update or archive
+# with folders unpacks there. Other programs of that release can expect more of the kernel still.
+ubuntu_release() { sed -n 's/^VERSION_ID="\(.*\)"/\1/p' "$DISK/ubuntu/usr/lib/os-release" 2>/dev/null; }
+UBUNTU_2604_KERNEL="Ubuntu 26.04 needs a mainline kernel (6.18 or 7.2): its programs use system calls that 5.4 does not have"
+
+kernel_cmd() {  # kernel [5.4|6.18|7.2]: show or change the kernel, and install it
+    mounted_disk
+    case ${1:-} in
+        '') printf 'kernel: %s (running %s)\n' "$(kernel_choice)" "$(uname -r)"; return 0 ;;
+        5.4|6.18|7.2) ;;
+        *) die "usage: openf50-update kernel [5.4|6.18|7.2]" ;;
+    esac
+    [ "$1" = 5.4 ] && [ "$(ubuntu_release)" = 26.04 ] &&
+        die "$UBUNTU_2604_KERNEL (tar cannot unpack folders there). Stay on a mainline kernel, or move Ubuntu back first: sudo OPENF50_UBUNTU=24.04 openf50-update apply"
+    mkdir -p "$BOOTDIR"
+    old=$(kernel_choice)
+    echo "$1" > "$KERNEL_CHOICE"
+    t=${OPENF50_RELEASE:-$(latest_release)}
+    [ -n "$t" ] || { echo "$old" > "$KERNEL_CHOICE"; die "could not reach GitHub (is the device online?)"; }
+    if ! boot_update "$t"; then
+        echo "$old" > "$KERNEL_CHOICE"
+        die "the $1 kernel was not installed; staying on $old"
+    fi
+    rm -rf "$STAGE"
+    sync
+    printf '\nkernel %s selected. ' "$1"
+    reboot_goes_to_android || printf 'Reboot to start it (openf50-update rollback-boot goes back).\n'
+}
+
+rollback_boot() {
+    mounted_disk
+    [ -s "$BOOTDIR/prev.body" ] || die "no previous boot image kept"
+    # The kept image was taken from the slot Linux ran from then (kept before prev.slot existed: b). On the other
+    # slot its init may know only b: it would restore the block that boots Linux again and log into Android's boot.
+    ps=$(cat "$BOOTDIR/prev.slot" 2>/dev/null || echo b)
+    [ "$ps" = "$(linux_slot)" ] ||
+        die "the previous boot image was taken from slot $ps, Linux now runs from $(linux_slot); nothing was written"
+    dev=$(part_dev "boot_$(linux_slot)") || die "no boot_$(linux_slot) partition found"
+    psize=$(( $(cat "/sys/class/block/${dev##*/}/size") * 512 ))
+    unlock_for_trial
+    write_boot "$dev" "$psize" "$BOOTDIR/prev.body" "$BOOTDIR/prev.vbmeta" "$BOOTDIR/prev.footer" ||
+        die "writing the previous boot image failed verification"
+    prev_modules_restore || die "the previous boot image is back but its modules are not: run openf50-update kernel \"$(cat "$BOOTDIR/prev.kernel" 2>/dev/null)\" before rebooting"
+    sha256sum < "$BOOTDIR/prev.body" | cut -d' ' -f1 > "$BOOTDIR/written.sha256"
+    rm -f "$BOOTDIR/installed.id"
+    cat "$BOOTDIR/prev.tag" > "$BOOTDIR/installed.tag" 2>/dev/null
+    # the image that is back belongs to a kernel choice too: without this the next update would reinstall the
+    # kernel just rolled back from
+    if [ -s "$BOOTDIR/prev.kernel" ]; then
+        cat "$BOOTDIR/prev.kernel" > "$KERNEL_CHOICE"
+        cat "$BOOTDIR/prev.kernel" > "$BOOTDIR/installed.kernel"
+    fi
+    sync
+    printf 'boot: previous boot image (%s) restored. ' "$(cat "$BOOTDIR/prev.tag" 2>/dev/null || echo unknown)"
+    reboot_goes_to_android || printf 'Reboot to start it.\n'
+}
+
+# One openf50-update at a time. apply, boot, kernel, rollback, rollback-boot and clean all work in $STAGE: two runs
+# started together once both appended their kernel to the same $STAGE/boot/new, and both stopped at the size check
+# (a 56 MB "image" that "would reach the persistent log area" - harmless, but puzzling). The second run now says who
+# holds the lock and exits 1 before it touches anything. Nothing runs unlocked: when the lock cannot be had, the
+# run stops (fails closed).
+#   The lock lives in a directory of root's own under /run (root's, so no one else can put anything at that path):
+# made here with mode 700, and refused when what is there is a link, not a directory of exactly that mode, or
+# someone else's - never in $STAGE (clean deletes it) nor under /tmp or /var/lock, where any login user could plant
+# a link or a lock of their own. Inside it, flock(1) on a regular file through fd 9 where flock exists (busybox's
+# applet on OpenWrt, util-linux on Ubuntu; the kernel releases it however the run ends), else a directory "held"
+# made atomically with the holder's pid in it. A pid read from the lock is digits only and bounded, and the holder
+# counts as running only when that pid is alive and is a openf50-update (/proc/PID/cmdline where there is one):
+# a lock left by a run that is gone is taken over, with a line saying so, never a denial for good. A run that
+# continues with the release's own updater (exec in apply) keeps its pid and fd 9, so it simply locks again.
+# check, version and notice (at boot and every 6 hours) only read and do not lock.
+LOCK=${OPENF50_LOCK:-/run/openf50-update}
+lock_refuse() { echo "cannot lock: $*; not running" >&2; exit 1; }
+lock_pid() {  # lock_pid FILE: the pid in it, when it is one (digits only, at most 8 of them); else nothing
+    _lp=$(head -c 16 "$1" 2>/dev/null | tr -d '\n')
+    case $_lp in ''|*[!0-9]*) return 0 ;; esac
+    [ ${#_lp} -le 8 ] && echo "$_lp"
+}
+update_alive() {  # update_alive PID: that process runs, and is a openf50-update where /proc can tell
+    kill -0 "$1" 2>/dev/null || return 1
+    [ -r "/proc/$1/cmdline" ] || return 0
+    { tr '\0' ' ' < "/proc/$1/cmdline"; } 2>/dev/null | grep -q openf50-update
+}
+lock_dir_ok() {  # the lock directory as this run needs it, or a refusal
+    [ ! -L "$LOCK" ] || lock_refuse "$LOCK is a symbolic link"
+    [ -e "$LOCK" ] || ( umask 077; mkdir "$LOCK" ) 2>/dev/null || [ -d "$LOCK" ] || lock_refuse "cannot make $LOCK"
+    [ ! -L "$LOCK" ] || lock_refuse "$LOCK is a symbolic link"
+    _ls=$(ls -ldn "$LOCK" 2>/dev/null)
+    case $_ls in drwx------*) ;; *) lock_refuse "$LOCK is not a directory of mode 700" ;; esac
+    [ "$(printf '%s\n' "$_ls" | awk '{print $3}')" = "$(id -u)" ] || lock_refuse "$LOCK is not ours"
+}
+lock_take() {
+    lock_dir_ok
+    if have flock; then
+        # never a link, not even a dangling one (>> would make its target), and nothing but a regular file
+        [ ! -L "$LOCK/lock" ] && { [ ! -e "$LOCK/lock" ] || [ -f "$LOCK/lock" ]; } || lock_refuse "$LOCK/lock is not a regular file"
+        exec 9>>"$LOCK/lock" || lock_refuse "cannot open $LOCK/lock"
+        if ! flock -n 9; then
+            # This run, continued with the release's updater (apply execs it: the same process id, and the lock file
+            # says so): the lock is held by what the updater before it left behind - its keep-alive's ping or sleep,
+            # which had the lock's descriptor and outlive it by a few seconds. Up to v2026.10.24 that ended every
+            # update whose release brought another openf50-update with "another openf50-update is running" (FINDINGS 81).
+            # They are gone within seconds; and should one stay, the lock is still this run's.
+            [ -n "${OPENF50_SELF_UPDATED:-}" ] && [ "$(lock_pid "$LOCK/lock")" = "$$" ] || lock_busy "$(lock_pid "$LOCK/lock")"
+            _n=0
+            until flock -n 9; do _n=$((_n + 1)); [ "$_n" -lt 10 ] || break; sleep 1; done
+        fi
+        echo $$ > "$LOCK/lock"
+        return 0
+    fi
+    _try=0
+    until ( umask 077; mkdir "$LOCK/held" ) 2>/dev/null; do
+        [ -d "$LOCK/held" ] || lock_refuse "cannot make $LOCK/held"
+        _pid=$(lock_pid "$LOCK/held/pid")
+        [ "$_pid" = "$$" ] && { LOCK_DIR=1; return 0; }     # this run, continued with the release's updater
+        # a holder writes its pid right after making the directory: none a second later is a run that is gone
+        [ -n "$_pid" ] || { sleep 1; _pid=$(lock_pid "$LOCK/held/pid"); }
+        if [ -n "$_pid" ] && update_alive "$_pid"; then lock_busy "$_pid"; fi
+        [ "$_try" = 0 ] || lock_busy "$_pid"
+        echo "taking over the lock of a openf50-update that is gone${_pid:+ (pid $_pid)}" >&2
+        rm -rf "$LOCK/held"; _try=1
+    done
+    echo $$ > "$LOCK/held/pid"
+    LOCK_DIR=1
+}
+lock_busy() {  # lock_busy [PID]: the refusal, and the end
+    _p=$1
+    [ -n "$_p" ] && update_alive "$_p" || _p=
+    echo "another openf50-update is running${_p:+ (pid $_p)}" >&2
+    exit 1
+}
+lock_drop() {
+    [ -n "${LOCK_DIR:-}" ] && [ "$(lock_pid "$LOCK/held/pid")" = "$$" ] && rm -rf "$LOCK/held"
+    LOCK_DIR=
+}
+
+# Older boot images lose the mobile downlink for good when the IPA goes idle and fails to power off
+# (docs/FINDINGS.md 32) - after about two quiet minutes, which the unpacking alone takes. A packet every few seconds
+# keeps it from going idle while the update runs (two targets, one of them reachable from mainland China).
+keepalive_start() {
+    have ping || return 0
+    # (9>&-: without the lock's descriptor - a ping or sleep of this that outlives the run would hold the lock)
+    ( while :; do ping -c1 -W2 1.1.1.1 >/dev/null 2>&1 & ping -c1 -W2 223.5.5.5 >/dev/null 2>&1; sleep 3; done ) 9>&- &
+    KEEPALIVE=$!
+}
+keepalive_stop() { [ -n "${KEEPALIVE:-}" ] && kill "$KEEPALIVE" 2>/dev/null; KEEPALIVE=; }
+offline_hint() {
+    printf 'If this device ran for a while without traffic, older boot images can lose mobile data\n' >&2
+    printf 'until the next boot: reboot, then run openf50-update apply right away.\n' >&2
+}
+
+# While the update unpacks and writes the boot image, mobile data is left alone: the watchdog of the connection would
+# otherwise redial (AT commands, the IPA brought down and up) in the middle of it. The connection stays as it is.
+pause_data() {
+    DATA_PAUSED=
+    if have systemctl && systemctl -q is-active openf50-mobile-data-watch 2>/dev/null; then
+        systemctl stop openf50-mobile-data-watch && DATA_PAUSED=1
+    fi
+}
+resume_data() {
+    [ -n "${DATA_PAUSED:-}" ] || return 0
+    DATA_PAUSED=
+    systemctl start openf50-mobile-data-watch 2>/dev/null || true
+}
+
+apply() {
+    mounted_disk
+    tag=${OPENF50_RELEASE:-$(latest_release)}
+    [ -n "$tag" ] || { offline_hint; die "could not reach GitHub (is the device online?)"; }
+    # The release's own updater does the update when it differs from this one (releases from v2026.09.28 on
+    # carry it): fixes to the update itself then reach a device before the update runs, not one update later.
+    # $0 is usually the link in /usr/local/bin: the file it points to is replaced, never the link (a file there
+    # would be kept by every later update, with usr/local, and hide the updater of the system)
+    self=$(readlink -f "$0" 2>/dev/null || echo "$0")
+    if [ -z "${OPENF50_SELF_UPDATED:-}" ] && fetch_verified "$tag" openf50-update 2>/dev/null &&
+        ! cmp -s "$STAGE/openf50-update" "$self" && sh -n "$STAGE/openf50-update"; then
+        printf 'continuing with the openf50-update of %s\n' "$tag"
+        keepalive_stop
+        cp "$STAGE/openf50-update" "$self.new" && chmod 755 "$self.new" && mv -f "$self.new" "$self" 2>/dev/null || true
+        OPENF50_SELF_UPDATED=1 OPENF50_RELEASE=$tag exec sh "$STAGE/openf50-update" apply "$@"
+    fi
+    list=
+    for a in "$@"; do
+        # the packages installed on the device are not installed again (their settings are set aside all the same)
+        case $a in --no-reinstall) OPENF50_KEEP_PACKAGES=0 ;; *) list="$list $a" ;; esac
+    done
+    [ -n "$list" ] || list=$(installed_systems)
+    BOOT_CHANGED=
+    SYSTEM_CHANGED=
+    [ "${OPENF50_UBUNTU:-}" = 26.04 ] && [ "$(kernel_choice)" = 5.4 ] &&
+        die "$UBUNTU_2604_KERNEL. Change the kernel first: sudo openf50-update kernel 6.18 (or 7.2)"
+    todo=
+    for os in $list; do
+        case $os in ubuntu|openwrt|openwrt-luci) ;; *) die "unknown system '$os'" ;; esac
+        [ -d "$DISK/$os" ] || die "$os is not installed"
+        # already there: an older openf50-update installed this release's system, and this run is for the boot image
+        # (moving Ubuntu to the other release with OPENF50_UBUNTU is an update even at the same tag)
+        other=
+        [ "$os" = ubuntu ] && [ -n "${OPENF50_UBUNTU:-}" ] &&
+            [ "$OPENF50_UBUNTU" != "$(sed -n 's/^VERSION_ID="\(.*\)"/\1/p' "$DISK/ubuntu/etc/os-release" 2>/dev/null)" ] && other=1
+        if [ "$(cat "$DISK/$os$VERSION_FILE" 2>/dev/null)" = "$tag" ] && [ -z "${OPENF50_FORCE:-}$other" ]; then
+            printf '%s: already %s\n' "$os" "$tag"
+            continue
+        fi
+        is_root "$DISK/$os.old" && die "$os was updated already and is still running the old copy: reboot first"
+        todo="$todo $os"
+    done
+
+    # Everything is downloaded and checked first, and only then is anything changed. Older boot images can lose
+    # the mobile downlink after two quiet minutes (docs/FINDINGS.md 32): a download that followed the minutes of
+    # unpacking hung there, and a device that reset in the middle of writing its boot image could only start Android.
+    clean_broken
+    say "downloading $tag"
+    free=$(df -k "$DISK" | awk 'NR==2 {print $4}')
+    [ "$free" -gt $((1000000 + 1000000 * $(echo $todo | wc -w))) ] || die "not enough free space on the Linux partition (about 1 GB, plus 1 GB for every system to update)"
+    for os in $todo; do
+        fetch_verified "$tag" "$(rootfs_asset "$os")" || { offline_hint; die "nothing was changed; run openf50-update apply again to continue the download"; }
+    done
+    # the extras of the release: an installed one follows it (a release without it: r=2, the installed one stays)
+    extras=
+    for x in $(extras_to_fetch "$tag"); do
+        fetch_verified "$tag" "$(extra_asset "$x")"; r=$?
+        [ "$r" = 0 ] && { extras="$extras $x"; continue; }
+        [ "$r" = 2 ] || { offline_hint; die "nothing was changed; run openf50-update apply again to continue the download"; }
+    done
+    # the VPN module, from its own repository: a device that uses the VPN gets it, or the update stops here
+    modules_fetch "$tag" "$todo"
+    boot_asset=
+    if [ -z "${OPENF50_KERNEL_BUNDLE:-}" ]; then
+        boot_asset=$(kernel_asset)
+        fetch_verified "$tag" "$boot_asset"; r=$?
+        # a release without this bundle leaves the boot image alone (boot_update says so); anything else stops here
+        [ "$r" = 0 ] || [ "$r" = 2 ] || { offline_hint; die "nothing was changed; run openf50-update apply again to continue the download"; }
+    fi
+    echo "all files are here and verified; from now on the network is not needed"
+
+    pause_data
+    EXTRA_CHANGED=
+    modules_install "$tag"
+    for os in $todo; do
+        apply_one "$os" "$tag"
+        SYSTEM_CHANGED=1
+    done
+    modules_link "$todo"
+    extras_install "$tag" "$extras"
+    # the kernel goes with the modules of the systems just installed, so it follows them
+    boot_ok=1
+    boot_update "$tag" || { boot_ok=; printf '\nThe boot image was not updated (see above)%s.\n' "${SYSTEM_CHANGED:+; the systems were}"; }
+    resume_data
+    [ -z "$boot_ok" ] || rm -rf "$STAGE"
+    if [ -z "$SYSTEM_CHANGED$BOOT_CHANGED" ]; then
+        [ -n "$boot_ok" ] || return 1
+        if [ -n "$EXTRA_CHANGED" ]; then printf '\nThe extras are up to date now.\n'; else printf '\nNothing to do.\n'; fi
+        return 0
+    fi
+    if [ -z "$SYSTEM_CHANGED" ]; then
+        if reboot_goes_to_android; then printf 'The previous boot image is kept: openf50-update rollback-boot\n'
+        else printf '\nReboot to start the new kernel. The previous boot image is kept: openf50-update rollback-boot\n'; fi
+        return 0
+    fi
+    case " $list " in
+        *" $(running_os) "*)
+            if reboot_goes_to_android; then printf 'The previous version is kept: openf50-update rollback\n'
+            else printf '\nReboot to start the updated %s. The previous version is kept: openf50-update rollback\n' "$(running_os)"; fi ;;
+        *) reboot_goes_to_android || printf '\nDone. The updated system is used the next time you switch to it.\n' ;;
+    esac
+}
+
+# <os>.broken is what a rollback left behind: the system it rolled back from, kept until the reboot because it may
+# be the one running. Once it is not running any more nothing needs it (it was the newer version: apply installs it
+# again), so apply removes it - before counting free space, as it is a whole system (655 MB on the second F50).
+clean_broken() {
+    for os in ubuntu openwrt; do
+        [ -d "$DISK/$os.broken" ] || continue
+        is_root "$DISK/$os.broken" && continue
+        rm -rf "$DISK/$os.broken" && printf '%s: removed the copy left by a rollback (%s.broken)\n' "$os" "$os"
+    done
+    return 0
+}
+
+rollback() {
+    mounted_disk
+    list=$*
+    [ -n "$list" ] || list=$(installed_systems)
+    done_any=
+    for os in $list; do
+        [ -d "$DISK/$os.old" ] || { printf '%s: no previous version kept\n' "$os"; continue; }
+        sync
+        is_root "$DISK/$os.old" && { printf '%s: the previous version is the one running now: reboot first\n' "$os"; continue; }
+        is_root "$DISK/$os.broken" || rm -rf "$DISK/$os.broken"
+        mv "$DISK/$os" "$DISK/$os.broken" || die "$os: could not move the current system aside"
+        mv "$DISK/$os.old" "$DISK/$os" || { mv "$DISK/$os.broken" "$DISK/$os"; die "$os: rollback failed (current system restored)"; }
+        # the running system is still in use until the reboot: its copy stays as <os>.broken for now (the next
+        # rollback or "clean" after the reboot removes it)
+        is_root "$DISK/$os.broken" || rm -rf "$DISK/$os.broken"
+        sync
+        printf '%s: rolled back to %s\n' "$os" "$(cat "$DISK/$os$VERSION_FILE" 2>/dev/null || echo unknown)"
+        done_any=1
+    done
+    [ -n "$done_any" ] && { printf '\n'; reboot_goes_to_android || printf 'Reboot to start it.\n'; }
+}
+
+clean() {
+    mounted_disk
+    for os in $SYSTEMS; do
+        if is_root "$DISK/$os.old"; then printf '%s: the previous version is still running: reboot first\n' "$os"
+        elif [ -d "$DISK/$os.old" ]; then rm -rf "$DISK/$os.old" && printf '%s: previous version deleted\n' "$os"; fi
+        is_root "$DISK/$os.broken" || rm -rf "$DISK/$os.broken"
+    done
+    rm -rf "$STAGE"
+    sync
+    df -h "$DISK" | tail -1
+}
+
+# tests/ source this file for its functions only (OPENF50_BIN, OPENF50_DISK: a fake device)
+[ -z "${OPENF50_LIB:-}" ] || return 0
+
+[ "$(id -u)" = 0 ] || { echo "run as root" >&2; exit 1; }
+case ${1:-check} in
+    apply|boot|kernel|rollback|rollback-boot|clean|accounts)
+        lock_take; trap 'keepalive_stop; resume_data; lock_drop' EXIT; trap 'exit 130' INT TERM HUP ;;
+esac
+case ${1:-check} in apply|boot|kernel) keepalive_start ;; esac
+case ${1:-check} in
+    check) check ;;
+    version) version ;;
+    apply) shift; apply "$@" ;;
+    boot) mounted_disk; t=${OPENF50_RELEASE:-$(latest_release)}; [ -n "$t" ] || die "could not reach GitHub (is the device online?)"
+          boot_update "$t" || exit 1; rm -rf "$STAGE"; [ -n "${BOOT_CHANGED:-}" ] && { printf '\n'; reboot_goes_to_android || printf 'Reboot to start the new kernel.\n'; } ;;
+    rollback) shift; rollback "$@" ;;
+    rollback-boot) rollback_boot ;;
+    kernel) shift; kernel_cmd "$@" ;;
+    accounts) accounts ;;
+    clean) clean ;;
+    notice) notice ;;
+    -h|--help|help) sed -n '2,19s/^# \{0,1\}//p' "$0" ;;
+    *) echo "usage: openf50-update check|version|apply [--no-reinstall] [ubuntu|openwrt|openwrt-luci ...]|boot|kernel [5.4|6.18|7.2]|rollback [os]|rollback-boot|clean|notice" >&2; exit 2 ;;
+esac

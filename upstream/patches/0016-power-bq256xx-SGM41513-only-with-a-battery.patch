@@ -8,7 +8,7 @@ two seconds into the boot - in a loop on a router's USB port (GL.iNet GL-MT3600B
 computer's (v2026.10.25 and the v2026.10.26 pre-release; the reports are in issue #225).
 
 So the fallback is taken only where the device tree has the U30 Air's charger policy service
-(/charger_policy_service), the same test mu300-device uses to tell the two boards apart: both U30 Air variants
+(/charger_policy_service), the same test openf50-device uses to tell the two boards apart: both U30 Air variants
 have it, the F50 does not. On the F50 the probe ends at the first failed read again ("no charger: -5"), as before
 v2026.10.25. A check of the registers would not do (the F50's chip has them), nor one of the part number (ZTE's
 driver codes part 0 as the SGM41513 itself).
@@ -33,7 +33,7 @@ A separate patch on top of 0015, so that a tree already prepared with 0015 takes
 -		if (part < 0 && client->addr != SGM41513_I2C_ADDR) {
 +		/*
 +		 * Only on a board with a battery to charge: the U30 Air, whose device tree has the charger policy
-+		 * service (as mu300-device tells the boards apart). The F50 has no battery, and a charger at 0x1a
++		 * service (as openf50-device tells the boards apart). The F50 has no battery, and a charger at 0x1a
 +		 * all the same, with its registers set (0e 1e b4 f7 c0 8f 64 40 34 00 80 00 measured): bound and
 +		 * told to charge, the fuel gauge reported over-voltage and the PMIC reset the board, over and over
 +		 * on a router's USB port (issue #225). There it stays unbound, as before v2026.10.25.

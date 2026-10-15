@@ -8,7 +8,7 @@ import unittest
 
 from helpers import ShellTest, TOP
 
-APP = TOP / 'openwrt/luci-app-mu300/root'
+APP = TOP / 'openwrt/luci-app-openf50/root'
 USB = APP / 'usr/libexec/unisoc-modem/device-usb'
 INIT = (TOP / 'boot/init').read_text()
 
@@ -18,7 +18,7 @@ class USBManagement(ShellTest):
         super().setUp()
         self.role = self.tmp / 'role'
         self.role.write_text('device\n')
-        self.net_file = self.tmp / 'etc' / 'mu300' / 'usb-net'
+        self.net_file = self.tmp / 'etc' / 'openf50' / 'usb-net'
         self.applied = self.tmp / 'applied'
         self.net_class = self.tmp / 'net'
         self.net_class.mkdir()
@@ -44,7 +44,7 @@ esac
 ''')
         self.stub('logger', ':')
         helper = self.tmp / 'safe-role'
-        helper.write_text('#!/bin/sh\nprintf "%s\\n" "$1" > "$MU300_USB_ROLE_FILE"\n')
+        helper.write_text('#!/bin/sh\nprintf "%s\\n" "$1" > "$OPENF50_USB_ROLE_FILE"\n')
         helper.chmod(0o755)
         self.helper = helper
         reload_script = self.tmp / 'network'
@@ -54,16 +54,16 @@ esac
         self.stub('ip', 'printf "%s\\n" "$*" >> "$STUBLOG/ip-calls"')
 
     def call_usb(self, shell, *args, **env):
-        base = dict(MU300_USB_ROLE_FILE=self.role,
-                    MU300_USB_NET_FILE=self.net_file,
-                    MU300_USB_APPLIED_FILE=self.applied,
-                    MU300_USB_NET_CLASS=self.net_class,
-                    MU300_USB_BUS=self.usb_bus,
-                    MU300_USB_RESCAN_MARKER=self.rescan_marker,
-                    MU300_USB_RESCAN_DELAY='0',
-                    MU300_USB_ROLE_COMMAND=self.helper,
-                    MU300_USB_NETWORK_SERVICE=self.reload_script,
-                    MU300_USB_IP_BIN=self.stubs / 'ip')
+        base = dict(OPENF50_USB_ROLE_FILE=self.role,
+                    OPENF50_USB_NET_FILE=self.net_file,
+                    OPENF50_USB_APPLIED_FILE=self.applied,
+                    OPENF50_USB_NET_CLASS=self.net_class,
+                    OPENF50_USB_BUS=self.usb_bus,
+                    OPENF50_USB_RESCAN_MARKER=self.rescan_marker,
+                    OPENF50_USB_RESCAN_DELAY='0',
+                    OPENF50_USB_ROLE_COMMAND=self.helper,
+                    OPENF50_USB_NETWORK_SERVICE=self.reload_script,
+                    OPENF50_USB_IP_BIN=self.stubs / 'ip')
         base.update(env)
         return self.script(shell, USB, *args, **base)
 
@@ -153,14 +153,14 @@ esac
             r = self.reply(self.call_usb(shell, 'get'))
             self.assertEqual((r['net_mode'], r['net_scope'], r['net_auto'], r['role']), ('ecm', 'once', 1, 'device'))
 
-    def test_defaults_are_the_mu300_paths(self):
+    def test_defaults_are_the_openf50_paths(self):
         src = USB.read_text()
-        self.assertIn('${MU300_USB_NET_FILE:-/etc/mu300/usb-net}', src)
-        self.assertIn('${MU300_USB_APPLIED_FILE:-/run/mu300/usb-net-applied}', src)
+        self.assertIn('${OPENF50_USB_NET_FILE:-/etc/openf50/usb-net}', src)
+        self.assertIn('${OPENF50_USB_APPLIED_FILE:-/run/openf50/usb-net-applied}', src)
         self.assertNotIn('usb-boot.conf', src)
         self.assertNotIn('unisoc-usb-net-applied', src)
-        self.assertIn('/run/mu300/usb-net-applied', INIT)
-        self.assertIn('$1/etc/mu300/usb-net', INIT)
+        self.assertIn('/run/openf50/usb-net-applied', INIT)
+        self.assertIn('$1/etc/openf50/usb-net', INIT)
 
     # --- role switch and host mode (the fork's cases)
 
@@ -182,31 +182,31 @@ esac
     def test_f50_host_uses_explicit_role_adapter(self):
         for shell in self.each_shell():
             self.reset()
-            result = self.call_usb(shell, 'set-role', 'host', '1', MU300_USB_DEVICE='f50')
+            result = self.call_usb(shell, 'set-role', 'host', '1', OPENF50_USB_DEVICE='f50')
             self.assertEqual(json.loads(result.stdout)['ok'], 1)
             self.wait_text(self.role, 'host')
-            status = self.call_usb(shell, 'get', MU300_USB_DEVICE='f50')
+            status = self.call_usb(shell, 'get', OPENF50_USB_DEVICE='f50')
             self.assertEqual(json.loads(status.stdout)['host_supported'], 1)
             self.role.write_text('device\n')
             # without an adapter command, the F50 writes the raw role switch
             raw = self.script(shell, USB, 'set-role', 'host', '0',
-                              MU300_USB_ROLE_FILE=self.role, MU300_USB_DEVICE='f50',
-                              MU300_USB_NET_FILE=self.net_file)
+                              OPENF50_USB_ROLE_FILE=self.role, OPENF50_USB_DEVICE='f50',
+                              OPENF50_USB_NET_FILE=self.net_file)
             self.assertEqual(json.loads(raw.stdout)['ok'], 1)
             self.wait_text(self.role, 'host')
 
     def test_v50_writes_the_role_switch_as_the_f50(self):
-        # the V50 (FINDINGS 95): the F50's raw role switch, never the U30 Air's charger path (mu300-usb)
-        self.stub('mu300-usb', 'echo called > "$STUBLOG/mu300-usb"; exit 1')
+        # the V50 (FINDINGS 95): the F50's raw role switch, never the U30 Air's charger path (openf50-usb)
+        self.stub('openf50-usb', 'echo called > "$STUBLOG/openf50-usb"; exit 1')
         for shell in self.each_shell():
             self.reset()
             self.role.write_text('device\n')
             raw = self.script(shell, USB, 'set-role', 'host', '0',
-                              MU300_USB_ROLE_FILE=self.role, MU300_USB_DEVICE='v50',
-                              MU300_USB_NET_FILE=self.net_file)
+                              OPENF50_USB_ROLE_FILE=self.role, OPENF50_USB_DEVICE='v50',
+                              OPENF50_USB_NET_FILE=self.net_file)
             self.assertEqual(json.loads(raw.stdout)['ok'], 1, raw.stdout)
             self.wait_text(self.role, 'host')
-            self.assertFalse((self.tmp / 'mu300-usb').exists())
+            self.assertFalse((self.tmp / 'openf50-usb').exists())
 
     def test_async_role_readback_is_pending_not_a_false_failure(self):
         slow = self.tmp / 'slow-role'
@@ -214,7 +214,7 @@ esac
         slow.chmod(0o755)
         for shell in self.each_shell():
             self.reset()
-            result = self.call_usb(shell, 'set-role', 'host', '1', MU300_USB_ROLE_COMMAND=slow)
+            result = self.call_usb(shell, 'set-role', 'host', '1', OPENF50_USB_ROLE_COMMAND=slow)
             self.assertEqual(json.loads(result.stdout), {'ok': 1, 'pending': 1})
             self.assertEqual((self.tmp / 'uci.role_auto').read_text(), '1')
             self.wait_text(self.tmp / 'role-request', 'host')

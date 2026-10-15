@@ -1,6 +1,7 @@
 """Pull an Android binary and its shared-library closure from the device, preserving paths.
 Search order approximates the vendor linker namespace: vendor, VNDK apex, system, bionic."""
 import os
+SU_BIN = os.environ.get('OPENF50_SU_BIN', 'su')
 import shutil
 import struct
 import subprocess
@@ -9,17 +10,17 @@ import tempfile
 import time
 from pathlib import Path
 
-ROOT = Path(os.environ.get('MU300_CLOSURE_ROOT', 'rootfs'))
+ROOT = Path(os.environ.get('OPENF50_CLOSURE_ROOT', 'rootfs'))
 SEARCH = ['/vendor/lib64', '/vendor/lib64/hw', '/vendor/lib64/egl', '/odm/lib64', '/apex/com.android.vndk.v33/lib64',
           '/system/lib64', '/apex/com.android.runtime/lib64/bionic', '/apex/com.android.runtime/lib64',
           '/apex/com.android.i18n/lib64', '/system_ext/lib64']
-DEV = '/data/local/tmp/mu300-pull.bin'
+DEV = '/data/local/tmp/openf50-pull.bin'
 # A transfer that never finishes used to leave the installer waiting for ever - the only way out was Ctrl-C,
 # and the traceback then looked like a crash in this script (issue: pull_closure.py KeyboardInterrupt). Every
 # call now has a deadline and is retried, so a stalled or rebooting device costs a few seconds, not the run.
 TIMEOUT = 120
 TRIES = 30
-TMP = Path(tempfile.mkdtemp(prefix='mu300-pull-'))
+TMP = Path(tempfile.mkdtemp(prefix='openf50-pull-'))
 WORK = TMP / 'file.bin'
 
 
@@ -35,7 +36,7 @@ def run(args, timeout=TIMEOUT, **kw):
 def adb(cmd):
     """run one command as root on the device and return its output (b'' when the command failed)"""
     for _ in range(TRIES):
-        r = run(['adb', 'exec-out', f"su -c '{cmd}; echo __RC$?'"], capture_output=True)
+        r = run(['adb', 'exec-out', f"{SU_BIN} -c '{cmd}; echo __RC$?'"], capture_output=True)
         if r is None:
             continue
         out = r.stdout
@@ -70,11 +71,11 @@ def locate(libs):
 # A binary read must not go through `adb exec-out "su -c ..."`: on some devices su gives the command a pty
 # whose ONLCR rewrites every LF as CRLF, and the file arrives inflated and unparsable (issue #2).
 def adb_pull_file(path):
-    adb_shell(f"su -c 'cat {path} > {DEV}'")
+    adb_shell(f"{SU_BIN} -c 'cat {path} > {DEV}'")
     if WORK.exists():
         WORK.unlink()
     r = run(['adb', 'pull', DEV, str(WORK)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    adb_shell(f"su -c 'rm -f {DEV}'")
+    adb_shell(f"{SU_BIN} -c 'rm -f {DEV}'")
     if r is None or r.returncode != 0 or not WORK.is_file():
         return b''
     return WORK.read_bytes()
@@ -129,7 +130,7 @@ def needed(p):
 def main():
     roots = list(dict.fromkeys(sys.argv[1:]))
     if not roots:
-        sys.exit('usage: pull_closure.py <binary or library> [...]  (MU300_CLOSURE_ROOT sets the output)')
+        sys.exit('usage: pull_closure.py <binary or library> [...]  (OPENF50_CLOSURE_ROOT sets the output)')
     todo, seen, missing = list(roots), set(), []
     while todo:
         path = todo.pop(0)

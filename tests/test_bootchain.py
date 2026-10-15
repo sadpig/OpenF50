@@ -13,7 +13,7 @@ from helpers import TOP, ShellTest
 from test_boot_image import LIVE_A, fake_misc, fake_stock, with_slots
 
 SCRIPT = TOP / 'tools' / 'android-bootchain.sh'
-MODULE_COPY = TOP / 'android' / 'magisk' / 'mu300-linux-switch' / 'bootchain.sh'
+MODULE_COPY = TOP / 'android' / 'magisk' / 'openf50-linux-switch' / 'bootchain.sh'
 CHAIN = ('uboot', 'sml', 'teecfg', 'trustos', 'vbmeta')
 # never to be written by this, whatever happens (backup-device.sh's CRITICAL list and more)
 NEVER = ('nr_fixnv1', 'nr_fixnv2', 'nr_runtimenv1', 'nr_deltanv', 'prodnv', 'miscdata', 'persist', 'calinv', 'isedata',
@@ -42,7 +42,7 @@ class Fixture(ShellTest):
         self.stub('getprop', f'sed -n "s/^$1=//p" "{self.props}"')
         self.device()
 
-    def device(self, slot='_a', model='ZTE MU300', product='mu300', differ=(), meta=None, platform=''):
+    def device(self, slot='_a', model='ZTE MU300', product='openf50', differ=(), meta=None, platform=''):
         """Android on SLOT; the five images identical on both slots except DIFFER (Android's slot holds the newer
         build); META: (slot a, slot b) metadata bytes of misc instead of the ones of Android booted on SLOT"""
         shutil.rmtree(self.by)
@@ -68,7 +68,7 @@ class Fixture(ShellTest):
         return {p.name: sha(p) for p in sorted(self.by.iterdir()) if p.is_file()}
 
     def run_bc(self, shell, *args, **env):
-        e = dict(MU300_BY_NAME=self.by, MU300_SKIP_ROOT_CHECK=1, MU300_DROP_CACHES=self.tmp / 'no-drop-caches')
+        e = dict(OPENF50_BY_NAME=self.by, OPENF50_SKIP_ROOT_CHECK=1, OPENF50_DROP_CACHES=self.tmp / 'no-drop-caches')
         e.update(env)
         return self.script(shell, SCRIPT, *args, **e)
 
@@ -236,12 +236,12 @@ class Sync(Fixture):
             self.check_synced(shell, 'b', 'a', ('uboot', 'teecfg', 'trustos', 'vbmeta', 'sml'))
 
     def test_skip_root_check_is_needed_off_device(self):
-        # as a user, not root: refused before anything (the tests' MU300_SKIP_ROOT_CHECK stands in for su)
+        # as a user, not root: refused before anything (the tests' OPENF50_SKIP_ROOT_CHECK stands in for su)
         if subprocess.run(['id', '-u'], capture_output=True, text=True).stdout.strip() == '0':
             self.skipTest('running as root')
         for shell in self.each_shell():
             self.device(differ=('trustos',))
-            r = self.script(shell, SCRIPT, 'check', MU300_BY_NAME=self.by)
+            r = self.script(shell, SCRIPT, 'check', OPENF50_BY_NAME=self.by)
             self.assertIn('BOOTCHAIN-REFUSED: this needs root', r.stdout)
 
     def corrupting_dd(self, pattern, source):
@@ -310,7 +310,7 @@ exit 0''')
 
 class TheList(Fixture):
     def lib(self, shell, code, **env):
-        return self.sh(shell, f'MU300_LIB=1 . "{SCRIPT}"\n' + code, MU300_BY_NAME=self.by, MU300_SKIP_ROOT_CHECK=1,
+        return self.sh(shell, f'OPENF50_LIB=1 . "{SCRIPT}"\n' + code, OPENF50_BY_NAME=self.by, OPENF50_SKIP_ROOT_CHECK=1,
                        **env)
 
     def test_exactly_the_five(self):
@@ -340,13 +340,13 @@ class TheList(Fixture):
 class Copies(unittest.TestCase):
     def test_module_copy_is_identical(self):
         self.assertEqual(SCRIPT.read_bytes(), MODULE_COPY.read_bytes(),
-                         'android/magisk/mu300-linux-switch/bootchain.sh must be a copy of tools/android-bootchain.sh')
+                         'android/magisk/openf50-linux-switch/bootchain.sh must be a copy of tools/android-bootchain.sh')
 
     def test_shipped_with_every_installer(self):
         self.assertIn('android-bootchain.sh', (TOP / 'install.sh').read_text())
         self.assertIn('android-bootchain.sh', (TOP / 'install.ps1').read_text())
         mk = (TOP / 'tools' / 'make-magisk-zips.sh').read_text()
-        self.assertIn('mu300/android-bootchain.sh', mk)
+        self.assertIn('openf50/android-bootchain.sh', mk)
         self.assertIn(' bootchain.sh ', mk)
         self.assertIn('bootchain.sh', (TOP / 'android/magisk/installer/customize.sh').read_text())
         self.assertIn('bootchain.sh', (TOP / 'tools/install-magisk-module.sh').read_text())
@@ -366,8 +366,8 @@ class AndroidInstall(ShellTest):
         self.assertIsNotNone(m)
         self.block = m.group(1)
         self.T = self.tmp / 'T'
-        self.M = self.T / 'mu300root'
-        (self.M / '.mu300').mkdir(parents=True)
+        self.M = self.T / 'openf50root'
+        (self.M / '.openf50').mkdir(parents=True)
 
     def fake_sync(self, rc, out):
         (self.T / 'android-bootchain.sh').write_text(
@@ -392,14 +392,14 @@ class AndroidInstall(ShellTest):
             self.assertIn('REACHED-INSTALL', r.stdout, r.stderr)
             args = (self.tmp / 'called').read_text().split()
             self.assertEqual(args[0], 'sync')
-            self.assertRegex(args[1], '^' + re.escape(str(self.M)) + r'/\.mu300/bootchain/\d{8}-\d{6}$')
+            self.assertRegex(args[1], '^' + re.escape(str(self.M)) + r'/\.openf50/bootchain/\d{8}-\d{6}$')
             # for the host installers: a copy they pull
-            self.assertTrue((self.T / 'mu300-bootchain-backup' / 'SHA256SUMS').exists())
+            self.assertTrue((self.T / 'openf50-bootchain-backup' / 'SHA256SUMS').exists())
             (self.tmp / 'called').unlink()
-            shutil.rmtree(self.T / 'mu300-bootchain-backup')
+            shutil.rmtree(self.T / 'openf50-bootchain-backup')
             # the Magisk installer's run keeps it on the Linux filesystem only
-            self.run_block(shell, SYNC_BOOTCHAIN=1, MU300_DEVICE_WORK=self.T)
-            self.assertFalse((self.T / 'mu300-bootchain-backup').exists())
+            self.run_block(shell, SYNC_BOOTCHAIN=1, OPENF50_DEVICE_WORK=self.T)
+            self.assertFalse((self.T / 'openf50-bootchain-backup').exists())
 
     def test_failure_stops_before_the_systems(self):
         for shell in self.each_shell():
@@ -445,17 +445,17 @@ class Installers(unittest.TestCase):
         self.assertLess(src.index('\nbootchain_plan\n'), src.index("say \"$(t 'Ready to install')\""))
         self.assertIn('echo "  $BC_LINE"', src)
         self.assertLess(src.index('\nbootchain_pull\n'), src.index('\nwrite_linux_boot "$WORK'))
-        self.assertIn('MU300_SYNC_BOOTCHAIN', src)
+        self.assertIn('OPENF50_SYNC_BOOTCHAIN', src)
 
     def test_install_ps1(self):
         src = (TOP / 'install.ps1').read_text()
         self.assertIn('[switch]$NoBootchainSync', src)
         self.assertIn('SYNC_BOOTCHAIN = $SYNC_BOOTCHAIN', src)
         self.assertLess(src.index('BootchainLine $bcOut'), src.index("Say (T 'Ready to install')"))
-        self.assertLess(src.index('mu300-bootchain-backup ] && echo y'), src.index("Say (T 'Writing boot_{1} and arming slot {1}'"))
+        self.assertLess(src.index('openf50-bootchain-backup ] && echo y'), src.index("Say (T 'Writing boot_{1} and arming slot {1}'"))
 
     def test_switch_module_subcommand(self):
-        sw = (TOP / 'android/magisk/mu300-linux-switch/switch.sh').read_text()
+        sw = (TOP / 'android/magisk/openf50-linux-switch/switch.sh').read_text()
         self.assertIn('exec sh "${0%/*}/bootchain.sh" check', sw)
         self.assertIn('exec sh "${0%/*}/bootchain.sh" sync', sw)
 

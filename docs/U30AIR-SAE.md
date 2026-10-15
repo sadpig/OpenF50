@@ -5,7 +5,7 @@ the driver side of this work: `sprd_wlan_combo` no longer prints passphrases,
 station PSKs or raw command/event payloads (the same removals exist as
 `kernel/patches/wlan_combo-sae-private-logs.patch` for the vendor kernel).
 The hostapd patch is **not** included by a normal image build: it exists as a build
-recipe (`openwrt/build-u30-sae.sh`, `MU300_SAE_APK_DIR` for `build-rootfs.sh`)
+recipe (`openwrt/build-u30-sae.sh`, `OPENF50_SAE_APK_DIR` for `build-rootfs.sh`)
 and does nothing until `u30_sae_offload=1` is set on a BSS. Nothing changes for
 a device that does not opt in on both counts.
 
@@ -62,32 +62,32 @@ a device that does not opt in on both counts.
 
 Until 2026-10-13 a BSS with the option that could not start stayed down, at every
 boot, and a device reached only over its hotspot had no way in but USB. Three roads
-lead there: an update (`mu300-update` keeps `/etc/config` and replaces the packages:
+lead there: an update (`openf50-update` keeps `/etc/config` and replaces the packages:
 the stock `wpad-basic-mbedtls` does not know `u30_sae_offload` and refuses the whole
 configuration), a firmware that refuses the vendor command, and a configuration the
 patch rejects (mixed mode, optional PMF, a second BSS).
 
-`/opt/mu300/bin/openwrt-wifi-sae-guard` is in every OpenWrt image and does nothing
+`/opt/openf50/bin/openwrt-wifi-sae-guard` is in every OpenWrt image and does nothing
 unless a `wifi-iface` has `u30_sae_offload=1` in its `hostapd_bss_options`:
 
-- **At boot, before `mu300-hw`'s own `wifi down; wifi up`** (the start that brings
+- **At boot, before `openf50-hw`'s own `wifi down; wifi up`** (the start that brings
   the hotspot up, about 37 s after power-on): the installed hostapd does not have
   the option (its name is not in the binary). netifd has tried once by then, some
   15 s after power-on, and that hostapd has logged `unknown configuration item
   'u30_sae_offload'`; the hotspot is up at its usual time all the same (measured:
   39.9 s, against 40 to 43 s without the option).
-- **About two minutes after boot** (`mu300-post`, after its one `wifi up` retry and
+- **About two minutes after boot** (`openf50-post`, after its one `wifi up` retry and
   a further 60 s of waiting, long enough for automatic channel selection): the
   access point is still not `ENABLED` in `ubus call hostapd.wlan0 get_status`.
 
 In both cases the BSS becomes `encryption psk2` with the same passphrase,
 `ieee80211w` and `sae_pwe` are deleted, the file as it was is kept in
-`/etc/mu300/wireless.sae-offload` (root only), and `logread` has one line from
-`mu300-wifi`: `WPA3 hotspot (U30 SAE offload): ... The hotspot is back on WPA2 with
+`/etc/openf50/wireless.sae-offload` (root only), and `logread` has one line from
+`openf50-wifi`: `WPA3 hotspot (U30 SAE offload): ... The hotspot is back on WPA2 with
 the same password`. The log does not keep that line for long (128 KiB, and the
 driver's lines of one Wi-Fi restart fill it: on the test device it was gone two
 minutes later), so the same line, with its time, is also in
-`/etc/mu300/wireless.sae-offload.why`. WPA2 and not hostapd's own SAE: without the offload a WPA3-only
+`/etc/openf50/wireless.sae-offload.why`. WPA2 and not hostapd's own SAE: without the offload a WPA3-only
 BSS on this driver lets nobody in. The price is the one WPA3 was chosen to avoid:
 a captured WPA2 handshake can be attacked offline, so use a long passphrase.
 
@@ -99,10 +99,10 @@ What this means in practice:
 - It leaves a hotspot alone that is off on purpose: a disabled `wifi-iface` or
   radio, the Wi-Fi client or its scan mode, the Wi-Fi key's "hotspot off".
 - To go back to the offload afterwards: fix the cause, then
-  `cp /etc/mu300/wireless.sae-offload /etc/config/wireless` and the full restart
+  `cp /etc/openf50/wireless.sae-offload /etc/config/wireless` and the full restart
   below.
 - **Over USB** (always works, and the only place to read the log of a hotspot that is
-  down): `ssh root@192.168.78.1`, then `logread -e 'U30 SAE' -e mu300-wifi -e hostapd`.
+  down): `ssh root@192.168.78.1`, then `logread -e 'U30 SAE' -e openf50-wifi -e hostapd`.
   By hand, the same as the guard:
   `uci del_list wireless.ap0.hostapd_bss_options='u30_sae_offload=1'; uci set wireless.ap0.encryption=psk2; uci -q delete wireless.ap0.ieee80211w; uci -q delete wireless.ap0.sae_pwe; uci commit wireless; wifi down; /etc/init.d/wpad restart; wifi up`.
 
@@ -124,7 +124,7 @@ the SAE hotspot with r9 on 7.2.10 (Snrat's record below is for 7.2.9).
 
 ## Outstanding PMK trust boundary (why this stays experimental)
 
-Independent review in [PR #74](https://github.com/dikeckaan/mu300-linux/pull/74#issuecomment-6106003178)
+Independent review in [PR #74](https://github.com/dikeckaan/openf50-linux/pull/74#issuecomment-6106003178)
 confirmed the feature works on a U30 Air, including macOS SAE connections,
 wrong-password rejection and WCN recovery. It also identified a key provenance
 issue that is still open: `NL80211_ATTR_IE` contains client association-request
@@ -247,7 +247,7 @@ sh openwrt/build-u30-sae.sh /absolute/path/to/sdk /absolute/path/to/u30-sae-apks
 ```
 
 Under amd64 emulation, the maintainer saw a Lua jobserver failure with a
-parallel build. Use `MU300_JOBS=1` if that occurs; a serial build completed.
+parallel build. Use `OPENF50_JOBS=1` if that occurs; a serial build completed.
 
 The output must contain a matching revision 9 `hostapd-common` and
 `wpad-basic-openssl` pair. Start with a clean dedicated SDK; the helper refuses
@@ -259,7 +259,7 @@ r9 package files, so stale r6/r7/r8 artifacts in the SDK are not included.
 The image builder accepts that directory on the tested release:
 
 ```sh
-MU300_SYSTEM=openwrt-luci MU300_SAE_APK_DIR=/absolute/path/to/u30-sae-apks \
+OPENF50_SYSTEM=openwrt-luci OPENF50_SAE_APK_DIR=/absolute/path/to/u30-sae-apks \
   sh openwrt/build-rootfs.sh
 ```
 
@@ -285,7 +285,7 @@ Keep USB management access and back up the wireless configuration, installed
 Wi-Fi packages/files and original `sprd_wlan_combo.ko` before installation.
 On current mainline sources, also back up `wcn_bsp.ko`. Build/install the
 matching WCN and WLAN module pair against the target kernel: the WLAN recovery
-path added in #100 calls `wcn_mu300_recover`, exported by the updated WCN BSP.
+path added in #100 calls `wcn_openf50_recover`, exported by the updated WCN BSP.
 Do not install a new WLAN module over an older BSP without that export.
 The OpenSSL variant also requires `libopenssl-legacy`; let APK resolve that
 from the official release feed, or download it locally for an offline install.
@@ -306,7 +306,7 @@ start wpad and bring Wi-Fi up. Do not unload/reload the WLAN module live:
 a trial on this device panicked in bridge teardown when hostapd was still
 operating an old netdev callback after module unload. Install the matching
 module file and use a complete Linux reboot instead. For a module trial, an
-early-boot restore guard must run before `mu300-hw` (START=12); keep the original
+early-boot restore guard must run before `openf50-hw` (START=12); keep the original
 module available until both USB and fresh SAE client access are confirmed.
 Restore packages, configuration and module from the backup, then reboot, if
 the trial fails. No Android firmware/partition change is needed.
@@ -342,7 +342,7 @@ The 2026-10-12 follow-up retains the maintainer's #165 commits and merges
 main `c47e2c9`. r9 adds a configuration-stage single-BSS restriction and static
 SAE requirements, with 16 SAE/parser/SDK/privacy tests passing (required UBSan)
 and 47 static checks passing. The matching r9 pair builds through the official
-SDK (`MU300_JOBS=1`). r9 was subsequently installed on the local U30 Air (OpenWrt 25.12.5,
+SDK (`OPENF50_JOBS=1`). r9 was subsequently installed on the local U30 Air (OpenWrt 25.12.5,
 kernel 7.2.9) with offline r8 rollback packages retained. The actual hostapd
 binary rejected three synthetic configurations at configuration load: the
 first or second BSS opting in on a two-BSS radio, and a single WPA2 BSS opting
@@ -440,7 +440,7 @@ bring-up passed (5), Wi-Fi client regressions passed (58), and static tests
 passed (40). A broad desktop run
 executed 1056 tests with 86 skips and two pre-existing VPN test failures: the
 host has a real `/usr/bin/mihomo`, and its `ls` appends the SELinux mode suffix.
-The SAE branch does not modify either VPN test or implementation. The SAE tests also passed with `MU300_TEST_UBSAN=1`. This desktop initially
+The SAE branch does not modify either VPN test or implementation. The SAE tests also passed with `OPENF50_TEST_UBSAN=1`. This desktop initially
 lacked the UBSan runtime; the matching signature-verified Fedora library was
 extracted into a private build directory and used without a system installation.
 The Linux CI job now requires a successful UBSan run rather than silently
@@ -450,7 +450,7 @@ are not a claim that all CI checks pass.
 `tests/test_u30_sae.py` compiles the actual parser from the patch and exercises
 every truncation, exact/duplicate/non-trailing elements and 500 deterministic
 malformed inputs. UBSan is used when its compiler/runtime is available; require
-it in CI with `MU300_TEST_UBSAN=1`. The tests also check the official SDK feed layout/revision, missing-feed diagnostics,
+it in CI with `OPENF50_TEST_UBSAN=1`. The tests also check the official SDK feed layout/revision, missing-feed diagnostics,
 recipe pinning, matching package collection, and refusal to overwrite a
 conflicting patch.
 

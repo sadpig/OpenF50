@@ -1,20 +1,20 @@
 #!/system/bin/sh
 # Device side of the web installer (site/web-installer): what the page asks a rooted Android to do over adb. The page
-# pushes this file and the scripts it uses to /data/local/tmp/mu300-web and runs, for every step,
-#   su -c 'sh /data/local/tmp/mu300-web/android-web.sh COMMAND [ARG...]'
-# It installs nothing by itself: an installation is the Magisk zip's own installer (mu300/install.sh of the zip the
-# page pushed, run the way Magisk's customize.sh runs it), told its answers with MU300_ANSWERS and asked for
-# MU300_PROGRESS lines. The page never parses a sentence: every answer for it is a line that starts with MU300-WEB
-# (below) or with the installer's MU300-STEP / MU300-PLAN.
+# pushes this file and the scripts it uses to /data/local/tmp/openf50-web and runs, for every step,
+#   su -c 'sh /data/local/tmp/openf50-web/android-web.sh COMMAND [ARG...]'
+# It installs nothing by itself: an installation is the Magisk zip's own installer (openf50/install.sh of the zip the
+# page pushed, run the way Magisk's customize.sh runs it), told its answers with OPENF50_ANSWERS and asked for
+# OPENF50_PROGRESS lines. The page never parses a sentence: every answer for it is a line that starts with OPENF50-WEB
+# (below) or with the installer's OPENF50-STEP / OPENF50-PLAN.
 #
-#   status [deep]        MU300-WEB-STATUS {json}: the device, its slots, the free region, the SD card, what is on the
+#   status [deep]        OPENF50-WEB-STATUS {json}: the device, its slots, the free region, the SD card, what is on the
 #                        Linux slot, a running job. deep also samples the free region and looks into an existing
 #                        Linux filesystem (mounted read-only, no journal replay). Writes to no partition.
 #   take NAME SHA256     the zip pushed as in/NAME (or downloaded by "run fetch"): moved to where only root can
-#                        write, checked there against SHA256, its installer unpacked. MU300-WEB-ZIP {json}: its
+#                        write, checked there against SHA256, its installer unpacked. OPENF50-WEB-ZIP {json}: its
 #                        manifest, and whether its installer knows this caller (web=1).
 #   extra vpn|panel FILE SHA256   an extra pushed as in/FILE, checked the same way, for the next install
-#   net [NAME]           MU300-WEB-NET {json}: can the device reach GitHub (the release file NAME) right now, and over
+#   net [NAME]           OPENF50-WEB-NET {json}: can the device reach GitHub (the release file NAME) right now, and over
 #                        what (mobile data, Wi-Fi). Asks for headers only.
 #   run fetch NAME SIZE  the device downloads a release's zip itself, as a job, into in/NAME (then "take NAME SHA256"
 #                        as for a pushed one). The address is made here from NAME - this project's release of the
@@ -25,21 +25,21 @@
 #   answers              in/answers.conf becomes the answers file of the next run (root's, mode 600)
 #   password             one line on stdin: the password of the next run, added to the answers file. It is never an
 #                        argument (ps would show it) nor a file the adb user can read.
-#   run plan|install NAME [more]   start the zip's installer as a job (plan: MU300_DRY_RUN=1). MU300-WEB-JOB started.
+#   run plan|install NAME [more]   start the zip's installer as a job (plan: OPENF50_DRY_RUN=1). OPENF50-WEB-JOB started.
 #                        more: the page means to install another system after this one; the job's record says so
 #                        ("more":1 in status), for a page that finds the job without the one that started it
 #   run uninstall WIPE SDWIPE   start the uninstaller as a job: WIPE secure|quick|keep, SDWIPE erase|keep
-#   follow               the job's output from its start, as it comes; ends with MU300-WEB-EXIT <status>
+#   follow               the job's output from its start, as it comes; ends with OPENF50-WEB-EXIT <status>
 #   cancel               end a job that has not started writing the systems yet
 #   boot-linux [dry]     arm Linux for one boot and reboot (the Magisk module's switch.sh; dry: write nothing)
-#   backup               copies of what an installation writes, in root's directory: MU300-WEB-FILE lines
+#   backup               copies of what an installation writes, in root's directory: OPENF50-WEB-FILE lines
 #   cat NAME             one of those copies, as base64 on stdout, for the page to keep
 #   clean [all]          remove the copies for a backup and what a killed run left (all: the zips and a download too)
 #
-# Where root writes. /data/local/tmp/mu300-web is the adb user's: the page pushes its files there, and whoever can
+# Where root writes. /data/local/tmp/openf50-web is the adb user's: the page pushes its files there, and whoever can
 # write there could put a link where a file is expected. So root never creates, writes, truncates, chmods or
 # deletes anything in it. A pushed file is an input: it is moved (a rename takes the name as it is and follows no
-# link) into /data/adb/mu300-web, which only root can enter, and looked at there - a regular file, of a bounded
+# link) into /data/adb/openf50-web, which only root can enter, and looked at there - a regular file, of a bounded
 # size, with the checksum that was asked for - before anything reads it. Downloads, the copies for a backup, the
 # answers, logs and the job's state live in root's directory only. What is left in the adb user's directory is
 # removed by the page's own, unprivileged, adb session.
@@ -62,39 +62,39 @@
 # installer was written and tested for those: 64-bit arithmetic, busybox's unzip and tar); what must be Android's own
 # tool (sm, losetup, mke2fs) is run through asw, as the installer does.
 #
-# MU300_LIB=1 defines the functions and runs nothing (tests/test_android_web.py; the MU300_* paths point at a fake
+# OPENF50_LIB=1 defines the functions and runs nothing (tests/test_android_web.py; the OPENF50_* paths point at a fake
 # device there, as for the Magisk installer).
 
 # ---- under the right shell
-if [ -z "${MU300_WEB_BB:-}" ]; then
+if [ -z "${OPENF50_WEB_BB:-}" ]; then
     for _b in /data/adb/magisk/busybox /data/adb/ksu/bin/busybox /data/adb/ap/bin/busybox; do
         [ -x "$_b" ] || continue
-        MU300_WEB_BB=$_b ASH_STANDALONE=1 exec "$_b" sh "$0" "$@"
+        OPENF50_WEB_BB=$_b ASH_STANDALONE=1 exec "$_b" sh "$0" "$@"
     done
     # no busybox of a root solution: say so in the page's terms and stop
-    echo 'MU300-WEB-ERROR no-busybox'
+    echo 'OPENF50-WEB-ERROR no-busybox'
     exit 1
 fi
 set -u
 umask 022
-BB=$MU300_WEB_BB
-S=${MU300_WEB_STAGE:-$(cd "$(dirname "$0")" && pwd)}     # /data/local/tmp/mu300-web: the adb user's
-R=${MU300_WEB_ROOT:-/data/adb/mu300-web}                 # root's alone
-BY=${MU300_BY_NAME:-/dev/block/by-name}
-SYSFS=${MU300_SYSFS:-/sys}
-MOUNTS=${MU300_MOUNTS:-/proc/mounts}
+BB=$OPENF50_WEB_BB
+S=${OPENF50_WEB_STAGE:-$(cd "$(dirname "$0")" && pwd)}     # /data/local/tmp/openf50-web: the adb user's
+R=${OPENF50_WEB_ROOT:-/data/adb/openf50-web}                 # root's alone
+BY=${OPENF50_BY_NAME:-/dev/block/by-name}
+SYSFS=${OPENF50_SYSFS:-/sys}
+MOUNTS=${OPENF50_MOUNTS:-/proc/mounts}
 MAGISKBIN=${MAGISKBIN:-/data/adb/magisk}
-MODULES=${MU300_MODULES:-/data/adb/modules}
-WORK_PARENT=${MU300_WORK_PARENT:-/data/adb}
-DEVSH=${MU300_DEVICE_SH:-/system/bin/sh}
-ANDROID_SH=${MU300_ANDROID_SH:-/system/bin/sh}
-APATH=${MU300_ANDROID_PATH:-/system/bin:/system/xbin:/vendor/bin}
-DROP_CACHES=${MU300_DROP_CACHES:-/proc/sys/vm/drop_caches}
-EMMC=${MU300_EMMC:-/dev/block/mmcblk0}
+MODULES=${OPENF50_MODULES:-/data/adb/modules}
+WORK_PARENT=${OPENF50_WORK_PARENT:-/data/adb}
+DEVSH=${OPENF50_DEVICE_SH:-/system/bin/sh}
+ANDROID_SH=${OPENF50_ANDROID_SH:-/system/bin/sh}
+APATH=${OPENF50_ANDROID_PATH:-/system/bin:/system/xbin:/vendor/bin}
+DROP_CACHES=${OPENF50_DROP_CACHES:-/proc/sys/vm/drop_caches}
+EMMC=${OPENF50_EMMC:-/dev/block/mmcblk0}
 JOB=$R/job
 LINUX_CMDLINE=6c6f676c6576656c3d3500      # "loglevel=5\0" at offset 44: the header of every Linux boot image
 
-out() { echo "MU300-WEB-$*"; }
+out() { echo "OPENF50-WEB-$*"; }
 fail() { out "ERROR $*"; exit 1; }       # fail CODE [detail]: CODE is a word the page has a sentence for
 say() { echo "- $*"; }
 # what storage.sh and android-boot-image.sh expect of their caller
@@ -112,11 +112,11 @@ sha_of() { sha256sum "$1" 2>/dev/null | cut -d' ' -f1; }
 # a string as a JSON string: control characters dropped, backslash and quote escaped
 js() { printf '"%s"' "$(printf '%s' "$1" | tr -d '\000-\037' | sed 's/\\/\\\\/g; s/"/\\"/g')"; }
 num() { case ${1:-} in ''|*[!0-9]*) echo "${2:-0}" ;; *) echo "$1" ;; esac; }
-DATA_RESERVE=${MU300_DATA_RESERVE:-536870912}     # what a download or a copy must leave free on /data
-ZIP_MAX=${MU300_ZIP_MAX:-314572800}               # no release zip is larger than 124 MB
-EXTRA_MAX=${MU300_EXTRA_MAX:-104857600}           # the VPN module is 41 MB
-UNPACK_MAX=${MU300_UNPACK_MAX:-67108864}          # the installer's own files in a zip are 4 MB
-JOB_LOG_MAX=${MU300_JOB_LOG_MAX:-8388608}
+DATA_RESERVE=${OPENF50_DATA_RESERVE:-536870912}     # what a download or a copy must leave free on /data
+ZIP_MAX=${OPENF50_ZIP_MAX:-314572800}               # no release zip is larger than 124 MB
+EXTRA_MAX=${OPENF50_EXTRA_MAX:-104857600}           # the VPN module is 41 MB
+UNPACK_MAX=${OPENF50_UNPACK_MAX:-67108864}          # the installer's own files in a zip are 4 MB
+JOB_LOG_MAX=${OPENF50_JOB_LOG_MAX:-8388608}
 root_dir() {
     # root's own, in a place only root can write (/data/adb): a real directory of mode 700 that the caller owns.
     # A name that is there as anything else - a link, someone else's directory - is not used.
@@ -194,8 +194,8 @@ job_state() {  # none | running | done | interrupted
     if [ -n "$_p" ] && [ "$(cat "$JOB/boot" 2>/dev/null)" = "$(boot_now)" ] && kill -0 "$_p" 2>/dev/null; then echo running
     else echo interrupted; fi
 }
-boot_now() { cat "${MU300_BOOT_ID:-/proc/sys/kernel/random/boot_id}" 2>/dev/null | tr -d ' \n'; }
-job_step() { sed -n 's/^MU300-STEP \([0-9]*\)\/.*/\1/p' "$JOB/log" 2>/dev/null | tail -n1; }
+boot_now() { cat "${OPENF50_BOOT_ID:-/proc/sys/kernel/random/boot_id}" 2>/dev/null | tr -d ' \n'; }
+job_step() { sed -n 's/^OPENF50-STEP \([0-9]*\)\/.*/\1/p' "$JOB/log" 2>/dev/null | tail -n1; }
 job_json() {
     _js=$(job_state)
     printf '{"state":"%s","kind":%s,"arg":%s,"rc":%s,"step":%s,"more":%s}' "$_js" "$(js "$(cat "$JOB/kind" 2>/dev/null)")" \
@@ -209,7 +209,7 @@ job_start() {  # job_start KIND ARG...: the job in a session of its own, its out
     echo "$1" > "$JOB/kind"; echo "${2:-}" > "$JOB/arg"; boot_now > "$JOB/boot"; : > "$JOB/log"
     [ -z "${JOB_MORE:-}" ] || : > "$JOB/more"
     if command -v setsid >/dev/null 2>&1; then _ss=setsid; else _ss=; fi
-    MU300_WEB_BB=$BB $_ss "$BB" sh "$0" _job "$@" </dev/null >/dev/null 2>&1 &
+    OPENF50_WEB_BB=$BB $_ss "$BB" sh "$0" _job "$@" </dev/null >/dev/null 2>&1 &
     # the job writes its own pid; wait for it so that "follow" and "status" see a running job at once
     _n=0
     while [ ! -s "$JOB/pid" ] && [ $_n -lt 50 ]; do sleep 0.1 2>/dev/null || sleep 1; _n=$((_n + 1)); done
@@ -262,7 +262,7 @@ follow() {  # the job's log from its start, then as it grows, then the status
             break
         fi
         case $(job_state) in interrupted) echo; out "EXIT interrupted"; return 0 ;; esac
-        sleep "${MU300_WEB_POLL:-1}"
+        sleep "${OPENF50_WEB_POLL:-1}"
     done
     echo
     out "EXIT $(cat "$JOB/rc")"
@@ -301,12 +301,12 @@ parts_json() {  # [["name",start,size],...] of the eMMC, in sectors, from sysfs 
 mount_ro() {  # mount_ro DIR: the existing Linux filesystem (the card's first, as init looks there first), read-only
     mkdir -p "$1" || return 1
     if [ "$SD_EX" = yes ]; then
-        asw MU300_RO=1 MU300_SD_DEV="$SD_DEV" MU300_MOUNTS="$MOUNTS" "$ANDROID_SH" "$S/android-mount-mu300root.sh" "$1"
+        asw OPENF50_RO=1 OPENF50_SD_DEV="$SD_DEV" OPENF50_MOUNTS="$MOUNTS" "$ANDROID_SH" "$S/android-mount-openf50root.sh" "$1"
     else
-        asw MU300_RO=1 MU300_OFF="$OFF" MU300_SIZE="$SIZE" MU300_MOUNTS="$MOUNTS" "$ANDROID_SH" "$S/android-mount-mu300root.sh" "$1"
+        asw OPENF50_RO=1 OPENF50_OFF="$OFF" OPENF50_SIZE="$SIZE" OPENF50_MOUNTS="$MOUNTS" "$ANDROID_SH" "$S/android-mount-openf50root.sh" "$1"
     fi 2>/dev/null | grep -q '^MOUNTED'
 }
-umount_ro() { asw MU300_MOUNTS="$MOUNTS" "$ANDROID_SH" "$S/android-mount-mu300root.sh" -u "$1" >/dev/null 2>&1; rmdir "$1" 2>/dev/null; true; }
+umount_ro() { asw OPENF50_MOUNTS="$MOUNTS" "$ANDROID_SH" "$S/android-mount-openf50root.sh" -u "$1" >/dev/null 2>&1; rmdir "$1" 2>/dev/null; true; }
 systems_json() {  # what the Linux filesystem holds: {"where":"sd|internal","systems":{"ubuntu":"v..."},...}
     printf '{"where":"%s"' "$([ "$SD_EX" = yes ] && echo sd || echo internal)"
     _m=$R/mnt
@@ -317,17 +317,17 @@ systems_json() {  # what the Linux filesystem holds: {"where":"sd|internal","sys
             [ -d "$_m/$_o/etc" ] || continue
             [ -n "$_first" ] || printf ','
             _first=
-            printf '%s:%s' "$(js "$_o")" "$(js "$(head -n1 "$_m/$_o/etc/mu300/image-version" 2>/dev/null)")"
+            printf '%s:%s' "$(js "$_o")" "$(js "$(head -n1 "$_m/$_o/etc/openf50/image-version" 2>/dev/null)")"
         done
         # the system that boots, and whether Linux is its default boot (each system has the setting; the installer
         # writes the same one into all of them)
-        _bo=$(head -n1 "$_m/.mu300/boot-os" 2>/dev/null)
+        _bo=$(head -n1 "$_m/.openf50/boot-os" 2>/dev/null)
         _dl=0
-        case $_bo in ubuntu|openwrt|openwrt-luci) [ "$(head -n1 "$_m/$_bo/etc/mu300/default-boot" 2>/dev/null)" != linux ] || _dl=1 ;; *) _bo= ;; esac
+        case $_bo in ubuntu|openwrt|openwrt-luci) [ "$(head -n1 "$_m/$_bo/etc/openf50/default-boot" 2>/dev/null)" != linux ] || _dl=1 ;; *) _bo= ;; esac
         printf '},"boot_os":%s,"kernel":%s,"ubuntu":%s,"default_linux":%s,"attempts":%s' \
             "$(js "$_bo")" "$(js "$(head -n1 "$_m/boot/kernel" 2>/dev/null)")" \
             "$(js "$(sed -n 's/^VERSION_ID="\(.*\)"/\1/p' "$_m/ubuntu/usr/lib/os-release" 2>/dev/null | head -n1)")" \
-            "$_dl" "$(num "$(head -n1 "$_m/.mu300/boot-attempts" 2>/dev/null)" 5)"
+            "$_dl" "$(num "$(head -n1 "$_m/.openf50/boot-attempts" 2>/dev/null)" 5)"
         umount_ro "$_m"
     else
         printf ',"mounted":0'
@@ -350,8 +350,8 @@ status() {
     [ -z "$SD_DEV" ] || SD_EX=$(sd_existing)
     _free=$(df -Pk "$WORK_PARENT" 2>/dev/null | awk 'NR == 2 { printf "%.0f", $4 * 1024 }')
     _stalled=0
-    if [ -f "$WORK_PARENT/mu300-install.stalled" ] && [ "$(sed -n 1p "$WORK_PARENT/mu300-install.stalled" 2>/dev/null)" = "$(boot_now)" ]; then _stalled=1; fi
-    printf 'MU300-WEB-STATUS {"v":1,"model":%s,"product":%s,"device":"%s","android":%s,"build":%s,"boot_completed":%s' \
+    if [ -f "$WORK_PARENT/openf50-install.stalled" ] && [ "$(sed -n 1p "$WORK_PARENT/openf50-install.stalled" 2>/dev/null)" = "$(boot_now)" ]; then _stalled=1; fi
+    printf 'OPENF50-WEB-STATUS {"v":1,"model":%s,"product":%s,"device":"%s","android":%s,"build":%s,"boot_completed":%s' \
         "$(js "$MODEL")" "$(js "$PRODUCT")" "$DEVICE" "$(js "$(getprop ro.build.version.release)")" \
         "$(js "$(getprop ro.build.display.id)")" "$(num "$(getprop sys.boot_completed)")"
     printf ',"android_slot":"%s","linux_slot":"%s","slots_ok":%s,"root_kind":"%s","magisk":%s,"magiskboot":%s,"busybox":%s' \
@@ -362,7 +362,7 @@ status() {
         "$(num "$disk")" "$(num "$last_end")" "$(num "$OFF")" "$(num "$SIZE")" "$existing" "$_dirty" "$(parts_json)"
     printf ',"sd":{"dev":%s,"bytes":%s,"small":%s,"existing":"%s"}' "$(js "$SD_DEV")" "$(num "$SD_BYTES")" "$(num "$SD_SMALL")" "$SD_EX"
     printf ',"data_free":%s,"stalled":%s,"module":%s,"job":%s' "$(num "$_free")" "$_stalled" \
-        "$([ -f "$MODULES/mu300_linux_switch/switch.sh" ] && [ ! -e "$MODULES/mu300_linux_switch/remove" ] && echo 1 || echo 0)" "$(job_json)"
+        "$([ -f "$MODULES/openf50_linux_switch/switch.sh" ] && [ ! -e "$MODULES/openf50_linux_switch/remove" ] && echo 1 || echo 0)" "$(job_json)"
     if [ -n "$_deep" ] && { [ "$existing" = yes ] || [ "$SD_EX" = yes ]; }; then
         root_dir
         printf ',"linux":%s' "$(systems_json)"
@@ -373,7 +373,7 @@ status() {
 # ---- a zip from the page
 zip_dir() { echo "$R/x/${1%.zip}"; }
 take() {  # take NAME SHA256
-    name_ok "${1:-}" && case $1 in mu300-magisk-*.zip) ;; *) false ;; esac || fail bad-name
+    name_ok "${1:-}" && case $1 in openf50-magisk-*.zip) ;; *) false ;; esac || fail bad-name
     sha_ok "${2:-}" || fail bad-sha
     root_dir
     case $(job_state) in running) fail job-running ;; esac
@@ -391,22 +391,22 @@ take() {  # take NAME SHA256
     if [ "$_h" != "$2" ]; then rm -f "$R/zips/$1"; fail sha-mismatch "$_h"; fi
     # what is unpacked is the installer and the switch module, a few megabytes. A zip that says they hold more than
     # that, or more than /data can take with its reserve, is not unpacked at all.
-    _u=$(unzip -l "$R/zips/$1" 'mu300/*' module.prop action.sh switch.sh bootchain.sh 'system/*' 2>/dev/null |
+    _u=$(unzip -l "$R/zips/$1" 'openf50/*' module.prop action.sh switch.sh bootchain.sh 'system/*' 2>/dev/null |
         awk 'NF >= 4 && $1 ~ /^[0-9]+$/ { s += $1 } END { printf "%.0f", s }')
     _u=$(num "$_u" 0)
     if [ "$_u" -gt "$UNPACK_MAX" ]; then rm -f "$R/zips/$1"; fail too-large "$_u"; fi
     [ $(( $(num "$(data_free "$R")" 0) - _u )) -ge "$DATA_RESERVE" ] || fail no-space
     _x=$(zip_dir "$1")
     rm -rf "$_x"; mkdir -p "$_x" || fail no-root-dir
-    unzip -o -q "$R/zips/$1" 'mu300/*' module.prop action.sh switch.sh bootchain.sh 'system/*' -d "$_x" >/dev/null 2>&1 ||
+    unzip -o -q "$R/zips/$1" 'openf50/*' module.prop action.sh switch.sh bootchain.sh 'system/*' -d "$_x" >/dev/null 2>&1 ||
         { rm -rf "$_x"; fail not-a-zip; }
-    [ -f "$_x/mu300/install.sh" ] && [ -f "$_x/mu300/manifest" ] || { rm -rf "$_x"; fail not-a-zip; }
-    _web=0; grep -q 'MU300_ANSWERS' "$_x/mu300/install.sh" && grep -q 'MU300-STEP' "$_x/mu300/install.sh" && _web=1
-    _mf() { sed -n "s/^$1=//p" "$_x/mu300/manifest" | head -n1; }
+    [ -f "$_x/openf50/install.sh" ] && [ -f "$_x/openf50/manifest" ] || { rm -rf "$_x"; fail not-a-zip; }
+    _web=0; grep -q 'OPENF50_ANSWERS' "$_x/openf50/install.sh" && grep -q 'OPENF50-STEP' "$_x/openf50/install.sh" && _web=1
+    _mf() { sed -n "s/^$1=//p" "$_x/openf50/manifest" | head -n1; }
     out "ZIP {\"name\":$(js "$1"),\"web\":$_web,\"tag\":$(js "$(_mf TAG)"),\"system\":$(js "$(_mf SYSTEM)"),\"os\":$(js "$(_mf OS)"),\"ubuntu\":$(js "$(_mf UBUNTU)"),\"kernel\":$(js "$(_mf KERNEL)")}"
 }
 # ---- the device downloads a release's Magisk zip itself (run fetch NAME SIZE, net [NAME])
-# The tag is the one in the name (mu300-magisk-<tag>-<system>-k<kernel>.zip), the address this project's release of
+# The tag is the one in the name (openf50-magisk-<tag>-<system>-k<kernel>.zip), the address this project's release of
 # that tag: nothing else can be asked for. Whatever arrives is only a file in in/ until "take" has checked it
 # against the release's checksum, which the page read from GitHub's API over the browser's own (verified) TLS.
 #
@@ -416,15 +416,15 @@ take() {  # take NAME SHA256
 # no openssl and no wget of its own. So: the file must have exactly the size the release names, it is accepted only
 # with the release's SHA-256, and wget's own redirects are watched - a connection to anything but github.com and
 # its object hosts (*.githubusercontent.com), on port 443, ends the download.
-REPO_URL=${MU300_REPO_URL:-https://github.com/dikeckaan/mu300-linux/releases/download}
-FETCH_TRIES=${MU300_FETCH_TRIES:-5}
+REPO_URL=${OPENF50_REPO_URL:-https://github.com/sadpig/OpenF50/releases/download}
+FETCH_TRIES=${OPENF50_FETCH_TRIES:-5}
 # the job's exit status says why a download failed, for the page (device.js: FETCH_FAILURES)
 FETCH_NO_NETWORK=10; FETCH_BAD_HOST=11; FETCH_FAILED=12; FETCH_BAD_SIZE=13; FETCH_NO_SPACE=14
 zip_tag() {  # the tag in a release zip's name, or nothing
     # in the shell's own patterns: the sed of a busybox built for Android (bionic's regex) knows no \| in a basic
     # expression, so the sed that did this on a computer said "not a release zip" to every name on a device
-    case $1 in mu300-magisk-v[0-9]*.zip) ;; *) return 0 ;; esac
-    _zt=${1#mu300-magisk-}; _zt=${_zt%.zip}
+    case $1 in openf50-magisk-v[0-9]*.zip) ;; *) return 0 ;; esac
+    _zt=${1#openf50-magisk-}; _zt=${_zt%.zip}
     case $_zt in *-k5.4|*-k6.18|*-k7.2) _zt=${_zt%-k*} ;; *) return 0 ;; esac
     case $_zt in
         *-openwrt-luci) _zt=${_zt%-openwrt-luci} ;;
@@ -455,7 +455,7 @@ uplink_kind() {  # Android's default network: mobile, wifi, ethernet, other, or 
     esac
 }
 # net [NAME]: can this device download from GitHub right now? A request for the headers of the release file NAME
-# (or of github.com), with the same watch on where it connects. MU300-WEB-NET {json}; writes nothing but a log.
+# (or of github.com), with the same watch on where it connects. OPENF50-WEB-NET {json}; writes nothing but a log.
 net() {
     _url=https://github.com/
     if [ -n "${1:-}" ]; then
@@ -466,10 +466,10 @@ net() {
     _l=$R/fetch.log; : > "$_l"
     _ok=0; _why=
     # the timeout of wget is for a connection that says nothing; one that says a little for ever is ended here
-    ${MU300_WGET:-wget} -T "${MU300_NET_TIMEOUT:-10}" --spider "$_url" > "$_l" 2>&1 &
+    ${OPENF50_WGET:-wget} -T "${OPENF50_NET_TIMEOUT:-10}" --spider "$_url" > "$_l" 2>&1 &
     _wp=$!; _n=0
     while kill -0 "$_wp" 2>/dev/null; do
-        if [ "$_n" -ge "${MU300_NET_MAX_SECONDS:-30}" ]; then kill "$_wp" 2>/dev/null; echo "wget: no answer in time" >> "$_l"; break; fi
+        if [ "$_n" -ge "${OPENF50_NET_MAX_SECONDS:-30}" ]; then kill "$_wp" 2>/dev/null; echo "wget: no answer in time" >> "$_l"; break; fi
         sleep 1; _n=$((_n + 1))
     done
     if wait "$_wp"; then
@@ -511,11 +511,11 @@ fetch_zip() {  # fetch_zip NAME SIZE
         # the kernel refuses the write that would cross it), and the watch below for a shell without one.
         (
             ulimit -f $(( (_size + 511) / 512 )) 2>/dev/null
-            exec ${MU300_WGET:-wget} -c -T "${MU300_FETCH_TIMEOUT:-30}" -O "$_f" "$REPO_URL/$_tag/$1"
+            exec ${OPENF50_WGET:-wget} -c -T "${OPENF50_FETCH_TIMEOUT:-30}" -O "$_f" "$REPO_URL/$_tag/$1"
         ) > "$_l" 2>&1 &
         _wp=$!
         while kill -0 "$_wp" 2>/dev/null; do
-            sleep "${MU300_WEB_POLL:-1}"
+            sleep "${OPENF50_WEB_POLL:-1}"
             _bad=$(wget_strangers "$_l")
             if [ -n "$_bad" ]; then
                 kill "$_wp" 2>/dev/null; wait "$_wp" 2>/dev/null
@@ -531,13 +531,13 @@ fetch_zip() {  # fetch_zip NAME SIZE
                 return $FETCH_BAD_SIZE
             fi
             # an end to it whatever the other end does: a connection that sends a little for ever, a log that grows
-            if [ $(( $(date +%s) - _t0 )) -gt "${MU300_FETCH_MAX_SECONDS:-3600}" ] || [ "$(fsize "$_l")" -gt 1048576 ]; then
+            if [ $(( $(date +%s) - _t0 )) -gt "${OPENF50_FETCH_MAX_SECONDS:-3600}" ] || [ "$(fsize "$_l")" -gt 1048576 ]; then
                 kill "$_wp" 2>/dev/null; wait "$_wp" 2>/dev/null
                 rm -f "$_l"
                 echo "! the download did not finish in time; $_got of $_size bytes are here and the next try continues from there"
                 return $FETCH_FAILED
             fi
-            [ ! -f "$_f" ] || echo "MU300-PROGRESS $_got $_size"
+            [ ! -f "$_f" ] || echo "OPENF50-PROGRESS $_got $_size"
         done
         wait "$_wp"; _rc=$?
         _bad=$(wget_strangers "$_l")
@@ -547,7 +547,7 @@ fetch_zip() {  # fetch_zip NAME SIZE
             return $FETCH_BAD_HOST
         fi
         _got=0; [ ! -f "$_f" ] || _got=$(fsize "$_f")
-        echo "MU300-PROGRESS $_got $_size"
+        echo "OPENF50-PROGRESS $_got $_size"
         if [ "$_got" -gt "$_size" ]; then
             rm -f "$_f" "$_l"
             echo "! the file that arrived is larger than the release's ($_got bytes, not $_size): nothing kept"
@@ -594,7 +594,7 @@ extra() {  # extra NAME FILE SHA256
     sha_ok "${3:-}" || fail bad-sha
     root_dir
     mkdir -p "$R/extras" || fail no-root-dir
-    _e=$R/extras/mu300-extra-$1.tar.gz
+    _e=$R/extras/openf50-extra-$1.tar.gz
     bring "$2" "$_e" "$EXTRA_MAX"
     case $? in 0) ;; 2) fail too-large ;; *) fail no-file ;; esac
     _h=$(sha_of "$_e")
@@ -607,7 +607,7 @@ answers() {
     bring answers.conf "$R/answers.in" 65536
     case $? in 0) ;; 2) fail too-large ;; *) fail no-file ;; esac
     # a copy made by root under umask 077 from the file in root's directory, no password in it yet
-    ( umask 077; grep -v '^[[:space:]]*MU300_PASSWORD[[:space:]]*=' "$R/answers.in" > "$R/answers.conf" ) || true
+    ( umask 077; grep -v '^[[:space:]]*OPENF50_PASSWORD[[:space:]]*=' "$R/answers.in" > "$R/answers.conf" ) || true
     rm -f "$R/answers.in"
     [ -f "$R/answers.conf" ] && chmod 600 "$R/answers.conf" || fail no-root-dir
     out "ANSWERS ok"
@@ -617,26 +617,26 @@ password() {  # one line on stdin
     IFS= read -r _pw || [ -n "${_pw:-}" ] || fail no-stdin
     _pw=$(printf '%s' "$_pw" | tr -d '\r')
     [ ${#_pw} -ge 6 ] || fail short-password
-    ( umask 077; printf 'MU300_PASSWORD=%s\n' "$_pw" >> "$R/answers.conf" ) || fail no-root-dir
+    ( umask 077; printf 'OPENF50_PASSWORD=%s\n' "$_pw" >> "$R/answers.conf" ) || fail no-root-dir
     _pw=
     out "PASSWORD ok"
 }
-# The zip's installer, as Magisk's customize.sh starts it: under Magisk's busybox with ASH_STANDALONE=1, MU300_DIR the
-# unpacked mu300/, ZIPFILE the zip. After an installation the zip's switch module goes into Magisk's modules, as
+# The zip's installer, as Magisk's customize.sh starts it: under Magisk's busybox with ASH_STANDALONE=1, OPENF50_DIR the
+# unpacked openf50/, ZIPFILE the zip. After an installation the zip's switch module goes into Magisk's modules, as
 # customize.sh's last lines and tools/install-magisk-module.sh do.
 zip_run() {  # zip_run NAME plan|install
     _x=$(zip_dir "$1")
-    [ -f "$_x/mu300/install.sh" ] && [ -f "$R/zips/$1" ] || { echo "! the zip $1 is not on the device any more"; return 1; }
+    [ -f "$_x/openf50/install.sh" ] && [ -f "$R/zips/$1" ] || { echo "! the zip $1 is not on the device any more"; return 1; }
     [ -f "$R/answers.conf" ] || { echo "! no answers for this run"; return 1; }
-    rm -rf "$_x/mu300/extras"
+    rm -rf "$_x/openf50/extras"
     if [ "$2" = install ] && [ -d "$R/extras" ]; then
-        mkdir -p "$_x/mu300/extras" && cp "$R"/extras/mu300-extra-*.tar.gz "$_x/mu300/extras/" 2>/dev/null
+        mkdir -p "$_x/openf50/extras" && cp "$R"/extras/openf50-extra-*.tar.gz "$_x/openf50/extras/" 2>/dev/null
     fi
     _dry=; [ "$2" != plan ] || _dry=1
-    MU300_DIR=$_x/mu300 ZIPFILE=$R/zips/$1 MAGISKBIN=$MAGISKBIN MU300_ANSWERS=$R/answers.conf MU300_PROGRESS=1 \
-        MU300_DRY_RUN=$_dry ASH_STANDALONE=1 "${MU300_INSTALL_BB:-$MAGISKBIN/busybox}" sh "$_x/mu300/install.sh"
+    OPENF50_DIR=$_x/openf50 ZIPFILE=$R/zips/$1 MAGISKBIN=$MAGISKBIN OPENF50_ANSWERS=$R/answers.conf OPENF50_PROGRESS=1 \
+        OPENF50_DRY_RUN=$_dry ASH_STANDALONE=1 "${OPENF50_INSTALL_BB:-$MAGISKBIN/busybox}" sh "$_x/openf50/install.sh"
     _rc=$?
-    rm -rf "$_x/mu300/extras"
+    rm -rf "$_x/openf50/extras"
     if [ "$2" = install ] && [ $_rc = 0 ]; then
         rm -rf "$R/extras"
         switch_module "$_x" || echo "! the on-device switch (Magisk module) could not be installed; Linux is installed all the same"
@@ -645,14 +645,14 @@ zip_run() {  # zip_run NAME plan|install
 }
 switch_module() {  # switch_module DIR: the zip's switch module, straight into Magisk's modules directory
     [ -d "$MODULES" ] || return 0
-    _m=$MODULES/mu300_linux_switch
+    _m=$MODULES/openf50_linux_switch
     [ -f "$1/module.prop" ] && [ -f "$1/switch.sh" ] || return 1
     rm -rf "$_m" && mkdir -p "$_m" &&
         cp -R "$1/module.prop" "$1/action.sh" "$1/switch.sh" "$1/bootchain.sh" "$1/system" "$_m/" || return 1
     chown -R 0:0 "$_m" 2>/dev/null
     find "$_m" -type d -exec chmod 755 {} + && find "$_m" -type f -exec chmod 644 {} + &&
-        chmod 755 "$_m/switch.sh" "$_m/action.sh" "$_m/bootchain.sh" "$_m/system/bin/mu300-linux" || return 1
-    echo "- the on-device switch is installed (after the next Android boot: su -c mu300-linux)"
+        chmod 755 "$_m/switch.sh" "$_m/action.sh" "$_m/bootchain.sh" "$_m/system/bin/openf50-linux" || return 1
+    echo "- the on-device switch is installed (after the next Android boot: su -c openf50-linux)"
 }
 
 # ---- uninstall: tools/uninstall.sh, on the device. Android's slot becomes the boot slot in misc (verified), then
@@ -664,14 +664,14 @@ UNSTEPS='check misc boot erase card cleanup done'
 ustep() {
     _sn=0 _st=0
     for _s in $UNSTEPS; do _st=$((_st + 1)); [ "$_s" != "$1" ] || _sn=$_st; done
-    echo "MU300-STEP $_sn/$_st $1"
+    echo "OPENF50-STEP $_sn/$_st $1"
 }
 # un_check: the device, the slots, where Linux is, the block misc gets. Sets existing/OFF/SIZE, SD_DEV/SD_EX, UN_LIVE
 # and UN_NEW; dies before anything is written.
 un_check() {
     detect
     mkdir -p "$R" && chmod 700 "$R" || die "cannot use $R; nothing was changed"
-    [ -n "$DEVICE" ] || die "this does not look like a ZTE F50/MU300, U30 Air or V50; nothing was changed"
+    [ -n "$DEVICE" ] || die "this does not look like a ZTE F50/OPENF50, U30 Air or V50; nothing was changed"
     slots_ok || die "cannot tell which slot Android runs from, or boot_a and boot_b are the same partition; nothing was changed"
     say "Android runs from slot $ANDROID_SLOT; Linux is on slot $LINUX_SLOT (boot_$LINUX_SLOT)"
     region_probe || die "could not read the partition table; nothing was changed"
@@ -679,12 +679,12 @@ un_check() {
     if [ "$existing" = yes ]; then
         # the region lies completely after the last partition and before the backup GPT, on a 1 MiB boundary
         [ $((OFF / 512)) -ge "$last_end" ] && [ $(( (OFF + SIZE) / 512 )) -le $((disk - 34)) ] ||
-            die "the mu300root filesystem overlaps a partition; nothing was changed"
+            die "the openf50root filesystem overlaps a partition; nothing was changed"
         [ $((OFF % 1048576)) -eq 0 ] || die "unexpected filesystem offset $OFF; nothing was changed"
-        [ $((SIZE / 1048576)) -gt 0 ] || die "the mu300root filesystem has no size; nothing was changed"
+        [ $((SIZE / 1048576)) -gt 0 ] || die "the openf50root filesystem has no size; nothing was changed"
         say "Linux filesystem: offset $OFF, $((SIZE / 1048576)) MiB"
     else
-        say "no mu300root filesystem on the eMMC"
+        say "no openf50root filesystem on the eMMC"
     fi
     sd_probe; SD_EX=no
     [ -z "$SD_DEV" ] || SD_EX=$(sd_existing)
@@ -753,7 +753,7 @@ un_erase() {  # un_erase secure|quick|keep: the Linux filesystem in the free eMM
             dd if=/dev/zero of="$EMMC" bs=1048576 seek=$_at count=$_n conv=notrunc 2>/dev/null ||
                 die "writing failed at $_at MiB; boot_$LINUX_SLOT is Android already, uninstall again to finish the erase"
             _at=$((_at + _n))
-            echo "MU300-PROGRESS $((_at - _skip)) $_mib"
+            echo "OPENF50-PROGRESS $((_at - _skip)) $_mib"
         done
         sync
     fi
@@ -772,7 +772,7 @@ un_erase() {  # un_erase secure|quick|keep: the Linux filesystem in the free eMM
         say "erased (headers only: the files stay readable on the flash until the space is reused)"
     fi
 }
-un_card() {  # un_card WIPE erase|keep: the card's mu300sd, and the marker a kept internal installation may hold
+un_card() {  # un_card WIPE erase|keep: the card's openf50sd, and the marker a kept internal installation may hold
     if [ "$SD_EX" = yes ] && [ "$2" = erase ]; then
         sd_erase         # checks the card again on the device before it writes (storage.sh)
         say "erased the Linux filesystem on the SD card ($SD_DEV)"
@@ -782,24 +782,24 @@ un_card() {  # un_card WIPE erase|keep: the card's mu300sd, and the marker a kep
     # a kept internal installation may hold the marker of a card installation (init then waits for the card)
     if [ "$existing" = yes ] && [ "$1" = keep ] && { [ "$2" = erase ] || [ "$SD_EX" != yes ]; }; then
         _m=$R/mnt
-        if mkdir -p "$_m" && asw MU300_OFF="$OFF" MU300_SIZE="$SIZE" MU300_MOUNTS="$MOUNTS" "$ANDROID_SH" "$S/android-mount-mu300root.sh" "$_m" 2>/dev/null | grep -q '^MOUNTED'; then
-            rm -f "$_m/.mu300/root-on-sd"; sync
+        if mkdir -p "$_m" && asw OPENF50_OFF="$OFF" OPENF50_SIZE="$SIZE" OPENF50_MOUNTS="$MOUNTS" "$ANDROID_SH" "$S/android-mount-openf50root.sh" "$_m" 2>/dev/null | grep -q '^MOUNTED'; then
+            rm -f "$_m/.openf50/root-on-sd"; sync
             umount_ro "$_m"
         fi
     fi
 }
 un_cleanup() {
     # what the installer for computers left in /data/local/tmp; never through a Linux filesystem still mounted there
-    _t=${MU300_LOCAL_TMP:-/data/local/tmp}
+    _t=${OPENF50_LOCAL_TMP:-/data/local/tmp}
     # (the adb user can write there: single names only, a link goes as a link, and no tree is ever walked)
-    mounted_under "$_t/mu300root" || { [ -L "$_t/mu300root" ] && rm -f -- "$_t/mu300root"; rmdir "$_t/mu300root" 2>/dev/null; }
-    for _f in "$_t"/mu300-*; do
+    mounted_under "$_t/openf50root" || { [ -L "$_t/openf50root" ] && rm -f -- "$_t/openf50root"; rmdir "$_t/openf50root" 2>/dev/null; }
+    for _f in "$_t"/openf50-*; do
         if [ -L "$_f" ] || [ -f "$_f" ]; then rm -f -- "$_f"; fi
     done
-    rm -f -- "$_t/android-install.sh" "$_t/android-mount-mu300root.sh" "$_t/android-bootchain.sh"
+    rm -f -- "$_t/android-install.sh" "$_t/android-mount-openf50root.sh" "$_t/android-bootchain.sh"
     # the on-device switch would point at a slot that holds Android again: Magisk removes a module with this marker
-    if [ -d "$MODULES/mu300_linux_switch" ]; then
-        : > "$MODULES/mu300_linux_switch/remove"
+    if [ -d "$MODULES/openf50_linux_switch" ]; then
+        : > "$MODULES/openf50_linux_switch/remove"
         say "the on-device switch (Magisk module) goes with the next restart"
     fi
 }
@@ -884,8 +884,8 @@ clean() {
     rm -f "$R/answers.conf" "$R/answers.in" "$R/bc.bin" "$R/fetch.log"
     rm -rf "$R/extras"
     # what a killed run of the installer left in /data/adb: its work directories, never one with a filesystem
-    # still mounted in it (rm -rf into a mounted mu300root would delete the installed systems)
-    for _w in "$WORK_PARENT"/mu300-magisk.*; do
+    # still mounted in it (rm -rf into a mounted openf50root would delete the installed systems)
+    for _w in "$WORK_PARENT"/openf50-magisk.*; do
         [ -d "$_w" ] && [ ! -L "$_w" ] || continue
         mounted_under "$_w" || rm -rf "$_w"
     done
@@ -895,8 +895,8 @@ clean() {
     out "CLEAN ok"
 }
 
-[ -z "${MU300_LIB:-}" ] || return 0
-[ "$(id -u)" = 0 ] || [ -n "${MU300_SKIP_ROOT_CHECK:-}" ] || fail not-root
+[ -z "${OPENF50_LIB:-}" ] || return 0
+[ "$(id -u)" = 0 ] || [ -n "${OPENF50_SKIP_ROOT_CHECK:-}" ] || fail not-root
 case ${1:-} in
     status) status "${2:-}" ;;
     take) take "${2:-}" "${3:-}" ;;
@@ -908,7 +908,7 @@ case ${1:-} in
         case ${2:-} in
             plan|install)
                 name_ok "${3:-}" || fail bad-name
-                [ -f "$(zip_dir "$3")/mu300/install.sh" ] || fail no-zip
+                [ -f "$(zip_dir "$3")/openf50/install.sh" ] || fail no-zip
                 [ -f "$R/answers.conf" ] || fail no-answers
                 case ${4:-} in '') JOB_MORE= ;; more) JOB_MORE=1 ;; *) fail bad-argument ;; esac
                 job_start "$2" "$3" ;;

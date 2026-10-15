@@ -15,7 +15,7 @@ import { GIB, MIB, NEED, analyseStorage, answersFor, classifyLine, dataNeeded, d
 
 test("serial numbers are masked to their last four characters", () => {
   assert.equal(maskSerial("324950664950"), "••••••••4950");
-  assert.equal(maskSerial("MU300LINUX-324950664950-203d8329"), "••••••••8329");
+  assert.equal(maskSerial("OPENF50LINUX-324950664950-203d8329"), "••••••••8329");
   assert.equal(maskSerial("abc"), "•••");
   assert.equal(maskSerial(""), "");
   assert.equal(maskSerial(undefined), "");
@@ -24,11 +24,11 @@ test("serial numbers are masked to their last four characters", () => {
 test("the log masker: serials, identity numbers, phone numbers and MAC addresses go; offsets and checksums stay", () => {
   const m = new Masker();
   m.add("324950664950");
-  m.add("MU300LINUX-324950664950-203d8329");
+  m.add("OPENF50LINUX-324950664950-203d8329");
   m.add("hunter2-secret", "***");
   m.add("ab");                                         // too short to be a secret worth replacing everywhere
   const t = m.mask([
-    "serial 324950664950 and MU300LINUX-324950664950-203d8329",
+    "serial 324950664950 and OPENF50LINUX-324950664950-203d8329",
     "IMEI: 867530012345678 IMSI 286011234567890 ICCID 8990011234567890123F? 89900112345678901234",
     "sms from +90 532 123 45 67 and +905321234567",
     "password hunter2-secret",
@@ -94,19 +94,19 @@ function makeZip(files) {
   return new Blob([Buffer.concat([...locals, cd, eocd])]);
 }
 const MANIFEST = (o = {}) => Object.entries({ TAG: "v2026.11.01", SYSTEM: "ubuntu-24.04", OS: "ubuntu", UBUNTU: "24.04", KERNEL: "6.18",
-  KERNEL_ASSET: "mu300-kernel-6.18.tar.gz", ROOTFS_ASSET: "mu300-ubuntu-rootfs.tar.gz", SHA256_KERNEL: "a".repeat(64), SHA256_ROOTFS: "b".repeat(64), ...o })
+  KERNEL_ASSET: "openf50-kernel-6.18.tar.gz", ROOTFS_ASSET: "openf50-ubuntu-rootfs.tar.gz", SHA256_KERNEL: "a".repeat(64), SHA256_ROOTFS: "b".repeat(64), ...o })
   .map(([k, v]) => `${k}=${v}\n`).join("");
-const magiskZip = (manifest = MANIFEST(), installer = "#!/system/bin/sh\n# MU300_ANSWERS MU300-STEP\n") => makeZip([
-  ["mu300/manifest", manifest], ["mu300/install.sh", installer], ["mu300/android-install.sh", "x"], ["switch.sh", "x"], ["module.prop", "id=mu300_linux_switch\n"],
-  ["payload/mu300-ubuntu-rootfs.tar.gz", crypto.randomBytes(200000), 0]]);
+const magiskZip = (manifest = MANIFEST(), installer = "#!/system/bin/sh\n# OPENF50_ANSWERS OPENF50-STEP\n") => makeZip([
+  ["openf50/manifest", manifest], ["openf50/install.sh", installer], ["openf50/android-install.sh", "x"], ["switch.sh", "x"], ["module.prop", "id=openf50_linux_switch\n"],
+  ["payload/openf50-ubuntu-rootfs.tar.gz", crypto.randomBytes(200000), 0]]);
 
 test("a picked Magisk zip: its manifest and whether its installer knows the web installer", async () => {
   assert.deepEqual(await inspectMagiskZip(magiskZip()), { tag: "v2026.11.01", system: "ubuntu-24.04", os: "ubuntu", ubuntu: "24.04", kernel: "6.18", web: true });
   assert.equal((await inspectMagiskZip(magiskZip(MANIFEST(), "#!/system/bin/sh\necho old\n"))).web, false);
   const z = await openZip(magiskZip());
-  assert.equal(z.entries.get("payload/mu300-ubuntu-rootfs.tar.gz").method, 0);
-  assert.equal((await z.read("payload/mu300-ubuntu-rootfs.tar.gz")).length, 200000);
-  await assert.rejects(z.read("payload/mu300-ubuntu-rootfs.tar.gz", 1000), (e) => e.code === "too-large");
+  assert.equal(z.entries.get("payload/openf50-ubuntu-rootfs.tar.gz").method, 0);
+  assert.equal((await z.read("payload/openf50-ubuntu-rootfs.tar.gz")).length, 200000);
+  await assert.rejects(z.read("payload/openf50-ubuntu-rootfs.tar.gz", 1000), (e) => e.code === "too-large");
   await assert.rejects(z.read("nope"), (e) => e.code === "no-entry");
 });
 
@@ -120,7 +120,7 @@ test("what is not one of our zips is refused with a reason", async () => {
   }
   assert.throws(() => parseManifest(""), code("bad-manifest"));
   // a deflated entry that unpacks to more than is allowed (a zip bomb in the manifest's place)
-  const bomb = makeZip([["mu300/manifest", Buffer.alloc(5 * 1024 * 1024)], ["mu300/install.sh", "x"], ["mu300/android-install.sh", "x"], ["switch.sh", "x"], ["module.prop", "x"]]);
+  const bomb = makeZip([["openf50/manifest", Buffer.alloc(5 * 1024 * 1024)], ["openf50/install.sh", "x"], ["openf50/android-install.sh", "x"], ["switch.sh", "x"], ["module.prop", "x"]]);
   await assert.rejects(inspectMagiskZip(bomb), code("too-large"));
   // a directory that points outside the file
   const buf = Buffer.from(await magiskZip().arrayBuffer());
@@ -150,7 +150,7 @@ test("releases: the newest release, and a beta only when it is newer than that",
   assert.equal(r.stable.tag, "v2026.11.01");
   assert.equal(r.beta.tag, "v2026.11.05");
   const [url, init] = fetchOf.calls.at(-1);
-  assert.equal(url, "https://api.github.com/repos/dikeckaan/mu300-linux/releases?per_page=30");
+  assert.equal(url, "https://api.github.com/repos/sadpig/OpenF50/releases?per_page=30");
   assert.equal(init.credentials, "omit");
   assert.equal(init.referrerPolicy, "no-referrer");
 });
@@ -158,8 +158,8 @@ test("releases: the newest release, and a beta only when it is newer than that",
 test("releases: a zip is found by system and kernel, with the checksum GitHub computed and a link built here", async () => {
   const { stable } = await loadReleases(fetchOf([rel("v2026.11.01")]));
   const z = findZip(stable, "openwrt-luci", "7.2");
-  assert.deepEqual(z, { name: "mu300-magisk-v2026.11.01-openwrt-luci-k7.2.zip", size: 1000, sha256: "c".repeat(64),
-    url: "https://github.com/dikeckaan/mu300-linux/releases/download/v2026.11.01/mu300-magisk-v2026.11.01-openwrt-luci-k7.2.zip" });
+  assert.deepEqual(z, { name: "openf50-magisk-v2026.11.01-openwrt-luci-k7.2.zip", size: 1000, sha256: "c".repeat(64),
+    url: "https://github.com/sadpig/OpenF50/releases/download/v2026.11.01/openf50-magisk-v2026.11.01-openwrt-luci-k7.2.zip" });
   assert.equal(findZip(stable, "ubuntu-26.04", "5.4"), null);
   assert.equal(findZip(stable, "arch", "5.4"), null);
   assert.deepEqual(combos(stable), { "ubuntu-24.04": ["5.4", "6.18", "7.2"], "ubuntu-26.04": ["6.18", "7.2"], openwrt: ["5.4", "6.18", "7.2"], "openwrt-luci": ["5.4", "6.18", "7.2"] });
@@ -175,14 +175,14 @@ test("releases: what the API says is checked for its shape before it is used", a
     { tag_name: "v1/../../x", assets: [] }, { tag_name: "<script>", assets: [] }, { tag_name: 5 }, null, "text",
     rel("v2026.11.02", { draft: true }),
     rel("v2026.11.01", { assets: [asset("../../etc/passwd"), asset("a b.zip"), asset("ok.zip", -5), asset("ok2.zip", 1.5), asset("nohash.zip", 10, "md5:abc"),
-      asset("mu300-magisk-v2026.11.01-openwrt-k5.4.zip", 10, "sha256:" + "Z".repeat(64)), asset("mu300-magisk-v2026.11.01-openwrt-k6.18.zip", 10)] }),
+      asset("openf50-magisk-v2026.11.01-openwrt-k5.4.zip", 10, "sha256:" + "Z".repeat(64)), asset("openf50-magisk-v2026.11.01-openwrt-k6.18.zip", 10)] }),
   ];
   const { stable } = await loadReleases(fetchOf(hostile));
   assert.equal(stable.tag, "v2026.11.01");
-  assert.deepEqual([...stable.assets.keys()].sort(), ["mu300-magisk-v2026.11.01-openwrt-k5.4.zip", "mu300-magisk-v2026.11.01-openwrt-k6.18.zip", "nohash.zip"]);
+  assert.deepEqual([...stable.assets.keys()].sort(), ["openf50-magisk-v2026.11.01-openwrt-k5.4.zip", "openf50-magisk-v2026.11.01-openwrt-k6.18.zip", "nohash.zip"]);
   assert.equal(findZip(stable, "openwrt", "5.4"), null, "a zip without a usable checksum is not offered");
   assert.ok(findZip(stable, "openwrt", "6.18"));
-  for (const a of stable.assets.values()) assert.ok(a.url.startsWith("https://github.com/dikeckaan/mu300-linux/releases/download/v2026.11.01/"));
+  for (const a of stable.assets.values()) assert.ok(a.url.startsWith("https://github.com/sadpig/OpenF50/releases/download/v2026.11.01/"));
 });
 
 test("releases: the failures have names", async () => {
@@ -196,9 +196,9 @@ test("releases: the failures have names", async () => {
 });
 
 test("the VPN module's release", async () => {
-  const m = await loadVpnModule(fetchOf({ tag_name: "v2.0.1", assets: [asset("mu300-linux-vpn.tar.gz", 41946588)] }));
-  assert.deepEqual(m, { tag: "v2.0.1", name: "mu300-linux-vpn.tar.gz", size: 41946588, sha256: "c".repeat(64),
-    url: "https://github.com/dikeckaan/mu300-linux-vpn/releases/download/v2.0.1/mu300-linux-vpn.tar.gz" });
+  const m = await loadVpnModule(fetchOf({ tag_name: "v2.0.1", assets: [asset("openf50-linux-vpn.tar.gz", 41946588)] }));
+  assert.deepEqual(m, { tag: "v2.0.1", name: "openf50-linux-vpn.tar.gz", size: 41946588, sha256: "c".repeat(64),
+    url: "https://github.com/dikeckaan/mu300-linux-vpn/releases/download/v2.0.1/openf50-linux-vpn.tar.gz" });
   await assert.rejects(loadVpnModule(fetchOf({ tag_name: "v2.0.1", assets: [] })), (e) => e.code === "no-release");
 });
 
@@ -331,50 +331,50 @@ test("the answers of each run", () => {
   const s = status();
   const ctx = { lang: "tr", status: s, analysis: analyseStorage(s), adbKeyLine: "QAAAA= web" };
   const c = choices({ bootOs: "openwrt-luci", attempts: 3, hotspot: false, password: "never in this file" });
-  assert.equal(answersFor(c, 0, ctx), "MU300_LANG=tr\nMU300_STORAGE=internal\nMU300_MODE=update\nMU300_BOOT=linux\nMU300_BOOT_ATTEMPTS=3\nMU300_HOTSPOT=no\nMU300_GPU=yes\nMU300_ADB_KEY=QAAAA= web\n");
-  assert.equal(answersFor(c, 1, ctx), "MU300_LANG=tr\nMU300_STORAGE=internal\nMU300_MODE=update\nMU300_BOOT_OS=openwrt-luci\nMU300_BOOT=linux\nMU300_BOOT_ATTEMPTS=3\nMU300_HOTSPOT=no\nMU300_GPU=yes\nMU300_ADB_KEY=QAAAA= web\n");
+  assert.equal(answersFor(c, 0, ctx), "OPENF50_LANG=tr\nOPENF50_STORAGE=internal\nOPENF50_MODE=update\nOPENF50_BOOT=linux\nOPENF50_BOOT_ATTEMPTS=3\nOPENF50_HOTSPOT=no\nOPENF50_GPU=yes\nOPENF50_ADB_KEY=QAAAA= web\n");
+  assert.equal(answersFor(c, 1, ctx), "OPENF50_LANG=tr\nOPENF50_STORAGE=internal\nOPENF50_MODE=update\nOPENF50_BOOT_OS=openwrt-luci\nOPENF50_BOOT=linux\nOPENF50_BOOT_ATTEMPTS=3\nOPENF50_HOTSPOT=no\nOPENF50_GPU=yes\nOPENF50_ADB_KEY=QAAAA= web\n");
   assert.ok(!answersFor(c, 0, ctx).includes("never in this file"));
   // the first system is the one that boots: named in both runs
-  assert.ok(answersFor(choices(), 0, { ...ctx, adbKeyLine: "" }).includes("MU300_BOOT_OS=ubuntu\n"));
-  assert.ok(!answersFor(choices(), 0, { ...ctx, adbKeyLine: "" }).includes("MU300_ADB_KEY"));
-  assert.ok(answersFor(choices(), 0, { ...ctx, lang: "de" }).startsWith("MU300_LANG=en\n"));
+  assert.ok(answersFor(choices(), 0, { ...ctx, adbKeyLine: "" }).includes("OPENF50_BOOT_OS=ubuntu\n"));
+  assert.ok(!answersFor(choices(), 0, { ...ctx, adbKeyLine: "" }).includes("OPENF50_ADB_KEY"));
+  assert.ok(answersFor(choices(), 0, { ...ctx, lang: "de" }).startsWith("OPENF50_LANG=en\n"));
 });
 
 test("answers: what erases is said once, in the first run, and only when confirmed", () => {
   const card = status({ sd: { dev: "/dev/block/mmcblk1p1", bytes: 32 * GIB, small: 0, existing: "no" } });
   const cctx = { lang: "en", status: card, analysis: analyseStorage(card) };
   const sd = choices({ target: "sd", eraseConfirmed: true });
-  assert.ok(answersFor(sd, 0, cctx).includes("MU300_STORAGE=sd\nMU300_MODE=update\nMU300_SD_ERASE=yes\n"));
+  assert.ok(answersFor(sd, 0, cctx).includes("OPENF50_STORAGE=sd\nOPENF50_MODE=update\nOPENF50_SD_ERASE=yes\n"));
   assert.ok(!answersFor(sd, 1, cctx).includes("ERASE"));
   assert.ok(!answersFor(choices({ target: "sd" }), 0, cctx).includes("ERASE"));
   const dirty = status({ region: { off: 27762098176, size: 30 * GIB, existing: "no", dirty: 2 } });
   const dctx = { lang: "en", status: dirty, analysis: analyseStorage(dirty) };
-  assert.ok(answersFor(choices({ overwriteConfirmed: true }), 0, dctx).includes("MU300_REGION_OVERWRITE=yes\n"));
+  assert.ok(answersFor(choices({ overwriteConfirmed: true }), 0, dctx).includes("OPENF50_REGION_OVERWRITE=yes\n"));
   assert.ok(!answersFor(choices({ overwriteConfirmed: true }), 1, dctx).includes("OVERWRITE"));
   assert.ok(!answersFor(choices(), 0, dctx).includes("OVERWRITE"));
   const ex = status({ region: { off: 27762098176, size: 8 * GIB, existing: "yes", dirty: -1 }, linux: { systems: { openwrt: "v1" }, ubuntu: "" } });
   const ectx = { lang: "en", status: ex, analysis: analyseStorage(ex) };
   const wipe = choices({ mode: "wipe" });
-  assert.ok(answersFor(wipe, 0, ectx).includes("MU300_MODE=wipe\n"));
-  assert.ok(answersFor(wipe, 1, ectx).includes("MU300_MODE=update\n"), "the second run never wipes what the first installed");
+  assert.ok(answersFor(wipe, 0, ectx).includes("OPENF50_MODE=wipe\n"));
+  assert.ok(answersFor(wipe, 1, ectx).includes("OPENF50_MODE=update\n"), "the second run never wipes what the first installed");
   // a kept OpenWrt may boot although this run installs Ubuntu only; after a wipe it is gone and cannot be named
   const keepBoot = choices({ systems: ["ubuntu-24.04"], bootOs: "openwrt" });
-  assert.ok(answersFor(keepBoot, 0, ectx).includes("MU300_BOOT_OS=openwrt\n"));
-  assert.ok(!answersFor({ ...keepBoot, mode: "wipe" }, 0, ectx).includes("MU300_BOOT_OS"));
+  assert.ok(answersFor(keepBoot, 0, ectx).includes("OPENF50_BOOT_OS=openwrt\n"));
+  assert.ok(!answersFor({ ...keepBoot, mode: "wipe" }, 0, ectx).includes("OPENF50_BOOT_OS"));
 });
 
 test("the installer's lines", () => {
-  assert.deepEqual(classifyLine("MU300-STEP 6/9 systems"), { type: "step", n: 6, of: 9, name: "systems" });
-  assert.deepEqual(classifyLine("MU300-PLAN have=ubuntu openwrt"), { type: "plan", key: "have", value: "ubuntu openwrt" });
-  assert.deepEqual(classifyLine("MU300-PROGRESS 512 32768"), { type: "progress", done: 512, total: 32768 });
-  assert.deepEqual(classifyLine("MU300-WEB-EXIT 0"), { type: "exit", rc: 0 });
-  assert.deepEqual(classifyLine("MU300-WEB-EXIT interrupted"), { type: "exit", rc: "interrupted" });
+  assert.deepEqual(classifyLine("OPENF50-STEP 6/9 systems"), { type: "step", n: 6, of: 9, name: "systems" });
+  assert.deepEqual(classifyLine("OPENF50-PLAN have=ubuntu openwrt"), { type: "plan", key: "have", value: "ubuntu openwrt" });
+  assert.deepEqual(classifyLine("OPENF50-PROGRESS 512 32768"), { type: "progress", done: 512, total: 32768 });
+  assert.deepEqual(classifyLine("OPENF50-WEB-EXIT 0"), { type: "exit", rc: 0 });
+  assert.deepEqual(classifyLine("OPENF50-WEB-EXIT interrupted"), { type: "exit", rc: "interrupted" });
   assert.deepEqual(classifyLine("! boot_b did not verify"), { type: "error", text: "boot_b did not verify" });
   assert.deepEqual(classifyLine("- Installing openwrt"), { type: "text", text: "- Installing openwrt" });
   // a line that only looks like one of them is text
-  assert.equal(classifyLine("MU300-STEP 6/9 systems; rm -rf /").type, "text");
-  assert.equal(classifyLine(" MU300-STEP 6/9 systems").type, "text");
-  assert.deepEqual(parsePlan(["x", "MU300-PLAN tag=v1", "MU300-PLAN extras=", "MU300-PLAN bad key=1"]), { tag: "v1", extras: "" });
+  assert.equal(classifyLine("OPENF50-STEP 6/9 systems; rm -rf /").type, "text");
+  assert.equal(classifyLine(" OPENF50-STEP 6/9 systems").type, "text");
+  assert.deepEqual(parsePlan(["x", "OPENF50-PLAN tag=v1", "OPENF50-PLAN extras=", "OPENF50-PLAN bad key=1"]), { tag: "v1", extras: "" });
   assert.deepEqual(["check", "image", "systems", "boot", "arm", "done", "what"].map(stageRisk), ["nothing", "nothing", "systems", "boot", "arm", "done", "nothing"]);
   assert.equal(needFor(["ubuntu"]), NEED.ubuntu);
   assert.equal(needFor(["openwrt-luci"]), NEED.openwrt);

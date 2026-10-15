@@ -44,7 +44,7 @@ struct trusty_irq_state {
 };
 
 /*
- * MU300: on the mainline kernel the secure world's IPI_TRUSTY_SMC (SGI 13) never reaches Linux, so Trusty never
+ * OPENF50: on the mainline kernel the secure world's IPI_TRUSTY_SMC (SGI 13) never reaches Linux, so Trusty never
  * gets CPU time to run a TA (e.g. modem boot requests block forever). Give it time periodically instead.
  */
 static unsigned int nop_poll_ms;	/* superseded by trusty-core nop_poll_ms */

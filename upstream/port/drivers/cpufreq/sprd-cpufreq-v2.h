@@ -101,7 +101,7 @@ static inline u32 sprd_cluster_num(void)
 
 unsigned int sprd_cpufreq_update_opp_v2(int cpu, int now_temp);
 
-/* MU300: the vendor debugfs interface is not ported */
+/* OPENF50: the vendor debugfs interface is not ported */
 static inline int sprd_debug_cluster_init(struct cpufreq_policy *policy) { return 0; }
 static inline int sprd_debug_cluster_exit(struct cpufreq_policy *policy) { return 0; }
 static inline int sprd_debug_init(struct device *pdev) { return 0; }

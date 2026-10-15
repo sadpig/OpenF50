@@ -30,7 +30,7 @@
 
 #ifdef SPRD_SUPPORT_FAULT_KEYWORD
 #include <linux/sunrpc/cache.h>
-extern s64 time[FAULT_KEYWORD_NUM];	/* MU300: s64 is gone from the kernel headers */
+extern s64 time[FAULT_KEYWORD_NUM];	/* OPENF50: s64 is gone from the kernel headers */
 #endif
 
 #if MALI_USE_CSF

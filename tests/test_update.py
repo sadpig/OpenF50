@@ -1,4 +1,4 @@
-"""mu300-update, sourced for its functions (MU300_LIB=1) against a fake Linux partition (MU300_DISK): which files of a
+"""openf50-update, sourced for its functions (OPENF50_LIB=1) against a fake Linux partition (OPENF50_DISK): which files of a
 release it takes, the kernel choice, the byte helpers it edits boot image headers with, and whether a kernel bundle
 may go onto this device."""
 import io
@@ -23,15 +23,15 @@ class UpdateBase(ShellTest):
         self.disk = self.tmp / 'disk'
         (self.disk / 'ubuntu' / 'etc').mkdir(parents=True)
         self.root = self.tmp / 'root'
-        (self.root / 'run/mu300').mkdir(parents=True)
+        (self.root / 'run/openf50').mkdir(parents=True)
         self.device('f50')
 
     def device(self, name):
-        (self.root / 'run/mu300/device').write_text(name + '\n')
+        (self.root / 'run/openf50/device').write_text(name + '\n')
 
     def up(self, shell, code, **env):
-        return self.sh(shell, f'. "{BIN}/mu300-update"; {code}', MU300_LIB=1, MU300_DISK=self.disk, MU300_BIN=BIN,
-                       MU300_SYSROOT=self.root, **env)
+        return self.sh(shell, f'. "{BIN}/openf50-update"; {code}', OPENF50_LIB=1, OPENF50_DISK=self.disk, OPENF50_BIN=BIN,
+                       OPENF50_SYSROOT=self.root, **env)
 
     def busybox_applets(self, shell):
         """For busybox sh, {'PATH': ...} that runs the applets the update uses from busybox, as on OpenWrt: busybox sh
@@ -49,12 +49,12 @@ class UpdateBase(ShellTest):
 
 class Update(UpdateBase):
     def test_version_lists_what_is_installed_without_the_network(self):
-        # mu300-toolkit's summary and its update screen when offline: each system with its release, the boot image,
+        # openf50-toolkit's summary and its update screen when offline: each system with its release, the boot image,
         # the extras; no download is tried
-        (self.disk / 'ubuntu/etc/mu300').mkdir(parents=True, exist_ok=True)
-        (self.disk / 'ubuntu/etc/mu300/image-version').write_text('v2026.10.18\n')
-        (self.disk / 'openwrt/etc/mu300').mkdir(parents=True)
-        (self.disk / 'openwrt/etc/mu300/image-version').write_text('v2026.10.17\n')
+        (self.disk / 'ubuntu/etc/openf50').mkdir(parents=True, exist_ok=True)
+        (self.disk / 'ubuntu/etc/openf50/image-version').write_text('v2026.10.18\n')
+        (self.disk / 'openwrt/etc/openf50').mkdir(parents=True)
+        (self.disk / 'openwrt/etc/openf50/image-version').write_text('v2026.10.17\n')
         (self.disk / 'boot').mkdir()
         (self.disk / 'boot/installed.tag').write_text('v2026.10.18\n')
         (self.disk / 'extra/vpn/bin').mkdir(parents=True)
@@ -76,7 +76,7 @@ class Update(UpdateBase):
             self.assertEqual((r.returncode, r.stdout), (0, 'loaded\n'), r.stderr)
 
     def test_linux_slot(self):
-        f = self.root / 'run/mu300/linux-slot'
+        f = self.root / 'run/openf50/linux-slot'
         for shell in self.each_shell():
             f.unlink(missing_ok=True)
             self.assertEqual(self.up(shell, 'linux_slot').stdout.strip(), 'b')
@@ -87,7 +87,7 @@ class Update(UpdateBase):
     def test_linux_slot_without_the_file_is_the_booted_one(self):
         # an initramfs that did not publish it (or a garbled file): the slot LK booted, from the command line or the
         # bootargs in the device tree; b only when neither says
-        f = self.root / 'run/mu300/linux-slot'
+        f = self.root / 'run/openf50/linux-slot'
         cmdline = self.root / 'proc/cmdline'
         bootargs = self.root / 'proc/device-tree/chosen/bootargs'
         bootargs.parent.mkdir(parents=True)
@@ -110,7 +110,7 @@ class Update(UpdateBase):
         boot = self.disk / 'boot'
         boot.mkdir()
         (boot / 'prev.body').write_bytes(b'old image')
-        f = self.root / 'run/mu300/linux-slot'
+        f = self.root / 'run/openf50/linux-slot'
         for shell in self.each_shell():
             for prev, now, refused in ((None, 'a', True), ('b', 'a', True), ('a', 'b', True), ('a', 'a', False),
                                        (None, 'b', False), ('b', 'b', False)):
@@ -127,7 +127,7 @@ class Update(UpdateBase):
                     self.assertIn(f'PART boot_{now}', r.stderr, (prev, now))
 
     def test_boot_update_keeps_the_slot_of_the_image(self):
-        src = (BIN / 'mu300-update').read_text()
+        src = (BIN / 'openf50-update').read_text()
         self.assertIn('linux_slot > "$BOOTDIR/prev.slot"', src)
         self.assertLess(src.index('cp "$tmp/body" "$BOOTDIR/prev.body"'),
                         src.index('linux_slot > "$BOOTDIR/prev.slot"'))
@@ -137,7 +137,7 @@ class Update(UpdateBase):
         # Android's boot partition
         old = self.bundle('old.tar.gz', 'f50\n', 'sdcard\n')
         new = self.bundle('new.tar.gz', 'f50\n', 'sdcard\nlinux-slot\n')
-        f = self.root / 'run/mu300/linux-slot'
+        f = self.root / 'run/openf50/linux-slot'
         for shell in self.each_shell():
             for slot, b, ok in (('a', old, False), ('a', new, True), ('b', old, True), ('b', new, True)):
                 f.write_text(slot + '\n')
@@ -149,7 +149,7 @@ class Update(UpdateBase):
 
     def test_fetch_retries_a_network_error(self):
         # right after boot the VPN is up some seconds after mobile data, and a request in between is reset
-        # (curl 35/56): "mu300-update check" then said "could not reach GitHub". Network errors are retried a few
+        # (curl 35/56): "openf50-update check" then said "could not reach GitHub". Network errors are retried a few
         # times; an HTTP error (22: 404 and the like) is an answer and is not, and neither is a timeout (28: curl's
         # own --retry has retried it already, and four more rounds of 120 s would hold "check" for half an hour).
         for shell in self.each_shell():
@@ -159,15 +159,15 @@ class Update(UpdateBase):
                 n.write_text('0')
                 self.stub('curl', f'c=$(($(cat "$STUBLOG/n") + 1)); echo $c > "$STUBLOG/n"; '
                                   f'[ $c -gt {fails} ] && {{ echo body; exit 0; }}; exit {rc}')
-                r = self.up(shell, 'fetch_stdout https://example.invalid/x; echo "rc=$?"', MU300_FETCH_DELAY=0)
+                r = self.up(shell, 'fetch_stdout https://example.invalid/x; echo "rc=$?"', OPENF50_FETCH_DELAY=0)
                 self.assertEqual(int(n.read_text()), want_calls, (rc, fails))
                 self.assertEqual(r.stdout.replace('rc=0\n', '').replace('rc=1\n', '').strip(), want_out, (rc, r.stdout))
                 self.assertIn('rc=0' if want_out else 'rc=1', r.stdout)
 
     def test_notice(self):
-        # a note for the login message and mu300-toolkit when a newer release is out; nothing else happens
+        # a note for the login message and openf50-toolkit when a newer release is out; nothing else happens
         note, motd = self.tmp / 'run/update-available', self.tmp / 'motd.d'
-        env = dict(MU300_NOTICE=str(note), MU300_MOTD_DIR=str(motd))
+        env = dict(OPENF50_NOTICE=str(note), OPENF50_MOTD_DIR=str(motd))
         for shell in self.each_shell():
             for installed, latest, noted in (('v2026.10.06', 'v2026.10.08', True), ('v2026.10.08', 'v2026.10.08', False),
                                              ('v2026.10.09', 'v2026.10.08', False)):   # a test release: no note
@@ -175,10 +175,10 @@ class Update(UpdateBase):
                                    'notice; echo rc=$?', **env)
                 self.assertIn('rc=0', r.stdout, r.stderr)
                 self.assertEqual(note.exists(), noted, (installed, latest))
-                self.assertEqual((motd / '60-mu300-update').exists(), noted)
+                self.assertEqual((motd / '60-openf50-update').exists(), noted)
                 if noted:
-                    self.assertEqual(note.read_text(), f'mu300-linux {latest} is out (this is {installed}): '
-                                                       'sudo mu300-update apply\n')
+                    self.assertEqual(note.read_text(), f'openf50-linux {latest} is out (this is {installed}): '
+                                                       'sudo openf50-update apply\n')
             # offline: the note stays, and the caller hears it (to ask again sooner)
             self.up(shell, 'latest_release() { echo v2026.10.08; }; installed_version() { echo v2026.10.06; }; notice', **env)
             r = self.up(shell, 'latest_release() { :; }; notice; echo rc=$?', **env)
@@ -187,11 +187,11 @@ class Update(UpdateBase):
 
     def test_rootfs_asset(self):
         osr = self.disk / 'ubuntu' / 'etc' / 'os-release'
-        cases = [('24.04', {}, 'mu300-ubuntu-rootfs.tar.gz'),
-                 ('26.04', {}, 'mu300-ubuntu-26.04-rootfs.tar.gz'),
-                 ('26.04', {'MU300_UBUNTU': '24.04'}, 'mu300-ubuntu-rootfs.tar.gz'),
-                 ('24.04', {'MU300_UBUNTU': '26.04'}, 'mu300-ubuntu-26.04-rootfs.tar.gz'),
-                 (None, {}, 'mu300-ubuntu-rootfs.tar.gz')]
+        cases = [('24.04', {}, 'openf50-ubuntu-rootfs.tar.gz'),
+                 ('26.04', {}, 'openf50-ubuntu-26.04-rootfs.tar.gz'),
+                 ('26.04', {'OPENF50_UBUNTU': '24.04'}, 'openf50-ubuntu-rootfs.tar.gz'),
+                 ('24.04', {'OPENF50_UBUNTU': '26.04'}, 'openf50-ubuntu-26.04-rootfs.tar.gz'),
+                 (None, {}, 'openf50-ubuntu-rootfs.tar.gz')]
         for shell in self.each_shell():
             for ver, env, want in cases:
                 if ver:
@@ -199,7 +199,7 @@ class Update(UpdateBase):
                 else:
                     osr.unlink(missing_ok=True)
                 self.assertEqual(self.up(shell, 'rootfs_asset ubuntu', **env).stdout.strip(), want, (ver, env))
-            self.assertEqual(self.up(shell, 'rootfs_asset openwrt').stdout.strip(), 'mu300-openwrt-rootfs.tar.gz')
+            self.assertEqual(self.up(shell, 'rootfs_asset openwrt').stdout.strip(), 'openf50-openwrt-rootfs.tar.gz')
 
     def test_os_kind(self):
         for shell in self.each_shell():
@@ -226,35 +226,35 @@ class Update(UpdateBase):
             for kind, pattern in (('ubuntu', r'ubuntu\) keep="([^"]*)"'), ('openwrt', r'openwrt\|openwrt-\*\) keep="([^"]*)"')):
                 self.assertEqual(re.search(pattern, ai).group(1), self.up(shell, f'keep_list {kind}').stdout.strip())
             self.assertEqual(self.up(shell, 'vendor_list openwrt-luci').stdout, self.up(shell, 'vendor_list openwrt').stdout)
-            self.assertEqual(self.up(shell, 'rootfs_asset openwrt-luci').stdout.strip(), 'mu300-openwrt-luci-rootfs.tar.gz')
+            self.assertEqual(self.up(shell, 'rootfs_asset openwrt-luci').stdout.strip(), 'openf50-openwrt-luci-rootfs.tar.gz')
 
     def test_running_os_by_directory(self):
         (self.disk / 'openwrt-luci' / 'etc').mkdir(parents=True)
         (self.disk / 'openwrt-luci' / 'etc' / 'openwrt_release').write_text('x')
         for shell in self.each_shell():
-            r = self.up(shell, 'running_os', MU300_ROOT=self.disk / 'openwrt-luci')
+            r = self.up(shell, 'running_os', OPENF50_ROOT=self.disk / 'openwrt-luci')
             self.assertEqual(r.stdout.strip(), 'openwrt-luci')
 
     def test_running_os_after_apply_is_the_kept_copy(self):
         (self.disk / 'openwrt-luci.old' / 'etc').mkdir(parents=True)
         (self.disk / 'openwrt-luci.old' / 'etc' / 'openwrt_release').write_text('x')
         for shell in self.each_shell():
-            r = self.up(shell, 'running_os', MU300_ROOT=self.disk / 'openwrt-luci.old')
+            r = self.up(shell, 'running_os', OPENF50_ROOT=self.disk / 'openwrt-luci.old')
             self.assertEqual(r.stdout.strip(), 'openwrt-luci')
 
     def test_clean_knows_the_third_system(self):
         (self.disk / 'openwrt-luci.old').mkdir()
         for shell in self.each_shell():
-            self.up(shell, 'STAGE=$MU300_DISK/.stage; df() { :; }; clean')
+            self.up(shell, 'STAGE=$OPENF50_DISK/.stage; df() { :; }; clean')
             self.assertFalse((self.disk / 'openwrt-luci.old').exists())
             (self.disk / 'openwrt-luci.old').mkdir()
 
     def test_kernel_choice(self):
         boot = self.disk / 'boot'
         boot.mkdir()
-        cases = [(None, '5.4', 'mu300-kernel.tar.gz'), ('6.18', '6.18', 'mu300-kernel-6.18.tar.gz'),
-                 ('7.2', '7.2', 'mu300-kernel-7.2.tar.gz'), ('5.4', '5.4', 'mu300-kernel.tar.gz'),
-                 ('6.1', '5.4', 'mu300-kernel.tar.gz'), ('', '5.4', 'mu300-kernel.tar.gz')]
+        cases = [(None, '5.4', 'openf50-kernel.tar.gz'), ('6.18', '6.18', 'openf50-kernel-6.18.tar.gz'),
+                 ('7.2', '7.2', 'openf50-kernel-7.2.tar.gz'), ('5.4', '5.4', 'openf50-kernel.tar.gz'),
+                 ('6.1', '5.4', 'openf50-kernel.tar.gz'), ('', '5.4', 'openf50-kernel.tar.gz')]
         for shell in self.each_shell():
             for c, choice, asset in cases:
                 f = boot / 'kernel'
@@ -321,7 +321,7 @@ class Update(UpdateBase):
                 shutil.rmtree(self.disk / d, ignore_errors=True)
 
     def test_apply_cleans_before_it_counts_free_space(self):
-        src = (BIN / 'mu300-update').read_text()
+        src = (BIN / 'openf50-update').read_text()
         body = src[src.index('\napply() {'):src.index('\nrollback() {')]
         self.assertIn('clean_broken', body)
         self.assertLess(body.index('clean_broken'), body.index('not enough free space'))
@@ -369,7 +369,7 @@ class Update(UpdateBase):
                     rootdev.write_text(dev + '\n')
                 d = self.tmp / 'x'
                 d.mkdir(exist_ok=True)
-                code = (f'MU300_ROOT_DEV_FILE="{rootdev}"; tar -tzf "{b}" > "{d}/list"; '
+                code = (f'OPENF50_ROOT_DEV_FILE="{rootdev}"; tar -tzf "{b}" > "{d}/list"; '
                         f'if root_on_sd && ! bundle_has_sd "{b}" "{d}/list"; then echo REFUSE; else echo OK; fi')
                 r = self.up(shell, code)
                 return r.stdout.strip()
@@ -483,7 +483,7 @@ class FromStock(UpdateBase):
             self.assertIn('(12288 bytes: kernel 4096, ramdisks 1, with vbmeta', r.stderr)
 
     def test_refuses_a_file_another_run_appended_to(self):
-        # two mu300-updates in the same $STAGE/boot each appended their kernel to new (a 56 MB "image" refused by the
+        # two openf50-updates in the same $STAGE/boot each appended their kernel to new (a 56 MB "image" refused by the
         # persistent log check); a new file that is not what was just assembled is refused as that, and never written
         stock = self.tmp / 'stock.img'
         fake_stock(stock)
@@ -494,57 +494,57 @@ class FromStock(UpdateBase):
             r = self.up(shell, f'{grow}; bootimg_from_stock "{stock}" "{self.tmp}/k" "{self.tmp}/r" "{self.tmp}"')
             self.assertNotEqual(r.returncode, 0)
             self.assertIn('not the image just assembled', r.stderr)
-            self.assertIn('another mu300-update', r.stderr)
+            self.assertIn('another openf50-update', r.stderr)
             self.assertFalse((self.tmp / 'newfooter').exists())
 
     def test_apply_keeps_the_vendor_files_the_image_has_a_directory_for(self):
-        # the images ship opt/mu300/android/system/bin/cltest and a few firmware files, so the vendor directories
+        # the images ship opt/openf50/android/system/bin/cltest and a few firmware files, so the vendor directories
         # exist in the new system; busybox's `cp -an old/. new/` then skips them as existing and copies nothing (an
         # update run from OpenWrt left every system without the Android userspace: no modem, no Wi-Fi)
         img = self.tmp / 'img'
-        for f, data in [('sbin/init', b'#!/bin/sh\n'), ('opt/mu300/android/system/bin/cltest', b'image'),
-                        ('lib/firmware/regulatory.db', b'image'), ('etc/mu300/image-version', b'v2\n')]:
+        for f, data in [('sbin/init', b'#!/bin/sh\n'), ('opt/openf50/android/system/bin/cltest', b'image'),
+                        ('lib/firmware/regulatory.db', b'image'), ('etc/openf50/image-version', b'v2\n')]:
             (img / f).parent.mkdir(parents=True, exist_ok=True)
             (img / f).write_bytes(data)
         (img / 'sbin/init').chmod(0o755)
         old = self.disk / 'openwrt'
-        for f, data in [('sbin/init', b'#!/bin/sh\n'), ('opt/mu300/android/system/bin/cltest', b'old'),
-                        ('opt/mu300/android/system/bin/cp_diskserver', b'vendor'),
-                        ('opt/mu300/android/vendor/lib/libril.so', b'vendor'),
-                        ('opt/mu300/android/dev-properties/property_info', b'props'),
+        for f, data in [('sbin/init', b'#!/bin/sh\n'), ('opt/openf50/android/system/bin/cltest', b'old'),
+                        ('opt/openf50/android/system/bin/cp_diskserver', b'vendor'),
+                        ('opt/openf50/android/vendor/lib/libril.so', b'vendor'),
+                        ('opt/openf50/android/dev-properties/property_info', b'props'),
                         ('lib/firmware/wcnmodem.bin', b'fw'), ('lib/firmware/regulatory.db', b'old'),
-                        ('lib/modules/5.4.254/x.ko', b'ko'), ('etc/mu300/vpn.conf', b'mine'),
+                        ('lib/modules/5.4.254/x.ko', b'ko'), ('etc/openf50/vpn.conf', b'mine'),
                         # adb: off, keys only, and the keys - somebody's choice, which an update must not turn
                         # back into the default (on, and open to every computer)
-                        ('etc/mu300/adb', b'off\n'), ('etc/mu300/adb_auth', b'keys\n'),
-                        ('etc/mu300/adb_keys', b'QAAAAkey me@pc\n')]:
+                        ('etc/openf50/adb', b'off\n'), ('etc/openf50/adb_auth', b'keys\n'),
+                        ('etc/openf50/adb_keys', b'QAAAAkey me@pc\n')]:
             (old / f).parent.mkdir(parents=True, exist_ok=True)
             (old / f).write_bytes(data)
-        (old / 'etc/mu300/adb_keys').chmod(0o600)
-        (old / 'opt/mu300/android/system/lib').symlink_to('../vendor/lib')
-        stage = self.disk / '.mu300-update'
+        (old / 'etc/openf50/adb_keys').chmod(0o600)
+        (old / 'opt/openf50/android/system/lib').symlink_to('../vendor/lib')
+        stage = self.disk / '.openf50-update'
         for shell in self.each_shell():
             for d in ('openwrt.old', 'openwrt.new'):
                 shutil.rmtree(self.disk / d, ignore_errors=True)
             stage.mkdir(exist_ok=True)
-            subprocess.run(['tar', '-czf', str(stage / 'mu300-openwrt-rootfs.tar.gz'), '-C', str(img), '.'], check=True)
+            subprocess.run(['tar', '-czf', str(stage / 'openf50-openwrt-rootfs.tar.gz'), '-C', str(img), '.'], check=True)
             r = self.up(shell, 'is_root() { false; }; apply_one openwrt v2', **self.busybox_applets(shell))
             self.assertEqual(r.returncode, 0, r.stderr)
             new = self.disk / 'openwrt'
-            self.assertEqual((new / 'opt/mu300/android/system/bin/cp_diskserver').read_bytes(), b'vendor')
-            self.assertEqual((new / 'opt/mu300/android/vendor/lib/libril.so').read_bytes(), b'vendor')
-            self.assertEqual((new / 'opt/mu300/android/dev-properties/property_info').read_bytes(), b'props')
-            self.assertEqual(os.readlink(new / 'opt/mu300/android/system/lib'), '../vendor/lib')
+            self.assertEqual((new / 'opt/openf50/android/system/bin/cp_diskserver').read_bytes(), b'vendor')
+            self.assertEqual((new / 'opt/openf50/android/vendor/lib/libril.so').read_bytes(), b'vendor')
+            self.assertEqual((new / 'opt/openf50/android/dev-properties/property_info').read_bytes(), b'props')
+            self.assertEqual(os.readlink(new / 'opt/openf50/android/system/lib'), '../vendor/lib')
             self.assertEqual((new / 'lib/firmware/wcnmodem.bin').read_bytes(), b'fw')
             self.assertEqual((new / 'lib/modules/5.4.254/x.ko').read_bytes(), b'ko')
             # what the image has stays the image's
-            self.assertEqual((new / 'opt/mu300/android/system/bin/cltest').read_bytes(), b'image')
+            self.assertEqual((new / 'opt/openf50/android/system/bin/cltest').read_bytes(), b'image')
             self.assertEqual((new / 'lib/firmware/regulatory.db').read_bytes(), b'image')
-            self.assertEqual((new / 'etc/mu300/vpn.conf').read_bytes(), b'mine')
-            self.assertEqual((new / 'etc/mu300/adb').read_bytes(), b'off\n')
-            self.assertEqual((new / 'etc/mu300/adb_auth').read_bytes(), b'keys\n')
-            self.assertEqual((new / 'etc/mu300/adb_keys').read_bytes(), b'QAAAAkey me@pc\n')
-            self.assertEqual((new / 'etc/mu300/adb_keys').stat().st_mode & 0o777, 0o600)
+            self.assertEqual((new / 'etc/openf50/vpn.conf').read_bytes(), b'mine')
+            self.assertEqual((new / 'etc/openf50/adb').read_bytes(), b'off\n')
+            self.assertEqual((new / 'etc/openf50/adb_auth').read_bytes(), b'keys\n')
+            self.assertEqual((new / 'etc/openf50/adb_keys').read_bytes(), b'QAAAAkey me@pc\n')
+            self.assertEqual((new / 'etc/openf50/adb_keys').stat().st_mode & 0o777, 0o600)
             # the next shell updates from this one (disk/openwrt again)
 
     def test_apply_keeps_the_settings_and_adds_the_images_new_config_files(self):
@@ -552,7 +552,7 @@ class FromStock(UpdateBase):
         # old directory dropped /etc/config/sqm and LuCI's SQM page failed ("uci/get: Resource not found")
         img = self.tmp / 'img-cfg'
         for f, data in [('sbin/init', b'#!/bin/sh\n'), ('etc/config/network', b'image'), ('etc/config/sqm', b'image sqm'),
-                        ('etc/mu300/image-version', b'v2\n')]:
+                        ('etc/openf50/image-version', b'v2\n')]:
             (img / f).parent.mkdir(parents=True, exist_ok=True)
             (img / f).write_bytes(data)
         (img / 'sbin/init').chmod(0o755)
@@ -563,12 +563,12 @@ class FromStock(UpdateBase):
                         ('etc/crontabs/root', b'0 4 * * * reboot\n')]:
             (old / f).parent.mkdir(parents=True, exist_ok=True)
             (old / f).write_bytes(data)
-        stage = self.disk / '.mu300-update'
+        stage = self.disk / '.openf50-update'
         for shell in self.each_shell():
             for d in ('openwrt.old', 'openwrt.new'):
                 shutil.rmtree(self.disk / d, ignore_errors=True)
             stage.mkdir(exist_ok=True)
-            subprocess.run(['tar', '-czf', str(stage / 'mu300-openwrt-rootfs.tar.gz'), '-C', str(img), '.'], check=True)
+            subprocess.run(['tar', '-czf', str(stage / 'openf50-openwrt-rootfs.tar.gz'), '-C', str(img), '.'], check=True)
             r = self.up(shell, 'is_root() { false; }; apply_one openwrt v2', **self.busybox_applets(shell))
             self.assertEqual(r.returncode, 0, r.stderr)
             cfg = self.disk / 'openwrt/etc/config'
@@ -603,33 +603,33 @@ class FromStock(UpdateBase):
         # a device updated by an updater with the busybox cp bug: the system in place has the image's vendor
         # directories but none of the device's files, and the only copy is in openwrt.old, which the update replaces
         img = self.tmp / 'img'
-        for f, data in [('sbin/init', b'#!/bin/sh\n'), ('opt/mu300/android/system/bin/cltest', b'image'),
+        for f, data in [('sbin/init', b'#!/bin/sh\n'), ('opt/openf50/android/system/bin/cltest', b'image'),
                         ('lib/firmware/regulatory.db', b'image')]:
             (img / f).parent.mkdir(parents=True, exist_ok=True)
             (img / f).write_bytes(data)
         (img / 'sbin/init').chmod(0o755)
-        stage = self.disk / '.mu300-update'
+        stage = self.disk / '.openf50-update'
         for shell in self.each_shell():
             for d in ('openwrt', 'openwrt.old', 'openwrt.new'):
                 shutil.rmtree(self.disk / d, ignore_errors=True)
             hit, good = self.disk / 'openwrt', self.disk / 'openwrt.old'
-            for f, data in [('sbin/init', b'#!/bin/sh\n'), ('opt/mu300/android/system/bin/cltest', b'image'),
+            for f, data in [('sbin/init', b'#!/bin/sh\n'), ('opt/openf50/android/system/bin/cltest', b'image'),
                             ('lib/firmware/regulatory.db', b'image'), ('lib/firmware/mine.bin', b'newer')]:
                 (hit / f).parent.mkdir(parents=True, exist_ok=True)
                 (hit / f).write_bytes(data)
-            for f, data in [('sbin/init', b'#!/bin/sh\n'), ('opt/mu300/android/system/bin/cp_diskserver', b'vendor'),
-                            ('opt/mu300/android/vendor/lib/libril.so', b'vendor'),
+            for f, data in [('sbin/init', b'#!/bin/sh\n'), ('opt/openf50/android/system/bin/cp_diskserver', b'vendor'),
+                            ('opt/openf50/android/vendor/lib/libril.so', b'vendor'),
                             ('lib/firmware/wcnmodem.bin', b'fw'), ('lib/firmware/mine.bin', b'older'),
                             ('lib/firmware/regulatory.db', b'old')]:
                 (good / f).parent.mkdir(parents=True, exist_ok=True)
                 (good / f).write_bytes(data)
             stage.mkdir(exist_ok=True)
-            subprocess.run(['tar', '-czf', str(stage / 'mu300-openwrt-rootfs.tar.gz'), '-C', str(img), '.'], check=True)
+            subprocess.run(['tar', '-czf', str(stage / 'openf50-openwrt-rootfs.tar.gz'), '-C', str(img), '.'], check=True)
             r = self.up(shell, 'is_root() { false; }; apply_one openwrt v2', **self.busybox_applets(shell))
             self.assertEqual(r.returncode, 0, r.stderr)
             new = self.disk / 'openwrt'
-            self.assertEqual((new / 'opt/mu300/android/system/bin/cp_diskserver').read_bytes(), b'vendor')
-            self.assertEqual((new / 'opt/mu300/android/vendor/lib/libril.so').read_bytes(), b'vendor')
+            self.assertEqual((new / 'opt/openf50/android/system/bin/cp_diskserver').read_bytes(), b'vendor')
+            self.assertEqual((new / 'opt/openf50/android/vendor/lib/libril.so').read_bytes(), b'vendor')
             self.assertEqual((new / 'lib/firmware/wcnmodem.bin').read_bytes(), b'fw')
             # gaps only: the system in place and the image come first
             self.assertEqual((new / 'lib/firmware/mine.bin').read_bytes(), b'newer')
@@ -639,39 +639,39 @@ class FromStock(UpdateBase):
         b = self.tmp / 'bundle'
         (b / 'modules').mkdir(parents=True)
         (b / 'modules' / 'a.ko').write_bytes(b'a')
-        (b / 'kernel.release').write_text('6.18.55-mu300\n')
+        (b / 'kernel.release').write_text('6.18.55-openf50\n')
         (b / 'modules.builtin').write_text('kernel/x.ko\n')
         (self.disk / 'openwrt').mkdir()
         for shell in self.each_shell():
             # a module of an earlier bundle of this release that this one no longer has goes
-            for d in ('ubuntu/lib/modules/6.18.55-mu300/extra', 'openwrt/lib/modules/6.18.55-mu300'):
+            for d in ('ubuntu/lib/modules/6.18.55-openf50/extra', 'openwrt/lib/modules/6.18.55-openf50'):
                 (self.disk / d).mkdir(parents=True, exist_ok=True)
                 (self.disk / d / 'gone.ko').write_bytes(b'old')
-            r = self.up(shell, f'kernel_modules_into_systems "{b}"', MU300_NO_DEPMOD=1)
-            self.assertFalse((self.disk / 'ubuntu/lib/modules/6.18.55-mu300/extra/gone.ko').exists())
-            self.assertFalse((self.disk / 'openwrt/lib/modules/6.18.55-mu300/gone.ko').exists())
+            r = self.up(shell, f'kernel_modules_into_systems "{b}"', OPENF50_NO_DEPMOD=1)
+            self.assertFalse((self.disk / 'ubuntu/lib/modules/6.18.55-openf50/extra/gone.ko').exists())
+            self.assertFalse((self.disk / 'openwrt/lib/modules/6.18.55-openf50/gone.ko').exists())
             self.assertEqual(r.returncode, 0, r.stderr)
-            self.assertEqual((self.disk / 'ubuntu/lib/modules/6.18.55-mu300/extra/a.ko').read_bytes(), b'a')
-            self.assertTrue((self.disk / 'ubuntu/lib/modules/6.18.55-mu300/modules.builtin').exists())
-            self.assertEqual((self.disk / 'ubuntu/lib/modules/6.18.55-mu300/modules.order').read_bytes(), b'')
-            self.assertEqual((self.disk / 'openwrt/lib/modules/6.18.55-mu300/a.ko').read_bytes(), b'a')
+            self.assertEqual((self.disk / 'ubuntu/lib/modules/6.18.55-openf50/extra/a.ko').read_bytes(), b'a')
+            self.assertTrue((self.disk / 'ubuntu/lib/modules/6.18.55-openf50/modules.builtin').exists())
+            self.assertEqual((self.disk / 'ubuntu/lib/modules/6.18.55-openf50/modules.order').read_bytes(), b'')
+            self.assertEqual((self.disk / 'openwrt/lib/modules/6.18.55-openf50/a.ko').read_bytes(), b'a')
         (b / 'kernel.release').write_text('../evil\n')
         for shell in self.each_shell():
-            self.assertNotEqual(self.up(shell, f'kernel_modules_into_systems "{b}"', MU300_NO_DEPMOD=1).returncode, 0)
+            self.assertNotEqual(self.up(shell, f'kernel_modules_into_systems "{b}"', OPENF50_NO_DEPMOD=1).returncode, 0)
 
     def test_a_new_boot_image_unlocks_for_its_trial(self):
-        src = (BIN / 'mu300-update').read_text()
+        src = (BIN / 'openf50-update').read_text()
         bu = src[src.index('boot_update() {'):src.index('\n}\n', src.index('boot_update() {'))]
         self.assertLess(bu.index('unlock_for_trial'), bu.index('write_boot "$dev" "$psize" "$tmp/new"'))
         rb = src[src.index('rollback_boot() {'):src.index('\n}\n', src.index('rollback_boot() {'))]
         self.assertLess(rb.index('unlock_for_trial'), rb.index('write_boot'))
         nb = self.tmp / 'nb'
-        (nb / 'mu300-next-boot').parent.mkdir(parents=True, exist_ok=True)
-        (nb / 'mu300-next-boot').write_text(f'#!/bin/sh\necho "$@" >> "{self.tmp}/nb.log"\n')
-        (nb / 'mu300-next-boot').chmod(0o755)
+        (nb / 'openf50-next-boot').parent.mkdir(parents=True, exist_ok=True)
+        (nb / 'openf50-next-boot').write_text(f'#!/bin/sh\necho "$@" >> "{self.tmp}/nb.log"\n')
+        (nb / 'openf50-next-boot').chmod(0o755)
         for shell in self.each_shell():
-            r = self.sh(shell, f'. "{BIN}/mu300-update"; unlock_for_trial', MU300_LIB=1, MU300_BIN=nb,
-                        MU300_DISK=self.disk, MU300_SYSROOT=self.root)
+            r = self.sh(shell, f'. "{BIN}/openf50-update"; unlock_for_trial', OPENF50_LIB=1, OPENF50_BIN=nb,
+                        OPENF50_DISK=self.disk, OPENF50_SYSROOT=self.root)
             self.assertEqual(r.returncode, 0, r.stderr)
         self.assertEqual(set((self.tmp / 'nb.log').read_text().split()), {'--trial'})
 
@@ -681,16 +681,16 @@ class FromStock(UpdateBase):
         # update ended in Android while its last line promised a reboot). boot_update keeps going - the image is
         # written either way - so unlock_for_trial itself never fails
         nb = self.tmp / 'nb'
-        (nb / 'mu300-next-boot').parent.mkdir(parents=True, exist_ok=True)
+        (nb / 'openf50-next-boot').parent.mkdir(parents=True, exist_ok=True)
         for shell in self.each_shell():
             for code, line, want in (('0', '', None),
                                      ('3', 'default boot is not linux: nothing armed', 'the default boot is Android'),
                                      ('1', 'arming with 1 attempt, not 5', 'arming with 1 attempt, not 5')):
-                (nb / 'mu300-next-boot').write_text(
+                (nb / 'openf50-next-boot').write_text(
                     '#!/bin/sh\n' + (f'echo "{line}" >&2\n' if line else '') + f'exit {code}\n')
-                (nb / 'mu300-next-boot').chmod(0o755)
-                r = self.sh(shell, f'. "{BIN}/mu300-update"; unlock_for_trial; echo "rc=$?"', MU300_LIB=1, MU300_BIN=nb,
-                            MU300_DISK=self.disk, MU300_SYSROOT=self.root)
+                (nb / 'openf50-next-boot').chmod(0o755)
+                r = self.sh(shell, f'. "{BIN}/openf50-update"; unlock_for_trial; echo "rc=$?"', OPENF50_LIB=1, OPENF50_BIN=nb,
+                            OPENF50_DISK=self.disk, OPENF50_SYSROOT=self.root)
                 self.assertEqual(r.returncode, 0, r.stderr)
                 self.assertIn('rc=0', r.stdout, code)
                 if want:
@@ -708,15 +708,15 @@ class FromStock(UpdateBase):
                     f.unlink(missing_ok=True)
                 else:
                     f.write_text(value)
-                r = self.sh(shell, f'. "{BIN}/mu300-update"; reboot_goes_to_android || echo REBOOT-LINE',
-                            MU300_LIB=1, MU300_BIN=BIN, MU300_DISK=self.disk, MU300_SYSROOT=self.root,
-                            MU300_DEFAULT_BOOT=f)
+                r = self.sh(shell, f'. "{BIN}/openf50-update"; reboot_goes_to_android || echo REBOOT-LINE',
+                            OPENF50_LIB=1, OPENF50_BIN=BIN, OPENF50_DISK=self.disk, OPENF50_SYSROOT=self.root,
+                            OPENF50_DEFAULT_BOOT=f)
                 self.assertEqual(r.returncode, 0, r.stderr)
                 if value == 'linux\n':
                     self.assertEqual(r.stdout, 'REBOOT-LINE\n')
                 else:
                     self.assertIn('The default boot is Android', r.stdout, value)
-                    self.assertIn('mu300-next-boot linux', r.stdout, value)
+                    self.assertIn('openf50-next-boot linux', r.stdout, value)
                     self.assertNotIn('REBOOT-LINE', r.stdout, value)
 
     def test_rollback_boot_brings_the_modules_of_its_image_back(self):
@@ -737,11 +737,11 @@ class FromStock(UpdateBase):
                 (self.disk / d).mkdir(parents=True)
                 (self.disk / d / 'a.ko').write_bytes(b'old')
             r = self.up(shell, f'BOOTDIR="{self.disk}/boot"; mkdir -p "$BOOTDIR"; prev_modules_save "{b}" && '
-                               f'kernel_modules_into_systems "{b}" >/dev/null', MU300_NO_DEPMOD=1)
+                               f'kernel_modules_into_systems "{b}" >/dev/null', OPENF50_NO_DEPMOD=1)
             self.assertEqual(r.returncode, 0, r.stderr)
             for d in dirs:
                 self.assertEqual(sorted(f.name for f in (self.disk / d).glob('*.ko')), ['a.ko', 'b.ko'])
-            r = self.up(shell, f'BOOTDIR="{self.disk}/boot"; prev_modules_restore', MU300_NO_DEPMOD=1)
+            r = self.up(shell, f'BOOTDIR="{self.disk}/boot"; prev_modules_restore', OPENF50_NO_DEPMOD=1)
             self.assertEqual(r.returncode, 0, r.stderr)
             self.assertIn('modules of the previous image (6.18.55) are back', r.stdout)
             for d in dirs:
@@ -750,7 +750,7 @@ class FromStock(UpdateBase):
             shutil.rmtree(self.disk / dirs[1])
             r = self.up(shell, f'BOOTDIR="{self.disk}/boot"; prev_modules_save "{b}" && '
                                f'kernel_modules_into_systems "{b}" >/dev/null && prev_modules_restore >/dev/null',
-                        MU300_NO_DEPMOD=1)
+                        OPENF50_NO_DEPMOD=1)
             self.assertEqual(r.returncode, 0, r.stderr)
             self.assertEqual(list((self.disk / dirs[1]).glob('*.ko')), [])
             # a 5.4 bundle (no kernel.release) leaves the mainline sets alone, and keeps nothing to restore
@@ -761,7 +761,7 @@ class FromStock(UpdateBase):
             self.assertFalse((self.disk / 'boot/prev.modules').exists())
 
     def test_boot_update_keeps_the_modules_before_it_replaces_them(self):
-        src = (BIN / 'mu300-update').read_text()
+        src = (BIN / 'openf50-update').read_text()
         bu = src[src.index('boot_update() {'):src.index('\n}\n', src.index('boot_update() {'))]
         # the replacing set goes in after the old one is kept, and before the image is written
         self.assertLess(bu.index('prev_modules_save "$tmp"'), bu.index('! kernel_modules_into_systems "$tmp"'))
@@ -774,7 +774,7 @@ class FromStock(UpdateBase):
 
 
 class Lock(UpdateBase):
-    """One mu300-update at a time: the second says who holds the lock and exits 1 before it touches anything.
+    """One openf50-update at a time: the second says who holds the lock and exits 1 before it touches anything.
     With flock where the machine has it (busybox's applet on OpenWrt, util-linux on Ubuntu), with a pid directory
     without; NO_FLOCK forces the directory on a machine that has flock."""
     NO_FLOCK = 'have() { [ "$1" != flock ] && command -v "$1" >/dev/null 2>&1; }'
@@ -783,7 +783,7 @@ class Lock(UpdateBase):
         super().setUp()
         # the updater makes its own directory under /run (there on both systems), never /run itself
         (self.tmp / 'locks').mkdir(mode=0o700)
-        self.lock = self.tmp / 'locks' / 'mu300-update'
+        self.lock = self.tmp / 'locks' / 'openf50-update'
         self.holders = []
 
     def tearDown(self):
@@ -791,7 +791,7 @@ class Lock(UpdateBase):
         super().tearDown()
 
     def lock_env(self):
-        return self.env(MU300_LIB=1, MU300_DISK=self.disk, MU300_BIN=BIN, MU300_SYSROOT=self.root, MU300_LOCK=self.lock)
+        return self.env(OPENF50_LIB=1, OPENF50_DISK=self.disk, OPENF50_BIN=BIN, OPENF50_SYSROOT=self.root, OPENF50_LOCK=self.lock)
 
     def hold(self, shell, prelude=':'):
         """A separate process that takes the lock and keeps it; its pid, once it has the lock."""
@@ -800,8 +800,8 @@ class Lock(UpdateBase):
         # its own process group: the lock is the shell's and its children's (sleep inherits the flock descriptor), as
         # a run's is while its unpacking or download still runs - ending the holder means the whole group. The sleep
         # is not the last command: bash (5.1 and later) execs the last command of a -c string in the shell's own
-        # process, and the holder would then be a "sleep" in /proc, not a mu300-update - a run that is gone
-        h = subprocess.Popen(shell + ['-c', f'. "{BIN}/mu300-update"; {prelude}; lock_take || exit 9; echo $$ > "{mark}"; sleep 30; :'],
+        # process, and the holder would then be a "sleep" in /proc, not a openf50-update - a run that is gone
+        h = subprocess.Popen(shell + ['-c', f'. "{BIN}/openf50-update"; {prelude}; lock_take || exit 9; echo $$ > "{mark}"; sleep 30; :'],
                              env=self.lock_env(), stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True,
                              start_new_session=True)
         self.holders.append(h)
@@ -815,8 +815,8 @@ class Lock(UpdateBase):
 
     def take(self, shell, prelude=':'):
         """lock_take in a fresh process, dropped at its end as the dispatch does: (exit status, stderr, stdout)."""
-        r = self.sh(shell, f'. "{BIN}/mu300-update"; {prelude}; lock_take; trap lock_drop EXIT; echo taken', MU300_LIB=1,
-                    MU300_DISK=self.disk, MU300_BIN=BIN, MU300_SYSROOT=self.root, MU300_LOCK=self.lock)
+        r = self.sh(shell, f'. "{BIN}/openf50-update"; {prelude}; lock_take; trap lock_drop EXIT; echo taken', OPENF50_LIB=1,
+                    OPENF50_DISK=self.disk, OPENF50_BIN=BIN, OPENF50_SYSROOT=self.root, OPENF50_LOCK=self.lock)
         return r.returncode, r.stderr, r.stdout
 
     def end_holders(self):
@@ -830,7 +830,7 @@ class Lock(UpdateBase):
         pid = self.hold(shell, prelude)
         rc, err, out = self.take(shell, prelude)
         self.assertEqual(rc, 1, err)
-        self.assertEqual(err.strip(), f'another mu300-update is running (pid {pid})')
+        self.assertEqual(err.strip(), f'another openf50-update is running (pid {pid})')
         self.assertEqual(out, '')
         # free again once the holder is gone - killed, so without its own cleanup
         self.end_holders()
@@ -838,27 +838,27 @@ class Lock(UpdateBase):
         self.assertEqual((rc, out), (0, 'taken\n'), err)
 
     def test_a_run_continued_with_the_releases_updater_keeps_its_lock(self):
-        """apply execs the release's mu300-update when it differs: the same process, and the lock is its own. What
+        """apply execs the release's openf50-update when it differs: the same process, and the lock is its own. What
         the updater before the exec left behind - its keep-alive's ping or sleep, started after lock_take with the
         lock's descriptor - holds the flock for a few seconds more, and the continued run then said "another
-        mu300-update is running" with its own pid and ended: every update to a release with another updater
+        openf50-update is running" with its own pid and ended: every update to a release with another updater
         (v2026.10.23 to v2026.10.24 on a device, docs/FINDINGS.md 81). A stranger's lock is still refused."""
         for shell in self.each_shell():
             with self.subTest(shell=shell[0]):
                 if not shutil.which('flock'):
                     self.skipTest('no flock here')
                 # the first half takes the lock, leaves a child with its descriptor, and execs the second half
-                second = f'. "{BIN}/mu300-update"; lock_take; trap lock_drop EXIT; echo taken'
-                r = self.sh(shell, f'. "{BIN}/mu300-update"; lock_take; sleep 3 & '
-                                   f'MU300_SELF_UPDATED=1 exec {" ".join(shell)} -c \'{second}\'',
-                            MU300_LIB=1, MU300_DISK=self.disk, MU300_BIN=BIN, MU300_SYSROOT=self.root, MU300_LOCK=self.lock)
+                second = f'. "{BIN}/openf50-update"; lock_take; trap lock_drop EXIT; echo taken'
+                r = self.sh(shell, f'. "{BIN}/openf50-update"; lock_take; sleep 3 & '
+                                   f'OPENF50_SELF_UPDATED=1 exec {" ".join(shell)} -c \'{second}\'',
+                            OPENF50_LIB=1, OPENF50_DISK=self.disk, OPENF50_BIN=BIN, OPENF50_SYSROOT=self.root, OPENF50_LOCK=self.lock)
                 self.assertEqual((r.returncode, r.stdout), (0, 'taken\n'), r.stderr)
                 # a run that is not the lock's owner is refused as before, continued or not
                 pid = self.hold(shell)
-                r = self.sh(shell, f'. "{BIN}/mu300-update"; lock_take; echo taken', MU300_LIB=1, MU300_SELF_UPDATED=1,
-                            MU300_DISK=self.disk, MU300_BIN=BIN, MU300_SYSROOT=self.root, MU300_LOCK=self.lock)
+                r = self.sh(shell, f'. "{BIN}/openf50-update"; lock_take; echo taken', OPENF50_LIB=1, OPENF50_SELF_UPDATED=1,
+                            OPENF50_DISK=self.disk, OPENF50_BIN=BIN, OPENF50_SYSROOT=self.root, OPENF50_LOCK=self.lock)
                 self.assertEqual((r.returncode, r.stdout), (1, ''), r.stderr)
-                self.assertIn(f'another mu300-update is running (pid {pid})', r.stderr)
+                self.assertIn(f'another openf50-update is running (pid {pid})', r.stderr)
                 self.end_holders()
 
     def test_the_keep_alive_does_not_hold_the_lock(self):
@@ -868,9 +868,9 @@ class Lock(UpdateBase):
             with self.subTest(shell=shell[0]):
                 if not shutil.which('flock'):
                     self.skipTest('no flock here')
-                r = self.sh(shell, f'. "{BIN}/mu300-update"; lock_take; keepalive_start; sleep 0.3; keepalive_stop; '
-                                   f'exec 9>&-; . "{BIN}/mu300-update"; lock_take; echo taken',
-                            MU300_LIB=1, MU300_DISK=self.disk, MU300_BIN=BIN, MU300_SYSROOT=self.root, MU300_LOCK=self.lock)
+                r = self.sh(shell, f'. "{BIN}/openf50-update"; lock_take; keepalive_start; sleep 0.3; keepalive_stop; '
+                                   f'exec 9>&-; . "{BIN}/openf50-update"; lock_take; echo taken',
+                            OPENF50_LIB=1, OPENF50_DISK=self.disk, OPENF50_BIN=BIN, OPENF50_SYSROOT=self.root, OPENF50_LOCK=self.lock)
                 self.assertEqual((r.returncode, r.stdout), (0, 'taken\n'), r.stderr)
 
     def test_second_run_is_refused_with_the_holders_pid(self):
@@ -886,23 +886,23 @@ class Lock(UpdateBase):
             d.mkdir(); (d / 'pid').write_text('999999\n')
             rc, err, out = self.take(shell, self.NO_FLOCK)
             self.assertEqual((rc, out), (0, 'taken\n'), err)
-            self.assertIn('taking over the lock of a mu300-update that is gone (pid 999999)', err)
+            self.assertIn('taking over the lock of a openf50-update that is gone (pid 999999)', err)
             self.assertFalse(d.exists())
             # what is not a pid (never run, never echoed) is a run that is gone too
             d.mkdir(); (d / 'pid').write_text('12; rm -rf / # $(reboot)\n')
             rc, err, out = self.take(shell, self.NO_FLOCK)
             self.assertEqual((rc, out), (0, 'taken\n'), err)
-            self.assertIn('taking over the lock of a mu300-update that is gone\n', err)
+            self.assertIn('taking over the lock of a openf50-update that is gone\n', err)
             self.assertNotIn('rm -rf', err)
             # one with no pid at all (its holder went between making it and writing its pid) is given a second
             # to write it, then taken over too: never a denial for good
             d.mkdir()
             t = time.monotonic()
             rc, err, out = self.take(shell, self.NO_FLOCK)
-            self.assertEqual((rc, err.strip(), out), (0, 'taking over the lock of a mu300-update that is gone', 'taken\n'))
+            self.assertEqual((rc, err.strip(), out), (0, 'taking over the lock of a openf50-update that is gone', 'taken\n'))
             self.assertGreater(time.monotonic() - t, 0.9)
             self.assertFalse(d.exists())
-            # a live process that is not a mu300-update (this test run) is a reused pid, not a holder - where
+            # a live process that is not a openf50-update (this test run) is a reused pid, not a holder - where
             # /proc can tell; without it (macOS) only "alive" is known, and it counts as a holder
             d.mkdir(); (d / 'pid').write_text(f'{os.getpid()}\n')
             rc, err, out = self.take(shell, self.NO_FLOCK)
@@ -910,7 +910,7 @@ class Lock(UpdateBase):
                 self.assertEqual((rc, out), (0, 'taken\n'), err)
                 self.assertFalse(d.exists())
             else:
-                self.assertEqual((rc, err.strip(), out), (1, f'another mu300-update is running (pid {os.getpid()})', ''))
+                self.assertEqual((rc, err.strip(), out), (1, f'another openf50-update is running (pid {os.getpid()})', ''))
                 shutil.rmtree(d)
 
     def test_the_pid_file_names_the_holder_with_flock(self):
@@ -967,7 +967,7 @@ class Lock(UpdateBase):
             self.assertEqual(self.lock.stat().st_mode & 0o777, 0o700)
 
     def test_what_changes_the_disk_locks_and_what_only_looks_does_not(self):
-        src = (BIN / 'mu300-update').read_text()
+        src = (BIN / 'openf50-update').read_text()
         main = src[src.index('[ "$(id -u)" = 0 ]'):]
         m = re.search(r'^\s*([a-z|-]+)\)\n\s*lock_take;', main, re.M)
         self.assertIsNotNone(m, 'no command locks')
@@ -976,8 +976,8 @@ class Lock(UpdateBase):
         self.assertIn("lock_drop' EXIT", main)
         # under /run (root's own, so no login user can plant a link or a lock there), not in $STAGE (clean deletes
         # it) nor /tmp or /var/lock (anyone's)
-        self.assertIn('LOCK=${MU300_LOCK:-/run/mu300-update}', src)
-        self.assertNotIn('/var/lock/mu300-update', src)
+        self.assertIn('LOCK=${OPENF50_LOCK:-/run/openf50-update}', src)
+        self.assertNotIn('/var/lock/openf50-update', src)
         self.assertNotIn('going on without', src)
 
 

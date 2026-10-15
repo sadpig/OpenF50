@@ -86,10 +86,10 @@ struct rx_mgmt {
 	u8 rx_snaphdr_lut;
 	u8 rx_snaphdr_tid;
 
-	/* MU300: the RX refill's retry after an attempt that got nowhere (see sc2355_mm_fill_buffer) */
+	/* OPENF50: the RX refill's retry after an attempt that got nowhere (see sc2355_mm_fill_buffer) */
 	struct delayed_work refill_retry;
 	unsigned int refill_backoff_ms;
-	/* MU300: set by sc2355_rx_deinit(); nothing queues or times another refill after it */
+	/* OPENF50: set by sc2355_rx_deinit(); nothing queues or times another refill after it */
 	bool stopping;
 };
 

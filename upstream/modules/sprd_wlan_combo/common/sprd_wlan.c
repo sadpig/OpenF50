@@ -119,7 +119,7 @@ static int sprd_wlan_probe(struct platform_device *pdev)
 
 	pr_info("%s %s %d.\n", __func__, of_id->compatible, p_match_data->hw_type);
 
-	/* MU300 build: only the SC2355 PCIe variant is compiled in */
+	/* OPENF50 build: only the SC2355 PCIe variant is compiled in */
 	if (p_match_data->hw_type == SPRD_HW_SC2355_PCIE) {
 		return pcie_probe(pdev);
 	} else {
@@ -151,7 +151,7 @@ static void sprd_wlan_remove(struct platform_device *pdev)
 	pr_info("%s %s %d.\n", __func__, of_id->compatible, p_match_data->hw_type);
 
 	/*
-	 * MU300 (issue #146): the vendor's remove calls sprd_iface_remove(); the port had dropped it with the
+	 * OPENF50 (issue #146): the vendor's remove calls sprd_iface_remove(); the port had dropped it with the
 	 * SC2332/SIPC variants, so rmmod unloaded the module with the recovery watchdog's delayed work (static,
 	 * on system_wq, rearming itself every second), the wiphy, wlan0 and the WCN reset notifier all still
 	 * live, and __run_timers fired the watchdog's timer in freed memory within a second.

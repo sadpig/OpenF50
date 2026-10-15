@@ -21,11 +21,11 @@
 
 #include <mali_kbase.h>
 #include <linux/version.h>
-/* MU300: del_timer_sync() was renamed in 6.15 */
+/* OPENF50: del_timer_sync() was renamed in 6.15 */
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 15, 0)
-#define mu300_timer_delete_sync(t) timer_delete_sync(t)
+#define openf50_timer_delete_sync(t) timer_delete_sync(t)
 #else
-#define mu300_timer_delete_sync(t) del_timer_sync(t)
+#define openf50_timer_delete_sync(t) del_timer_sync(t)
 #endif
 
 #include <tl/mali_kbase_tracepoints.h>
@@ -1262,7 +1262,7 @@ static void kbase_kcpu_fence_wait_cancel(
 		 * the timer would already have been deactivated inside
 		 * kbase_csf_fence_wait_callback().
 		 */
-		mu300_timer_delete_sync(&kcpu_queue->fence_timeout);
+		openf50_timer_delete_sync(&kcpu_queue->fence_timeout);
 #endif
 		if (removed)
 			KBASE_KTRACE_ADD_CSF_KCPU(kctx->kbdev, KCPU_FENCE_WAIT_END,

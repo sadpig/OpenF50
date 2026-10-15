@@ -232,7 +232,7 @@ export class AdbConnection {
 
   // The handshake. Resolves with the device's banner once the device says CNXN; while the device waits for someone
   // to accept the key, this waits too (close() ends it).
-  async connect(hostName = "mu300-web") {
+  async connect(hostName = "openf50-web") {
     const banner = utf8(`host::features=${FEATURES.join(",")}`);
     let signs = 0, keySent = false;
     // A payload that comes where a header is due, and then nothing: the header of the device's answer was lost on

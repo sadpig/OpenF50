@@ -43,7 +43,7 @@ int mbuf_link_alloc(int chn, struct mbuf_t **head, struct mbuf_t **tail,
 
 	WCN_DBG("pool=%p, chn=%d, free=%d\n", pool, chn, pool->free);
 	/*
-	 * MU300: both failures below are hit once per attempt, and Wi-Fi retries its RX refill and every TX: in
+	 * OPENF50: both failures below are hit once per attempt, and Wi-Fi retries its RX refill and every TX: in
 	 * issue #94 the card sat in dump status for minutes and this line, with Wi-Fi's own, flooded the console
 	 * until a CPU soft-locked in printk. Rate-limited; the first ones still show.
 	 */
@@ -145,7 +145,7 @@ int mbuf_pool_init(struct buffer_pool *pool, int size, int payload)
 
 int mbuf_pool_deinit(struct buffer_pool *pool)
 {
-	/* MU300: a channel whose EDMA init failed has no pool this time (its size is still the last one's) */
+	/* OPENF50: a channel whose EDMA init failed has no pool this time (its size is still the last one's) */
 	if (!pool->mem)
 		return 0;
 	memset(pool->mem, 0x00, (sizeof(struct mbuf_t) +

@@ -1,0 +1,14 @@
+[Unit]
+Description=OPENF50 mobile data count (openf50-traffic: per day, per billing cycle, the monthly cap)
+# the clock: systemd-timesyncd's synchronized flag is read at every reading, nothing waits for it
+After=local-fs.target
+
+[Service]
+ExecStart=/opt/openf50/bin/openf50-traffic run
+# SIGTERM: one last reading, saved to the disk, then it exits
+TimeoutStopSec=10
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

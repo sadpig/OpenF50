@@ -3,9 +3,9 @@
 // from a mirror, or the user downloads it and picks the file). What the API says is
 // data from the network: every tag, name, size and checksum is checked for its shape before it is used, and a
 // download link is only ever one into this project's releases.
-export const REPO = "dikeckaan/mu300-linux";
+export const REPO = "dikeckaan/openf50-linux";
 export const VPN_REPO = "dikeckaan/mu300-linux-vpn";
-export const VPN_ASSET = "mu300-linux-vpn.tar.gz";
+export const VPN_ASSET = "openf50-linux-vpn.tar.gz";
 // the newest release whose Magisk zips do not know the web installer yet: its tag and every older one are not offered
 export const LAST_RELEASE_WITHOUT_WEB = "v2026.10.23";
 
@@ -73,9 +73,9 @@ export async function loadVpnModule(fetchImpl = globalThis.fetch.bind(globalThis
   return { tag: r.tag, ...a };
 }
 
-export function zipName(tag, system, kernel) { return `mu300-magisk-${tag}-${system}-k${kernel}.zip`; }
+export function zipName(tag, system, kernel) { return `openf50-magisk-${tag}-${system}-k${kernel}.zip`; }
 
-// Can the web installer use this release at all? Its zips' installer must know MU300_ANSWERS; releases up to
+// Can the web installer use this release at all? Its zips' installer must know OPENF50_ANSWERS; releases up to
 // LAST_RELEASE_WITHOUT_WEB are known not to (the page still checks the zip itself once it is picked).
 export function releaseSupportsWeb(release) {
   if (!/^v\d{4}\.\d{2}\.\d{2}/.test(release.tag)) return true;      // not a dated tag: decided by the zip

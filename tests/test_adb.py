@@ -1,5 +1,5 @@
-"""adb over USB to Linux: the adbd build (tools/adbd), the gadget side (mu300-adbd, against a fake configfs gadget
-whose UDC is a plain file) and its switch, its two ways of letting computers in and its keys (mu300-usb adb), the
+"""adb over USB to Linux: the adbd build (tools/adbd), the gadget side (openf50-adbd, against a fake configfs gadget
+whose UDC is a plain file) and its switch, its two ways of letting computers in and its keys (openf50-usb adb), the
 kernel option and the images. On by default and open to every computer (FINDINGS 70); what a device was set to
 before that stays."""
 import os
@@ -12,7 +12,7 @@ import unittest
 from helpers import BIN, TOP, ShellTest
 
 ADBD_DIR = TOP / 'tools/adbd'
-PATCH = (ADBD_DIR / 'mu300-adbd.patch').read_text()
+PATCH = (ADBD_DIR / 'openf50-adbd.patch').read_text()
 KEY = 'QAAAA' + 'A' * 694 + '='          # the shape of an Android RSA-2048 public key (adbkey.pub)
 KEY2 = 'QAAAA' + 'B' * 694 + '='
 
@@ -36,27 +36,27 @@ class AdbdBuild(unittest.TestCase):
         self.assertIn('https://github.com/nmeum/android-tools/releases/download/$VER/android-tools-$VER.tar.xz', b)
         self.assertRegex(b, r'\nSHA=[0-9a-f]{64}\n')
         self.assertIn("sha256sum -c -", b)
-        self.assertIn('patch -p1 < /adbd/mu300-adbd.patch', b)
+        self.assertIn('patch -p1 < /adbd/openf50-adbd.patch', b)
 
     def test_authentication_has_one_switch(self):
         main = added(PATCH, 'adb/daemon/main.cpp')
-        # open only for exactly MU300_ADB_AUTH=open, which mu300-adbd sets; a missing variable or any other value
+        # open only for exactly OPENF50_ADB_AUTH=open, which openf50-adbd sets; a missing variable or any other value
         # keeps the keys
-        self.assertIn('const char* mu300_adb_auth = getenv("MU300_ADB_AUTH");', main)
-        self.assertIn('auth_required = !(mu300_adb_auth != nullptr && std::string(mu300_adb_auth) == "open");', main)
+        self.assertIn('const char* openf50_adb_auth = getenv("OPENF50_ADB_AUTH");', main)
+        self.assertIn('auth_required = !(openf50_adb_auth != nullptr && std::string(openf50_adb_auth) == "open");', main)
         # and nothing else in the patch decides it (Debian's adbd sets it false on Linux for good)
         self.assertEqual(1, len(re.findall(r'\n\+.*\bauth_required\s*=[^=]', PATCH)))
         self.assertEqual(1, PATCH.count('getenv('))
         self.assertNotRegex(PATCH, r'\n\+.*auth_required = false')
 
     def test_the_daemon_is_started_with_the_mode(self):
-        s = (BIN / 'mu300-adbd').read_text()
-        self.assertIn('MU300_ADB_AUTH=$auth "$ADBD" </dev/null &', s)
+        s = (BIN / 'openf50-adbd').read_text()
+        self.assertIn('OPENF50_ADB_AUTH=$auth "$ADBD" </dev/null &', s)
         self.assertEqual(1, s.count('"$ADBD" </dev/null &'))
 
     def test_keys_only_from_root_owned_files(self):
         auth = added(PATCH, 'native/libs/adbd_auth/adbd_auth.cpp')
-        self.assertIn('{"/etc/mu300/adb_keys", "/root/.android/adb_keys"}', auth)
+        self.assertIn('{"/etc/openf50/adb_keys", "/root/.android/adb_keys"}', auth)
         # no Android framework socket that could approve a key (it would come from the environment): with keys
         # required and no key in those files, nobody gets in
         self.assertIn('sock_fd_.reset(-1);', auth)
@@ -69,7 +69,7 @@ class AdbdBuild(unittest.TestCase):
         # the TCP/vsock listeners stay inside #else (Android only): the patch opens that #else ...
         self.assertRegex(PATCH, r'\(void\)setup_adb;\n\+#else\n')
         # ... whichever way adbd lets computers in: the switch for that is read before it and opens nothing else
-        self.assertLess(main.index('MU300_ADB_AUTH'), main.index('(void)setup_adb;'))
+        self.assertLess(main.index('OPENF50_ADB_AUTH'), main.index('(void)setup_adb;'))
         # "adb tcpip" (Android: service.adb.tcp.port, and adbd comes back listening on it) is not built at all
         self.assertNotIn('restart_service', (ADBD_DIR / 'CMakeLists.txt').read_text())
 
@@ -95,27 +95,27 @@ class AdbdBuild(unittest.TestCase):
 
 class AdbImages(unittest.TestCase):
     def test_kernel_has_functionfs(self):
-        self.assertIn('\nCONFIG_USB_CONFIGFS_F_FS=y\n', (TOP / 'upstream/mu300-mainline.config').read_text())
+        self.assertIn('\nCONFIG_USB_CONFIGFS_F_FS=y\n', (TOP / 'upstream/openf50-mainline.config').read_text())
 
     def test_ubuntu_image(self):
         a = (TOP / 'rootfs/assemble.sh').read_text()
-        self.assertIn('install -m755 /adbd $R/opt/mu300/bin/adbd', a)
-        self.assertIn('mu300-adbd.service:multi-user.target', a)
-        unit = (TOP / 'rootfs/overlay/etc/systemd/system/mu300-adbd.service').read_text()
-        self.assertIn('ExecStart=/opt/mu300/bin/mu300-adbd run', unit)
-        self.assertIn('ExecStopPost=/opt/mu300/bin/mu300-adbd stop', unit)
+        self.assertIn('install -m755 /adbd $R/opt/openf50/bin/adbd', a)
+        self.assertIn('openf50-adbd.service:multi-user.target', a)
+        unit = (TOP / 'rootfs/overlay/etc/systemd/system/openf50-adbd.service').read_text()
+        self.assertIn('ExecStart=/opt/openf50/bin/openf50-adbd run', unit)
+        self.assertIn('ExecStopPost=/opt/openf50/bin/openf50-adbd stop', unit)
         self.assertIn('KillMode=mixed', unit)
-        self.assertIn('Before=mu300-lan.service', unit)
+        self.assertIn('Before=openf50-lan.service', unit)
 
     def test_openwrt_image(self):
         b = (TOP / 'openwrt/build-rootfs.sh').read_text()
         self.assertIn('$(opt tools/adbd/adbd adbd)', b)
-        self.assertIn('cp /in/adbd $R/opt/mu300/bin/adbd', b)
-        self.assertRegex(b, r'for s in mu300-accounts [^\n]* mu300-adbd; do')
-        init = (TOP / 'openwrt/overlay/etc/init.d/mu300-adbd').read_text()
-        # on unless turned off, as mu300-adbd run decides it
-        self.assertIn('[ "$(cat /etc/mu300/adb 2>/dev/null)" != off ] || return 0', init)
-        self.assertIn('procd_set_param command /opt/mu300/bin/mu300-adbd run', init)
+        self.assertIn('cp /in/adbd $R/opt/openf50/bin/adbd', b)
+        self.assertRegex(b, r'for s in openf50-accounts [^\n]* openf50-adbd; do')
+        init = (TOP / 'openwrt/overlay/etc/init.d/openf50-adbd').read_text()
+        # on unless turned off, as openf50-adbd run decides it
+        self.assertIn('[ "$(cat /etc/openf50/adb 2>/dev/null)" != off ] || return 0', init)
+        self.assertIn('procd_set_param command /opt/openf50/bin/openf50-adbd run', init)
         self.assertNotIn('respawn', init)   # the loop restarts adbd; a respawned loop would rebind the gadget again
 
     def test_release_builds_it(self):
@@ -125,7 +125,7 @@ class AdbImages(unittest.TestCase):
 
 
 class Gadget(ShellTest):
-    """mu300-adbd run/stop on a fake gadget: NCM (or RNDIS) + ACM in configs/c.1, bound to 25100000.dwc3."""
+    """openf50-adbd run/stop on a fake gadget: NCM (or RNDIS) + ACM in configs/c.1, bound to 25100000.dwc3."""
 
     UDC = '25100000.dwc3'
 
@@ -153,28 +153,28 @@ class Gadget(ShellTest):
         self.builtin.write_text('kernel/drivers/usb/gadget/function/usb_f_fs.ko\n')
         # adbd: writes its descriptors (ep1 appears), then waits to be stopped
         self.adbd = self.tmp / 'adbd'
-        self.adbd.write_text('#!/bin/sh\necho "start-$MU300_ADB_AUTH" >> "$STUBLOG/adbd.log"\n: > "$MU300_FFS/ep1"\n'
-                             'trap \'rm -f "$MU300_FFS/ep1"; echo stop >> "$STUBLOG/adbd.log"; exit 0\' TERM\n'
+        self.adbd.write_text('#!/bin/sh\necho "start-$OPENF50_ADB_AUTH" >> "$STUBLOG/adbd.log"\n: > "$OPENF50_FFS/ep1"\n'
+                             'trap \'rm -f "$OPENF50_FFS/ep1"; echo stop >> "$STUBLOG/adbd.log"; exit 0\' TERM\n'
                              'while :; do sleep 0.05; done\n')
         self.adbd.chmod(0o755)
         self.stub('mount', 'echo "mount $*" >> "$STUBLOG/calls"; '
-                           '[ "$2" = functionfs ] && echo "adb $4 functionfs rw 0 0" >> "$MU300_PROC_MOUNTS"; :')
-        self.stub('umount', 'echo "umount $*" >> "$STUBLOG/calls"; : > "$MU300_PROC_MOUNTS"')
+                           '[ "$2" = functionfs ] && echo "adb $4 functionfs rw 0 0" >> "$OPENF50_PROC_MOUNTS"; :')
+        self.stub('umount', 'echo "umount $*" >> "$STUBLOG/calls"; : > "$OPENF50_PROC_MOUNTS"')
         self.stub('ip', 'echo "ip $*" >> "$STUBLOG/calls"')
         self.stub('id', 'echo 0')
-        self.envs = dict(MU300_GADGET=self.g, MU300_FFS=self.ffs, MU300_ADBD_BIN=self.adbd, MU300_ADB_CONF=self.conf,
-                         MU300_ADB_AUTH_CONF=self.auth, MU300_ADB_KEYS=self.keys,
-                         MU300_ADB_ROOT_KEYS=self.tmp / 'root_adb_keys', MU300_ADB_OWNER=os.getuid(),
-                         MU300_PROC_MOUNTS=self.mounts, MU300_PROC_FILESYSTEMS=self.tmp / 'nofs',
-                         MU300_MODULES_BUILTIN=self.builtin, MU300_UDC_CLASS=udc, MU300_USB_ROLE=self.role,
-                         MU300_USB_HOOK=self.tmp / 'nohook', MU300_ADBD_TICK='0.1', MU300_ADBD_GRACE='3',
+        self.envs = dict(OPENF50_GADGET=self.g, OPENF50_FFS=self.ffs, OPENF50_ADBD_BIN=self.adbd, OPENF50_ADB_CONF=self.conf,
+                         OPENF50_ADB_AUTH_CONF=self.auth, OPENF50_ADB_KEYS=self.keys,
+                         OPENF50_ADB_ROOT_KEYS=self.tmp / 'root_adb_keys', OPENF50_ADB_OWNER=os.getuid(),
+                         OPENF50_PROC_MOUNTS=self.mounts, OPENF50_PROC_FILESYSTEMS=self.tmp / 'nofs',
+                         OPENF50_MODULES_BUILTIN=self.builtin, OPENF50_UDC_CLASS=udc, OPENF50_USB_ROLE=self.role,
+                         OPENF50_USB_HOOK=self.tmp / 'nohook', OPENF50_ADBD_TICK='0.1', OPENF50_ADBD_GRACE='3',
                          # no waiting for a FunctionFS that comes late, except in the test of that
-                         MU300_ADB_WAIT='0')
+                         OPENF50_ADB_WAIT='0')
 
     def start(self, shell, **env):
         e = dict(self.envs)
         e.update(env)
-        return subprocess.Popen(shell + [str(BIN / 'mu300-adbd'), 'run'], stdout=subprocess.PIPE,
+        return subprocess.Popen(shell + [str(BIN / 'openf50-adbd'), 'run'], stdout=subprocess.PIPE,
                                 stderr=subprocess.PIPE, text=True, env=self.env(**e))
 
     def until(self, cond, timeout=10):
@@ -203,7 +203,7 @@ class Gadget(ShellTest):
     def test_off_leaves_the_gadget_alone(self):
         self.conf.write_text('off\n')
         for shell in self.each_shell():
-            r = self.script(shell, BIN / 'mu300-adbd', 'run', **self.envs)
+            r = self.script(shell, BIN / 'openf50-adbd', 'run', **self.envs)
             self.assertEqual(0, r.returncode, r.stderr)
             self.assertIn('adb is off', r.stdout)
             self.assertFalse((self.g / 'functions/ffs.adb').exists())
@@ -211,7 +211,7 @@ class Gadget(ShellTest):
 
     def test_no_adbd_or_no_functionfs_leaves_the_gadget_alone(self):
         for shell in self.each_shell():
-            r = self.script(shell, BIN / 'mu300-adbd', 'run', **dict(self.envs, MU300_ADBD_BIN=self.tmp / 'none'))
+            r = self.script(shell, BIN / 'openf50-adbd', 'run', **dict(self.envs, OPENF50_ADBD_BIN=self.tmp / 'none'))
             self.assertEqual(0, r.returncode, r.stderr)
             self.assertIn('no adbd in this system', r.stderr)
             # a kernel without FunctionFS: not in the filesystems, not built in, and the function cannot be made
@@ -219,7 +219,7 @@ class Gadget(ShellTest):
             self.builtin.write_text('kernel/drivers/usb/gadget/function/usb_f_ncm.ko\n')
             (self.g / 'functions/ffs.adb').write_text('')
             try:
-                r = self.script(shell, BIN / 'mu300-adbd', 'run', **self.envs)
+                r = self.script(shell, BIN / 'openf50-adbd', 'run', **self.envs)
             finally:
                 (self.g / 'functions/ffs.adb').unlink()
             self.assertEqual(0, r.returncode, r.stderr)
@@ -237,7 +237,7 @@ class Gadget(ShellTest):
             self.builtin.write_text('kernel/drivers/usb/gadget/function/usb_f_ncm.ko\n')
             block = self.g / 'functions/ffs.adb'
             block.write_text('')
-            p = self.start(shell, MU300_ADB_WAIT='20')
+            p = self.start(shell, OPENF50_ADB_WAIT='20')
             try:
                 time.sleep(1.5)
                 self.assertIsNone(p.poll(), 'the service gave up at the first no')
@@ -298,7 +298,7 @@ class Gadget(ShellTest):
 
     def test_binds_again_when_functionfs_unbound_the_gadget(self):
         for shell in self.each_shell():
-            p = self.start(shell, MU300_ADBD_GRACE='20')   # 20 ticks of 0.1 s: a 2 s grace, a margin under load
+            p = self.start(shell, OPENF50_ADBD_GRACE='20')   # 20 ticks of 0.1 s: a 2 s grace, a margin under load
             try:
                 # in the gadget and bound (linked comes first, inside the rebind: its bind must be over)
                 self.assertTrue(self.until(self.linked))
@@ -307,7 +307,7 @@ class Gadget(ShellTest):
                 # an adb connection ended: FunctionFS takes the gadget off the controller
                 (self.g / 'UDC').write_text('\n')
                 time.sleep(0.5)
-                self.assertEqual('', self.read('UDC'))   # not at once (the grace for mu300-usb-reset)
+                self.assertEqual('', self.read('UDC'))   # not at once (the grace for openf50-usb-reset)
                 self.assertTrue(self.until(lambda: self.read('UDC') == self.UDC, timeout=15), 'never bound again')
                 self.assertTrue(self.linked())
             finally:
@@ -342,33 +342,33 @@ class Gadget(ShellTest):
 
     def test_status(self):
         for shell in self.each_shell():
-            r = self.script(shell, BIN / 'mu300-adbd', 'status', **self.envs)
+            r = self.script(shell, BIN / 'openf50-adbd', 'status', **self.envs)
             self.assertEqual(0, r.returncode, r.stderr)
             self.assertIn('adb: on', r.stdout)
             self.assertIn('auth: open (every computer on the USB cable gets a root shell, no key asked)', r.stdout)
             self.assertIn('gadget: without adb', r.stdout)
             self.conf.write_text('off\n')
             self.auth.write_text('keys\n')
-            r = self.script(shell, BIN / 'mu300-adbd', 'status', **self.envs)
+            r = self.script(shell, BIN / 'openf50-adbd', 'status', **self.envs)
             self.assertIn('adb: off', r.stdout)
             self.assertIn('auth: keys', r.stdout)
             self.conf.unlink()
             self.auth.unlink()
 
     def mode(self, shell, what='auth'):
-        r = self.script(shell, BIN / 'mu300-adbd', what, **self.envs)
+        r = self.script(shell, BIN / 'openf50-adbd', what, **self.envs)
         self.assertEqual(0, r.returncode, r.stderr)
         return r.stdout.strip()
 
     def test_who_gets_in(self):
-        # (/etc/mu300/adb, /etc/mu300/adb_auth, a key authorised) -> auth, state
+        # (/etc/openf50/adb, /etc/openf50/adb_auth, a key authorised) -> auth, state
         cases = [
             (None, None, False, 'open', 'open'),      # never set: a new installation, or an update of one
             ('off', None, False, 'open', 'off'),      # turned off by somebody: stays off
             ('on', None, False, 'keys', 'keys'),      # turned on under v2026.10.20-23, when on meant keys only
             ('off', None, True, 'keys', 'off'),       # a key authorised then: keys when it is turned on again
             (None, None, True, 'keys', 'keys'),
-            ('on', 'open', True, 'open', 'open'),     # what "mu300-usb adb auth" wrote decides
+            ('on', 'open', True, 'open', 'open'),     # what "openf50-usb adb auth" wrote decides
             (None, 'keys', False, 'keys', 'keys'),
             ('on', 'keys', True, 'keys', 'keys'),
             (None, 'yes', False, 'keys', 'keys'),     # a file nobody here wrote: the closed one
@@ -403,7 +403,7 @@ class Gadget(ShellTest):
                 self.assertEqual(want_auth, self.mode(shell))
                 self.assertEqual(want_state, self.mode(shell, 'state'))
                 if why:
-                    r = self.script(shell, BIN / 'mu300-adbd', 'status', **self.envs)
+                    r = self.script(shell, BIN / 'openf50-adbd', 'status', **self.envs)
                     self.assertIn(why, r.stdout)
 
         reset()
@@ -436,10 +436,10 @@ class Gadget(ShellTest):
         check('keys', 'keys', "missing or not root's alone")
         self.tmp.chmod(0o700)
         for shell in self.each_shell():
-            r = self.script(shell, BIN / 'mu300-adbd', 'auth', **dict(self.envs, MU300_ADB_OWNER=os.getuid() + 1))
+            r = self.script(shell, BIN / 'openf50-adbd', 'auth', **dict(self.envs, OPENF50_ADB_OWNER=os.getuid() + 1))
             self.assertEqual('keys', r.stdout.strip())
-            r = self.script(shell, BIN / 'mu300-adbd', 'auth',
-                            **dict(self.envs, MU300_ADB_AUTH_CONF=self.tmp / 'not-mounted' / 'adb_auth'))
+            r = self.script(shell, BIN / 'openf50-adbd', 'auth',
+                            **dict(self.envs, OPENF50_ADB_AUTH_CONF=self.tmp / 'not-mounted' / 'adb_auth'))
             self.assertEqual('keys', r.stdout.strip())
         # on or off cut to nothing: off, never the default (on)
         for junk in (b'', b'o', b'of\n', b'yes\n'):
@@ -447,7 +447,7 @@ class Gadget(ShellTest):
             self.conf.write_bytes(junk)
             check('keys', 'off', 'says neither on nor off')
             for shell in self.each_shell():
-                r = self.script(shell, BIN / 'mu300-adbd', 'run', **self.envs)
+                r = self.script(shell, BIN / 'openf50-adbd', 'run', **self.envs)
                 self.assertEqual(0, r.returncode, r.stderr)
                 self.assertIn('says neither on nor off: adb stays off', r.stderr)
                 self.assertFalse((self.g / 'functions/ffs.adb').exists())
@@ -476,7 +476,7 @@ class Gadget(ShellTest):
 
     def test_state_where_adb_cannot_run(self):
         for shell in self.each_shell():
-            r = self.script(shell, BIN / 'mu300-adbd', 'state', **dict(self.envs, MU300_ADBD_BIN=self.tmp / 'none'))
+            r = self.script(shell, BIN / 'openf50-adbd', 'state', **dict(self.envs, OPENF50_ADBD_BIN=self.tmp / 'none'))
             self.assertEqual('unavailable', r.stdout.strip())
 
     def test_adbd_is_told_the_mode(self):
@@ -499,27 +499,27 @@ class Gadget(ShellTest):
 
 
 class UsbAdb(ShellTest):
-    """mu300-usb adb: the setting, the service (a stub), the keys."""
+    """openf50-usb adb: the setting, the service (a stub), the keys."""
 
     def setUp(self):
         super().setUp()
-        self.conf = self.tmp / 'etc/mu300/adb'
-        self.auth = self.tmp / 'etc/mu300/adb_auth'
-        self.keys = self.tmp / 'etc/mu300/adb_keys'
-        self.conf.parent.mkdir(parents=True)       # /etc/mu300: every image has it (its version is in there)
+        self.conf = self.tmp / 'etc/openf50/adb'
+        self.auth = self.tmp / 'etc/openf50/adb_auth'
+        self.keys = self.tmp / 'etc/openf50/adb_keys'
+        self.conf.parent.mkdir(parents=True)       # /etc/openf50: every image has it (its version is in there)
         self.stub('id', 'echo 0')
-        # the real mu300-adbd says who gets in (auth, status); only whether adbd can run here is the test's
-        self.stub('mu300-adbd', 'case $1 in usable) [ -e "$STUBLOG/unusable" ] && { echo "no adbd"; exit 1; }; exit 0 ;; '
-                                f'*) exec sh "{BIN / "mu300-adbd"}" "$@" ;; esac')
+        # the real openf50-adbd says who gets in (auth, status); only whether adbd can run here is the test's
+        self.stub('openf50-adbd', 'case $1 in usable) [ -e "$STUBLOG/unusable" ] && { echo "no adbd"; exit 1; }; exit 0 ;; '
+                                f'*) exec sh "{BIN / "openf50-adbd"}" "$@" ;; esac')
         self.svc = self.tmp / 'svc'
         self.svc.write_text('#!/bin/sh\necho "$1" >> "$STUBLOG/svc.log"\n')
         self.svc.chmod(0o755)
 
     def usb(self, shell, *args, stdin=None):
-        return self.script(shell, BIN / 'mu300-usb', 'adb', *args, stdin=stdin, MU300_ADB_CONF=self.conf,
-                           MU300_ADB_AUTH_CONF=self.auth, MU300_ADB_KEYS=self.keys,
-                           MU300_ADB_ROOT_KEYS=self.tmp / 'root_adb_keys', MU300_ADB_SERVICE=self.svc,
-                           MU300_GADGET=self.tmp / 'nogadget', MU300_ADB_OWNER=os.getuid())
+        return self.script(shell, BIN / 'openf50-usb', 'adb', *args, stdin=stdin, OPENF50_ADB_CONF=self.conf,
+                           OPENF50_ADB_AUTH_CONF=self.auth, OPENF50_ADB_KEYS=self.keys,
+                           OPENF50_ADB_ROOT_KEYS=self.tmp / 'root_adb_keys', OPENF50_ADB_SERVICE=self.svc,
+                           OPENF50_GADGET=self.tmp / 'nogadget', OPENF50_ADB_OWNER=os.getuid())
 
     def clear(self):
         for f in (self.conf, self.auth, self.keys, self.tmp / 'svc.log'):
@@ -538,8 +538,8 @@ class UsbAdb(ShellTest):
             # open, and said so: what it means and the two commands that close it
             self.assertEqual('open\n', self.auth.read_text())
             self.assertIn('every computer plugged into the USB port gets a root shell without a password', r.stdout)
-            self.assertIn('sudo mu300-usb adb auth keys', r.stdout)
-            self.assertIn('sudo mu300-usb adb off', r.stdout)
+            self.assertIn('sudo openf50-usb adb auth keys', r.stdout)
+            self.assertIn('sudo openf50-usb adb off', r.stdout)
             r = self.usb(shell, 'off')
             self.assertEqual(0, r.returncode, r.stderr)
             self.assertEqual('off\n', self.conf.read_text())
@@ -594,11 +594,11 @@ class UsbAdb(ShellTest):
             for bad in ('none', 'OPEN', 'off'):
                 r = self.usb(shell, 'auth', bad)
                 self.assertEqual(1, r.returncode, bad)
-                self.assertIn('usage: mu300-usb adb auth open|keys', r.stderr)
+                self.assertIn('usage: openf50-usb adb auth open|keys', r.stderr)
                 self.assertEqual('keys\n', self.auth.read_text())
 
     def test_the_state_is_written_whole_and_never_through_a_symlink(self):
-        s = (BIN / 'mu300-usb').read_text()
+        s = (BIN / 'openf50-usb').read_text()
         # every write of the two state files is adb_write (a new file, renamed over the old one)
         self.assertNotRegex(s, r'>\s*"\$ADB_(CONF|AUTH)"')
         self.assertIn('mv -f "$_t" "$1"', s)
@@ -637,12 +637,12 @@ class UsbAdb(ShellTest):
             self.assertNotIn('adb is open', r.stdout)
 
     def test_status_of_the_port_shows_adb(self):
-        self.stub('mu300-device', 'echo f50')
+        self.stub('openf50-device', 'echo f50')
         for shell in self.each_shell():
             self.clear()
-            r = self.script(shell, BIN / 'mu300-usb', MU300_ADB_CONF=self.conf, MU300_ADB_AUTH_CONF=self.auth,
-                            MU300_ADB_KEYS=self.keys, MU300_ADB_ROOT_KEYS=self.tmp / 'root_adb_keys',
-                            MU300_GADGET=self.tmp / 'nogadget', MU300_ADB_OWNER=os.getuid())
+            r = self.script(shell, BIN / 'openf50-usb', OPENF50_ADB_CONF=self.conf, OPENF50_ADB_AUTH_CONF=self.auth,
+                            OPENF50_ADB_KEYS=self.keys, OPENF50_ADB_ROOT_KEYS=self.tmp / 'root_adb_keys',
+                            OPENF50_GADGET=self.tmp / 'nogadget', OPENF50_ADB_OWNER=os.getuid())
             self.assertIn('adb: on\nauth: open (every computer', r.stdout)
             self.assertIn('only the U30 Air can be a USB host', r.stderr)      # the rest is the U30 Air's port role
 

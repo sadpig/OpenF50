@@ -1,22 +1,22 @@
 #!/bin/sh
-# Build an extra: the optional parts that are not in the images and that mu300-extra installs on the device.
+# Build an extra: the optional parts that are not in the images and that openf50-extra installs on the device.
 #   tools/make-extra.sh NAME OUT.tar.gz [TAG]     (TAG: the release it belongs to, default dev)
 # Extras of this repository:
 #   lang  LuCI's catalogs in every language of the OpenWrt feed besides the images' own (tr, zh-cn): luci-base and each
 #         LuCI app of the images, from the luci-i18n-* packages (apk add in the OpenWrt base image that
 #         openwrt/build-rootfs.sh imports, so apk checks every package against the feed's signed index), plus the
-#         MU300 panel's catalogs (openwrt/luci-app-mu300/po, tools/po2lmo.py). Needs docker with arm64 support.
-#   panel  the web panel for Ubuntu (rootfs/panel): bin/mu300-panel and the MU300 page of Cockpit (cockpit/mu300, with
+#         OPENF50 panel's catalogs (openwrt/luci-app-openf50/po, tools/po2lmo.py). Needs docker with arm64 support.
+#   panel  the web panel for Ubuntu (rootfs/panel): bin/openf50-panel and the OPENF50 page of Cockpit (cockpit/openf50, with
 #         po.<lang>.js from rootfs/panel/po, tools/cockpit-i18n.py). Cockpit itself comes from Ubuntu's archive when
 #         the extra is installed.
 #   panel-offline  the same, plus Cockpit's packages for each Ubuntu release of the images (debs/24.04, debs/26.04):
 #         what "apt-get install --no-install-recommends cockpit-ws cockpit-system cockpit-bridge" adds to the
-#         release's Ubuntu image (mu300-ubuntu:<release>, the image the rootfs is built from), downloaded with apt in
+#         release's Ubuntu image (openf50-ubuntu:<release>, the image the rootfs is built from), downloaded with apt in
 #         that image, so apt checks each package against the archive's signed index. Needs docker with arm64 support.
-#         Its ./name is panel: mu300-extra install panel --from FILE installs it.
+#         Its ./name is panel: openf50-extra install panel --from FILE installs it.
 # The VPN extras (vpn, vpn-mihomo) are not built here: they are the module of github.com/dikeckaan/mu300-linux-vpn
-# (its tools/make-module.sh), which mu300-extra downloads from that repository's releases.
-# Layout (what mu300-update's extra_unpack checks): ./name ./release ./components ./manifest (sha256 of every file),
+# (its tools/make-module.sh), which openf50-extra downloads from that repository's releases.
+# Layout (what openf50-update's extra_unpack checks): ./name ./release ./components ./manifest (sha256 of every file),
 # ./languages (uci key, tab, name) and ./i18n/<component>.<code>.lmo; owned by root.
 set -eu
 NAME=${1:?usage: tools/make-extra.sh NAME OUT.tar.gz [TAG]}
@@ -26,7 +26,7 @@ TOP=$(cd "$(dirname "$0")/.." && pwd)
 tmp=$(mktemp -d); trap 'rm -rf "$tmp"' EXIT
 case $NAME in
     lang)
-        IMG=mu300-openwrt-base:${MU300_WRT_VER:-25.12.5}
+        IMG=openf50-openwrt-base:${OPENF50_WRT_VER:-25.12.5}
         docker image inspect "$IMG" >/dev/null 2>&1 || {
             echo "$IMG missing: openwrt/build-rootfs.sh imports it (build an OpenWrt image first)" >&2; exit 1; }
         mkdir -p "$tmp/x/i18n" "$tmp/feed"
@@ -66,11 +66,11 @@ for line in open(os.path.join(feed, 'names'), encoding='utf-8'):
 # the panel's catalogs, except the two the openwrt-luci image carries itself
 ours = []
 for d, (code, name) in sorted(table.items()):
-    if d in ('tr', 'zh_Hans') or not os.path.isfile(os.path.join(top, 'openwrt/luci-app-mu300/po', d, 'mu300.po')):
+    if d in ('tr', 'zh_Hans') or not os.path.isfile(os.path.join(top, 'openwrt/luci-app-openf50/po', d, 'openf50.po')):
         continue
     subprocess.run([sys.executable, os.path.join(top, 'tools/po2lmo.py'),
-                    os.path.join(top, 'openwrt/luci-app-mu300/po', d, 'mu300.po'),
-                    os.path.join(x, 'i18n', f'mu300.{code}.lmo')], check=True)
+                    os.path.join(top, 'openwrt/luci-app-openf50/po', d, 'openf50.po'),
+                    os.path.join(x, 'i18n', f'openf50.{code}.lmo')], check=True)
     ours.append(code)
     names[code.replace('-', '_')] = name          # our name where LuCI has none (az, kk, id); the same otherwise
 names.pop('tr', None); names.pop('zh_cn', None)
@@ -89,21 +89,21 @@ for n in lmos:
     assert re.match(r'^[a-z0-9-]+\.[a-z]{2,3}(-[a-z]{2})?\.lmo$', n) and code.replace('-', '_') in names, n
 with open(os.path.join(x, 'components'), 'w', encoding='utf-8') as f:
     f.write(open(os.path.join(feed, 'packages'), encoding='utf-8').read())
-    f.write('luci-app-mu300 catalogs: ' + ' '.join(ours) + '\n')
+    f.write('luci-app-openf50 catalogs: ' + ' '.join(ours) + '\n')
 PY
         echo "lang: $(wc -l < "$tmp/x/languages" | tr -d ' ') languages, $(ls "$tmp/x/i18n" | wc -l | tr -d ' ') catalogs" >&2 ;;
     panel|panel-offline)
         x=$tmp/x
-        mkdir -p "$x/bin" "$x/cockpit/mu300"
-        cp "$TOP/rootfs/panel/bin/mu300-panel" "$x/bin/mu300-panel"
-        chmod 755 "$x/bin/mu300-panel"
-        for f in manifest.json index.html mu300.js mu300.css; do cp "$TOP/rootfs/panel/cockpit/mu300/$f" "$x/cockpit/mu300/"; done
-        python3 "$TOP/tools/cockpit-i18n.py" check >&2 || { echo "the MU300 page's translations are incomplete" >&2; exit 1; }
-        python3 "$TOP/tools/cockpit-i18n.py" build "$x/cockpit/mu300"
-        printf 'mu300-panel %s\ncockpit page mu300 (en tr zh_CN)\n' "$TAG" > "$x/components"
+        mkdir -p "$x/bin" "$x/cockpit/openf50"
+        cp "$TOP/rootfs/panel/bin/openf50-panel" "$x/bin/openf50-panel"
+        chmod 755 "$x/bin/openf50-panel"
+        for f in manifest.json index.html openf50.js openf50.css; do cp "$TOP/rootfs/panel/cockpit/openf50/$f" "$x/cockpit/openf50/"; done
+        python3 "$TOP/tools/cockpit-i18n.py" check >&2 || { echo "the OPENF50 page's translations are incomplete" >&2; exit 1; }
+        python3 "$TOP/tools/cockpit-i18n.py" build "$x/cockpit/openf50"
+        printf 'openf50-panel %s\ncockpit page openf50 (en tr zh_CN)\n' "$TAG" > "$x/components"
         if [ "$NAME" = panel-offline ]; then
-            for u in ${MU300_PANEL_UBUNTU:-24.04 26.04}; do
-                img=mu300-ubuntu:$u
+            for u in ${OPENF50_PANEL_UBUNTU:-24.04 26.04}; do
+                img=openf50-ubuntu:$u
                 docker image inspect "$img" >/dev/null 2>&1 || {
                     echo "$img missing: docker build -t $img --build-arg BASE=ubuntu:$u rootfs (as make-release.sh does)" >&2; exit 1; }
                 mkdir -p "$x/debs/$u"
@@ -134,7 +134,7 @@ def root(ti):
     ti.uid = ti.gid = 0
     ti.uname = ti.gname = 'root'
     return ti
-# ./manifest: the sha256 of every file, as sha256sum writes it (mu300-update checks the unpacked tree against it)
+# ./manifest: the sha256 of every file, as sha256sum writes it (openf50-update checks the unpacked tree against it)
 import hashlib
 lines = []
 for d, _, fs in os.walk(src):

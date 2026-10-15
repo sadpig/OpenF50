@@ -2,8 +2,8 @@
 //
 //   AndroidDevice  rooted Android: everything goes through tools/android-web.sh (pushed to the device first), run
 //                  under su, which answers in JSON and marked lines
-//   LinuxDevice    MU300 Linux with adb on: one adapter around "run a command over adb shell, get JSON"
-//                  (mu300-device --json, docs/ADB-INTERFACE.md, where the image has it; the facts it does not
+//   LinuxDevice    OPENF50 Linux with adb on: one adapter around "run a command over adb shell, get JSON"
+//                  (openf50-device --json, docs/ADB-INTERFACE.md, where the image has it; the facts it does not
 //                  carry, and all of them on an older image, from the commands every image has)
 //
 // identify(conn) tells which one a connection is. Nothing here touches the DOM; tests/web drives both kinds against
@@ -15,11 +15,11 @@ import { classifyLine } from "./flow.js";
 import { mask as pageMask } from "./privacy.js";
 import { Sha256, sha256Hex } from "./sha256.js";
 
-export const STAGE = "/data/local/tmp/mu300-web";
-export const DEVICE_FILES = ["android-web.sh", "storage.sh", "android-boot-image.sh", "android-mount-mu300root.sh", "switch.sh"];
+export const STAGE = "/data/local/tmp/openf50-web";
+export const DEVICE_FILES = ["android-web.sh", "storage.sh", "android-boot-image.sh", "android-mount-openf50root.sh", "switch.sh"];
 
 export class DeviceError extends Error {
-  // code: a word the page has a sentence for (the script's MU300-WEB-ERROR codes among them)
+  // code: a word the page has a sentence for (the script's OPENF50-WEB-ERROR codes among them)
   constructor(code, detail) { super(detail ? `${code}: ${detail}` : code); this.name = "DeviceError"; this.code = code; this.detail = detail || ""; }
 }
 
@@ -31,7 +31,7 @@ export const safeArg = (a) => typeof a === "string" && ARG.test(a) && !a.include
 // The files the page ever writes on the device, all in its own directory under /data/local/tmp: the device scripts
 // (DEVICE_FILES), the answers, a Magisk zip of a release, an extra under a fixed name. Remote paths are built from
 // these and from nothing a device or a listing said.
-const ZIP_NAME = /^mu300-magisk-v[0-9][A-Za-z0-9._-]{0,80}\.zip$/;
+const ZIP_NAME = /^openf50-magisk-v[0-9][A-Za-z0-9._-]{0,80}\.zip$/;
 const EXTRA_FILE = { vpn: "extra-vpn.tar.gz", panel: "extra-panel.tar.gz" };
 // ... and the files it ever reads back: the copies android-web.sh makes for a backup, by their exact names
 const BACKUP_FILE = /^(?:(?:boot|uboot|sml|teecfg|trustos|vbmeta)_[ab]\.img|misc-head\.bin|gpt-head\.bin|gpt-tail\.bin|partitions\.txt)$/;
@@ -42,9 +42,9 @@ export const FETCH_FAILURES = { 10: "fetch-no-network", 11: "fetch-host", 12: "d
 // ---- which kind of device is this?
 
 // identify(conn) -> { kind: "android" | "linux" | "other", props }
-// One unprivileged command. Android: getprop exists. Our Linux: /etc/mu300 does.
+// One unprivileged command. Android: getprop exists. Our Linux: /etc/openf50 does.
 export async function identify(conn) {
-  const r = await shell(conn, "if [ -d /etc/mu300 ] || [ -x /opt/mu300/bin/mu300-device ]; then echo KIND=linux; " +
+  const r = await shell(conn, "if [ -d /etc/openf50 ] || [ -x /opt/openf50/bin/openf50-device ]; then echo KIND=linux; " +
     "elif command -v getprop >/dev/null 2>&1; then echo KIND=android; else echo KIND=other; fi", { timeoutMs: 15000 });
   const m = /KIND=(linux|android|other)/.exec(r.stdout);
   return { kind: m ? m[1] : "other" };
@@ -128,7 +128,7 @@ export class AndroidDevice {
   }
 
   // Runs one command of android-web.sh under su. Returns { rc, out: [lines], marks: { NAME: [rest...] } }; a
-  // MU300-WEB-ERROR line becomes a DeviceError. onLine gets every line as it comes.
+  // OPENF50-WEB-ERROR line becomes a DeviceError. onLine gets every line as it comes.
   async web(args, options = {}) {
     for (const a of args) if (!safeArg(a)) throw new DeviceError("bad-argument", this.mask(String(a)).slice(0, 40));
     const cmd = `su -c 'sh ${STAGE}/android-web.sh ${args.join(" ")}'`;
@@ -139,13 +139,13 @@ export class AndroidDevice {
     const take = (l, isErr) => {
       out.push(this.mask(l));
       this.log(l, isErr);
-      const m = /^MU300-WEB-([A-Z]+) ?(.*)$/.exec(l);
+      const m = /^OPENF50-WEB-([A-Z]+) ?(.*)$/.exec(l);
       if (m) (marks[m[1]] = marks[m[1]] || []).push(m[2]);
       if (options.onEvent) {
         const ev = classifyLine(l);
         if (ev.text !== undefined) ev.text = this.mask(ev.text);
         if (ev.type === "plan") ev.value = this.mask(ev.value);
-        options.onEvent(ev, l.startsWith("MU300-WEB-"));
+        options.onEvent(ev, l.startsWith("OPENF50-WEB-"));
       }
     };
     const r = await shell(this.conn, cmd, { onLine: take, stdin: options.stdin, signal: options.signal, timeoutMs: options.timeoutMs,
@@ -278,7 +278,7 @@ export class AndroidDevice {
     };
     const r = await shell(this.conn, `su -c 'sh ${STAGE}/android-web.sh cat ${name}'`, { onStdout: feed, onStderr: () => {}, signal: options.signal, timeoutMs: 900000 });
     await chain;
-    const refused = /MU300-WEB-ERROR ([a-z-]{1,40})/.exec(head);
+    const refused = /OPENF50-WEB-ERROR ([a-z-]{1,40})/.exec(head);
     if (refused) throw new DeviceError(refused[1]);
     if (failed) throw failed;
     if (odd || text || r.exitCode !== 0) throw new DeviceError("bad-answer", "backup");
@@ -348,20 +348,20 @@ export class AndroidDevice {
   }
 }
 
-// ---- MU300 Linux
+// ---- OPENF50 Linux
 
-// The facts the manage view shows, when the image has no "mu300-device --json" yet: one line each, KEY=VALUE, from
+// The facts the manage view shows, when the image has no "openf50-device --json" yet: one line each, KEY=VALUE, from
 // commands and files every image has. Never anything of the modem or the SIM.
 const LINUX_FACTS = [
-  'echo "device=$(/opt/mu300/bin/mu300-device 2>/dev/null)"',
-  'echo "version=$(head -n1 /etc/mu300/image-version 2>/dev/null)"',
+  'echo "device=$(/opt/openf50/bin/openf50-device 2>/dev/null)"',
+  'echo "version=$(head -n1 /etc/openf50/image-version 2>/dev/null)"',
   'echo "os=$(. /etc/os-release 2>/dev/null; echo "$ID $VERSION_ID")"',
   'echo "kernel=$(uname -r)"',
-  'echo "kernel_choice=$(head -n1 /mnt/mu300-disk/boot/kernel 2>/dev/null)"',
-  'echo "boot_os=$(head -n1 /mnt/mu300-disk/.mu300/boot-os 2>/dev/null)"',
-  'echo "default_boot=$(head -n1 /etc/mu300/default-boot 2>/dev/null)"',
-  'echo "attempts=$(head -n1 /mnt/mu300-disk/.mu300/boot-attempts 2>/dev/null)"',
-  'echo "systems=$(for d in ubuntu openwrt openwrt-luci; do [ -d /mnt/mu300-disk/$d/etc ] && printf "%s " $d; done)"',
+  'echo "kernel_choice=$(head -n1 /mnt/openf50-disk/boot/kernel 2>/dev/null)"',
+  'echo "boot_os=$(head -n1 /mnt/openf50-disk/.openf50/boot-os 2>/dev/null)"',
+  'echo "default_boot=$(head -n1 /etc/openf50/default-boot 2>/dev/null)"',
+  'echo "attempts=$(head -n1 /mnt/openf50-disk/.openf50/boot-attempts 2>/dev/null)"',
+  'echo "systems=$(for d in ubuntu openwrt openwrt-luci; do [ -d /mnt/openf50-disk/$d/etc ] && printf "%s " $d; done)"',
   'echo "uptime=$(cut -d. -f1 /proc/uptime 2>/dev/null)"',
   'echo "root=$(id -u)"',
 ].join("; ");
@@ -372,7 +372,7 @@ export function normalizeLinuxInfo(o, source) {
   const s = (v) => (typeof v === "string" && WORD.test(v) ? v.trim() : typeof v === "number" ? String(v) : "");
   const systems = Array.isArray(o.systems) ? o.systems.map(s) : s(o.systems).split(/\s+/);
   return {
-    source,                                  // "json" (mu300-device --json) or "commands"
+    source,                                  // "json" (openf50-device --json) or "commands"
     device: ["f50", "u30air", "v50"].includes(s(o.device)) ? s(o.device) : "",
     version: s(o.version), os: s(o.os), kernel: s(o.kernel), kernelChoice: s(o.kernel_choice),
     bootOs: s(o.boot_os), defaultBoot: s(o.default_boot) === "linux" ? "linux" : "android",
@@ -394,30 +394,30 @@ export class LinuxDevice {
     this.log = (l, isErr) => log(this.mask(l), isErr);
   }
 
-  // _run(command): one command over adb shell, with /opt/mu300/bin on the PATH. The commands are this file's own
+  // _run(command): one command over adb shell, with /opt/openf50/bin on the PATH. The commands are this file's own
   // (fixed text, arguments from short lists); nothing a device or a listing said is ever part of one. Every line
   // goes to the log and to onLine masked. -> { rc, stdout }: stdout is what the command printed, for info() to
   // read facts from, and is not for showing.
   async _run(command, options = {}) {
     const take = (l, isErr) => { this.log(l, isErr); if (options.onLine) options.onLine(this.mask(l), isErr); };
-    const r = await shell(this.conn, `export PATH="$PATH:/opt/mu300/bin:/usr/sbin:/sbin"; ${command}`,
+    const r = await shell(this.conn, `export PATH="$PATH:/opt/openf50/bin:/usr/sbin:/sbin"; ${command}`,
       { onLine: take, timeoutMs: options.timeoutMs, signal: options.signal });
     return { rc: r.exitCode, stdout: r.stdout };
   }
   // the same for the actions: only the exit status comes back, the text went out masked
   async run(command, options = {}) { return { rc: (await this._run(command, options)).rc }; }
 
-  // The device's own description. An image with "mu300-device --json" (format 1, docs/ADB-INTERFACE.md) says who
+  // The device's own description. An image with "openf50-device --json" (format 1, docs/ADB-INTERFACE.md) says who
   // it is, what runs, and what adb does; an older one prints the device's name for any argument. What that JSON
   // does not carry (the kernel chosen, the system that boots, the systems installed) is read one by one, on both.
   async info() {
-    const j = await this._run("mu300-device --json 2>/dev/null", { timeoutMs: 20000 });
+    const j = await this._run("openf50-device --json 2>/dev/null", { timeoutMs: 20000 });
     let own = null;
     const t = j.stdout.trim();
     if (t.startsWith("{")) {
       try {
         const o = JSON.parse(t);
-        if (o && typeof o === "object" && o.mu300 === 1) {
+        if (o && typeof o === "object" && o.openf50 === 1) {
           own = { device: o.device, version: o.release, kernel: o.kernel, root: o.root === true ? 0 : 1, adb: o.adb,
             os: [o.system, o.version_id].filter((x) => typeof x === "string" && x).join(" ") };
         }
@@ -434,23 +434,23 @@ export class LinuxDevice {
 
   // The actions of the manage view. Each is one command of the device's own tools; its output goes to onLine and
   // to the log, its exit status is the answer.
-  checkUpdate(onLine) { return this.run("mu300-update check", { onLine, timeoutMs: 180000 }); }
-  applyUpdate(onLine, signal) { return this.run("mu300-update apply", { onLine, signal }); }
+  checkUpdate(onLine) { return this.run("openf50-update check", { onLine, timeoutMs: 180000 }); }
+  applyUpdate(onLine, signal) { return this.run("openf50-update apply", { onLine, signal }); }
   setKernel(k, onLine, signal) {
     if (!["5.4", "6.18", "7.2"].includes(k)) throw new DeviceError("bad-argument", k);
-    return this.run(`mu300-update kernel ${k}`, { onLine, signal });
+    return this.run(`openf50-update kernel ${k}`, { onLine, signal });
   }
   setBootOs(name, onLine) {
     if (!["ubuntu", "openwrt", "openwrt-luci"].includes(name)) throw new DeviceError("bad-argument", name);
-    return this.run(`mu300-os ${name}`, { onLine, timeoutMs: 60000 });
+    return this.run(`openf50-os ${name}`, { onLine, timeoutMs: 60000 });
   }
   nextBoot(target, onLine) {
     if (!["android", "linux"].includes(target)) throw new DeviceError("bad-argument", target);
-    return this.run(`mu300-next-boot ${target}`, { onLine, timeoutMs: 60000 });
+    return this.run(`openf50-next-boot ${target}`, { onLine, timeoutMs: 60000 });
   }
   // the kernel log and the log of this boot: what a bug report needs. The page masks it before it shows or saves it.
   logs(onLine) {
-    return this.run("echo '--- mu300-update version'; mu300-update version 2>&1; echo '--- dmesg (last 300 lines)'; dmesg 2>/dev/null | tail -n 300; " +
+    return this.run("echo '--- openf50-update version'; openf50-update version 2>&1; echo '--- dmesg (last 300 lines)'; dmesg 2>/dev/null | tail -n 300; " +
       "echo '--- system log (last 200 lines)'; if command -v journalctl >/dev/null 2>&1; then journalctl -b -n 200 --no-pager 2>/dev/null; " +
       "else logread 2>/dev/null | tail -n 200; fi", { onLine, timeoutMs: 120000 });
   }

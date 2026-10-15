@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://kaandikec.com/mu300-linux/sitemap.xml
+Sitemap: https://kaandikec.com/openf50-linux/sitemap.xml

@@ -1,4 +1,4 @@
-"""Call audio (FINDINGS 24c): no phone number reaches a log in full, and mu300-hfp only talks to a bonded,
+"""Call audio (FINDINGS 24c): no phone number reaches a log in full, and openf50-hfp only talks to a bonded,
 authenticated headset through a strict AT allow-list."""
 import re
 import shutil
@@ -9,8 +9,8 @@ from pathlib import Path
 
 from helpers import TOP
 
-VOICE = TOP / 'rootfs' / 'overlay' / 'opt' / 'mu300' / 'bin' / 'mu300-voice'
-HFP = TOP / 'tools' / 'hfp' / 'mu300-hfp.c'
+VOICE = TOP / 'rootfs' / 'overlay' / 'opt' / 'openf50' / 'bin' / 'openf50-voice'
+HFP = TOP / 'tools' / 'hfp' / 'openf50-hfp.c'
 
 
 def shell_function(src, name):
@@ -51,7 +51,7 @@ class Masking(unittest.TestCase):
 
     def test_every_number_path_masked(self):
         src = VOICE.read_text()
-        self.assertIn('log() { echo "mu300-voice: $*" | mask; }', src)
+        self.assertIn('log() { echo "openf50-voice: $*" | mask; }', src)
         self.assertIn('echo "incoming: $line" | mask', src)
         self.assertRegex(src, r"at 'AT\+CLCC' 8 \| tr '\\n' ' ' \| mask")
         # the number only goes to the headset (ring), never to stdout unmasked
@@ -61,11 +61,11 @@ class Masking(unittest.TestCase):
         self.assertIn('umask 077', src)
 
 
-RUN_DIR_LIB = TOP / 'rootfs' / 'overlay' / 'opt' / 'mu300' / 'lib' / 'run-dir.sh'
+RUN_DIR_LIB = TOP / 'rootfs' / 'overlay' / 'opt' / 'openf50' / 'lib' / 'run-dir.sh'
 
 
 class RunDirectory(unittest.TestCase):
-    """/run is world-writable on the images, so /run/mu300-voice (and /run/mu300-at) may be a directory somebody
+    """/run is world-writable on the images, so /run/openf50-voice (and /run/openf50-at) may be a directory somebody
     else made first. lib/run-dir.sh is the one check both daemons use."""
 
     def call(self, fn, path, uid, pre=''):
@@ -220,7 +220,7 @@ class RunDirectory(unittest.TestCase):
         self.assertNotIn('mkdir -p "$TMP"', src)
         # the headset's control fifo is inside it, not in /run itself
         self.assertIn('HFP_CTL=$TMP/hfp.ctl', src)
-        atd = (VOICE.parent / 'mu300-atd').read_text()
+        atd = (VOICE.parent / 'openf50-atd').read_text()
         check = atd.index('run_dir_take "$DIR"')
         for first_use in ('mkdir "$LOCK"', 'mkfifo -m 600 "$CMD"', 'mkdir -p "$URCDIR"'):
             self.assertLess(check, atd.index(first_use), first_use)
@@ -251,7 +251,7 @@ class Hfp(unittest.TestCase):
     def test_allow_list(self):
         with tempfile.TemporaryDirectory() as d:
             exe = Path(d) / 'hfptest'
-            subprocess.run(['cc', '-DMU300_HFP_TEST', '-o', str(exe), str(HFP)], check=True, capture_output=True)
+            subprocess.run(['cc', '-DOPENF50_HFP_TEST', '-o', str(exe), str(HFP)], check=True, capture_output=True)
             r = subprocess.run([str(exe)], capture_output=True, text=True)
             self.assertEqual(r.returncode, 0, r.stdout)
             self.assertIn(', 0 failed', r.stdout)

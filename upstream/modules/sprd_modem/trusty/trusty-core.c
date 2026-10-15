@@ -59,7 +59,7 @@ struct trusty_state {
 };
 
 /*
- * MU300: the ACK kernel kept CPUs that Trusty resides on out of PSCI power-down idle (android_vh_psci_* hooks,
+ * OPENF50: the ACK kernel kept CPUs that Trusty resides on out of PSCI power-down idle (android_vh_psci_* hooks,
  * SMC_FC_CPU_CAN_DOWN). Mainline has no such hook: a TA sleeping on the secure timer (e.g. the modem boot service
  * waiting on hardware) then never runs again. While requests are in flight, and for a while after, hold a CPU
  * latency QoS request (WFI only) and give Trusty a NOP on every online CPU periodically (the "run me" SGI 13 does

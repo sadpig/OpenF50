@@ -1,7 +1,7 @@
 # U30 Air SAE: remaining key-handoff work
 
 This is an implementation handoff for the blocking finding in
-[PR #74's device review](https://github.com/dikeckaan/mu300-linux/pull/74#issuecomment-6106003178).
+[PR #74's device review](https://github.com/dikeckaan/openf50-linux/pull/74#issuecomment-6106003178).
 It describes work still needed, not an implemented or validated firmware API.
 The existing opt-in SAE integration remains in the branch for review. The
 logging/configuration fixes can be reviewed independently.

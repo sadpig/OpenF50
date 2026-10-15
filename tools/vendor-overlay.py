@@ -4,8 +4,8 @@
 The published images contain no vendor files; install.sh builds this overlay on the host and android-install.sh
 unpacks it over the system. The layout matches rootfs/assemble.sh and openwrt/build-rootfs.sh:
   firmware/            -> usr/lib/firmware (Ubuntu) or lib/firmware (OpenWrt)
-  android-subset/      -> opt/mu300/android (dev/__properties__ becomes dev-properties)
-  android-gpu-subset/  -> opt/mu300/android (files already taken from android-subset win)
+  android-subset/      -> opt/openf50/android (dev/__properties__ becomes dev-properties)
+  android-gpu-subset/  -> opt/openf50/android (files already taken from android-subset win)
 
 A subset pulled on Windows holds a file called windows-source.tar.gz (android-vendor/extract_subset.py): the
 property area is a set of files named u:object_r:<context>:s0, which that file system cannot store, so the whole
@@ -51,7 +51,7 @@ def add_dir(tar, arc, seen, keep):
 
 
 def add_kernel_bundle(tar, bundle: Path, os_name, seen):
-    """the modules of another kernel (an unpacked mu300-kernel-6.18.tar.gz), laid out as mu300-update installs
+    """the modules of another kernel (an unpacked openf50-kernel-6.18.tar.gz), laid out as openf50-update installs
     them: Ubuntu under lib/modules/<release>/extra (depmod on the device indexes them), OpenWrt flat (it loads
     them by path)"""
     krel = (bundle / 'kernel.release').read_text().strip()
@@ -76,7 +76,7 @@ def host_free_mode(arc, is_dir):
     """the mode of an entry, from where it goes and never from what the host reports. A tree extracted on a file
     system that keeps no modes says nothing about them: Windows reports 0666/0777, and macOS shows every file and
     directory of a FAT or exFAT volume as 0700 - stored like that, the installed vendor daemons (uid 1000, or
-    mu300vnd) could not read their own properties and configuration and the modem never started (issue #127).
+    openf50vnd) could not read their own properties and configuration and the modem never started (issue #127).
     Directories 0755, the programs (whatever lies in a bin directory) 0755, the property area read-only as
     Android has it, every other file 0644 - what android-vendor-start's modes block keeps them at on the device."""
     if is_dir:
@@ -152,7 +152,7 @@ def main():
     ap.add_argument('--android-subset', type=Path, required=True)
     ap.add_argument('--gpu-subset', type=Path)
     ap.add_argument('--kernel-bundle', type=Path,
-                    help='unpacked mu300-kernel-6.18.tar.gz: its modules go into the system too')
+                    help='unpacked openf50-kernel-6.18.tar.gz: its modules go into the system too')
     ap.add_argument('--out', type=Path, required=True)
     a = ap.parse_args()
 
@@ -175,11 +175,11 @@ def main():
         # every name that file system cannot store (the property area) and every file mode, so take the
         # whole subset from the archive instead of walking it
         if (a.android_subset / WINDOWS_TAR).is_file():
-            add_members(tar, a.android_subset, 'opt/mu300/android', seen, android)
+            add_members(tar, a.android_subset, 'opt/openf50/android', seen, android)
         else:
-            add_tree(tar, a.android_subset, 'opt/mu300/android', seen, android)
+            add_tree(tar, a.android_subset, 'opt/openf50/android', seen, android)
         if a.gpu_subset and a.gpu_subset.is_dir():
-            add_tree(tar, a.gpu_subset, 'opt/mu300/android', seen, gpu)
+            add_tree(tar, a.gpu_subset, 'opt/openf50/android', seen, gpu)
         if a.kernel_bundle:
             krel, n = add_kernel_bundle(tar, a.kernel_bundle, a.os, seen)
             print(f'{a.out}: {n} modules for {krel}')

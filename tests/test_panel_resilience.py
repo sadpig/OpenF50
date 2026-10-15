@@ -1,7 +1,7 @@
 """One stuck AT command must not wedge the control panel (the v2026.10.18 report: a page's AT command hung, the whole
 panel went blank, even across a reboot, and came back by itself later).
 
-* `mu300-at`'s lock wait is seconds on the clock. It counted 0.1 s naps, and OpenWrt's /bin/sleep refuses a fraction,
+* `openf50-at`'s lock wait is seconds on the clock. It counted 0.1 s naps, and OpenWrt's /bin/sleep refuses a fraction,
   so each nap was a whole second: the panel's 5 s wait was 50 s, past rpcd's 30 s, and the client went on waiting
   after its call had been killed. A holder past the deadline it wrote for itself is ended (`AtLock`).
 * The dashboard's collector stops at a deadline instead of waiting out every command on every channel
@@ -23,14 +23,14 @@ import unittest
 from pathlib import Path
 
 import test_luci_i18n as lui
-import test_mu300dash_security as sec
+import test_openf50dash_security as sec
 from helpers import BIN, ShellTest
 
 HAVE_PROC = Path('/proc/self/cmdline').exists()
 
 
 class AtLock(ShellTest):
-    """mu300-at's client lock against a fake daemon directory (a FIFO `cmd`; a thread answers like mu300-atd)."""
+    """openf50-at's client lock against a fake daemon directory (a FIFO `cmd`; a thread answers like openf50-atd)."""
 
     def setUp(self):
         super().setUp()
@@ -48,7 +48,7 @@ class AtLock(ShellTest):
             p.wait()
         super().tearDown()
 
-    def holder(self, name='mu300-at', due=None):
+    def holder(self, name='openf50-at', due=None):
         """A live process holding the client lock, its pid in lock/pid (and lock/until when DUE is given)."""
         p = subprocess.Popen(['sh', '-c', 'sleep 60; :', name])
         self.procs.append(p)
@@ -73,17 +73,17 @@ class AtLock(ShellTest):
         return th
 
     def at(self, shell, *args, **env):
-        # MU300_BUSYBOX: none, so every nap goes through the whole-second sleep above, as on a device without it
-        return self.script(shell, BIN / 'mu300-at', *args, MU300_AT_DIR=self.dir,
-                           MU300_BUSYBOX=self.tmp / 'no-busybox', **env)
+        # OPENF50_BUSYBOX: none, so every nap goes through the whole-second sleep above, as on a device without it
+        return self.script(shell, BIN / 'openf50-at', *args, OPENF50_AT_DIR=self.dir,
+                           OPENF50_BUSYBOX=self.tmp / 'no-busybox', **env)
 
     def test_the_lock_wait_is_seconds_on_the_clock(self):
         # 2 s means about 2 s even where every 0.1 s nap takes a whole second (it took 20 s)
         self.holder()
         for shell in self.each_shell():
             t0 = time.monotonic()
-            r = self.at(shell, '-t', '1', 'AT', MU300_AT_LOCK_WAIT='2')
-            self.assertEqual((r.returncode, r.stderr.strip()), (1, 'mu300-at: busy'))
+            r = self.at(shell, '-t', '1', 'AT', OPENF50_AT_LOCK_WAIT='2')
+            self.assertEqual((r.returncode, r.stderr.strip()), (1, 'openf50-at: busy'))
             self.assertLess(time.monotonic() - t0, 4.5)
             # (the clock counts whole seconds: 2 s from x.99 ends at x+2, a second and a bit later)
             self.assertGreaterEqual(time.monotonic() - t0, 0.9)
@@ -92,15 +92,15 @@ class AtLock(ShellTest):
         self.holder()
         for shell in self.each_shell():
             t0 = time.monotonic()
-            r = self.at(shell, '-t', '1', 'AT', MU300_AT_LOCK_WAIT='0')
-            self.assertEqual(r.stderr.strip(), 'mu300-at: busy')
+            r = self.at(shell, '-t', '1', 'AT', OPENF50_AT_LOCK_WAIT='0')
+            self.assertEqual(r.stderr.strip(), 'openf50-at: busy')
             self.assertLess(time.monotonic() - t0, 2.5)
 
     def test_junk_in_the_wait_is_the_default_not_an_error(self):
         # a non-number falls back to the default; the lock is free here, so the command goes through at once
         for shell in self.each_shell():
             self.daemon()
-            r = self.at(shell, '-t', '2', 'AT', MU300_AT_LOCK_WAIT='x')
+            r = self.at(shell, '-t', '2', 'AT', OPENF50_AT_LOCK_WAIT='x')
             self.assertEqual(r.returncode, 0, r.stderr)
 
     @unittest.skipUnless(HAVE_PROC, 'needs /proc')
@@ -110,7 +110,7 @@ class AtLock(ShellTest):
         for shell in self.each_shell():
             p = self.holder(due=int(time.time()) - 1)
             self.daemon()
-            r = self.at(shell, '-t', '2', 'AT', MU300_AT_LOCK_WAIT='3')
+            r = self.at(shell, '-t', '2', 'AT', OPENF50_AT_LOCK_WAIT='3')
             self.assertEqual(r.returncode, 0, r.stderr)
             self.assertIn('held the AT lock past its own deadline', r.stderr)
             self.assertIsNotNone(p.wait(timeout=5))
@@ -118,13 +118,13 @@ class AtLock(ShellTest):
 
     @unittest.skipUnless(HAVE_PROC, 'needs /proc')
     def test_a_holder_within_its_deadline_or_not_a_client_is_left_alone(self):
-        for label, name, due in (('in time', 'mu300-at', int(time.time()) + 100), ('no deadline', 'mu300-at', None),
-                                 ('not mu300-at', 'mobile-data', int(time.time()) - 100)):
+        for label, name, due in (('in time', 'openf50-at', int(time.time()) + 100), ('no deadline', 'openf50-at', None),
+                                 ('not openf50-at', 'mobile-data', int(time.time()) - 100)):
             with self.subTest(case=label):
                 p = self.holder(name=name, due=due)
                 for shell in self.each_shell():
-                    r = self.at(shell, '-t', '1', 'AT', MU300_AT_LOCK_WAIT='1')
-                    self.assertEqual(r.stderr.strip(), 'mu300-at: busy')
+                    r = self.at(shell, '-t', '1', 'AT', OPENF50_AT_LOCK_WAIT='1')
+                    self.assertEqual(r.stderr.strip(), 'openf50-at: busy')
                 self.assertIsNone(p.poll())
                 p.kill()
                 p.wait()
@@ -135,31 +135,31 @@ class AtLock(ShellTest):
         (self.dir / 'lock' / 'pid').write_text('999999\n')
         for shell in self.each_shell():
             self.daemon()
-            r = self.at(shell, '-t', '2', 'AT', MU300_AT_LOCK_WAIT='1')
+            r = self.at(shell, '-t', '2', 'AT', OPENF50_AT_LOCK_WAIT='1')
             self.assertEqual(r.returncode, 0, r.stderr)
 
     def test_a_lock_the_caller_holds_is_borrowed(self):
-        # a client told that its caller holds the lock (MU300_AT_LOCK_HELD: mu300-sms, around a whole send) runs at
+        # a client told that its caller holds the lock (OPENF50_AT_LOCK_HELD: openf50-sms, around a whole send) runs at
         # once under it and leaves it in place - only while lock/pid names that live process; any other value, and
         # it waits for the lock like every client
-        p = self.holder(name='mu300-sms')
+        p = self.holder(name='openf50-sms')
         for shell in self.each_shell():
             self.daemon()
-            r = self.at(shell, '-t', '2', 'AT', MU300_AT_LOCK_HELD=str(p.pid), MU300_AT_LOCK_WAIT='1')
+            r = self.at(shell, '-t', '2', 'AT', OPENF50_AT_LOCK_HELD=str(p.pid), OPENF50_AT_LOCK_WAIT='1')
             self.assertEqual((r.returncode, r.stdout.strip()), (0, 'OK'), r.stderr)
             self.assertEqual((self.dir / 'lock' / 'pid').read_text().strip(), str(p.pid))
             for wrong in ('1', str(os.getpid()), 'x', ''):
                 with self.subTest(held=wrong):
-                    r = self.at(shell, '-t', '1', 'AT', MU300_AT_LOCK_HELD=wrong, MU300_AT_LOCK_WAIT='1')
-                    self.assertEqual((r.returncode, r.stderr.strip()), (1, 'mu300-at: busy'))
+                    r = self.at(shell, '-t', '1', 'AT', OPENF50_AT_LOCK_HELD=wrong, OPENF50_AT_LOCK_WAIT='1')
+                    self.assertEqual((r.returncode, r.stderr.strip()), (1, 'openf50-at: busy'))
             self.assertTrue((self.dir / 'lock').exists())
 
     def test_the_holder_says_when_it_will_be_done(self):
         # no live daemon (no owner/pid): the budget is T + 2, so "until" is about now + T + 2 + 10
         for shell in self.each_shell():
             th = self.daemon(delay=1.0)
-            p = subprocess.Popen(shell + [str(BIN / 'mu300-at'), '-t', '3', 'AT'], stdout=subprocess.DEVNULL,
-                                 stderr=subprocess.DEVNULL, env=self.env(MU300_AT_DIR=self.dir))
+            p = subprocess.Popen(shell + [str(BIN / 'openf50-at'), '-t', '3', 'AT'], stdout=subprocess.DEVNULL,
+                                 stderr=subprocess.DEVNULL, env=self.env(OPENF50_AT_DIR=self.dir))
             due = None
             for _ in range(100):
                 try:
@@ -175,7 +175,7 @@ class AtLock(ShellTest):
 
 @unittest.skipUnless(shutil.which('bash'), 'needs bash')
 class AtdShell(ShellTest):
-    """mu300-atd under a shell whose read -t takes whole seconds only (OpenWrt's /bin/sh: "read: invalid timeout")
+    """openf50-atd under a shell whose read -t takes whole seconds only (OpenWrt's /bin/sh: "read: invalid timeout")
     runs itself again under the static busybox's ash, which takes fractions: every drain waited a whole second, so
     every AT command took one. Stood in for by bash with an exported read that refuses a fraction."""
 
@@ -189,13 +189,13 @@ class AtdShell(ShellTest):
     def run_atd(self, whole_seconds, **env):
         code = ('read() { case "$2" in *.*) echo "read: invalid timeout" >&2; return 1 ;; esac; builtin read "$@"; }\n'
                 'export -f read\n' if whole_seconds else '')
-        return subprocess.run(['bash', '-c', code + f'exec bash "{BIN / "mu300-atd"}"'], capture_output=True,
-                              text=True, timeout=30, env=self.env(MU300_BUSYBOX=self.bb, MU300_AT_DEV=self.tmp / 'none',
-                                                                   MU300_AT_DIR=self.tmp / 'run', **env))
+        return subprocess.run(['bash', '-c', code + f'exec bash "{BIN / "openf50-atd"}"'], capture_output=True,
+                              text=True, timeout=30, env=self.env(OPENF50_BUSYBOX=self.bb, OPENF50_AT_DEV=self.tmp / 'none',
+                                                                   OPENF50_AT_DIR=self.tmp / 'run', **env))
 
     def test_whole_seconds_only_runs_it_again_under_the_static_busybox(self):
         self.run_atd(True)
-        self.assertEqual((self.tmp / 'exec').read_text().strip(), f'ash {BIN / "mu300-atd"}')
+        self.assertEqual((self.tmp / 'exec').read_text().strip(), f'ash {BIN / "openf50-atd"}')
 
     def test_a_shell_that_takes_fractions_stays(self):
         if subprocess.run(['bash', '-c', 'read -t 0.1 x </dev/null'], capture_output=True, text=True).stderr:
@@ -205,7 +205,7 @@ class AtdShell(ShellTest):
         self.assertIn('is not a character device', r.stderr)
 
     def test_once_only(self):
-        r = self.run_atd(True, MU300_ATD_SHELL='1')
+        r = self.run_atd(True, OPENF50_ATD_SHELL='1')
         self.assertFalse((self.tmp / 'exec').exists())
         self.assertIn('is not a character device', r.stderr)
 
@@ -220,8 +220,8 @@ class CellDeadline(ShellTest):
         super().setUp()
         self.stub('uci', 'exit 1')
         self.at = self.tmp / 'at'
-        self.at.write_text('#!/bin/sh\necho "wait=$MU300_AT_LOCK_WAIT budget=$MU300_AT_BUDGET" >> "$STUBLOG/at.log"\n'
-                           'sleep "${MU300_AT_BUDGET:-60}"\necho "mu300-at: no answer from the daemon" >&2\nexit 1\n')
+        self.at.write_text('#!/bin/sh\necho "wait=$OPENF50_AT_LOCK_WAIT budget=$OPENF50_AT_BUDGET" >> "$STUBLOG/at.log"\n'
+                           'sleep "${OPENF50_AT_BUDGET:-60}"\necho "openf50-at: no answer from the daemon" >&2\nexit 1\n')
         self.at.chmod(0o755)
 
     def run_cell(self, shell, mode, **env):
@@ -229,15 +229,15 @@ class CellDeadline(ShellTest):
         shutil.rmtree(d, ignore_errors=True)
         (self.tmp / 'at.log').unlink(missing_ok=True)
         t0 = time.monotonic()
-        r = self.script(shell, CELL, mode, MU300_AT=self.at, MU300_DASH_DIR=d, MU300_DASH_IDENT_DIR=self.tmp / 'id',
-                        MU300_DASH_POOL_DIR=self.tmp / 'pool', **env)
+        r = self.script(shell, CELL, mode, OPENF50_AT=self.at, OPENF50_DASH_DIR=d, OPENF50_DASH_IDENT_DIR=self.tmp / 'id',
+                        OPENF50_DASH_POOL_DIR=self.tmp / 'pool', **env)
         return r, time.monotonic() - t0, d
 
     def test_a_silent_modem_ends_the_round_at_its_deadline(self):
         for shell in self.each_shell():
             for mode in ('fast', 'full'):
                 with self.subTest(mode=mode):
-                    r, took, d = self.run_cell(shell, mode, MU300_DASH_DEADLINE='3')
+                    r, took, d = self.run_cell(shell, mode, OPENF50_DASH_DEADLINE='3')
                     self.assertEqual(r.returncode, 0, r.stderr)
                     self.assertLess(took, 6)
                     sig = json.loads((d / 'sig.json').read_text())
@@ -250,13 +250,13 @@ class CellDeadline(ShellTest):
                             self.assertLessEqual(budget, 3)
 
     def test_the_default_deadlines(self):
-        # the page's live signal read has 14 s (mu300dash; a normal round is about 1 s, and about 7 s where mu300-atd
+        # the page's live signal read has 14 s (openf50dash; a normal round is about 1 s, and about 7 s where openf50-atd
         # drains a whole second per command), a background fast round 12, a full one 25
         src = CELL.read_text()
-        self.assertIn('[ "$MODE" = fast ] && MU300_DASH_DEADLINE=12 || MU300_DASH_DEADLINE=25', src)
+        self.assertIn('[ "$MODE" = fast ] && OPENF50_DASH_DEADLINE=12 || OPENF50_DASH_DEADLINE=25', src)
         dash = sec.DASH.read_text()
         self.assertIn('SIGNAL_DEADLINE=14', dash)
-        self.assertIn('MU300_DASH_DEADLINE=$SIGNAL_DEADLINE', dash)
+        self.assertIn('OPENF50_DASH_DEADLINE=$SIGNAL_DEADLINE', dash)
 
 
 class Backend(sec.Mu300Dash):
@@ -295,7 +295,7 @@ class Backend(sec.Mu300Dash):
             self.assertEqual(recs, [['at', '-t', '8', 'AT+CFUN=0']])
             r, recs, _ = self.call(shell, 'at', {'cmd': 'AT+COPS=?', 'confirm': '1'})
             self.assertEqual(self.reply(r), {'ok': 1, 'started': 1, 'job': 1, 'cmd': 'AT+COPS=?', 'limit': 99})
-            self.assertEqual(recs, [['setsid', 'mu300dash', 'at-job']])
+            self.assertEqual(recs, [['setsid', 'openf50dash', 'at-job']])
             r, recs, _ = self.call(shell, 'at', {'cmd': 'AT', 'confirm': 'yes'})
             self.assertEqual(self.reply(r)['error'], 'The confirm parameter must be 0 or 1')
             self.assertEqual(recs, [])
@@ -306,11 +306,11 @@ class Backend(sec.Mu300Dash):
             shutil.rmtree(d, ignore_errors=True)
             d.mkdir()
             self.output('at', '+COPS: (2,"A","A","46000",7),,(0,1,2,3,4),(0,1,2)\nOK')
-            self.reply(self.call(shell, 'at', {'cmd': 'AT+COPS=?', 'confirm': '1'}, MU300_DASH_DIR=d)[0])
+            self.reply(self.call(shell, 'at', {'cmd': 'AT+COPS=?', 'confirm': '1'}, OPENF50_DASH_DIR=d)[0])
             # started a moment ago and not yet running: it counts as running, and the terminal says why it waits
-            obj = self.reply(self.call(shell, 'at_job', {}, MU300_DASH_DIR=d)[0])
+            obj = self.reply(self.call(shell, 'at_job', {}, OPENF50_DASH_DIR=d)[0])
             self.assertEqual((obj['running'], obj['cmd'], obj['limit']), (1, 'AT+COPS=?', 99))
-            r, recs, _ = self.call(shell, 'at', {'cmd': 'AT'}, MU300_DASH_DIR=d)
+            r, recs, _ = self.call(shell, 'at', {'cmd': 'AT'}, OPENF50_DASH_DIR=d)
             obj = self.reply(r)
             self.assertEqual((obj['busy'], obj['job'], recs), (1, 1, []))
             self.assertEqual(obj['error'],
@@ -319,22 +319,22 @@ class Backend(sec.Mu300Dash):
             calls = self.tmp / 'jobcalls'
             calls.mkdir(exist_ok=True)
             j = subprocess.run(shell + [str(sec.DASH), 'at-job'], capture_output=True, timeout=60, env=self.env(
-                STUB_CALLS=calls, STUB_OUT=self.out, MU300_DASH_BIN=self.adapters, MU300_DASH_DIR=d,
-                MU300_AT=self.adapters / 'at'))
+                STUB_CALLS=calls, STUB_OUT=self.out, OPENF50_DASH_BIN=self.adapters, OPENF50_DASH_DIR=d,
+                OPENF50_AT=self.adapters / 'at'))
             self.assertEqual(j.returncode, 0, j.stderr)
             rec = [a.decode() for a in next(calls.glob('call.*')).read_bytes().split(b'\0')[:-1]]
             self.assertEqual(rec, ['at', '-t', '99', 'AT+COPS=?'])
-            obj = self.reply(self.call(shell, 'at_job', {}, MU300_DASH_DIR=d)[0])
+            obj = self.reply(self.call(shell, 'at_job', {}, OPENF50_DASH_DIR=d)[0])
             self.assertEqual((obj['done'], obj['ok'], obj['running']), (1, 1, 0))
             self.assertIn('+COPS: (2,"A"', obj['reply'])
-            r, recs, _ = self.call(shell, 'at', {'cmd': 'AT'}, MU300_DASH_DIR=d)
+            r, recs, _ = self.call(shell, 'at', {'cmd': 'AT'}, OPENF50_DASH_DIR=d)
             self.assertEqual(self.reply(r).get('ok'), 1)
             for f in calls.iterdir():
                 f.unlink()
             self.assertEqual(self.reply(self.call(shell, 'at_job', {})[0]), {'none': 1})
 
     def test_a_send_runs_in_the_background_and_its_result_waits(self):
-        # mu300-sms waits up to 40 s for the modem's +CMGS, and rpcd ends a call at 30 s: a slow send was killed with
+        # openf50-sms waits up to 40 s for the modem's +CMGS, and rpcd ends a call at 30 s: a slow send was killed with
         # the call and its result lost (#176). sms_send only starts the job; sms_job says running, then how it went
         # - the reply sms_send used to give - and a second send meanwhile is busy, never a second submission.
         d = self.tmp / 'shared'
@@ -342,28 +342,28 @@ class Backend(sec.Mu300Dash):
             shutil.rmtree(d, ignore_errors=True)
             d.mkdir()
             self.output('sms', 'sent (reference 9)')
-            r, recs, _ = self.call(shell, 'sms_send', {'num': '10099', 'text': 'CXYL'}, MU300_DASH_DIR=d)
+            r, recs, _ = self.call(shell, 'sms_send', {'num': '10099', 'text': 'CXYL'}, OPENF50_DASH_DIR=d)
             self.assertEqual(self.reply(r), {'ok': 1, 'started': 1, 'job': 1, 'limit': 200})
-            self.assertEqual(recs, [['setsid', 'mu300dash', 'sms-job']])
+            self.assertEqual(recs, [['setsid', 'openf50dash', 'sms-job']])
             # started a moment ago and not yet running: it counts as running, and another send is not started
-            obj = self.reply(self.call(shell, 'sms_job', {}, MU300_DASH_DIR=d)[0])
+            obj = self.reply(self.call(shell, 'sms_job', {}, OPENF50_DASH_DIR=d)[0])
             self.assertEqual((obj['running'], obj['limit']), (1, 200))
-            r, recs, _ = self.call(shell, 'sms_send', {'num': '10099', 'text': 'again'}, MU300_DASH_DIR=d)
+            r, recs, _ = self.call(shell, 'sms_send', {'num': '10099', 'text': 'again'}, OPENF50_DASH_DIR=d)
             obj = self.reply(r)
             self.assertEqual((obj['ok'], obj['busy'], obj['job'], recs), (0, 1, 1, []))
             self.assertEqual((d / 'sms-job' / 'text').read_text(), 'CXYL')
-            # the detached half (what setsid would have started), with the sms stub as mu300-sms
+            # the detached half (what setsid would have started), with the sms stub as openf50-sms
             calls = self.tmp / 'jobcalls'
             shutil.rmtree(calls, ignore_errors=True)
             calls.mkdir()
             j = subprocess.run(shell + [str(sec.DASH), 'sms-job'], capture_output=True, timeout=60, env=self.env(
-                STUB_CALLS=calls, STUB_OUT=self.out, MU300_DASH_BIN=self.adapters, MU300_DASH_DIR=d,
-                MU300_SMS_BIN=self.adapters / 'sms', MU300_DASH_OPS_DIR=self.tmp / 'flash'))
+                STUB_CALLS=calls, STUB_OUT=self.out, OPENF50_DASH_BIN=self.adapters, OPENF50_DASH_DIR=d,
+                OPENF50_SMS_BIN=self.adapters / 'sms', OPENF50_DASH_OPS_DIR=self.tmp / 'flash'))
             self.assertEqual(j.returncode, 0, j.stderr)
             rec = next(f for f in calls.glob('call.*') if f.suffix != '.stdin')
             self.assertEqual([a.decode() for a in rec.read_bytes().split(b'\0')[:-1]], ['sms', 'send', '--stdin', '10099'])
             self.assertEqual(rec.with_name(rec.name + '.stdin').read_text(), 'CXYL')
-            obj = self.reply(self.call(shell, 'sms_job', {}, MU300_DASH_DIR=d)[0])
+            obj = self.reply(self.call(shell, 'sms_job', {}, OPENF50_DASH_DIR=d)[0])
             self.assertEqual((obj['done'], obj['running'], obj['ok'], obj['reply']), (1, 0, 1, 'sent (reference 9)'))
             self.assertFalse((d / 'sms-job' / 'text').exists())   # no copy of the message is kept
             # the operations log: the request, and how the send went (from the job); never the number or the text
@@ -374,13 +374,13 @@ class Backend(sec.Mu300Dash):
             self.assertNotIn('CXYL', ops)
             # a job that died under the send (no result): not sent again by itself, and said so
             (d / 'sms-job' / 'reply').unlink()
-            obj = self.reply(self.call(shell, 'sms_job', {}, MU300_DASH_DIR=d)[0])
+            obj = self.reply(self.call(shell, 'sms_job', {}, OPENF50_DASH_DIR=d)[0])
             self.assertEqual((obj['done'], obj['ok'], obj['error']), (1, 0, 'Sending failed'))
             self.assertIn('without a result', obj['detail'])
             # the next send starts afresh
-            r, recs, _ = self.call(shell, 'sms_send', {'num': '10099', 'text': 'next'}, MU300_DASH_DIR=d)
+            r, recs, _ = self.call(shell, 'sms_send', {'num': '10099', 'text': 'next'}, OPENF50_DASH_DIR=d)
             self.assertEqual(self.reply(r).get('started'), 1)
-            self.assertEqual(recs, [['setsid', 'mu300dash', 'sms-job']])
+            self.assertEqual(recs, [['setsid', 'openf50dash', 'sms-job']])
             self.assertEqual(self.reply(self.call(shell, 'sms_job', {})[0]), {'none': 1})
 
     def test_lock_get_never_reads_the_modem_in_the_request(self):
@@ -389,7 +389,7 @@ class Backend(sec.Mu300Dash):
         (d / 'lock.json').write_text('{"ts":1,"mode":{"label":"auto"}}\n')
         for shell in self.each_shell():
             t0 = time.monotonic()
-            r, recs, _ = self.call(shell, 'lock_get', {}, MU300_DASH_DIR=d)
+            r, recs, _ = self.call(shell, 'lock_get', {}, OPENF50_DASH_DIR=d)
             self.assertEqual(recs, [['lock', 'get', 'cached']])
             self.assertLess(time.monotonic() - t0, 3)
 
@@ -402,10 +402,10 @@ class Backend(sec.Mu300Dash):
         reset = {'state': 'failed', 'ts': 5, 'end': 9, 'error': 'The modem refused a write', 'cmd': 'AT+SPLBAND=2,0,0,0,0'}
         self.output('lock', json.dumps({'ts': 1, 'mode': {'label': '4g'}, 'auto_apply': 1, 'reset': reset}))
         for shell in self.each_shell():
-            r, recs, _ = self.call(shell, 'lock_get', {}, MU300_DASH_DIR=d)
+            r, recs, _ = self.call(shell, 'lock_get', {}, OPENF50_DASH_DIR=d)
             self.assertEqual(recs, [['lock', 'get', 'cached']])
             self.assertEqual(self.reply(r)['reset'], reset)
-            r, recs, _ = self.call(shell, 'lock_set', {'kind': 'reset', 'val': 'auto'}, MU300_DASH_DIR=d)
+            r, recs, _ = self.call(shell, 'lock_set', {'kind': 'reset', 'val': 'auto'}, OPENF50_DASH_DIR=d)
             self.assertEqual(self.reply(r).get('started'), 1)
             self.assertEqual(recs, [['setsid', 'lock', 'reset']])
 
@@ -419,7 +419,7 @@ class Backend(sec.Mu300Dash):
             (d / 'lock-read.lck' / 'pid').write_text(f'{reader.pid}\n')
             for shell in self.each_shell():
                 t0 = time.monotonic()
-                r, recs, _ = self.call(shell, 'lock_get', {}, MU300_DASH_DIR=d, MU300_DASH_LOCK_GET_WAIT='2')
+                r, recs, _ = self.call(shell, 'lock_get', {}, OPENF50_DASH_DIR=d, OPENF50_DASH_LOCK_GET_WAIT='2')
                 self.assertLess(time.monotonic() - t0, 5)
                 self.assertEqual(self.reply(r), {'busy': 1, 'error':
                                                  'Reading the locks from the modem; try again in a few seconds'})
@@ -429,7 +429,7 @@ class Backend(sec.Mu300Dash):
             reader.wait()
 
     def test_the_signal_read_has_a_deadline(self):
-        (self.adapters / 'cell').write_text('#!/bin/sh\necho "$MU300_DASH_DEADLINE" > "$STUB_OUT/deadline"\n')
+        (self.adapters / 'cell').write_text('#!/bin/sh\necho "$OPENF50_DASH_DEADLINE" > "$STUB_OUT/deadline"\n')
         for shell in self.each_shell():
             self.reply(self.call(shell, 'signal', {})[0])
             self.assertEqual((self.out / 'deadline').read_text().strip(), '14')
@@ -437,10 +437,10 @@ class Backend(sec.Mu300Dash):
     def test_the_terminal_waits_less_than_the_browser(self):
         # LuCI's rpc gives up after 20 s (L.env.rpctimeout): the lock wait and the answer budget fit in that
         at = self.tmp / 'modem'
-        at.write_text('#!/bin/sh\necho "lock=$MU300_AT_LOCK_WAIT budget=$MU300_AT_BUDGET" > "$STUBLOG/env"\necho OK\n')
+        at.write_text('#!/bin/sh\necho "lock=$OPENF50_AT_LOCK_WAIT budget=$OPENF50_AT_BUDGET" > "$STUBLOG/env"\necho OK\n')
         at.chmod(0o755)
         for shell in self.each_shell():
-            self.reply(self.call(shell, 'at', {'cmd': 'ATI'}, MU300_AT=at)[0])
+            self.reply(self.call(shell, 'at', {'cmd': 'ATI'}, OPENF50_AT=at)[0])
             env = dict(kv.split('=') for kv in (self.tmp / 'env').read_text().split())
             self.assertLessEqual(int(env['lock']) + int(env['budget']), 17)
 
@@ -455,7 +455,7 @@ class OpsLog(sec.Mu300Dash):
 
     def go(self, shell, method, params=None, **env):
         self.dir.mkdir(exist_ok=True)
-        return self.call(shell, method, params, MU300_DASH_DIR=self.dir, MU300_DASH_OPS_DIR=self.flash, **env)
+        return self.call(shell, method, params, OPENF50_DASH_DIR=self.dir, OPENF50_DASH_OPS_DIR=self.flash, **env)
 
     def lines(self):
         return [line for line in (self.dir / 'ops.log').read_text().split('\n') if line]
@@ -472,7 +472,7 @@ class OpsLog(sec.Mu300Dash):
             self.go(shell, 'act', {'op': 'radio', 'arg': 'off'})
             self.go(shell, 'lock_set', {'kind': 'lte', 'val': '1,3'})
             self.go(shell, 'status', {})                                     # a quick, good read: no line
-            (self.adapters / 'cell').write_text('#!/bin/sh\nprintf \'{"ts":5,"error":"x"}\' > "$MU300_DASH_DIR/sig.json"\n')
+            (self.adapters / 'cell').write_text('#!/bin/sh\nprintf \'{"ts":5,"error":"x"}\' > "$OPENF50_DASH_DIR/sig.json"\n')
             self.go(shell, 'signal', {})                                     # the modem did not answer: a line
             self.output('sms', '')
             self.go(shell, 'sms_list', {})                                   # a failed read: a line
@@ -512,7 +512,7 @@ class OpsLog(sec.Mu300Dash):
             self.assertEqual((self.flash / 'panel-ops.log').read_text(), first)
             # the service's stop writes it now
             self.dir.mkdir(exist_ok=True)
-            r = self.script(shell, sec.DASH, 'flush-ops', MU300_DASH_DIR=self.dir, MU300_DASH_OPS_DIR=self.flash)
+            r = self.script(shell, sec.DASH, 'flush-ops', OPENF50_DASH_DIR=self.dir, OPENF50_DASH_OPS_DIR=self.flash)
             self.assertEqual(r.returncode, 0, r.stderr)
             self.assertIn(' act data ', (self.flash / 'panel-ops.log').read_text())
             # a reboot: RAM is empty; the first call of the new boot keeps the old copy as the previous boot's
@@ -571,8 +571,8 @@ const flush = () => new Promise((r) => setImmediate(r));
         r = self.node("return decl.map((o) => [ o.object, o.method, o.nobatch === true ]);")
         self.assertGreater(len(r), 30)
         self.assertEqual([m for o, m, nb in r if not nb], [])
-        self.assertIn(['mu300dash', 'at_job', True], r)
-        self.assertIn(['mu300dash', 'ops_log', True], r)
+        self.assertIn(['openf50dash', 'at_job', True], r)
+        self.assertIn(['openf50dash', 'ops_log', True], r)
 
     def test_backoff(self):
         r = self.node("return [0, 1, 2, 3, 4, 9].map((n) => M.backoff(1500, n)).concat([ M.backoff(1, 2) ]);")
@@ -645,7 +645,7 @@ return get('mud-at-out').children.map((c) => c.textContent.trim());'''
     def test_the_dashboard_says_when_its_cellular_readings_are_old(self):
         body = '''
 V.render(); await flush();
-const st = (age, err) => ({ info: { ts: 10, host: 'mu300' }, sig_age: age,
+const st = (age, err) => ({ info: { ts: 10, host: 'openf50' }, sig_age: age,
     cell: err ? { ts: 5, error: 'AT backend did not answer' } : { ts: 5, cfun: 1, sig: { rsrp: -95 } } });
 V.update(st(3)); const fresh = [ text('stale'), get('mud-stale').style.display ];
 V.update(st(42)); const old = [ text('stale'), get('mud-stale').style.display ];
@@ -682,14 +682,14 @@ return { ap: ap, sta: required.slice() };'''
 
     def test_the_status_overrides_come_after_luci_and_keep_its_pages(self):
         menu_d = sec.APP / 'usr' / 'share' / 'luci' / 'menu.d'
-        f = menu_d / 'luci-mu300-status-overrides.json'
+        f = menu_d / 'luci-openf50-status-overrides.json'
         # the dispatcher reads menu.d in name order and a later file's action wins
         self.assertGreater(f.name, 'luci-mod-status.json')
         menu = json.loads(f.read_text())
-        self.assertEqual(menu['admin/status/channel_analysis']['action']['path'], 'mu300/channel_analysis')
+        self.assertEqual(menu['admin/status/channel_analysis']['action']['path'], 'openf50/channel_analysis')
         self.assertEqual(menu['admin/status/channel_analysis']['depends']['acl'],
                          ['luci-mod-status-channel_analysis'])
-        self.assertEqual(menu['admin/status/logs/syslog']['action']['path'], 'mu300/syslog')
+        self.assertEqual(menu['admin/status/logs/syslog']['action']['path'], 'openf50/syslog')
         for m in menu.values():
             self.assertNotIn('title', m)        # LuCI's titles and translations stay
         log = (VIEWS / 'syslog.js').read_text()

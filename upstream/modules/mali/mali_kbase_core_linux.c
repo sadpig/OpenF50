@@ -134,7 +134,7 @@
 					 (((minor) & 0xFFF) << 8) | \
 					 ((0 & 0xFF) << 0))
 
-s64 time[FAULT_KEYWORD_NUM] = {0};	/* MU300: s64 is gone from the kernel headers */
+s64 time[FAULT_KEYWORD_NUM] = {0};	/* OPENF50: s64 is gone from the kernel headers */
 const char fault_keyword[FAULT_KEYWORD_NUM][30] = {
 	{"DONE"},
 	{"TRANSLATION_FAULT"},
@@ -701,7 +701,7 @@ static int kbase_open(struct inode *inode, struct file *filp)
 
 	filp->private_data = kfile;
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 12, 0)
-	/* MU300: the per-file flag became a file_operations flag; the offsets this driver uses stay positive,
+	/* OPENF50: the per-file flag became a file_operations flag; the offsets this driver uses stay positive,
 	 * so nothing has to be set here */
 #else
 	filp->f_mode |= FMODE_UNSIGNED_OFFSET;
@@ -4738,7 +4738,7 @@ int power_control_init(struct kbase_device *kbdev)
 	defined(CONFIG_REGULATOR))
 	if (kbdev->nr_regulators > 0) {
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 0, 0)
-		/* MU300: the count argument is gone (the list is NULL-terminated) and a token is returned */
+		/* OPENF50: the count argument is gone (the list is NULL-terminated) and a token is returned */
 		kbdev->opp_token = dev_pm_opp_set_regulators(kbdev->dev, regulator_names);
 		if (kbdev->opp_token < 0) {
 			err = kbdev->opp_token;
@@ -5968,7 +5968,7 @@ MODULE_DEVICE_TABLE(of, kbase_dt_ids);
 #endif
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 11, 0)
-/* MU300: platform_driver.remove returns void since 6.11 */
+/* OPENF50: platform_driver.remove returns void since 6.11 */
 static void kbase_platform_device_remove_void(struct platform_device *pdev)
 {
 	kbase_platform_device_remove(pdev);
@@ -5978,7 +5978,7 @@ static void kbase_platform_device_remove_void(struct platform_device *pdev)
 static struct platform_driver kbase_platform_driver = {
 	.probe = kbase_platform_device_probe,
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 11, 0)
-	.remove = kbase_platform_device_remove_void,	/* MU300: .remove returns void now */
+	.remove = kbase_platform_device_remove_void,	/* OPENF50: .remove returns void now */
 #else
 	.remove = kbase_platform_device_remove,
 #endif
