@@ -32,10 +32,11 @@ case $NAME in
         mkdir -p "$tmp/x/i18n" "$tmp/feed"
         # (no apostrophes in here: one single-quoted argument to sh -c)
         docker run --rm --platform linux/arm64 -v "$tmp/feed":/out "$IMG" /bin/sh -eu -c '
+retry() { i=1; while true; do "$@" && return 0; i=$((i+1)); [ $i -gt 6 ] && return 1; sleep 10; done; }
 mkdir -p /var/lock /tmp
-apk update >/dev/null
+retry apk update >/dev/null
 # the LuCI apps of the images: those of the base image, plus SQM that build-rootfs.sh adds
-apk add luci-app-sqm >/dev/null
+retry apk add luci-app-sqm >/dev/null
 apk del luci-app-attendedsysupgrade >/dev/null 2>&1 || true
 apps=$(apk list --installed "luci-app-*" | sed -n "s/^luci-app-\([^ ]*\)-[0-9][^ -]* .*/\1/p")
 apk search "luci-i18n-*" | sed -n "s/^\(luci-i18n-.*\)-[0-9][^-]*$/\1/p" | sort -u > /tmp/all
@@ -44,7 +45,7 @@ pk=
 for l in $langs; do
     for c in base $apps; do grep -qx "luci-i18n-$c-$l" /tmp/all && pk="$pk luci-i18n-$c-$l"; done
 done
-apk add $pk >/dev/null
+retry apk add $pk >/dev/null
 for l in $langs; do cp /usr/lib/lua/luci/i18n/*.$l.lmo /out/; done
 apk list --installed "luci-i18n-*" | cut -d" " -f1 | sort > /out/packages
 uci show luci.languages > /out/names
