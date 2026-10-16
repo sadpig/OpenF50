@@ -40,7 +40,13 @@ docker run --rm -v "$TOP/tools":/src:ro -v "$IN/tools":/o openf50-kbuild sh -c '
   gcc -O2 -static -o /o/bt-init/openf50-bt-init /src/bt-init/openf50-bt-init.c &&
   mkdir -p /o/keys && gcc -O2 -static -o /o/keys/openf50-keys /src/keys/openf50-keys.c'
 # adbd (adb over USB to Linux): static aarch64, from AOSP's sources (tools/adbd/build.sh)
-sh "$TOP/tools/adbd/build.sh" "$IN/tools/adbd/adbd" >/dev/null
+# a finished binary survives a rebuild: docker/network flakes no longer force building it again
+ADBD_CACHE=$TOP/work/adbd-cache/adbd
+mkdir -p "$IN/tools/adbd" "$(dirname "$ADBD_CACHE")"
+if [ -s "$IN/tools/adbd/adbd" ]; then :
+elif [ -s "$ADBD_CACHE" ]; then cp "$ADBD_CACHE" "$IN/tools/adbd/adbd"
+else sh "$TOP/tools/adbd/build.sh" "$IN/tools/adbd/adbd" >/dev/null && cp "$IN/tools/adbd/adbd" "$ADBD_CACHE"
+fi
 # cltest links against Android's libraries at build time only; use a local build when there is one
 [ -f "$TOP/tools/gpu/cltest" ] && cp "$TOP/tools/gpu/cltest" "$IN/tools/gpu/cltest"
 
