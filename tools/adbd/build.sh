@@ -22,8 +22,10 @@ mkdir -p "$(dirname "$OUT")"
 o=$(cd "$(dirname "$OUT")" && pwd)/$(basename "$OUT")
 tmp=$(mktemp -d); trap 'rm -rf "$tmp"' EXIT
 docker run --rm --platform linux/arm64 -v "$HERE":/adbd:ro -v "$tmp":/out alpine:3.20 /bin/sh -eu -c "
-apk add -q build-base cmake samurai perl go linux-headers libcap-dev pkgconf \
-    brotli-dev brotli-static lz4-dev lz4-static zstd-dev zstd-static
+i=1; until apk add -q build-base cmake samurai perl go linux-headers libcap-dev pkgconf \
+    brotli-dev brotli-static lz4-dev lz4-static zstd-dev zstd-static; do
+    [ \$i -gt 6 ] && exit 1; sleep 8; apk update; i=\$((i+1))
+done
 cd /tmp
 wget -q -O at.tar.xz $URL
 echo '$SHA  at.tar.xz' | sha256sum -c -
