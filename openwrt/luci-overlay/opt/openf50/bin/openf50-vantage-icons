@@ -1,0 +1,33 @@
+#!/usr/bin/lua
+-- Patch luci-theme-vantage's menu icon map (idempotent): the iStore (store) and Cellular (蜂窝)
+-- entries fall to the generic dot upstream; give them real icons. Runs on every boot and right after
+-- the theme is installed (System -> openf50 postinst hook); harmless when Vantage is absent.
+local F = "/www/luci-static/resources/menu-vantage.js"
+local fh = io.open(F, "r")
+if not fh then os.exit(0) end
+local s = fh:read("*a"); fh:close()
+if s:find("'store',", 1, true) or s:find("store:%[%['path'", 1) then os.exit(0) end
+
+local function patch(text, old, new)
+    local i = text:find(old, 1, true)
+    if not i then return nil, "marker not found: " .. old:sub(1, 40) end
+    return text:sub(1, i - 1) .. new .. text:sub(i + #old)
+end
+
+local Q = string.char(39) -- single quote
+-- extend iconFor(): store/istore -> store, cellular/sim/modem -> cellular
+local old_fn = "function iconFor(name){if(/overview|dashboard|home/.test(name))return" .. Q .. "dashboard" .. Q .. ";"
+local new_fn = "function iconFor(name){if(/overview|dashboard|home/.test(name))return" .. Q .. "dashboard" .. Q ..
+    ";if(/^(store|istore)$/.test(name))return" .. Q .. "store" .. Q ..
+    ";if(/cellular|cell|modem|sim/.test(name))return" .. Q .. "cellular" .. Q .. ";"
+local out, err = patch(s, old_fn, new_fn)
+if not out then print("vantage-icons: " .. err); os.exit(1) end
+
+-- two new icons (lucide shopping-bag / signal), in the theme's own [tag, attrs] format
+local icons = "store:[['path',{d:'M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z'}],['path',{d:'M3 6h18'}],['path',{d:'M16 10a4 4 0 0 1-8 0'}]]," ..
+    "cellular:[['path',{d:'M2 20h.01'}],['path',{d:'M7 20v-4'}],['path',{d:'M12 20v-10'}],['path',{d:'M17 20V8'}],['path',{d:'M22 4v16'}]],"
+out, err = patch(out, "ICONS={dashboard:", "ICONS={" .. icons .. "dashboard:")
+if not out then print("vantage-icons: " .. err); os.exit(1) end
+
+fh = io.open(F, "w"); fh:write(out); fh:close()
+print("vantage-icons: menu-vantage.js patched (store + cellular icons)")

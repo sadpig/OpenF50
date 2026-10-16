@@ -1,0 +1,10 @@
+#!/bin/sh /etc/rc.common
+# Patch luci-theme-vantage's menu icons when the theme is present (idempotent; runs at every boot,
+# so an apk-side theme update gets re-patched). Does nothing without the theme.
+START=97
+USE_PROCD=0
+
+start() {
+    [ -s /www/luci-static/resources/menu-vantage.js ] || return 0
+    /opt/openf50/bin/openf50-vantage-icons
+}

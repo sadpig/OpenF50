@@ -400,6 +400,10 @@ if [ -d /in/luci-plugin ]; then
     n=$(sed -n "s/^START=//p" $R/etc/init.d/openf50-ndp)
     ln -sf ../init.d/openf50-ndp $R/etc/rc.d/S${n}openf50-ndp
     ln -sf /opt/openf50/bin/openf50-sms $R/usr/bin/openf50-sms
+    # Vantage menu icons (store/cellular) when that theme is installed: patched at every boot
+    chmod 0755 $R/opt/openf50/bin/openf50-vantage-icons $R/etc/init.d/openf50-vantage-icons
+    n=$(sed -n "s/^START=//p" $R/etc/init.d/openf50-vantage-icons)
+    ln -sf ../init.d/openf50-vantage-icons $R/etc/rc.d/S${n}openf50-vantage-icons
     # System > Terminal: apk enabled ttyd itself
     [ -e $R/etc/rc.d/S99ttyd ] || { echo "ttyd is not enabled" >&2; exit 1; }
 fi
