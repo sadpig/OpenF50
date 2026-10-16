@@ -1,12 +1,12 @@
 # Mobile Data and APN
 
-**In one sentence:** put a SIM with a data plan in the device and Linux connects to 5G (NSA) or LTE by itself and
-shares the connection with everything on its Wi-Fi and USB.
+**一句话概括：** 把有流量套餐的 SIM 卡放进设备，Linux 会自己连上 5G（NSA）或 LTE，并把连接分享给它的
+Wi-Fi 和 USB 上的一切。
 
-**The simple version:** the modem is a little phone inside the box. Linux dials in for you, keeps watching the line,
-and dials again if it drops. Most SIM cards need no settings at all.
+**通俗版说明：** 调制解调器是盒子里的一部小手机。Linux 替你拨号，一直盯着线路，掉了就再拨。大多数 SIM
+卡完全不需要设置。
 
-![Clients, the device and the mobile network](https://kaandikec.com/openf50-linux/assets/img/network.svg)
+![客户端、设备和移动网络](https://kaandikec.com/openf50-linux/assets/img/network.svg)
 
 ```mermaid
 flowchart LR
@@ -16,47 +16,44 @@ flowchart LR
     Dev -.->|or: Wi-Fi client of another network| Router[Other router] --> Net
 ```
 
-## Check it
+## 检查它
 
 ```sh
 sudo mobile-data status
 ```
 
-No `sudo` on OpenWrt. The connection reconnects by itself after modem resets (`openf50-mobile-data-watch`), unless you
-took it down yourself with `mobile-data down`. Other subcommands: `up [APN]`, `down`, `signal`, `sim-reset`.
+OpenWrt 上不需要 `sudo`。连接在调制解调器复位后会自己重连（`openf50-mobile-data-watch`），除非你自己用
+`mobile-data down` 把它停了。其他子命令：`up [APN]`、`down`、`signal`、`sim-reset`。
 
-**No internet?** First check that the SIM has a **data plan**. A missing plan looks like a connection that keeps
-dropping.
+**没网？** 先确认 SIM 卡有**流量套餐**。没有套餐的表现就是连接不停地掉。
 
-## The APN
+## APN
 
-**Leave it empty unless your carrier says otherwise.** Empty means: use the data context the SIM itself defines,
-which is what most carriers expect.
+**除非运营商另有说明，否则留空。** 留空的意思是：使用 SIM 卡自己定义的数据上下文，这正是大多数运营商
+所期望的。
 
-| System | Where |
+| 系统 | 位置 |
 |---|---|
-| Ubuntu | `/etc/openf50/mobile-data.conf`: `OPENF50_APN` and `OPENF50_PDP_TYPE` (an example is in `/etc/openf50/mobile-data.conf.example`) |
-| OpenWrt | LuCI -> Network -> Interfaces -> wan, or `uci set network.wan.apn='…'; uci commit network; ifup wan` |
+| Ubuntu | `/etc/openf50/mobile-data.conf`：`OPENF50_APN` 和 `OPENF50_PDP_TYPE`（示例在 `/etc/openf50/mobile-data.conf.example`） |
+| OpenWrt | LuCI -> Network -> Interfaces -> wan，或 `uci set network.wan.apn='…'; uci commit network; ifup wan` |
 
-**An APN with a user name and a password** (a private APN, some MVNOs): set them next to the APN. They need an APN;
-printable ASCII, at most 64 characters each, no quotes or backslashes. The authentication is `pap`, `chap`, `both`
-(the network picks, and the default) or `none`.
+**带用户名和密码的 APN**（私有 APN、一些 MVNO）：在 APN 旁边设置它们。它们需要有 APN 才能用；可打印
+ASCII，各最多 64 个字符，不含引号和反斜杠。认证方式为 `pap`、`chap`、`both`（由网络选择，默认值）或
+`none`。
 
-| System | Where |
+| 系统 | 位置 |
 |---|---|
-| Ubuntu | `OPENF50_APN_USER`, `OPENF50_APN_PASSWORD`, `OPENF50_APN_AUTH` in `/etc/openf50/mobile-data.conf` |
-| OpenWrt | the same page (APN user name, APN password, APN authentication), or `uci set network.wan.username='…'; uci set network.wan.password='…'; uci set network.wan.auth='chap'; uci commit network; ifup wan` |
+| Ubuntu | `/etc/openf50/mobile-data.conf` 中的 `OPENF50_APN_USER`、`OPENF50_APN_PASSWORD`、`OPENF50_APN_AUTH` |
+| OpenWrt | 同一页面（APN user name、APN password、APN authentication），或 `uci set network.wan.username='…'; uci set network.wan.password='…'; uci set network.wan.auth='chap'; uci commit network; ifup wan` |
 
-The file that holds the password must be readable by root alone; the dial makes it so (`chmod 600`) and does not
-start otherwise, and a user name or password without an APN is refused rather than left out. This is new and has
-not yet been tried against a network that checks the credentials; if your carrier needs it, a report either way is
-welcome.
+存放密码的文件必须只有 root 可读；拨号会把它改成这样（`chmod 600`），否则不启动；有用户名或密码却没有
+APN 会被拒绝而不是被忽略。这是新功能，尚未在会校验凭据的网络上试过；如果你的运营商需要它，无论结果
+如何都欢迎反馈。
 
-## Data usage
+## 流量统计
 
-The device counts its mobile data per day and per billing cycle, both ways, the way the operator counts it. The count
-survives reboots and switching between systems, and nothing is counted twice. On OpenWrt with the control panel this
-is Cellular > Data usage.
+设备按天和按账期、双向统计移动数据，和运营商的算法一样。统计跨重启、跨系统切换保留，不会重复计数。
+在带控制面板的 OpenWrt 上这是 Cellular > Data usage。
 
 ```sh
 openf50-traffic                       # today, this billing cycle and the cap
@@ -66,20 +63,20 @@ sudo openf50-traffic set cut on       # optional: mobile data off at the cap, ba
 openf50-traffic days                  # the last days with traffic
 ```
 
-## Network, band and cell locks (control panel)
+## 网络、频段和小区锁（控制面板）
 
-On OpenWrt with the control panel, **Cellular -> Network locks** sets network mode, band, cell and EN-DC locks that
-persist across reboots and are replayed at boot. The locks are stored in the modem's own memory, so **they also apply
-in Android**. "Reset all to automatic" on that page (or `unisoc-modem lock reset` on the command line) clears them.
-The **Status dashboard** shows live signal, bands, cells and temperatures. See [Control Panel (LuCI)](Control-Panel-(LuCI)).
+在带控制面板的 OpenWrt 上，**Cellular -> Network locks** 设置网络模式、频段、小区和 EN-DC 锁，跨重启
+保持并在启动时重放。锁存在调制解调器自己的存储里，所以**在 Android 下也同样生效**。该页面的
+"Reset all to automatic"（或命令行的 `unisoc-modem lock reset`）清除它们。**状态仪表盘**显示实时信号、
+频段、小区和温度。见 [Control Panel (LuCI)](Control-Panel-(LuCI))。
 
-## USSD (balance, own number)
+## USSD（余额、本机号码）
 
 ```sh
 sudo openf50-ussd '*101#'
 ```
 
-The code depends on your carrier.
+具体代码取决于你的运营商。
 
 ## TTL
 
@@ -88,33 +85,30 @@ sudo openf50-ttl set 64     # a fixed TTL for everything leaving through mobile 
 sudo openf50-ttl off        # back to the default
 ```
 
-Also in `openf50-toolkit` -> Network -> TTL, or the panel's Cellular -> TTL. On the mainline kernels the rule is in tc
-and flow offloading stays on; on 5.4 it is in nftables and offloading is off while a TTL is set.
+也在 `openf50-toolkit` -> Network -> TTL，或面板的 Cellular -> TTL 里。在主线内核上规则在 tc 里，流量
+卸载保持开启；在 5.4 上它在 nftables 里，设置 TTL 期间卸载关闭。
 
-> Changing what your device sends (TTL, band locks, VPNs) may break your operator's terms or local law. Check before
-> you turn something on.
+> 改动设备发出的东西（TTL、频段锁、VPN）可能违反运营商条款或当地法律。开启前请先确认。
 
 ## IPv6
 
-Plain OpenWrt uses prefix extension; OpenWrt with the control panel relays IPv6 from the carrier (router
-advertisements and NAT66) instead. Since v2026.10.18, when the carrier moves the device to a new /64, the old prefix
-is withdrawn, so clients stop using it without a restart of the WAN.
+纯净 OpenWrt 用前缀扩展；带控制面板的 OpenWrt 改为中继来自运营商的 IPv6（路由器通告和 NAT66）。从
+v2026.10.18 起，当运营商把设备移到新的 /64 时，旧前缀会被撤回，客户端无需重启 WAN 就会停用它。
 
-## Wi-Fi beats mobile data
+## Wi-Fi 优先于移动数据
 
-When the device is also joined to another Wi-Fi network as a client, the Wi-Fi route (metric 50) wins over mobile data
-(metric 100), so the SIM stays idle. See [Wi-Fi Hotspot and Client](Wi-Fi-Hotspot-and-Client).
+当设备同时作为客户端加入了另一个 Wi-Fi 网络时，Wi-Fi 路由（metric 50）胜过移动数据（metric 100），
+SIM 保持空闲。见 [Wi-Fi Hotspot and Client](Wi-Fi-Hotspot-and-Client)。
 
-## "Websites think I am in another country"
+## "网站以为我在另一个国家"
 
-The device has no GPS, so websites guess your location from the IP address, and mobile operators often look like a
-different city.
+设备没有 GPS，所以网站根据 IP 地址猜你的位置，而移动运营商常常看起来像另一个城市。
 
-## Saving power (U30 Air)
+## 省电（U30 Air）
 
-`openf50-power` can switch the radio to LTE only or off while nobody is connected. See the
-[README's power row](https://github.com/dikeckaan/openf50-linux#everyday-use) and
-[Hardware Notes](Hardware-Notes#u30-air-battery-buttons-nfc-usb-host).
+`openf50-power` 可以在无人连接时把射频切到仅 LTE 或关闭。见
+[README 的电源一行](https://github.com/dikeckaan/openf50-linux#everyday-use)和
+[Hardware Notes](Hardware-Notes#u30-air-battery-buttons-nfc-usb-host)。
 
-Deep details (radio registration, the data bearer, modem resets):
-[FINDINGS 15, 26](https://github.com/dikeckaan/openf50-linux/blob/main/docs/FINDINGS.md).
+深层细节（射频注册、数据承载、调制解调器复位）：
+[FINDINGS 15、26](https://github.com/dikeckaan/openf50-linux/blob/main/docs/FINDINGS.md)。

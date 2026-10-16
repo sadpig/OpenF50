@@ -62,7 +62,7 @@ if [ "$run" != done ]; then
 	# Forwarded TCP/UDP through the kernel's software flowtable (fw4 puts sipa_eth0 in it: patches/fw4-sipa-offload.patch).
 	# The Unisoc SIPA and SC2355 drivers have no nftables hardware flow offload. (openf50-ttl turns it off while a TTL
 	# is set.)
-	# OpenF50: 默认关闭——在 F50（5.4 厂商内核）上软件 flowtable 会让 fw4 报错、LAN 拿不到地址（实机踩过）
+	# OpenF50: off by default - on the F50 (vendor 5.4) the software flowtable breaks fw4 and the LAN gets no address (seen on a real device)
 	uci -q set firewall.@defaults[0].flow_offloading='0'
 	uci -q set firewall.@defaults[0].flow_offloading_hw='0'
 fi

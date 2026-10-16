@@ -1,53 +1,50 @@
 # Troubleshooting
 
-**The simple version:** most problems end the same safe way: the device goes back to Android, and you try again. Below
-are the known problems, what causes them and what to do. If yours is not here, collect logs and
-[open an issue](https://github.com/dikeckaan/openf50-linux/issues).
+**通俗版说明：** 大多数问题都以同样安全的方式收场：设备回退到 Android，你再试一次。下面是已知问题、
+成因和解决办法。如果你的问题不在这里，收集日志并[开一个 issue](https://github.com/dikeckaan/openf50-linux/issues)。
 
-## Before anything else
+## 先做这些
 
-* Wait **two minutes** after power-on; the first boot is slow.
-* Use a **good USB cable** plugged straight into the computer.
-* Make sure you use the **right address**: `192.168.77.1` (F50) or `192.168.78.1` (U30 Air).
-* The USB serial console works even when networking does not: `screen /dev/cu.usbmodem* 115200` on macOS.
-* After a fallback to Android, collect logs from a computer with `tools/collect-logs.sh`.
+* 上电后等**两分钟**；首次启动很慢。
+* 用一根**好的 USB 数据线**，直接插到电脑上。
+* 确认用的是**正确的地址**：`192.168.77.1`（F50）或 `192.168.78.1`（U30 Air）。
+* 网络不通时 USB 串口控制台依然可用：macOS 上 `screen /dev/cu.usbmodem* 115200`。
+* 回退到 Android 之后，用电脑上的 `tools/collect-logs.sh` 收集日志。
 
-## The device does not come back after installing
+## 安装后设备没回来
 
-Wait two minutes. If there is still nothing, unplug and replug it. Every boot that does not finish counts, and after 5
-of them in a row (or the number you chose) the device starts Android. Then run `tools/collect-logs.sh` and open an
-issue with the result.
+等两分钟。如果还是没反应，拔了重插。每一次没完成的启动都会计数，连续 5 次（或你选择的次数）之后设备
+会启动 Android。然后运行 `tools/collect-logs.sh`，带着结果开 issue。
 
-## Back in Android without asking, on kernel 6.18
+## 在 6.18 内核上无缘无故回到 Android
 
-About one boot in 20 on one board hangs in its first seconds, and the device then falls back to Android (this can take
-around 20 minutes). Start Linux again with `su -c openf50-linux` or the Magisk module's Action button. If it keeps
-happening, try 7.2 or 5.4: `sudo openf50-update kernel 7.2`.
+一块板子上大约每 20 次启动有 1 次会在最初几秒卡死，然后设备回退到 Android（这可能需要约 20 分钟）。
+用 `su -c openf50-linux` 或 Magisk 模块的 Action 按钮再次启动 Linux。如果反复发生，试试 7.2 或 5.4：
+`sudo openf50-update kernel 7.2`。
 [FINDINGS 31m](https://github.com/dikeckaan/openf50-linux/blob/main/docs/FINDINGS.md#31m-hard-hangs-in-the-first-seconds-under-618-open)
 
-## Back in Android after an update
+## 更新后回到 Android
 
-With older boot images a single crash or reset of Linux sent the device back to Android. Start Linux again with
-`su -c openf50-linux`, then update (see [Updating](Updating#coming-from-a-very-old-release)). If Linux does not start any
-more, run `./install.sh` from a computer and choose **update**: it writes a fresh boot image and keeps your data.
+用旧启动镜像时，Linux 的一次崩溃或重启就会让设备回到 Android。用 `su -c openf50-linux` 再次启动
+Linux，然后更新（见 [Updating](Updating#coming-from-a-very-old-release)）。如果 Linux 再也起不来，
+从电脑运行 `./install.sh` 并选择 **update**：它会写入新的启动镜像并保留你的数据。
 
-## The computer sees the device but gets no address (macOS)
+## 电脑看得到设备但拿不到地址（macOS）
 
-macOS does not set up a network interface it has never seen while the screen is locked. Each device has its own USB
-MAC address, so the first time one is plugged in (or after an update that brought new addresses) **unlock the Mac** and
-the interface appears. With an F50 and a U30 Air plugged in together, they are `192.168.77.1` and `192.168.78.1`; two of
-the same kind need `/etc/openf50/lan.conf` to tell them apart.
+macOS 在锁屏时不会配置它从未见过的网络接口。每台设备有自己的 USB MAC 地址，所以第一次插入某台设备时
+（或一次带来新地址的更新之后），**解锁 Mac**，接口就会出现。F50 和 U30 Air 同时插着时，它们分别是
+`192.168.77.1` 和 `192.168.78.1`；两台同型号的设备需要 `/etc/openf50/lan.conf` 来区分。
 
-## No internet
+## 没有网络
 
-Check that the SIM has a **data plan**, then run `sudo mobile-data status`. A missing plan looks like a connection that
-keeps dropping. Leave the APN empty unless your carrier needs one ([Mobile Data and APN](Mobile-Data-and-APN)).
+先确认 SIM 卡有**流量套餐**，然后运行 `sudo mobile-data status`。没有套餐的表现就是连接不停地掉。
+除非运营商要求，否则 APN 留空（[Mobile Data and APN](Mobile-Data-and-APN)）。
 
-## OpenWrt on kernel 5.4: no address, no web page, nothing joins the hotspot
+## 5.4 内核上的 OpenWrt：没地址、没网页、谁也连不上热点
 
-Releases before v2026.10.13: the firewall's boot ruleset had no rules for the LAN, and on 5.4 the reload that should have
-added them always failed. **Fixed from v2026.10.13 on**; update. On an affected release, log in over the USB
-serial console (`ttyGS0`, a root shell) and run:
+v2026.10.13 之前的发布包：防火墙的启动规则集没有 LAN 的规则，而在 5.4 上本该补上它们的重载总是失败。
+**从 v2026.10.13 起已修复**；请更新。在受影响的发布包上，通过 USB 串口控制台（`ttyGS0`，root shell）
+登录并运行：
 
 ```sh
 nft delete flowtable inet fw4 ft; fw4 reload
@@ -55,151 +52,149 @@ nft delete flowtable inet fw4 ft; fw4 reload
 
 [FINDINGS 38c](https://github.com/dikeckaan/openf50-linux/blob/main/docs/FINDINGS.md)
 
-## The installer prints nothing for minutes and the device gets hot
+## 安装器几分钟不打印任何东西且设备发烫
 
-A read past the end of the internal storage never returned on devices whose partition table ends at the end of the disk
-(the 32 GB variant, and an F50 with no gap behind `userdata`). **Fixed from v2026.10.13 on.** Reboot the device
-to end the stuck reads, then install with the current installer (it updates itself from GitHub when it starts).
+在分区表结束于磁盘末尾的设备上（32 GB 变体，以及 `userdata` 后面没有空隙的 F50），读过内置存储末尾的
+读取永远不会返回。**从 v2026.10.13 起已修复。**重启设备以结束卡住的读取，然后用当前的安装器安装
+（它启动时会从 GitHub 自我更新）。
 [FINDINGS 38a](https://github.com/dikeckaan/openf50-linux/blob/main/docs/FINDINGS.md)
 
-## `--check` reports no free space
+## `--check` 报告没有空闲空间
 
-You probably have the **32 GB variant**. Use an SD card (F50), or let the installer shrink `userdata` (experimental,
-erases Android's data). See [Installation](Installation#the-32-gb-variant). If the numbers look like neither a 64 GB nor
-a 32 GB device, open an issue with the `--check` output.
+你很可能拿到的是 **32 GB 变体**。用 SD 卡（F50），或让安装器收缩 `userdata`（实验性，会清空 Android
+的数据）。见 [Installation](Installation#the-32-gb-variant)。如果数字既不像 64 GB 也不像 32 GB 设备，
+带着 `--check` 的输出开 issue。
 
-## `--check` says the free space is "not empty"
+## `--check` 说空闲空间"不是空的"
 
-Something has written into the unpartitioned area. Installing would overwrite it, and the installer makes you type
-`overwrite`. If you are not sure what is there, stop and ask in an issue.
+有东西写进了未分区的区域。安装会覆盖它，安装器会让你输入 `overwrite`。如果你不确定那里是什么，停下来
+在 issue 里问。
 
-## I forgot the password
+## 我忘了密码
 
-You do not need to log in to get out (unless Linux is [locked](Going-Back-to-Android#locked-linux)):
+想退出并不需要登录（除非 Linux 被[锁定](Going-Back-to-Android#locked-linux)）：
 
-1. **Back to Android:** unplug the device about ten seconds after it powers on, then plug it in again, as many times in
-   a row as your failed-boot count (5 by default). The device then falls back to Android.
-2. **Set a new password** from your computer, without booting Linux:
+1. **回到 Android：** 设备上电约十秒后拔掉，再插上，连续重复你的失败启动计数次（默认 5 次）。设备
+   随后会回退到 Android。
+2. **从电脑设置新密码**，无需启动 Linux：
    ```sh
    tools/reset-password.sh            # ubuntu, openwrt or both
    ```
-   It mounts the Linux filesystem from Android and rewrites the password, keeping all your data.
-3. Start Linux again with `su -c openf50-linux` (or `boot/android-boot-linux.sh work/boot-linux-slotb.img`), or reboot if
-   Linux is the default.
+   它从 Android 挂载 Linux 文件系统并重写密码，保留你的所有数据。
+3. 用 `su -c openf50-linux`（或 `boot/android-boot-linux.sh work/boot-linux-slotb.img`）再次启动
+   Linux；如果 Linux 是默认系统，直接重启即可。
 
-Re-running `./install.sh` and choosing **update** also keeps your data and sets the password you type.
+重新运行 `./install.sh` 并选择 **update** 也会保留你的数据并设置你输入的密码。
 
-## Joining a Wi-Fi network fails
+## 加入 Wi-Fi 网络失败
 
-* WPA3-only networks cannot be joined (the driver has no SAE). Switch the router to WPA2/WPA3 mixed mode.
-* While the hotspot is on, `wifi-client connect` saves the network and asks for a reboot.
-See [Wi-Fi Hotspot and Client](Wi-Fi-Hotspot-and-Client).
+* 仅 WPA3 的网络无法加入（驱动没有 SAE）。把路由器切到 WPA2/WPA3 混合模式。
+* 热点开着时，`wifi-client connect` 会保存网络并要求重启。
+见 [Wi-Fi Hotspot and Client](Wi-Fi-Hotspot-and-Client)。
 
-## Kernel warnings are not in `journalctl -k`
+## 内核警告不在 `journalctl -k` 里
 
-On Ubuntu they are in `journalctl -t kernel` (warnings and errors only, from the start of each boot). Everything else is
-in `dmesg`. Repeating vendor messages are filtered out by `/etc/openf50/kmsg-ignore`.
+在 Ubuntu 上它们在 `journalctl -t kernel` 里（只有警告和错误，从每次启动的开头开始）。其余都在
+`dmesg` 里。重复出现的厂商消息会被 `/etc/openf50/kmsg-ignore` 过滤掉。
 
-## Websites think I am in another country
+## 网站以为我在另一个国家
 
-The device has no GPS; websites guess from the IP address, and mobile operators and VPN servers often look like another
-city.
+设备没有 GPS；网站根据 IP 地址猜位置，而移动运营商和 VPN 服务器常常看起来像另一个城市。
 
-## Downloads are slow
+## 下载慢
 
-GitHub's CDN throttles single connections in some regions. The installer already downloads in 8 parallel chunks; set
-`OPENF50_FETCH_JOBS` to change that, or `OPENF50_RELEASE_URL` to use your own mirror.
+GitHub 的 CDN 在某些地区对单连接限速。安装器已经用 8 个并行分块下载；设置 `OPENF50_FETCH_JOBS` 可以改
+这个数，或用 `OPENF50_RELEASE_URL` 指向你自己的镜像。
 
-## "could not arm the Linux slot for a trial" during an update
+## 更新时出现 "could not arm the Linux slot for a trial"
 
-Harmless when updating from v2026.10.14 or older: the older `openf50-next-boot` does not know `--trial`. The fallback to
-Android still works.
+从 v2026.10.14 或更旧版本更新时无害：旧的 `openf50-next-boot` 不认识 `--trial`。回退到 Android 仍然
+有效。
 
-## The U30 Air battery drains while plugged in
+## U30 Air 插着电还掉电
 
-The mainline kernels (6.18, 7.2) of v2026.10.11 and older leave charging off. Update (charging on mainline comes from
-v2026.10.12 on), or use kernel 5.4.
+v2026.10.11 及更早的主线内核（6.18、7.2）不开启充电。请更新（主线上的充电从 v2026.10.12 起可用），或
+使用 5.4 内核。
 
-## The hotspot does not start on a 5 GHz channel between 52 and 144
+## 热点在 52 到 144 之间的 5 GHz 信道上起不来
 
-hostapd stops with `start_dfs_cac() failed` / `AP-DISABLED` (releases up to v2026.10.18). Those are DFS channels, and
-the Wi-Fi driver cannot detect radar. **Fixed from v2026.10.20 on:** such a channel is replaced by 36 (or 149) with
-a line in the log. On an older release choose 36-48 or 149-165, or `auto` on Ubuntu.
+hostapd 以 `start_dfs_cac() failed` / `AP-DISABLED` 停止（v2026.10.18 及之前的发布包）。那些是 DFS
+信道，而 Wi-Fi 驱动无法检测雷达。**从 v2026.10.20 起已修复：** 这样的信道会被替换成 36（或 149），
+日志里有一行说明。在旧发布包上请选择 36-48 或 149-165，Ubuntu 上也可选 `auto`。
 [FINDINGS 42](https://github.com/dikeckaan/openf50-linux/blob/main/docs/FINDINGS.md)
 
-## The control panel went blank after an AT command got stuck
+## 一条 AT 命令卡住后控制面板变空白
 
-On `openwrt-luci` up to v2026.10.18 one stuck AT command could blank every page, even the battery tile, for minutes,
-also after a reboot. The panel's lock wait counted whole seconds instead of tenths (OpenWrt's `sleep` takes no
-fractions), and some pages read the modem inside the request. **Fixed from v2026.10.20 on**; there the pages keep
-their last readings and say how old they are. On an older release wait it out, or restart `rpcd` and `openf50-atd`.
+在 v2026.10.18 及之前的 `openwrt-luci` 上，一条卡住的 AT 命令能让每个页面空白几分钟，连电池卡片也不
+例外，重启后也一样。面板的锁等待按整秒而不是十分之一秒计数（OpenWrt 的 `sleep` 不接受小数），且一些
+页面在请求里直接读调制解调器。**从 v2026.10.20 起已修复**；那里页面会保留上一次读数并显示其年龄。
+在旧发布包上只能等它过去，或重启 `rpcd` 和 `openf50-atd`。
 [FINDINGS 40](https://github.com/dikeckaan/openf50-linux/blob/main/docs/FINDINGS.md)
 
-## Sending an SMS fails with `SMS FAILED: CODE:600`, or the panel's operations log says `sms_send - killed`
+## 发送短信失败：`SMS FAILED: CODE:600`，或面板操作日志出现 `sms_send - killed`
 
-Up to v2026.10.21, on some networks (China Broadnet, issue #176) the modem's IMS stack refused every submission
-(`+SPIMSREASON: 1,512,"SMS FAILED: CODE:600 REASON:Busy Everywhere"` in the URC log) while incoming messages
-arrived; and on `openwrt-luci` a send that took longer than 30 s was killed together with the panel's request, leaving
-`sms_send - killed` in the operations log and no word on whether the message went out. **Fixed from v2026.10.22 on**:
-a send is one AT transaction (the channel is held from the setup to the submission, so no other client gets in
-between) and the SMSC the modem reports is written back to it unchanged before each one, in `openf50-sms` and the panel
-on OpenWrt and in `sms` on Ubuntu; the panel starts the send in the background and follows it, also after a reload.
-On an older release write the SMSC back yourself (`openf50-at 'AT+CSCA?'`, then `openf50-at 'AT+CSCA="<the value it
-showed>",<the type>'`, with `sudo` on Ubuntu) and send from the shell while the panel is idle (`openf50-sms send NUMBER
-TEXT` on OpenWrt, `sudo sms send NUMBER TEXT` on Ubuntu).
+v2026.10.21 及之前，在一些网络上（中国广电，issue #176）调制解调器的 IMS 栈拒绝每次提交（URC 日志中
+出现 `+SPIMSREASON: 1,512,"SMS FAILED: CODE:600 REASON:Busy Everywhere"`），而接收正常；且在
+`openwrt-luci` 上，超过 30 秒的发送会随面板请求一起被杀，操作日志留下 `sms_send - killed`，消息是否
+发出无从得知。**从 v2026.10.22 起已修复：** 发送是一次 AT 事务（从建立到提交通道一直被占用，没有其他
+客户端能插进来），且每次发送前把调制解调器报告的 SMSC 原样写回，OpenWrt 的 `openf50-sms` 和面板以及
+Ubuntu 的 `sms` 都如此；面板把发送放到后台并跟踪它，刷新后也如此。在旧发布包上可以自己写回 SMSC
+（`openf50-at 'AT+CSCA?'`，然后 `openf50-at 'AT+CSCA="<它显示的值>",<类型>'`，Ubuntu 上加 `sudo`），
+并在面板空闲时从 shell 发送（OpenWrt 上 `openf50-sms send NUMBER TEXT`，Ubuntu 上
+`sudo sms send NUMBER TEXT`）。
 [FINDINGS 46](https://github.com/dikeckaan/openf50-linux/blob/main/docs/FINDINGS.md)
 
-## The device restarts on kernel 5.4 when a container stops
+## 5.4 内核上容器停止时设备重启
 
-Up to v2026.10.20, on 5.4, when two network namespaces were alive at once and one went away (Docker containers, a
-sandbox, `unshare -n`), the kernel could panic while cleaning it up (`xfrm_sysctl_fini` in the trace; issue #103); the
-device restarts, and after a few of those it falls back to Android. **Fixed from v2026.10.21 on**; update. On an older
-release keep to one container at a time, or use 6.18 or 7.2, which never had the bug.
+v2026.10.20 及之前，在 5.4 上，当两个网络命名空间同时存活、其中一个消失时（Docker 容器、沙箱、
+`unshare -n`），内核可能在清理时 panic（调用栈里是 `xfrm_sysctl_fini`；issue #103）；设备重启，这样
+几次之后就回退到 Android。**从 v2026.10.21 起已修复**；请更新。在旧发布包上一次只跑一个容器，或使用
+从未有此 bug 的 6.18 或 7.2。
 [FINDINGS 44](https://github.com/dikeckaan/openf50-linux/blob/main/docs/FINDINGS.md)
 
-## The device crashes when the Wi-Fi driver is unloaded (6.18, 7.2)
+## 卸载 Wi-Fi 驱动时设备崩溃（6.18、7.2）
 
-Up to v2026.10.20, `rmmod sprd_wlan_combo` on 6.18 or 7.2 panicked within a second (`__run_timers`: the driver left a
-timer running in freed memory; issue #146). **Fixed from v2026.10.21 on.** On an older release do not unload the
-module; restart the device instead. [FINDINGS 45](https://github.com/dikeckaan/openf50-linux/blob/main/docs/FINDINGS.md)
+v2026.10.20 及之前，在 6.18 或 7.2 上 `rmmod sprd_wlan_combo` 会在一秒内 panic（`__run_timers`：驱动在
+已释放的内存里留了一个运行中的定时器；issue #146）。**从 v2026.10.21 起已修复。**在旧发布包上不要卸载
+该模块；改为重启设备。
+[FINDINGS 45](https://github.com/dikeckaan/openf50-linux/blob/main/docs/FINDINGS.md)
 
-## The log is full of `sprd-wlan` errors every few seconds
+## 日志每隔几秒就充满 `sprd-wlan` 错误
 
-Lines such as `sc2355_dump_survey, idx 0`, `bssid not found, multicast?` or `data len is 251, skb need 576` at error
-level, every six seconds or so in `dmesg` and `logread` (releases up to v2026.10.20). They describe the driver's
-routine work, not faults (issue #140). **From v2026.10.21 on** they are debug lines, shown only when you ask for them:
-`echo 'module sprd_wlan_combo +p' > /sys/kernel/debug/dynamic_debug/control`. The real errors next to them are still
-logged.
+诸如 `sc2355_dump_survey, idx 0`、`bssid not found, multicast?` 或 `data len is 251, skb need 576`
+这样的行，以错误级别每隔六秒左右出现在 `dmesg` 和 `logread` 中（v2026.10.20 及之前的发布包）。它们
+描述的是驱动的例行工作，不是故障（issue #140）。**从 v2026.10.21 起**它们是调试行，只有你要求时才
+显示：`echo 'module sprd_wlan_combo +p' > /sys/kernel/debug/dynamic_debug/control`。旁边真正的错误
+仍会记录。
 
-## The log is full of `mmc1` register dumps on the F50 (6.18, 7.2)
+## F50 上日志充满 `mmc1` 寄存器转储（6.18、7.2）
 
-`mmc1: Got command interrupt 0x00000001 even though no command operation was in progress`, followed by a 16-line
-`SDHCI REGISTER DUMP`, every few seconds to minutes in `dmesg -l err` on an F50 with nothing in the SD slot, on 6.18
-and 7.2 up to v2026.10.21 (issue #181). Mainline's EIC driver mapped only three of the controller's six banks, so the
-slot's card-detect line could not be found and the slot was polled instead: every second a card that is not there was
-initialised, and the host's late answer to a command nothing replied to was logged with the dump. **Fixed from
-v2026.10.22 on**: the six banks are mapped, the slot has real card detect (an interrupt), and an empty slot is left
-alone until a card goes in. The dumps are noise, not a fault; on an older release put a card in the slot (with a card
-there are none) or use 5.4, which never had them. The U30 Air has no slot.
+`mmc1: Got command interrupt 0x00000001 even though no command operation was in progress`，接着一段
+16 行的 `SDHCI REGISTER DUMP`，在 SD 卡槽空着的 F50 上每隔几秒到几分钟出现在 `dmesg -l err` 中，见于
+v2026.10.21 及之前的 6.18 和 7.2（issue #181）。主线的 EIC 驱动只映射了控制器六个 bank 中的三个，
+卡槽的卡检测线找不到，于是卡槽被轮询代替：每一秒都在初始化一张不存在的卡，主机对一条无人应答的命令的
+迟到回答连同转储一起被记录。**从 v2026.10.22 起已修复**：六个 bank 全部映射，卡槽有了真正的卡检测
+（中断），空卡槽在插卡之前不再被打扰。这些转储是噪音，不是故障；在旧发布包上往卡槽里插张卡（有卡就
+没有转储）或用 5.4——它从来没有过。U30 Air 没有卡槽。
 [FINDINGS 31j](https://github.com/dikeckaan/openf50-linux/blob/main/docs/FINDINGS.md)
 
-## The U30 Air charges slowly on a strong USB-C port
+## U30 Air 在大功率 USB-C 端口上充电慢
 
-The mainline kernels of v2026.10.19 and older took 500 mA from every port. From v2026.10.20 on they read the current
-the port offers (1.5 or 3 A) and charge at up to 2 A. On 5.4 the vendor stack decides.
+v2026.10.19 及更早的主线内核从每个端口只取 500 mA。从 v2026.10.20 起它们读取端口提供的电流（1.5 或
+3 A），最高以 2 A 充电。在 5.4 上由厂商栈决定。
 
-## The U30 Air stays dark after starting from a charger
+## U30 Air 从充电器启动后一直黑屏
 
-A boot that started because a charger was plugged in stays a **charging boot** (LED blinking, hotspot and modem down)
-until you press the **Wi-Fi key**.
+因插入充电器而开始的启动会一直保持**充电启动**状态（LED 闪烁，热点和调制解调器不工作），直到你按下
+**Wi-Fi 键**。
 
-## Things that are not bugs
+## 不是 bug 的现象
 
-* **No screen output** over USB-C and **no sound**: the hardware path is not there ([Hardware Notes](Hardware-Notes)).
-* **A load average around 12 on 5.4:** vendor kernel threads waiting in D state are counted; the CPU is mostly idle.
-* **About 1.4 GB of RAM:** the modem firmware reserves the rest.
+* **USB-C 无屏幕输出**且**无声音**：硬件通路不存在（[Hardware Notes](Hardware-Notes)）。
+* **5.4 上负载均值约 12：** 处于 D 状态等待的厂商内核线程被计入；CPU 大部分时间是空闲的。
+* **约 1.4 GB 内存：** 其余部分被调制解调器固件保留。
 
-## Never
+## 永远不要
 
-* Never use OpenWrt's `sysupgrade` or flash OpenWrt firmware images.
-* Never post your backup folder or logs containing your IMEI publicly.
+* 永远不要使用 OpenWrt 的 `sysupgrade`，也不要刷 OpenWrt 固件镜像。
+* 永远不要公开发布你的备份文件夹或包含 IMEI 的日志。

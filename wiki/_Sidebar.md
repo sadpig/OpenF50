@@ -1,31 +1,31 @@
 **[Home](Home)**
 
-**Getting started**
+**入门**
 * [Installation](Installation)
 * [Choosing a System](Choosing-a-System)
 * [Kernels](Kernels)
 
-**Using it**
+**使用**
 * [Mobile Data and APN](Mobile-Data-and-APN)
 * [Wi-Fi Hotspot and Client](Wi-Fi-Hotspot-and-Client)
 * [SMS](SMS)
 * [VPN](VPN)
 * [Control Panel (LuCI)](Control-Panel-(LuCI))
 
-**Keeping it running**
+**维护**
 * [Updating](Updating)
 * [Going Back to Android](Going-Back-to-Android)
 * [Troubleshooting](Troubleshooting)
 * [FAQ](FAQ)
 
-**Reference**
+**参考**
 * [Glossary](Glossary)
 * [Hardware Notes](Hardware-Notes)
 * [Building from Source](Building-from-Source)
 * [Contributing](Contributing)
 
-**Elsewhere**
-* [Website](https://kaandikec.com/openf50-linux/)
+**站外**
+* [网站](https://kaandikec.com/openf50-linux/)
 * [README](https://github.com/dikeckaan/openf50-linux#readme)
-* [Releases](https://github.com/dikeckaan/openf50-linux/releases)
-* [Telegram channel](https://t.me/mu300project)
+* [发布包](https://github.com/dikeckaan/openf50-linux/releases)
+* [Telegram 频道](https://t.me/mu300project)

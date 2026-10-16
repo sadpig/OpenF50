@@ -1,5 +1,5 @@
 #!/usr/bin/lua
--- Patch luci-theme-vantage's menu icon map (idempotent): the iStore (store) and Cellular (蜂窝)
+-- Patch luci-theme-vantage's menu icon map (idempotent): the iStore (store) and Cellular
 -- entries fall to the generic dot upstream; give them real icons. Runs on every boot and right after
 -- the theme is installed (System -> openf50 postinst hook); harmless when Vantage is absent.
 local F = "/www/luci-static/resources/menu-vantage.js"

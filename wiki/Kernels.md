@@ -1,21 +1,20 @@
 # Kernels
 
-**In one sentence:** the kernel is the engine underneath Linux; you can choose Unisoc's own **5.4** (oldest, longest
-tested), mainline **6.18** (long-term support) or mainline **7.2** (newest), and change your mind later with one
-command.
+**一句话概括：** 内核是 Linux 底下的引擎；你可以选 Unisoc 自己的 **5.4**（最老、测试最久）、主线
+**6.18**（长期支持）或主线 **7.2**（最新），以后改主意也只需一条命令。
 
-**The simple version:** all three engines drive the same car: hotspot, mobile data, SMS, Bluetooth, VPN, GPU. 5.4 is
-the one the factory built and the most proven; 6.18 and 7.2 are the regular Linux everyone uses, with newer parts.
+**通俗版说明：** 三个引擎驱动同一辆车：热点、移动数据、短信、蓝牙、VPN、GPU。5.4 是工厂造的那台，最
+经得起考验；6.18 和 7.2 是大家都在用的常规 Linux，部件更新。
 
-## The choice, as the installer puts it
+## 安装器给出的选择
 
-| choice | kernel | |
+| 选项 | 内核 | |
 |---|---|---|
-| 1 | **5.4** | Unisoc's vendor kernel (Android 12 base): the longest tested, everything this project supports |
-| 2 | **6.18** | mainline Linux, the current long-term (LTS) release: newer drivers and security fixes, the same functions (hotspot, mobile data, SMS, Bluetooth, VPN, GPU); no USB-C video output yet |
-| 3 | **7.2** | the newest stable mainline release (7.2 for now): the newest drivers, the same functions as 6.18; tested less than 6.18 |
+| 1 | **5.4** | Unisoc 的厂商内核（Android 12 底）：测试最久，本项目支持的一切功能 |
+| 2 | **6.18** | 主线 Linux，当前长期支持（LTS）版本：更新的驱动和安全修复，同样的功能（热点、移动数据、短信、蓝牙、VPN、GPU）；尚无 USB-C 视频输出 |
+| 3 | **7.2** | 最新的稳定主线版本（目前是 7.2）：最新的驱动，与 6.18 同样的功能；测试不如 6.18 充分 |
 
-## Which one should I take?
+## 我该选哪个？
 
 ```mermaid
 flowchart TD
@@ -27,42 +26,41 @@ flowchart TD
     C -->|no| D[5.4 is fine: the longest tested]
 ```
 
-* **Ubuntu 26.04 needs 6.18 or 7.2.** Its programs use system calls 5.4 does not have.
-* **USB host mode on the U30 Air** (`openf50-usb host`) needs a mainline kernel.
-* **WireGuard:** the VPN module notes that the 5.4 vendor kernel has no WireGuard; mainline does.
-* **KVM** (`/dev/kvm`) is on all three.
-* **The mainline bundles** carry about 360 modules: WireGuard, SQM, tunnels, USB adapters and modems,
-  NTFS/exFAT/btrfs/NFS/CIFS, dm-crypt, containers.
-* **U30 Air battery:** readings work on every kernel. Charging on the mainline kernels is driven by the `bq256xx`
-  driver from v2026.10.12 on; the mainline kernels of v2026.10.11 and older leave charging off, so use 5.4 there.
-  From v2026.10.20 the mainline kernels also read the current a Type-C port offers (1.5 or 3 A), so charging on such
-  a port runs at up to 2 A instead of 500 mA; the charge limit (0-100 %) works on every kernel.
-* **dae** (the VPN module's eBPF engine) needs 6.18 or 7.2 of **v2026.10.20 or newer**: those kernels (6.18.56 and
-  7.2.10) carry BTF and the BPF JIT. 5.4 cannot run it. kprobes are left out on purpose: with them 7.2 failed 2 boots
-  in 36, so `dae trace` is not available.
+* **Ubuntu 26.04 需要 6.18 或 7.2。** 它的程序用到 5.4 没有的系统调用。
+* **U30 Air 的 USB host 模式**（`openf50-usb host`）需要主线内核。
+* **WireGuard：** VPN 模块注明 5.4 厂商内核没有 WireGuard；主线有。
+* **KVM**（`/dev/kvm`）三个都有。
+* **主线捆绑包**带约 360 个模块：WireGuard、SQM、隧道、USB 网卡和调制解调器、
+  NTFS/exFAT/btrfs/NFS/CIFS、dm-crypt、容器。
+* **U30 Air 电池：** 读数在每个内核上都可用。主线内核上的充电从 v2026.10.12 起由 `bq256xx` 驱动负责；
+  v2026.10.11 及更早的主线内核不开充电，所以那边用 5.4。从 v2026.10.20 起主线内核还会读取 Type-C 端口
+  提供的电流（1.5 或 3 A），所以在这类端口上充电最高以 2 A 进行，而不是 500 mA；充电上限（0-100 %）
+  在每个内核上都可用。
+* **dae**（VPN 模块的 eBPF 引擎）需要 **v2026.10.20 或更新**的 6.18 或 7.2：那些内核（6.18.56 和
+  7.2.10）带 BTF 和 BPF JIT。5.4 跑不了它。kprobes 被有意排除：有了它们 7.2 在 36 次启动里失败 2 次，
+  所以 `dae trace` 不可用。
 
-## The versions in v2026.10.25
+## v2026.10.25 里的版本
 
-| kernel | version | notes |
+| 内核 | 版本 | 说明 |
 |---|---|---|
-| 5.4 | 5.4.254 | Unisoc's vendor kernel with the project's patches, unchanged since v2026.10.23, which added `NFT_QUEUE` (nftables' `queue` verdict, for userspace packet tools); since v2026.10.21 it no longer panics when a network namespace goes away (#103), and the Wi-Fi driver's routine lines are no longer errors (#140) |
-| 6.18 | 6.18.56 | longterm; BTF, BPF JIT, FunctionFS (for adb); rebuilt in v2026.10.25: the U30 Air's charger is also looked for at 0x1a (an SGM41513, #102); v2026.10.23 added the `openf50_thermal` module (the board's temperature as a thermal zone); since v2026.10.22 the F50's SD slot has real card detect (the EIC controller's six banks mapped), so an empty slot is no longer polled and no `mmc1` register dumps fill the log (#181); since v2026.10.21 the Wi-Fi driver can be unloaded (#146) and is quieter (#140) |
-| 7.2 | 7.2.10 | stable; the same additions, the same card-detect fix, the same modules |
+| 5.4 | 5.4.254 | Unisoc 厂商内核加本项目补丁，自 v2026.10.23 起未变——那次加了 `NFT_QUEUE`（nftables 的 `queue` 裁决，给用户态数据包工具用）；自 v2026.10.21 起，网络命名空间消失时不再 panic（#103），Wi-Fi 驱动的例行行不再是错误（#140） |
+| 6.18 | 6.18.56 | longterm；BTF、BPF JIT、FunctionFS（给 adb）；v2026.10.25 重建：U30 Air 的充电器也会在 0x1a 处寻找（SGM41513，#102）；v2026.10.23 加入 `openf50_thermal` 模块（板子温度作为热区）；自 v2026.10.22 起 F50 的 SD 卡槽有真正的卡检测（EIC 控制器六个 bank 全部映射），空卡槽不再被轮询，日志里不再有 `mmc1` 寄存器转储（#181）；自 v2026.10.21 起 Wi-Fi 驱动可以卸载（#146）且更安静（#140） |
+| 7.2 | 7.2.10 | stable；同样的新增、同样的卡检测修复、同样的模块 |
 
-The point releases bring, among others, a DWC3 USB fix for an IRQ storm that could panic the board, netfilter
-flowtable and fq_codel fixes, Bluetooth and USB-serial use-after-free fixes. The BTF data costs about 4 MB of the
-boot image and 4 MiB of RAM.
+这些点发布还带来了：一个 DWC3 USB 修复（IRQ 风暴曾能让板子 panic）、netfilter flowtable 和 fq_codel
+修复、蓝牙和 USB 串口的 use-after-free 修复等。BTF 数据占启动镜像约 4 MB、内存 4 MiB。
 
-## Known issue: a rare hang on 6.18
+## 已知问题：6.18 上罕见的卡死
 
-About once in 20 boots on one board, 6.18 stopped in its first seconds; the device then falls back to Android (it
-can take around 20 minutes, because each hang uses up several tries). Another F50 showed 0 hangs in 100 boots, as did
-7.2. Start Linux again with `su -c openf50-linux` in Android or the Magisk module's Action button. Details:
-[FINDINGS 31m](https://github.com/dikeckaan/openf50-linux/blob/main/docs/FINDINGS.md#31m-hard-hangs-in-the-first-seconds-under-618-open).
+一块板子上 6.18 大约每 20 次启动有 1 次在最初几秒停住；设备随后回退到 Android（可能需要约 20 分钟，
+因为每次卡死消耗好几次尝试）。另一台 F50 在 100 次启动中 0 次，7.2 也一样。在 Android 里用
+`su -c openf50-linux` 或 Magisk 模块的 Action 按钮再次启动 Linux。细节：
+[FINDINGS 31m](https://github.com/dikeckaan/openf50-linux/blob/main/docs/FINDINGS.md#31m-hard-hangs-in-the-first-seconds-under-618-open)。
 
-## Changing the kernel later
+## 以后换内核
 
-On the device:
+在设备上：
 
 ```sh
 sudo openf50-update kernel            # shows the current one
@@ -70,18 +68,16 @@ sudo openf50-update kernel 6.18       # or 5.4, 7.2
 sudo reboot
 ```
 
-The previous kernel and boot image are kept: `sudo openf50-update rollback-boot` goes back. A new kernel that does not
-start sends the device back to Android after the usual number of failed boots, even when Linux is locked (see
-[Going Back to Android](Going-Back-to-Android)).
+旧内核和启动镜像会保留：`sudo openf50-update rollback-boot` 回去。起不来的新内核会在惯常的失败启动次数
+后把设备送回 Android，即使 Linux 被锁定也一样（见 [Going Back to Android](Going-Back-to-Android)）。
 
-## Where the kernels come from
+## 内核从哪来
 
-* **5.4** is built from ZTE's published GPL source for the U30 Air (mirrored at
-  [dikeckaan/zte-ums9620-kernel-5.4.254](https://github.com/dikeckaan/zte-ums9620-kernel-5.4.254)), with Wi-Fi,
-  Bluetooth and GPU drivers from realme's C51/C53 kernel release.
-* **6.18 and 7.2** are Linux from kernel.org with this project's patches and the vendor drivers ported to them
-  ([`upstream/`](https://github.com/dikeckaan/openf50-linux/tree/main/upstream)). A CI job builds the port every week
-  against the newest longterm and stable kernels.
+* **5.4** 构建自 ZTE 为 U30 Air 公布的 GPL 源码（镜像在
+  [dikeckaan/zte-ums9620-kernel-5.4.254](https://github.com/dikeckaan/zte-ums9620-kernel-5.4.254)），
+  Wi-Fi、蓝牙和 GPU 驱动来自 realme 的 C51/C53 内核发布。
+* **6.18 和 7.2** 是 kernel.org 的 Linux 加本项目的补丁和移植过来的厂商驱动
+  （[`upstream/`](https://github.com/dikeckaan/openf50-linux/tree/main/upstream)）。一个 CI 任务每周用
+  最新的 longterm 和 stable 内核构建这个移植。
 
-The F50 and the U30 Air run the same kernel; the U30 Air's boot image loads a handful of different drivers for its
-charger and LEDs.
+F50 和 U30 Air 跑同一个内核；U30 Air 的启动镜像为它的充电器和 LED 多加载几个驱动。

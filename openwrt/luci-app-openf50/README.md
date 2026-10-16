@@ -1,185 +1,54 @@
-Imported from kanoqwq/openf50-linux, branch clean-tf-7.2, commit 35a1c55 (PR #22 and later). Changed here since: see git log.
+导入自 kanoqwq/openf50-linux，分支 clean-tf-7.2，commit 35a1c55（PR #22 及之后）。此后在此处的修改：见 git log。
 
 # luci-app-openf50
 
-A self-contained LuCI application for Unisoc cellular devices. It provides the
-dashboard, live radio readings, persistent network/band/cell/EN-DC locks, a
-guarded AT terminal and an SMS UI.
-The Device Management page controls USB role and gadget network policy, and
-lists host-side USB network adapters for optional attachment to the LAN bridge.
-The TTL page (Cellular) sets the TTL of everything that leaves through mobile data
-(`openf50-ttl`, through the `unisoc-modem/ttl` adapter).
-The CPU page (System) picks a performance profile - power saving, balanced or
-performance - which sets the CPU governor and the per-cluster frequency limits
-(`openf50-cpu`, through the `unisoc-modem/cpu` adapter). It stays inside the hardware
-frequency table and never changes voltage, so the kernel keeps throttling at its
-thermal limit in every profile.
-The Terminal page (System) frames ttyd: `rpcd/openf50term` hands a LuCI session with
-the `luci-app-openf50-terminal` ACL a one-time token (one connection, 60 s), and ttyd's
-command, `/usr/libexec/openf50-terminal-login`, opens a root login for that token and
-nothing else, closing it after `ttyd.openf50.idle` seconds without activity. The image
-configures ttyd for it (`openwrt/luci-overlay/etc/config/ttyd`: the LAN address only,
-origin check, `url_arg`); the package alone does not install ttyd, and the page then
-says so.
+一个自包含的 LuCI 应用，面向 Unisoc 蜂窝设备。它提供仪表盘、实时射频读数、持久的网络/频段/小区/EN-DC 锁、带防护的 AT 终端和短信界面。设备管理页面控制 USB 角色和 gadget 网络策略，并列出主机侧 USB 网卡，可选将其加入 LAN 网桥。TTL 页面（蜂窝）设置经由移动数据离开的所有报文的 TTL（`openf50-ttl`，通过 `unisoc-modem/ttl` 适配器）。CPU 页面（系统）选择性能配置——省电、均衡或性能——它会设置 CPU governor 和各 cluster 的频率上限（`openf50-cpu`，通过 `unisoc-modem/cpu` 适配器）。它始终保持在硬件频率表之内，从不改变电压，所以内核在每种配置下仍会在其温度限值处降频。终端页面（系统）内嵌 ttyd：`rpcd/openf50term` 向持有 `luci-app-openf50-terminal` ACL 的 LuCI 会话发放一次性令牌（一次连接，60 秒），ttyd 的命令 `/usr/libexec/openf50-terminal-login` 只为该令牌打开一个 root 登录，别无其他，并在 `ttyd.openf50.idle` 秒无活动后关闭它。镜像为它配置 ttyd（`openwrt/luci-overlay/etc/config/ttyd`：仅 LAN 地址、origin 检查、`url_arg`）；软件包本身不安装 ttyd，此时页面会如实说明。
 
-The dashboard follows LuCI's selected language. Its colors follow Aurora's existing
-tokens when present, or the official Bootstrap theme's light/dark tokens.
-The translations are standard LuCI catalogs: English message ids in the
-JavaScript, `po/<language>/openf50.po` as the editable source. Turkish and
-Simplified Chinese are in the image; the other languages (`po/*` besides those
-two: machine/AI translations, corrections welcome) are in the lang extra
-(`openf50-extra install lang`, or the Languages page under System), named by
-`openwrt/luci-languages.tsv`.
-`lmo/` is not kept in the tree; the image build compiles the catalogs with
-`tools/po2lmo.py`, so the top-level menu and submenu stay translated on
-unrelated LuCI pages where the dashboard JavaScript is not loaded.
+仪表盘跟随 LuCI 选择的语言。其颜色在 Aurora 存在时跟随它已有的令牌，否则跟随官方 Bootstrap 主题的亮/暗令牌。翻译是标准 LuCI 目录：JavaScript 中用英文消息 id，`po/<语言>/openf50.po` 为可编辑源。土耳其语和简体中文在镜像中；其他语言（除这两个之外的 `po/*`：机器/AI 翻译，欢迎纠正）在语言 extra 中（`openf50-extra install lang`，或系统下的语言页面），由 `openwrt/luci-languages.tsv` 命名。`lmo/` 不保存在源码树中；镜像构建用 `tools/po2lmo.py` 编译目录文件，这样在未加载仪表盘 JavaScript 的无关 LuCI 页面上，顶级菜单和子菜单也能保持翻译。
 
-The package does not start or own the modem. Platform-specific access is behind
-small command adapters, so the LuCI and RPC code does not need to change for a
-different Unisoc OpenWrt firmware.
+软件包不启动也不拥有调制解调器。平台相关的访问位于小型命令适配器之后，所以换一个 Unisoc OpenWrt 固件时 LuCI 和 RPC 代码不需要改动。
 
-## Data usage and live rates
+## 流量统计与实时速率
 
-Cellular > Data usage shows mobile data per day and per billing cycle (a configurable reset day), with an optional
-monthly cap: a warning at a set percentage, and, only when turned on, mobile data off at the cap until the next
-cycle. The page talks to `unisoc-modem/traffic` (openf50dash `traffic_get`/`traffic_set`), which runs the platform's
-`openf50-traffic` (`OPENF50_TRAFFIC_CMD`); without it the page says data usage is not available. The count is that
-command's, so the panel and its CLI always agree; on OPENF50 it samples the interface counters once a minute into
-RAM and writes the disk rarely (see `openf50-traffic`).
+蜂窝 > 流量统计按天和按计费周期（可配置的重置日）显示移动数据，并带可选的月度上限：达到设定百分比时警告，且仅在开启时，到上限后关闭移动数据直到下个周期。页面与 `unisoc-modem/traffic`（openf50dash 的 `traffic_get`/`traffic_set`）通信，它运行平台的 `openf50-traffic`（`OPENF50_TRAFFIC_CMD`）；没有它页面会显示流量统计不可用。计数来自该命令，所以面板与其 CLI 始终一致；在 OPENF50 上它每分钟把接口计数器采样到 RAM 一次，很少写盘（见 `openf50-traffic`）。
 
-The dashboard's download/upload rates come from a lane of their own: one rpcd `file` read of `/proc/net/dev` every
-second (no process, no AT), timed in the browser. That is the only file the read grant names, with
-`/proc/[0-9]*/net/dev` beside it because rpcd checks the path it resolved (`/proc/net` is `/proc/self/net`). The
-status snapshot names the interface (`data_device`) and carries openf50-traffic's summary for the dashboard's usage
-tiles.
+仪表盘的下行/上行速率走自己的通道：每秒一次 rpcd `file` 读取 `/proc/net/dev`（无进程、无 AT），在浏览器端计时。这是读权限唯一命名的文件，旁边还有 `/proc/[0-9]*/net/dev`，因为 rpcd 检查它解析后的路径（`/proc/net` 是 `/proc/self/net`）。状态快照命名接口（`data_device`），并携带 openf50-traffic 的摘要供仪表盘的用量磁贴使用。
 
 ## VPN
 
-The top-level VPN menu has six pages (Overview, Profiles, Subscriptions, Engines, Settings, Logs) over the VPN
-module's machine-readable CLI, `openf50-vpn ... --json` (github.com/dikeckaan/mu300-linux-vpn, spec
-`2026-10-11-engine-extras`, section 4). Their backend is a second rpcd object, `openf50vpn`
-(`/usr/libexec/rpcd/openf50vpn`), separate from openf50dash because what passes through it holds secrets: share links,
-configs, subscription URLs and OpenVPN passwords reach the CLI on its stdin (from a 0600 file in the root-only runtime
-directory), never in its argv, and nothing of a reply is logged. Reads (status, the lists, settings, the task) are in
-the ACL's read grant; every change, the log and the config reveal are in the write grant. Downloads (an engine, the
-module, a subscription, a config from a URL) and a latency round over every profile run as the one background task,
-bounded in time, which the pages poll. Uploads go to `/tmp/openf50-vpn-upload` (a config) and
-`/tmp/openf50-vpn-extra.tar.gz` (an extra's tarball), the only paths the ACL lets the panel write, and are moved out of
-`/tmp` before anything reads them. Without the module the pages show a card that installs it
-(`openf50-extra install vpn`). `tests/fixtures/fake-openf50-vpn` stands in for the CLI to try the pages without a device.
+顶级 VPN 菜单有六个页面（概览、配置、订阅、引擎、设置、日志），基于 VPN 模块的机器可读 CLI `openf50-vpn ... --json`（github.com/dikeckaan/mu300-linux-vpn，规范 `2026-10-11-engine-extras`，第 4 节）。它们的后端是第二个 rpcd 对象 `openf50vpn`（`/usr/libexec/rpcd/openf50vpn`），与 openf50dash 分离，因为经过它的东西含有秘密：分享链接、配置、订阅 URL 和 OpenVPN 密码通过 stdin 传给 CLI（来自 root 专属运行时目录中的 0600 文件），绝不出现在 argv 中，回复的任何内容也不记录日志。读取（状态、列表、设置、任务）在 ACL 的读权限中；每个改动、日志和配置明文都在写权限中。下载（引擎、模块、订阅、来自 URL 的配置）和对每个配置做一轮延迟测试作为同一个后台任务运行，有时间上限，由页面轮询。上传去 `/tmp/openf50-vpn-upload`（配置）和 `/tmp/openf50-vpn-extra.tar.gz`（extra 的 tar 包），这是 ACL 允许面板写入的仅有的两个路径，并在任何东西读取之前被移出 `/tmp`。没有模块时页面显示一张安装它的卡片（`openf50-extra install vpn`）。`tests/fixtures/fake-openf50-vpn` 代替 CLI，以便在没有设备时试用页面。
 
-## AT adapters
+## AT 适配器
 
-Configure `/etc/config/unisoc_modem`:
+配置 `/etc/config/unisoc_modem`：
 
-- `at_backend=openf50` uses an existing `openf50-at` daemon and keeps its locking.
-- `at_backend=atinout` uses the configured `at_port` and a package-local lock.
-  Use this only when no other process reads that tty.
-- `at_backend=custom` runs the executable in `at_command`. It receives
-  `TIMEOUT` and the complete `AT COMMAND` as its two arguments. A platform that
-  already has a RIL/AT daemon should expose it through this adapter so every
-  client shares that daemon's lock.
-- `at_backend=auto` prefers `openf50-at`, then `atinout`, then the custom command.
+- `at_backend=openf50` 使用已有的 `openf50-at` 守护进程并沿用其锁。
+- `at_backend=atinout` 使用配置的 `at_port` 和包内锁。仅在没有其他进程读取该 tty 时使用。
+- `at_backend=custom` 运行 `at_command` 中的可执行文件。它收到两个参数：`TIMEOUT` 和完整的 `AT COMMAND`。已有 RIL/AT 守护进程的平台应通过此适配器暴露它，使每个客户端共享该守护进程的锁。
+- `at_backend=auto` 依次优先 `openf50-at`、`atinout`、自定义命令。
 
-The SMS page uses `sms_command`, whose CLI contract is the existing
-`openf50-sms` interface: `list`, `show`, `send`, `delete` and `sync`. This keeps
-SIM storage details out of LuCI and lets each firmware supply its own adapter.
-`send` is called as `send --stdin NUMBER` with the text on stdin, so a message
-never becomes a command-line argument; an adapter that only knows
-`send NUMBER TEXT` refuses `--stdin` as a number and sends nothing.
-On openwrt-luci the adapter is the SMS pool (`openf50-sms`, `openf50-smsd`): the
-daemon syncs the SIM into `/etc/openf50/sms-pool` every 30 s and marks the
-messages it reads from the SIM as read, so `sms delete read` (the system's own
-SMS tool) deletes messages that no CLI user has seen. Delete from the panel or
-with `openf50-sms delete`, which touches the SIM only with `--sim`.
+短信页面使用 `sms_command`，其 CLI 契约是现有的 `openf50-sms` 接口：`list`、`show`、`send`、`delete` 和 `sync`。这把 SIM 存储细节挡在 LuCI 之外，并允许每个固件提供自己的适配器。`send` 以 `send --stdin NUMBER` 调用，文本在 stdin 上，所以消息绝不会成为命令行参数；只认识 `send NUMBER TEXT` 的适配器会把 `--stdin` 当作号码拒绝，什么都不发。在 openwrt-luci 上适配器是短信池（`openf50-sms`、`openf50-smsd`）：守护进程每 30 秒把 SIM 同步到 `/etc/openf50/sms-pool`，并把它从 SIM 读到的消息标记为已读，所以 `sms delete read`（系统自己的短信工具）会删掉 CLI 用户从未见过的消息。请从面板删除，或用 `openf50-sms delete`——它只在加 `--sim` 时才触碰 SIM。
 
-Network interface and state paths are also configured in the same UCI section;
-none of the web code requires `sipa_eth0`, `wan`, `br-lan` or `/opt/openf50` from
-the host firmware.
+网络接口和状态路径也在同一个 UCI 节中配置；网页代码不要求宿主固件提供 `sipa_eth0`、`wan`、`br-lan` 或 `/opt/openf50`。
 
-## Persistent locks
+## 持久锁
 
-The package owns `/etc/init.d/unisoc-modem-ui`. It starts a non-blocking procd
-worker at boot only when saved locks exist and automatic application is enabled.
-The worker probes the selected AT adapter every two seconds and replays the
-settings immediately when it becomes ready. It never delays OpenWrt startup and
-stops after `replay_timeout` seconds instead of polling forever. A platform
-with a pre-radio hook may create `/run/unisoc-modem-early-hook-pending` before
-AT startup. While that file exists, this worker sends no AT probes, preserving
-the platform's first-command handshake. The platform removes it after its
-radio-on attempt; if early replay did not create the completion marker, the
-worker falls back to the normal late replay.
+软件包拥有 `/etc/init.d/unisoc-modem-ui`。仅当存在已保存的锁且启用了自动应用时，它才在启动时拉起一个非阻塞的 procd worker。worker 每两秒探测选定的 AT 适配器，就绪后立即重放设置。它从不拖延 OpenWrt 启动，并在 `replay_timeout` 秒后停止，而不是永远轮询。带有 pre-radio 钩子的平台可以在 AT 启动前创建 `/run/unisoc-modem-early-hook-pending`。该文件存在期间，此 worker 不发送 AT 探测，以保护平台的首命令握手。平台在其开射频尝试后删除它；如果早期重放没有创建完成标记，worker 回退到正常的延迟重放。
 
-The portable worker activates saved mode/band/cell settings with one bounded
-SFUN restart and raises the configured data interface afterwards. An EN-DC-only
-replay needs no stack restart and is applied immediately. A platform with a
-deliberate pre-radio integration may call
-`/usr/libexec/unisoc-modem/lock replay early` from that hook after the AT
-handshake and while the radio is off. Early replay reads back the saved fields
-before writing its completion marker. A failed readback leaves late replay
-available; a successful marker prevents duplicate application. `early` is
-deliberately not a user-selectable setting because it is only safe at that exact
-point in the platform radio sequence.
+便携式 worker 用一次有界的 SFUN 重启激活已保存的模式/频段/小区设置，随后拉起配置的数据接口。仅 EN-DC 的重放不需要协议栈重启，立即应用。做了有意的 pre-radio 集成的平台可以在 AT 握手之后、射频关闭期间从该钩子调用 `/usr/libexec/unisoc-modem/lock replay early`。早期重放在写完成标记之前读回已保存的字段。读回失败则延迟重放仍可用；成功的标记防止重复应用。`early` 故意不作为用户可选项，因为它只在平台射频序列的那个精确时刻才安全。
 
-Where the platform has `/opt/openf50/bin/mobile-data`, the panel's radio on/off
-and modem reset, and the SFUN restart of a lock apply or a late replay, run
-under its radio lock (`mobile-data radio-locked`), so they never run beside the
-dial's or the watchdog's radio sequence. Radio on/off and modem reset answer
-"busy" while another sequence holds the lock; a lock apply waits up to two
-minutes for it.
+在平台有 `/opt/openf50/bin/mobile-data` 的地方，面板的射频开关、调制解调器复位，以及锁应用或延迟重放的 SFUN 重启，都在其射频锁下运行（`mobile-data radio-locked`），所以它们绝不会与拨号或看门狗的射频序列并行。射频开关和调制解调器复位在另一个序列持锁时回答 "busy"；锁应用最多等它两分钟。
 
-## USB device management
+## USB 设备管理
 
-USB role defaults to device at every boot. The page can switch it immediately;
-checking host auto-apply asks the package's boot worker to reapply host mode
-at every boot. On the battery-less F50, the plugin writes the requested role
-to sysfs directly: USB management disappears and an attached adapter may need
-an externally powered hub. U30 Air uses `openf50-usb` and its charger boost/VBUS
-checks. Other hardware can use the sysfs fallback or configure
-`unisoc_modem.usb.role_command` with a platform-specific executable that
-accepts `host` or `device`. The plugin must not bypass a known platform's
-power-safety checks.
+USB 角色每次启动默认为 device。页面可以立即切换；勾选 host 自动应用会让软件包的启动 worker 在每次启动时重新应用 host 模式。在无电池的 F50 上，插件直接把请求的角色写入 sysfs：USB 管理消失，外接网卡可能需要外部供电的 hub。U30 Air 使用 `openf50-usb` 及其充电器升压/VBUS 检查。其他硬件可以使用 sysfs 回退，或用接受 `host` 或 `device` 的平台专用可执行文件配置 `unisoc_modem.usb.role_command`。插件不得绕过已知平台的供电安全检查。
 
-NCM/ECM/RNDIS selection is stored in `/etc/openf50/usb-net` (one line: `ncm`,
-`ecm` or `rndis`) only when "Enable selected protocol" is checked. `boot/init`
-reads that file from the system it has chosen to boot, after picking the root;
-when it asks for other functions than the gadget was bound with, init rebinds
-the gadget once before `switch_root` (`OPENF50_USBNET` on the kernel command line
-still wins). RNDIS falls back to NCM, then ECM, on a kernel that cannot make
-it, so a saved choice never leaves the system without USB networking. Other OpenWrt builds can implement the same one-line contract at
-their own gadget setup point. The plugin itself owns the policy and UI, not the
-kernel or gadget. `once` is consumed after a successful boot only if init left
-`/run/openf50/usb-net-applied` (the selection was in effect for that boot);
-subsequent boots use the platform's default NCM. Selecting persistent host mode automatically disables USB
-network auto-apply. While the current role is host, network-mode controls are
-disabled. The backend validates the same rules regardless of UI state.
-On openwrt-luci, `boot/init` exposes RNDIS as a single USB configuration with
-the ACM console, and RNDIS replaces the other network function; Windows does
-not bind a composite RNDIS adapter when the device offers both RNDIS and NCM
-configurations. On LAN handoff, the early DHCP server of the initramfs is
-stopped and the address it used is removed from the bridge ports, so only
-`br-lan` owns it.
+NCM/ECM/RNDIS 选择只在勾选"启用所选协议"时存入 `/etc/openf50/usb-net`（一行：`ncm`、`ecm` 或 `rndis`）。`boot/init` 选定根之后，从它选择启动的系统读取该文件；当它要求的函数与 gadget 绑定的不同时，init 在 `switch_root` 前重新绑定一次 gadget（内核命令行上的 `OPENF50_USBNET` 仍然优先）。在无法生成 RNDIS 的内核上 RNDIS 回退到 NCM，再到 ECM，所以保存的选择绝不会让系统失去 USB 网络。其他 OpenWrt 构建可以在自己的 gadget 设置点实现同样的一行契约。插件本身拥有策略和 UI，不拥有内核或 gadget。`once` 只在成功启动后、且 init 留下了 `/run/openf50/usb-net-applied`（该选择对那次启动生效）时才被消费；后续启动使用平台默认的 NCM。选择持久 host 模式会自动禁用 USB 网络自动应用。当前角色为 host 时，网络模式控件被禁用。无论 UI 状态如何，后端校验同样的规则。在 openwrt-luci 上，`boot/init` 把 RNDIS 暴露为带 ACM 控制台的单一 USB 配置，RNDIS 替换另一个网络功能；当设备同时提供 RNDIS 和 NCM 配置时，Windows 不会绑定复合 RNDIS 适配器。LAN 交接时，initramfs 的早期 DHCP 服务器被停止，它使用的地址从网桥端口移除，于是只有 `br-lan` 拥有它。
 
-USB adapter discovery uses the USB sysfs parent of each network device. On
-refresh it attempts to bring discovered devices up. “Add to LAN” adds only a
-verified USB adapter to the configured LAN bridge device's UCI port list,
-commits `network`, and reloads networking. The selected port is reattached
-on USB netdev hotplug and LAN ifup, without a polling daemon or another
-network reload. The action is idempotent and only available in host mode.
+USB 网卡发现使用每个网络设备的 USB sysfs 父级。刷新时它尝试把发现的设备拉起。"添加到 LAN" 只把已验证的 USB 网卡加入配置的 LAN 网桥设备的 UCI 端口列表，提交 `network` 并重载网络。所选端口在 USB netdev 热插拔和 LAN ifup 时重新挂上，无需轮询守护进程或再次重载网络。该动作是幂等的，且只在 host 模式下可用。
 
-## Build
+## 构建
 
-Copy this directory alone to `package/luci-app-openf50` in any compatible OpenWrt
-buildroot, select `LuCI -> Applications -> luci-app-openf50`, and build normally.
-No file outside this directory is copied into the package; platform-specific AT
-and SMS implementations are discovered only through the documented adapters at
-runtime.
+把本目录单独复制到任何兼容 OpenWrt buildroot 中的 `package/luci-app-openf50`，选择 `LuCI -> Applications -> luci-app-openf50`，正常构建。本目录之外的任何文件都不会被复制进软件包；平台相关的 AT 和短信实现只在运行时通过文档化的适配器发现。
 
-For a source-tree hot install (without an `.ipk`/`.apk`), copy `root/` to `/`,
-`htdocs/` to `/www/`, and `lmo/` to `/usr/lib/lua/luci/i18n/`; then
-make `/etc/init.d/unisoc-modem-ui`, `/usr/libexec/rpcd/openf50dash` and the
-`/usr/libexec/unisoc-modem/*` adapters executable; then
-enable/start `unisoc-modem-ui` and
-restart `rpcd`. Copying only `root/` leaves the LuCI menu visible but makes
-`/luci-static/resources/view/openf50/*.js` return HTTP 404. Normal package
-installation performs both copies through this package's `install` recipe.
+源码树热安装（没有 `.ipk`/`.apk`）：把 `root/` 复制到 `/`，`htdocs/` 复制到 `/www/`，`lmo/` 复制到 `/usr/lib/lua/luci/i18n/`；然后让 `/etc/init.d/unisoc-modem-ui`、`/usr/libexec/rpcd/openf50dash` 和 `/usr/libexec/unisoc-modem/*` 适配器可执行；然后 enable/start `unisoc-modem-ui` 并重启 `rpcd`。只复制 `root/` 会留下可见的 LuCI 菜单，但 `/luci-static/resources/view/openf50/*.js` 会返回 HTTP 404。正常的软件包安装通过本软件包的 `install` 配方完成两次复制。

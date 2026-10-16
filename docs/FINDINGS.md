@@ -1,3 +1,7 @@
+> **中文导读**：这是 OpenF50/mu300-linux 的工程调查档案（FINDINGS）——记录这块 Unisoc 板子上每个
+> 现象背后的实测证据与每个绕行的来龙去脉。它是深度排障的参考原文，保留英文原文以与上游保持同步；
+> 日常使用不需要读它：安装、使用、排障请看 [README](../README.md) 和 wiki 的中文页面。
+
 # Findings: running Linux on the ZTE F50 / OPENF50 (Unisoc T760)
 
 Everything below was verified on a ZTE F50 (hardware OPENF50, firmware `OPENF50_ZYV1.0.0B09`,

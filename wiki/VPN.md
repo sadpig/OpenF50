@@ -1,13 +1,13 @@
 # VPN
 
-**In one sentence:** an optional module, `openf50-vpn`, sends the device's own traffic **and** everything from its
-Wi-Fi and USB clients through your VPN server, with a kill switch so nothing leaks when the tunnel is down.
+**一句话概括：** 一个可选模块 `openf50-vpn`，把设备自身的流量**以及**来自其 Wi-Fi 和 USB 客户端的一切，
+都送进你的 VPN 服务器，并带断流开关，隧道断开时什么都不泄漏。
 
-**The simple version:** imagine every parcel leaving the house going into a locked van first. The kill switch means
-that if the van is not there, parcels wait at the door instead of being sent unprotected.
+**通俗版说明：** 想象离开房子的每个包裹都先装进一辆上锁的货车。断流开关的意思是：货车不在时，包裹在
+门口等着，而不是不加保护地发出去。
 
-The VPN is a separate project with its own releases: **[dikeckaan/mu300-linux-vpn](https://github.com/dikeckaan/mu300-linux-vpn)**.
-Its README is the full reference (commands, profiles, settings, security model). This page is the short tour.
+VPN 是一个独立项目，有自己的发布包：**[dikeckaan/mu300-linux-vpn](https://github.com/dikeckaan/mu300-linux-vpn)**。
+它的 README 是完整参考（命令、配置、设置、安全模型）。本页是简短导览。
 
 ```mermaid
 flowchart LR
@@ -18,10 +18,10 @@ flowchart LR
     K -. tunnel down: nothing leaves .-> X[blocked]
 ```
 
-## Install the module
+## 安装模块
 
-It needs openf50-linux **v2026.10.16 or newer**; module **v2.0.0** (a core plus engine extras, subscriptions, the panel's
-VPN section, the IPv6 guard) needs **v2026.10.20 or newer**. The installer asks about it; otherwise, on the device:
+它需要 openf50-linux **v2026.10.16 或更新**；模块 **v2.0.0**（核心加引擎 extras、订阅、面板的 VPN
+区块、IPv6 防护）需要 **v2026.10.20 或更新**。安装器会问；否则在设备上：
 
 ```sh
 sudo openf50-extra install vpn                                # online: the core and the engines its profiles need (first time: Xray)
@@ -32,15 +32,15 @@ sudo openf50-extra remove vpn-mihomo                          # an engine; refus
 sudo openf50-extra remove vpn                                 # turn the VPN off first
 ```
 
-On OpenWrt leave out `sudo`. The module lives on the Linux partition (`/mnt/openf50-disk/extra/vpn`, the engines in
-`extra/vpn-xray` and so on), so Ubuntu and OpenWrt share one copy, and updates bring the core and the engines to their
-latest release as one set. A tarball is installed only when its hash is in the `SHA256SUMS` next to it (v1 modules
-keep both their engines when upgraded). On OpenWrt with the control panel all of this is also in the panel's **VPN**
-menu (see [Control Panel (LuCI)](Control-Panel-(LuCI)#the-panels-pages)); on Ubuntu with the panel extra, the OPENF50
-page in Cockpit turns the VPN on and off and picks the profile. Both panels, like `openf50-toolkit`, show their VPN
-section only once the module is installed: without it there is nothing of a VPN in them.
+OpenWrt 上去掉 `sudo`。模块住在 Linux 分区上（`/mnt/openf50-disk/extra/vpn`，引擎在 `extra/vpn-xray`
+等），所以 Ubuntu 和 OpenWrt 共用一份，且更新会把核心和引擎作为一组带到它们的最新发布包。tarball 只有
+在其哈希出现在旁边的 `SHA256SUMS` 里时才会被安装（v1 模块升级时保留它的两个引擎）。在带控制面板的
+OpenWrt 上，这一切也在面板的 **VPN** 菜单里（见
+[Control Panel (LuCI)](Control-Panel-(LuCI)#the-panels-pages)）；在带 panel extra 的 Ubuntu 上，Cockpit
+里的 OPENF50 页面开关 VPN 并选择配置。两个面板和 `openf50-toolkit` 一样，只在模块安装后才显示 VPN
+区块：没有它，里面没有任何 VPN 的影子。
 
-## Use it
+## 使用
 
 ```sh
 sudo openf50-vpn profile import ~/office.conf Office    # a file: WireGuard .conf, .ovpn, Xray/sing-box .json, mihomo .yaml
@@ -52,49 +52,49 @@ openf50-vpn status                                      # profile, engine, tunne
 sudo openf50-vpn off                                    # stop, and remove the kill switch
 ```
 
-Share links (`vless://`, `vmess://`, `trojan://`, `ss://`) can be imported too; prefer stdin for them so the link does
-not end up in your shell history. `openf50-toolkit` has a VPN menu.
+分享链接（`vless://`、`vmess://`、`trojan://`、`ss://`）也可以导入；它们最好走 stdin，这样链接不会留在
+你的 shell 历史里。`openf50-toolkit` 有一个 VPN 菜单。
 
-## What it supports
+## 支持什么
 
-| Profile | Engine |
+| 配置 | 引擎 |
 |---|---|
-| WireGuard `.conf` | the kernel's WireGuard (the mainline kernels; the 5.4 vendor kernel has none) |
-| OpenVPN `.ovpn` | the system's OpenVPN package: `apt-get install openvpn` (Ubuntu), `apk add openvpn-openssl` (OpenWrt) |
-| VLESS, VMess, Trojan, Shadowsocks links; Xray JSON | Xray-core with hev-socks5-tunnel |
-| the same links behind the kill switch; sing-box JSON | sing-box |
-| Clash/mihomo YAML | mihomo (`openf50-extra install vpn-mihomo`) |
-| hysteria2, TUIC links; dae config | [dae](https://github.com/daeuniverse/dae), the eBPF proxy (`openf50-extra install vpn-dae`): needs kernel 6.18 or 7.2 of v2026.10.20 or newer (they carry BTF); never 5.4 |
+| WireGuard `.conf` | 内核的 WireGuard（主线内核；5.4 厂商内核没有） |
+| OpenVPN `.ovpn` | 系统的 OpenVPN 包：`apt-get install openvpn`（Ubuntu）、`apk add openvpn-openssl`（OpenWrt） |
+| VLESS、VMess、Trojan、Shadowsocks 链接；Xray JSON | Xray-core 加 hev-socks5-tunnel |
+| 断流开关后的同类链接；sing-box JSON | sing-box |
+| Clash/mihomo YAML | mihomo（`openf50-extra install vpn-mihomo`） |
+| hysteria2、TUIC 链接；dae 配置 | [dae](https://github.com/daeuniverse/dae)，eBPF 代理（`openf50-extra install vpn-dae`）：需要 v2026.10.20 或更新的 6.18 或 7.2 内核（它们带 BTF）；绝不用 5.4 |
 
-Tailscale's own traffic goes through the tunnel by default.
+Tailscale 自己的流量默认走隧道。
 
-**Subscriptions** (v2): `openf50-vpn subscription add NAME URL` takes a URL that yields profiles (share links, a mihomo
-or dae list), refreshed by hand or on a schedule; a refresh overwrites edits made to its profiles.
+**订阅**（v2）：`openf50-vpn subscription add NAME URL` 接受一个能产出配置的 URL（分享链接、mihomo 或
+dae 列表），手动或按计划刷新；刷新会覆盖对其配置做过的编辑。
 
-## Settings worth knowing
+## 值得知道的设置
 
-`openf50-vpn settings set KEY VALUE`, from the module's README:
+`openf50-vpn settings set KEY VALUE`，摘自模块 README：
 
-| Key | Default | Meaning |
+| 键 | 默认 | 含义 |
 |---|---|---|
-| `KILL_SWITCH` | 1 | nothing but the tunnel leaves the device, also while the tunnel is down |
-| `TAILSCALE` | 1 | Tailscale's traffic through the tunnel |
-| `IPV6` | auto | `auto`: IPv6 through the tunnel when the tunnel carries it, otherwise IPv6 is **blocked** beside the tunnel so nothing leaks past the kill switch (the IPv6 guard, v2); `1` always, `0` never |
-| `REMOTE_DNS` | 1.1.1.1 | DNS for the device and its clients, through the tunnel |
-| `LAN_CIDRS` | empty | more networks that stay local (the device's own LAN always does) |
+| `KILL_SWITCH` | 1 | 除隧道外什么都不离开设备，隧道断开时也一样 |
+| `TAILSCALE` | 1 | Tailscale 的流量走隧道 |
+| `IPV6` | auto | `auto`：隧道承载 IPv6 时走隧道，否则在隧道旁**阻断** IPv6，什么都不从断流开关旁漏过（IPv6 防护，v2）；`1` 总是，`0` 永不 |
+| `REMOTE_DNS` | 1.1.1.1 | 设备及其客户端的 DNS，走隧道 |
+| `LAN_CIDRS` | 空 | 保持本地的额外网段（设备自己的 LAN 总是本地） |
 
-## Fails closed
+## 失败时关闭（fails closed）
 
-* A device whose VPN is on is never updated without the module. Offline, `openf50-update apply` stops before changing
-  anything and says how to stage it (see [Updating](Updating#with-the-vpn-on)).
-* A system whose VPN is on with the kill switch and has lost the module keeps mobile data and the Wi-Fi client
-  **down** until the module is installed again (`openf50-extra install vpn`) or the VPN is turned off. A missing engine
-  fails closed the same way, behind the kill switch, while the service fetches it again; `openf50-toolkit` says which one.
-* `openf50-extra remove vpn-<engine>` is refused while the VPN runs on that engine.
+* 开着 VPN 的设备绝不会在没有模块的情况下被更新。离线时，`openf50-update apply` 在改动任何东西之前停
+  下并说明如何暂存（见 [Updating](Updating#with-the-vpn-on)）。
+* 开着带断流开关的 VPN 却丢了模块的系统，会让移动数据和 Wi-Fi 客户端保持**关闭**，直到模块重新安装
+  （`openf50-extra install vpn`）或 VPN 关闭。缺失的引擎同样以失败关闭方式处理——在断流开关后面——服务
+  会重新获取它；`openf50-toolkit` 会说明是哪一个。
+* VPN 正在某引擎上运行时，`openf50-extra remove vpn-<engine>` 会被拒绝。
 
-## Known limits
+## 已知限制
 
-Some carriers drop UDP and block OpenVPN by deep packet inspection. A raw Xray/sing-box/mihomo config that contains a
-`direct`/`freedom` outbound sends that traffic outside the tunnel, past the kill switch, by its own choice.
+一些运营商丢 UDP 并通过深度包检测封 OpenVPN。包含 `direct`/`freedom` 出站的原始
+Xray/sing-box/mihomo 配置会让那部分流量按它自己的选择走隧道外、越过断流开关。
 
-> Using a VPN may break your operator's terms or local law. Check before you turn it on.
+> 使用 VPN 可能违反运营商条款或当地法律。开启前请先确认。

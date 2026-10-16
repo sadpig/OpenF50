@@ -1,30 +1,28 @@
 # Choosing a System
 
-**In one sentence:** pick **Ubuntu** if you want a general-purpose Linux computer, **OpenWrt** if you want a router,
-and **OpenWrt with the control panel** if you want a router with a friendly web page for the 5G modem. You can
-install two of them and switch.
+**一句话概括：** 想要通用 Linux 电脑选 **Ubuntu**，想要路由器选 **OpenWrt**，想要带 5G 调制解调器友好
+网页的路由器选**带控制面板的 OpenWrt**。可以装两个再切换。
 
-**The simple version:** Ubuntu is a full workshop with every tool; OpenWrt is a small, tidy router with a web page;
-the control-panel OpenWrt is the same router with an extra dashboard for the SIM card and the radio.
+**通俗版说明：** Ubuntu 是工具齐全的大工坊；OpenWrt 是小巧整洁、带网页的路由器；带控制面板的 OpenWrt
+是同一个路由器，外加一块面向 SIM 卡和射频的仪表盘。
 
-## Side by side
+## 并排对比
 
-| | Ubuntu | OpenWrt | OpenWrt with the OPENF50 control panel |
+| | Ubuntu | OpenWrt | 带 OPENF50 控制面板的 OpenWrt |
 |---|---|---|---|
-| Installer name | `ubuntu` | `openwrt` | `openwrt-luci` |
-| Version | 24.04 LTS (default) or 26.04 LTS | 25.12 | 25.12 |
-| RAM in use (installer's figure) | ~500 MiB | ~140 MiB | not stated by the installer |
-| Installed size (measured) | ~580 MiB | ~320 MiB | - |
-| Install software with | `apt` | `apk` | `apk` |
-| Web interface | optional: Cockpit with an OPENF50 page (`openf50-extra install panel`, from v2026.10.20); otherwise SSH and `openf50-toolkit` | LuCI | LuCI + the OPENF50 panel (with a VPN section and a terminal in the browser) |
-| Log in as | `ubuntu` (with `sudo`) | `root` | `root` |
-| Good for | servers, containers, scripts, development, learning Linux | a lean router | a router you manage from the browser: signal, band locks, SMS, AT terminal, power |
-| Magisk zip | yes | yes | yes (since v2026.10.18) |
+| 安装器里的名字 | `ubuntu` | `openwrt` | `openwrt-luci` |
+| 版本 | 24.04 LTS（默认）或 26.04 LTS | 25.12 | 25.12 |
+| 内存占用（安装器数字） | ~500 MiB | ~140 MiB | 安装器未给出 |
+| 安装体积（实测） | ~580 MiB | ~320 MiB | - |
+| 装软件用 | `apt` | `apk` | `apk` |
+| 网页界面 | 可选：Cockpit 加 OPENF50 页面（`openf50-extra install panel`，v2026.10.20 起）；否则 SSH 和 `openf50-toolkit` | LuCI | LuCI + OPENF50 面板（带 VPN 区块和浏览器终端） |
+| 登录身份 | `ubuntu`（用 `sudo`） | `root` | `root` |
+| 适合 | 服务器、容器、脚本、开发、学 Linux | 精简路由器 | 从浏览器管理的路由器：信号、频段锁、短信、AT 终端、电源 |
+| Magisk zip | 有 | 有 | 有（v2026.10.18 起） |
 
-All three get mobile data, the Wi-Fi hotspot and client, USB networking, SSH, SMS (`sms`), the toolkit and the
-optional [VPN](VPN) module.
+三者都有移动数据、Wi-Fi 热点和客户端、USB 网络、SSH、短信（`sms`）、工具包和可选的 [VPN](VPN) 模块。
 
-## The installer's own words
+## 安装器的原话
 
 ```
 ==> What should be installed?
@@ -41,25 +39,25 @@ optional [VPN](VPN) module.
   2) 26.04 LTS  the newest (systemd 259, newer packages), supported until 2031; kernel 6.18 or 7.2
 ```
 
-`OPENF50_OPENWRT=plain|luci` answers the OpenWrt question without asking.
+`OPENF50_OPENWRT=plain|luci` 可以跳过 OpenWrt 问题直接回答。
 
-## Space needed
+## 需要的空间
 
-The installer asks for room for the system plus a spare copy kept by updates: about **800 MiB** for OpenWrt alone,
-**1.6 GiB** for Ubuntu alone and **2.4 GiB** for both. On the usual 64 GB device (about 32 GiB free) any choice fits.
+安装器要求系统本身加更新保留的一份副本的空间：仅 OpenWrt 约 **800 MiB**，仅 Ubuntu 约 **1.6 GiB**，两者
+约 **2.4 GiB**。在常见的 64 GB 设备（约 32 GiB 空闲）上随便选都装得下。
 
-## Ubuntu 24.04 or 26.04?
+## Ubuntu 24.04 还是 26.04？
 
-* **24.04 LTS** is the default and the longest tested. It works with every kernel.
-* **26.04 LTS** is the newest, supported until 2031. Its programs use system calls the 5.4 kernel does not have (`tar`, for one, cannot
-  unpack folders there), so it **needs kernel 6.18 or 7.2**. The installer will not let you combine it with 5.4.
+* **24.04 LTS** 是默认，测试最久。每个内核都能用。
+* **26.04 LTS** 最新，支持到 2031 年。它的程序用到 5.4 内核没有的系统调用（比如 `tar` 在那里无法解
+  包目录），所以它**需要内核 6.18 或 7.2**。安装器不会让你把它和 5.4 组合。
 
-An installed Ubuntu moves to the other release with `sudo OPENF50_UBUNTU=26.04 openf50-update apply` (or `24.04`),
-keeping settings and data.
+已装的 Ubuntu 可以用 `sudo OPENF50_UBUNTU=26.04 openf50-update apply`（或 `24.04`）切到另一个版本，
+设置和数据保留。
 
-## Two systems, one device
+## 两个系统，一台设备
 
-Both systems live side by side on the Linux disk as directories; the one named in `/.openf50/boot-os` starts. Switch:
+两个系统并排住在 Linux 磁盘上，各是一个目录；`/.openf50/boot-os` 里点名的那个启动。切换：
 
 ```sh
 sudo openf50-os ubuntu
@@ -67,18 +65,18 @@ sudo openf50-os openwrt
 sudo openf50-os openwrt-luci   # the one with the control panel
 ```
 
-Then reboot. Only one runs at a time.
+然后重启。同一时刻只运行一个。
 
-## Other distributions
+## 其他发行版
 
-Debian, Kali, Arch Linux ARM and ImmortalWrt can be built from this repository, but are not released or offered by
-the installer. What works, what does not (no monitor mode for Kali, for instance) and how to install a system you
-built yourself: [docs/DISTROS.md](https://github.com/dikeckaan/openf50-linux/blob/main/docs/DISTROS.md).
+Debian、Kali、Arch Linux ARM 和 ImmortalWrt 可以从本仓库构建，但不发布、安装器也不提供。什么能用、什么
+不能（比如 Kali 没有监听模式）以及如何安装你自己构建的系统：
+[docs/DISTROS.md](https://github.com/dikeckaan/openf50-linux/blob/main/docs/DISTROS.md)。
 
-## Never on this device
+## 这台设备上永远不要
 
-**Never use OpenWrt's `sysupgrade` or flash OpenWrt firmware images.** They are written for ordinary routers and
-would overwrite the device's storage. A normal `apk upgrade` is fine, except the `kernel` and `kmod-*` packages.
-Updates go through [`openf50-update`](Updating).
+**永远不要使用 OpenWrt 的 `sysupgrade`，也不要刷 OpenWrt 固件镜像。** 它们是为普通路由器写的，会覆盖
+设备的存储。普通的 `apk upgrade` 没问题，除了 `kernel` 和 `kmod-*` 软件包。更新走
+[`openf50-update`](Updating)。
 
-Next: [Kernels](Kernels).
+下一步：[Kernels](Kernels)。

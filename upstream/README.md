@@ -1,30 +1,18 @@
-# Mainline (LTS) kernel on the OPENF50
+# OPENF50 上的主线（LTS）内核
 
-Mainline **Linux 6.18.56** (the current longterm series) runs Ubuntu 24.04 and OpenWrt 25.12 on the ZTE F50 /
-OPENF50 (Unisoc UMS9620): all 8 CPUs (4×A55, 4×A76), eMMC, USB NCM + ACM, the 5 GHz hotspot, Bluetooth, the modem
-with mobile data (downlink and uplink), SMS, the VPN, the Mali GPU, thermal/cpufreq, the PMIC watchdog and
-reboot. `docs/FINDINGS.md` 31-31f has what it took and what is still open.
+主线 **Linux 6.18.56**（当前的 longterm 系列）可在 ZTE F50 / OPENF50（Unisoc UMS9620）上运行 Ubuntu 24.04 和 OpenWrt 25.12：全部 8 个 CPU（4×A55、4×A76）、eMMC、USB NCM + ACM、5 GHz 热点、蓝牙、调制解调器与移动数据（下行和上行）、短信、VPN、Mali GPU、温控/cpufreq、PMIC 看门狗和重启均可用。`docs/FINDINGS.md` 31-31f 记录了移植所做的工作以及尚未完成的部分。
 
-On a device: `sudo openf50-update kernel 6.18` (or `7.2`, the newest stable release), and `sudo openf50-update kernel
-5.4` back; the installer offers all three. Every kernel's modules stay installed.
+在设备上：`sudo openf50-update kernel 6.18`（或 `7.2`，最新的 stable 版本），以及用 `sudo openf50-update kernel 5.4` 切回；安装器提供全部三个选项。每个内核的模块都会保持安装状态。
 
-Reference: Unisoc's UMS9620 DT series (LKML, 2023-12-15, "arm64: dts: sprd: Add support for Unisoc's UMS9620", not
-merged) describes the same GIC/UART/timer layout; this device is derived from their ums9620-2h10 reference board.
+参考：Unisoc 的 UMS9620 DT 系列补丁（LKML，2023-12-15，"arm64: dts: sprd: Add support for Unisoc's UMS9620"，未合入）描述了相同的 GIC/UART/定时器布局；本设备衍生自他们的 ums9620-2h10 参考板。
 
-## How it boots
-* **Device tree:** the stock vendor DTB in `vendor_boot` is used unchanged. Mainline ignores the vendor-only nodes and
-  uses the standard ones (cpus, psci, GIC, timer, memory, reserved-memory, ramoops, ADI). A minimal custom DTB
-  (`dts/ums9620-mu300.dts`, installed with `mkvendorboot.py`) was *rejected*: after LK's dtbo merge and fixups the kernel
-  hung in `setup_machine_fdt`.
-* **Load address:** LK always copies the kernel to 0x80080000 (old text_offset); `wrap-image.py` prepends a branch stub
-  so the Image runs from 0x80200000 (2 MiB aligned).
-* **Reset:** PSCI SYSTEM_RESET never returns on this firmware. `patches/0001-spi-sprd-adi-add-UMS9620-restart.patch`
-  adds the UMS9620/UMP9620 variant to `spi-sprd-adi` (also matching the vendor compatible `sprd,qogirn6pro-adi`) and
-  resets through the PMIC software reset, registered above the PSCI handler.
-* **Logs:** with a working reset the console survives in ramoops and Android shows it as
-  `/sys/fs/pstore/console-ramoops-0` (`tools/collect-logs.sh`).
+## 启动方式
+* **设备树：** 原样使用 `vendor_boot` 中的原厂 vendor DTB。主线忽略 vendor 专用节点，使用标准节点（cpus、psci、GIC、timer、memory、reserved-memory、ramoops、ADI）。一个最小化的自定义 DTB（`dts/ums9620-mu300.dts`，用 `mkvendorboot.py` 安装）被*否决*：经过 LK 的 dtbo 合并和 fixup 之后，内核在 `setup_machine_fdt` 中挂死。
+* **加载地址：** LK 总是把内核复制到 0x80080000（旧的 text_offset）；`wrap-image.py` 在前面加一个跳转桩，使 Image 从 0x80200000（2 MiB 对齐）运行。
+* **复位：** PSCI SYSTEM_RESET 在这份固件上从不返回。`patches/0001-spi-sprd-adi-add-UMS9620-restart.patch` 为 `spi-sprd-adi` 添加了 UMS9620/UMP9620 变体（同时匹配 vendor 的 compatible `sprd,qogirn6pro-adi`），并通过 PMIC 软件复位完成重启，注册优先级高于 PSCI 处理函数。
+* **日志：** 有了可用的复位，控制台日志会留在 ramoops 中，Android 将其显示为 `/sys/fs/pstore/console-ramoops-0`（`tools/collect-logs.sh`）。
 
-## Build and test
+## 构建与测试
 ```sh
 docker build -t openf50-mainline-build upstream/
 docker volume create openf50-mainline   # build.sh fetches linux-$KV (default 6.18.56) into it, checked against kernel.org
@@ -33,80 +21,49 @@ docker run --rm -v openf50-mainline:/src -v "$PWD/upstream":/work openf50-mainli
 upstream/make-bundle.sh openf50-kernel-6.18.tar.gz        # Image for LK, generic ramdisk segment, modules
 # on the device: OPENF50_KERNEL_BUNDLE=/path/openf50-kernel-6.18.tar.gz openf50-update boot
 ```
-The build stops on anything that drifts silently: a patch that neither applies nor is applied, a config option
-Kconfig does not take (unless listed in `config-ignored.txt`), a port edit whose anchor moved, or a module whose
-vermagic does not match the kernel. `tools/make-release.sh` packages the same bundle as `openf50-kernel-6.18.tar.gz`.
+构建会在任何悄悄偏离预期的地方停下：既不能应用也未被应用过的补丁、Kconfig 不接受的配置项（除非列在 `config-ignored.txt` 中）、锚点已移动的移植修改，或 vermagic 与内核不匹配的模块。`tools/make-release.sh` 将同一个 bundle 打包为 `openf50-kernel-6.18.tar.gz`。
 
-The config is allnoconfig plus `openf50-mainline.config`: what the board and the boot need is built in, along with
-KVM (`/dev/kvm`; the CPUs start at EL2); what only matters once used - netfilter extras, tunnels, IPsec, tc,
-filesystems, USB modems/adapters/Wi-Fi sticks, device mapper - is a module. `build-modules.sh` installs the
-kernel's own modules (stripped) flat into `out/modules` next to the vendor ones, and the bundle ships them all;
-`openf50-update` indexes them on Ubuntu (depmod) and OpenWrt loads them by name (FINDINGS 31o). Both kernels carry
-BTF (`/sys/kernel/btf/vmlinux`, made by `pahole` from the build image) and the BPF JIT, tcx/clsact, cgroup and
-kprobe hooks that eBPF programs such as the dae transparent proxy need (FINDINGS 31p); the DWARF it is made from
-stays in `vmlinux`, and `build-modules.sh` strips it from the vendor modules.
+配置是 allnoconfig 加上 `openf50-mainline.config`：板和启动所需的东西全部内建，同时还有 KVM（`/dev/kvm`；CPU 从 EL2 启动）；只有用到时才重要的东西——netfilter 扩展、隧道、IPsec、tc、文件系统、USB 调制解调器/网卡/Wi-Fi 网卡、device mapper——做成模块。`build-modules.sh` 把内核自带的模块（已 strip）扁平安装到 `out/modules`，与 vendor 模块放在一起，bundle 将它们全部打包；`openf50-update` 在 Ubuntu 上为它们建立索引（depmod），OpenWrt 按名字加载它们（FINDINGS 31o）。两个内核都带有 BTF（`/sys/kernel/btf/vmlinux`，由构建镜像中的 `pahole` 生成）以及 BPF JIT、tcx/clsact、cgroup 和 kprobe 钩子——dae 透明代理等 eBPF 程序需要这些（FINDINGS 31p）；生成 BTF 所用的 DWARF 保留在 `vmlinux` 中，`build-modules.sh` 会把它从 vendor 模块中剥掉。
 
-The bring-up path of old (hand-built image, `init-bringup`, `boot/flash-trial.sh`) still works for experiments:
+旧的启动调试路径（手工构建的镜像、`init-bringup`、`boot/flash-trial.sh`）仍可用于实验：
 ```sh
 python3 upstream/wrap-image.py upstream/out/Image upstream/out/Image.lk
 boot/flash-trial.sh boot-mainline.img      # slot b only, falls back to Android
 ```
 
-## Debugging without a console
-* `stub/pmic-reset.c`: bare-metal PMIC reset used as the kernel entry — proved that LK reaches our code and that the
-  PMIC reset works (30 s cycle instead of the ~320 s PM power cut).
-* `debug/install-probe.py` (`OPENF50_PROBE_STAGE=N` for `build.sh`): resets at a chosen boot stage; the cycle time tells
-  whether the stage was reached. This located the custom-DTB hang in `setup_machine_fdt`.
+## 没有控制台时的调试
+* `stub/pmic-reset.c`：用作内核入口的裸机 PMIC 复位——证明了 LK 能到达我们的代码，且 PMIC 复位可用（30 秒循环，而不是约 320 秒的 PM 断电）。
+* `debug/install-probe.py`（`build.sh` 用 `OPENF50_PROBE_STAGE=N`）：在选定的启动阶段复位；循环时间可以说明该阶段是否被到达。自定义 DTB 在 `setup_machine_fdt` 的挂死就是这样定位的。
 
-## Newer kernels (7.x)
+## 更新的内核（7.x）
 
-The whole port - kernel and all 31 out-of-tree modules - also builds against **7.2.10**, the newest stable release
-(2026-10-11), from the same sources as 6.18, and runs on the device: four boots out of four (2026-09-27) with the
-Wi-Fi access point, mobile data (18.7 MB/s), Bluetooth, the Mali GPU, cpufreq and the modem's AT channel working,
-and no warning or oops in the log. (7.2 is a stable, not a longterm release: 6.18 stays the base, 7.x is how the
-next jump is kept small.) One source serves both:
+整个移植——内核和全部 31 个树外模块——也针对 **7.2.10**（2026-10-11 的最新 stable 版本）构建，源码与 6.18 相同，并已在设备上运行：四次启动全部成功（2026-09-27），Wi-Fi 接入点、移动数据（18.7 MB/s）、蓝牙、Mali GPU、cpufreq 和调制解调器的 AT 通道均工作，日志中没有任何 warning 或 oops。（7.2 是 stable 而非 longterm 版本：6.18 仍是基础，7.x 是为了让下一次跨越保持小步。）一份源码同时服务两者：
 
-* `port/install.py` recognises the layout of what it edits (`sprd-sc27xx-spi.c` was reworked in 7.x), and every
-  edit is checked afterwards, so a drifted anchor stops the build instead of being skipped.
-* The modules get the missing pieces from `modules/wcn_bsp/kinclude`: `openf50_compat.h` (7.x-only shims:
-  `strncpy`, alarmtimer, `linux/hex.h`) and `linux/of_gpio.h`, a shim kbuild only finds when the kernel has no
-  such header. API changes that need more than a shim are under `LINUX_VERSION_CODE` (the cfg80211 ops taking a
-  `wireless_dev`, `dma_fence_signal()` returning nothing).
-* `.github/workflows/mainline.yml` builds the port every week against the current longterm and the newest stable
-  release, so the next break shows up as a red run rather than at the next jump.
+* `port/install.py` 能识别它所编辑文件的布局（`sprd-sc27xx-spi.c` 在 7.x 中被重构），且每处修改事后都会被校验，所以漂移的锚点会让构建停止，而不是被跳过。
+* 模块从 `modules/wcn_bsp/kinclude` 获得缺失的部分：`openf50_compat.h`（仅 7.x 需要的 shim：`strncpy`、alarmtimer、`linux/hex.h`）和 `linux/of_gpio.h`——一个只有内核没有对应头文件时 kbuild 才会找到的 shim 头文件。超出 shim 能力范围的 API 变更放在 `LINUX_VERSION_CODE` 条件编译下（cfg80211 ops 接受 `wireless_dev` 参数、`dma_fence_signal()` 不再返回值）。
+* `.github/workflows/mainline.yml` 每周针对当前 longterm 和最新 stable 版本构建这个移植，所以下一次破坏会以一次红色运行的形式出现，而不是等到下一次跨越时才发现。
 
-Releases carry it as `openf50-kernel-7.2.tar.gz`: `sudo openf50-update kernel 7.2` on the device, or choice 3 in the
-installer. It is built next to 6.18: `OUTDIR=out-7.2 KV=7.2.10` for `build.sh` and `build-modules.sh`, and
-`OPENF50_UPSTREAM_OUT=upstream/out-7.2` for `make-bundle.sh`; `tools/make-release.sh` packs both.
+release 中以 `openf50-kernel-7.2.tar.gz` 携带它：设备上 `sudo openf50-update kernel 7.2`，或安装器中的选项 3。它与 6.18 一起构建：`build.sh` 和 `build-modules.sh` 用 `OUTDIR=out-7.2 KV=7.2.10`，`make-bundle.sh` 用 `OPENF50_UPSTREAM_OUT=upstream/out-7.2`；`tools/make-release.sh` 两者都打包。
 
-## Remaining mainline work (as of 2026-09-26)
+## 主线剩余工作（截至 2026-09-26）
 
-- The forced command line still carries `clk_ignore_unused pd_ignore_unused regulator_ignore_unused
-  fw_devlink=permissive`. `regulator_ignore_unused` keeps the SIM's supply on and `fw_devlink=permissive` the USB
-  gadget alive, so both stay; `pd_ignore_unused` changes nothing; `clk_ignore_unused` keeps 315 unused clocks on and
-  is the one worth measuring (FINDINGS 31h).
-- The early crashes and the missing OpenWrt downlink were one bug, the delegate's (FINDINGS 31f), fixed; one
-  Ubuntu boot that died early before the crash capture existed (31d) is unexplained, and has not recurred in the
-  reboot loops since (Ubuntu 6/6, OpenWrt 4/4).
-- Power-off works through the PMIC (FINDINGS 31h); on a powered USB port the battery-less F50 starts again.
-- Audio: not ported (it does not work on 5.4 either).
+- 强制命令行仍带有 `clk_ignore_unused pd_ignore_unused regulator_ignore_unused fw_devlink=permissive`。`regulator_ignore_unused` 保持 SIM 的供电，`fw_devlink=permissive` 保持 USB gadget 存活，所以这两个保留；`pd_ignore_unused` 没有改变任何东西；`clk_ignore_unused` 让 315 个未使用的时钟保持开启，是值得测量的那个（FINDINGS 31h）。
+- 早期的崩溃和 OpenWrt 缺失的下行是同一个 bug——delegate 模块的（FINDINGS 31f）——已修复；有一次 Ubuntu 启动在崩溃捕获机制存在之前就早期死亡（31d），原因不明，之后的重启循环中未再复现（Ubuntu 6/6，OpenWrt 4/4）。
+- 关机通过 PMIC 工作（FINDINGS 31h）；在带电的 USB 口上，无电池的 F50 会再次启动。
+- 音频：未移植（在 5.4 上也不工作）。
 
-## Earlier status notes
-Clocks, pinctrl, power domains, USB 3.1 gadget, eMMC, PCIe, thermal, cpufreq, watchdog, LEDs and Wi-Fi/BT are
-working (see the status below). What is still missing:
+## 更早的状态记录
+时钟、pinctrl、电源域、USB 3.1 gadget、eMMC、PCIe、温控、cpufreq、看门狗、LED 和 Wi-Fi/BT 已工作（见下方状态）。仍缺少的：
 
-- ~~**Modem**~~: works since 2026-09-19 - "Modem Alive", AT, SIM, 5G NSA registration and a data context on
-  `sipa_eth0`. See "Modem on 6.18" below for what was wrong (shared memory mapped write-back).
-- **PM co-processor**: without Android's `modem_control` the board powers off after ~290 s, so the vendor chroot is
-  still required.
-- ~~**GPU**~~: works since 2026-09-19 (DDK r40p0 ported to 6.18, OpenCL verified on the device).
-- **Audio**: not started.
-- **Bluetooth**: built as an out-of-tree module, untested on 6.18.
+- ~~**调制解调器**~~：自 2026-09-19 起工作——"Modem Alive"、AT、SIM、5G NSA 注册和 `sipa_eth0` 上的数据上下文。出了什么问题见下文"6.18 上的调制解调器"（共享内存被映射为 write-back）。
+- **PM 协处理器**：没有 Android 的 `modem_control`，板子会在约 290 秒后断电，所以 vendor chroot 仍然是必需的。
+- ~~**GPU**~~：自 2026-09-19 起工作（DDK r40p0 移植到 6.18，OpenCL 已在设备上验证）。
+- **音频**：未开始。
+- **蓝牙**：已作为树外模块构建，在 6.18 上未测试。
 
-## Modem on 6.18: working (2026-09-19)
+## 6.18 上的调制解调器：已工作（2026-09-19）
 
-The modem comes up on the mainline kernel: "Modem Alive", AT, SIM, radio, **registration on 5G NSA** and a data
-context with an address on `sipa_eth0`. Measured on the device:
+调制解调器在主线内核上起来了："Modem Alive"、AT、SIM、射频、**5G NSA 注册**，以及 `sipa_eth0` 上带地址的数据上下文。设备上实测：
 
 ```
 AT         -> OK                                   AT+CFUN?  -> +CFUN: 1
@@ -115,122 +72,68 @@ AT+CEREG?  -> +CEREG: 2,1,"C300","00E07F53",13     AT+COPS?  -> +COPS: 0,2,"2860
 mobile data up on sipa_eth0                        sipa_eth0  UP  10.x.x.x/8
 ```
 
-### What was wrong: the shared memory was mapped write-back
+### 问题所在：共享内存被映射为 write-back
 
-The regions the modem and the AP share are reserved **inside** System RAM (no `no-map`), and the vendor 5.4 driver
-maps them with `vm_map_ram(pages, count, -1, pgprot_noncached(PAGE_KERNEL))`. Newer kernels dropped the `prot`
-argument from `vm_map_ram()`, so the port had switched to `memremap(..., MEMREMAP_WC | MEMREMAP_WB)`, which falls
-back to **write-back** whenever write-combine is not available - and it never is for a linear-mapped region.
+调制解调器与 AP 共享的区域被保留在 System RAM **内部**（没有 `no-map`），vendor 5.4 驱动用 `vm_map_ram(pages, count, -1, pgprot_noncached(PAGE_KERNEL))` 映射它们。更新的内核从 `vm_map_ram()` 中删掉了 `prot` 参数，所以移植改用了 `memremap(..., MEMREMAP_WC | MEMREMAP_WB)`，而它在 write-combine 不可用时回退到 **write-back**——对线性映射的区域来说 write-combine 永远不可用。
 
-The modem does not snoop the AP's caches, so everything the AP wrote stayed invisible to it. The symptom was
-subtle rather than fatal: the CP started, asked for its NV data, and the NV server logged `fail SIZE` on the
-second packet, wrote three chunks and stalled; `modem_control` then gave up with `wait modem alive timeout` and
-`g_modem_state = 8`. `ioremap_wc()` is not an answer either - the kernel refuses it for addresses inside System
-RAM (`WARNING at arch/arm64/mm/ioremap.c:27`), which is exactly what happened when it was tried.
+调制解调器不会监听 AP 的缓存，所以 AP 写入的一切对它都不可见。症状很微妙而非致命：CP 启动了，请求它的 NV 数据，NV 服务器在第二个包上记录 `fail SIZE`，写了三个块就停滞了；`modem_control` 随后以 `wait modem alive timeout` 和 `g_modem_state = 8` 放弃。`ioremap_wc()` 也不是答案——内核拒绝对 System RAM 内的地址使用它（`WARNING at arch/arm64/mm/ioremap.c:27`），实际尝试时正是如此。
 
-`vmap(pages, count, VM_MAP, prot)` still takes a pgprot, so `smem.c` now builds the page array like the vendor
-driver and maps the regions non-cached again, keeping `memremap()` only for regions that have no `struct page`
-(real `no-map`) and for the ones the vendor code wants cached.
+`vmap(pages, count, VM_MAP, prot)` 仍然接受 pgprot，所以 `smem.c` 现在像 vendor 驱动一样构建页数组，重新把这些区域映射为 non-cached，只在区域没有 `struct page`（真正的 `no-map`）或 vendor 代码要求缓存时才用 `memremap()`。
 
-Before and after, from the same logs:
+前后对比，来自同一份日志：
 
-| | write-back (before) | non-cached (after) |
+| | write-back（修复前） | non-cached（修复后） |
 |---|---|---|
 | `fail SIZE` | 1 | 0 |
-| NV packets served (`writeData`) | 3 | runs to completion |
-| "Modem Alive" | never | yes |
+| 已服务的 NV 包（`writeData`） | 3 | 运行到完成 |
+| "Modem Alive" | 从未 | 是 |
 
-### Bring-up
+### 启动过程
 
-`tools/openf50-modem-ml-load` loads 25 modules (no `sipa-dele`, see its comment). `cp_diskserver` is started first,
-`modem_control` about 8 s later. "Modem Alive" arrives within a minute, and `openf50-atd` then serves AT normally -
-15 commands in a row with no reopen needed.
+`tools/openf50-modem-ml-load` 加载 25 个模块（不含 `sipa-dele`，见其注释）。`cp_diskserver` 先启动，`modem_control` 约 8 秒后启动。"Modem Alive" 在一分钟内到达，之后 `openf50-atd` 正常提供 AT 服务——连续 15 条命令无需重开。
 
 ### GPU
 
-`mali_kbase` (Arm DDK r40p0, the same source the 5.4 image uses) builds against 6.18 after a port of its kernel
-interfaces: `time_t`, `hrtimer_init()` -> `hrtimer_setup()`, `del_timer*()` -> `timer_delete*()`, the shrinker
-allocation API, `vma->vm_flags` accessors, `get_user_pages()`/`pin_user_pages()` losing their `vmas` argument,
-`dev_pm_opp_set_regulators()` returning a token, `ioremap_nocache()`, `DEFINE_SEMAPHORE()` taking a count,
-`no_llseek`, `FMODE_UNSIGNED_OFFSET`, `get_file_rcu()`, devfreq's `scaling_min_freq`/`scaling_max_freq`, and the
-page-migration hooks, which the folio conversion replaced and which are compiled out (migration is an
-optimisation the driver runs without).
+`mali_kbase`（Arm DDK r40p0，与 5.4 镜像使用相同的源码）在移植其内核接口后可以针对 6.18 构建：`time_t`、`hrtimer_init()` -> `hrtimer_setup()`、`del_timer*()` -> `timer_delete*()`、shrinker 分配 API、`vma->vm_flags` 访问器、`get_user_pages()`/`pin_user_pages()` 失去 `vmas` 参数、`dev_pm_opp_set_regulators()` 返回令牌、`ioremap_nocache()`、`DEFINE_SEMAPHORE()` 接受计数、`no_llseek`、`FMODE_UNSIGNED_OFFSET`、`get_file_rcu()`、devfreq 的 `scaling_min_freq`/`scaling_max_freq`，以及页迁移钩子——folio 转换将其取代，已被编译去掉（迁移只是驱动可以不用的一种优化）。
 
-Two of them were more than renames:
+其中两处不只是改名：
 
-* The DDK carries its own copy of the kernel's top-down address search, which walked the VMA **rbtree** - gone
-  since 6.1. `vm_unmapped_area()` is not exported to modules, so the search now walks downwards with
-  `find_vma()` and keeps the DDK's extra alignment rules (shader code must not touch a 4 GB boundary).
-* Its `Kbuild` adds the power model (`ipa/`) to `mali_kbase-y` and a later line **reassigns** that variable with
-  `:=`, dropping the objects again. Nobody noticed because the vendor kernel sets
-  `CONFIG_SPRD_GPU_COOLING_DEVICE` and never uses `ipa/`; mainline does, and the module then fails to link. The
-  include was moved to the end of the file.
+* DDK 自带一份内核自上而下地址搜索的副本，它遍历 VMA **rbtree**——该结构自 6.1 起已移除。`vm_unmapped_area()` 不导出给模块，所以搜索现在用 `find_vma()` 向下遍历，并保留 DDK 额外的对齐规则（着色器代码不能触碰 4 GB 边界）。
+* 它的 `Kbuild` 把电源模型（`ipa/`）加入 `mali_kbase-y`，而后面的某行用 `:=` **重新赋值**了该变量，又把这些目标文件丢掉了。没人注意到，因为 vendor 内核设置了 `CONFIG_SPRD_GPU_COOLING_DEVICE`，从不使用 `ipa/`；主线使用它，于是模块链接失败。该 include 被移到了文件末尾。
 
-The kernel config gained `CONFIG_SYNC_FILE` (the DDK's fence helpers) and the devfreq options the driver expects.
+内核配置新增了 `CONFIG_SYNC_FILE`（DDK 的 fence 辅助函数）和驱动期望的 devfreq 选项。
 
-Measured on the device: the driver probes, `/dev/mali0` appears and the Android OpenCL userspace runs through the
-vendor chroot - `Mali-G57 r0p1, OpenCL 3.0 v1.r40p0`, 1464 MiB, and `cltest` adds 4 194 304 floats on the GPU with
-**0 errors**.
+设备上实测：驱动完成探测，`/dev/mali0` 出现，Android OpenCL 用户空间通过 vendor chroot 运行——`Mali-G57 r0p1, OpenCL 3.0 v1.r40p0`，1464 MiB，`cltest` 在 GPU 上对 4 194 304 个浮点数求和，**0 错误**。
 
-The address search was worth one more round: the first version returned `gap_end - length`, but
-`align_and_check()` has already subtracted the length, so every allocation landed one buffer too low. The driver
-loaded and OpenCL ran, and every single result was wrong - a reminder that "it runs" is not "it works".
+地址搜索还值得再来一轮：第一个版本返回 `gap_end - length`，但 `align_and_check()` 已经减去了长度，所以每次分配都落在低了一个缓冲区的位置。驱动加载了，OpenCL 运行了，而每一个结果都是错的——这提醒我们"能跑"不等于"能用"。
 
-Still open: audio is untouched.
+仍未完成：音频未动。
 
-## Status (2026-09-17): OpenWrt runs on 6.18.52
+## 状态（2026-09-17）：OpenWrt 在 6.18.52 上运行
 
-The installed OpenWrt 25.12.5 boots on the mainline kernel through the normal `boot/init`
-(multi-OS switch_root): SSH, LuCI, `br-lan` over the USB 3.1 gadget, fw4/nftables, zram.
+已安装的 OpenWrt 25.12.5 通过正常的 `boot/init`（多系统 switch_root）在主线内核上启动：SSH、LuCI、USB 3.1 gadget 上的 `br-lan`、fw4/nftables、zram。
 
-Fixes needed on top of the port:
+在移植之上需要的修复：
 
-- `sdhci-sprd`: UMS9620 has the r11p3 controller; the vendor driver programs DLL phase `0x2`
-  (mainline `0x3`). With `0x3` reads work in HS400ES but every write fails with data CRC errors.
-- `sdhci-sprd`: the eMMC and the SD card slot (`sprd,name` `sdio_sd`) are probed, `sdio_wifi` is not (Wi-Fi is on
-  PCIe). The slot's card detect is line 35 of the EIC sync controller, which mainline's `gpio-eic-sprd` mapped as 24
-  lines (three of its six banks): `patches/0014` maps them all, so the slot is detected by interrupt and an empty
-  slot is left alone (issue #181: polled, it was initialised once a second and filled the log with "Got command
-  interrupt ... even though no command operation was in progress" register dumps).
-- UMP9620 PMIC watchdog, armed by LK for 300 s, is disabled by `ump9620-pmic-wdt-off`.
-- Userspace config: cgroups/namespaces/seccomp, bridge, nftables, IPv6, zram.
-- Thermal: vendor `sprd_thermal_r5p0` (19 on-die zones) with calibration from the UMS9620 eFuse; the eFuse
-  provider is built read-only.
-- cpufreq: vendor `sprd_sip_svc` + `sprd-cpufreq-v2`; ATF does the DVFS, the kernel asks through SIP SMC calls
-  (3 policies: 4 little / 3 mid / 1 big, schedutil). PSCI cpuidle (WFI, core sleep, cluster power-down).
-  Idle temperature dropped from ~54 C to ~48 C.
-- The stock DT has trip points only on the vendor virtual zone (`soc-thmzone`: passive 70/85 C, critical 110 C,
-  cooling maps to the three clusters), whose sensor driver mainline lacks: `modules/openf50_thermal` brings it back
-  (the hottest of the eleven zones the DT names), so the kernel's `step_wise` throttles at 85 C. `extra-modules`
-  loads it; `/opt/openf50/bin/thermal-guard` then only watches (and keeps its 105 C power-off), and caps cpufreq
-  itself only while the zone is absent (FINDINGS 48).
+- `sdhci-sprd`：UMS9620 使用 r11p3 控制器；vendor 驱动编程 DLL 相位为 `0x2`（主线为 `0x3`）。用 `0x3` 时 HS400ES 下读取正常，但每次写入都因数据 CRC 错误失败。
+- `sdhci-sprd`：eMMC 和 SD 卡槽（`sprd,name` `sdio_sd`）被探测，`sdio_wifi` 没有（Wi-Fi 在 PCIe 上）。卡槽的 card detect 是 EIC 同步控制器的第 35 线，主线的 `gpio-eic-sprd` 将其映射为 24 线（六个 bank 中的三个）：`patches/0014` 把它们全部映射，因此卡槽通过中断检测，空卡槽被忽略（issue #181：轮询时它每秒初始化一次，日志被 "Got command interrupt ... even though no command operation was in progress" 寄存器转储填满）。
+- UMP9620 PMIC 看门狗由 LK 以 300 秒武装，由 `ump9620-pmic-wdt-off` 禁用。
+- 用户空间配置：cgroups/namespaces/seccomp、网桥、nftables、IPv6、zram。
+- 温控：vendor `sprd_thermal_r5p0`（19 个片上区域），校准数据来自 UMS9620 eFuse；eFuse provider 以只读方式构建。
+- cpufreq：vendor `sprd_sip_svc` + `sprd-cpufreq-v2`；ATF 执行 DVFS，内核通过 SIP SMC 调用请求（3 个策略：4 小核 / 3 中核 / 1 大核，schedutil）。PSCI cpuidle（WFI、核休眠、cluster 断电）。空闲温度从约 54 C 降到约 48 C。
+- 原厂 DT 只在 vendor 虚拟区域（`soc-thmzone`：被动 70/85 C，临界 110 C，散热映射到三个 cluster）上有触发点，而其传感器驱动主线没有：`modules/openf50_thermal` 把它带回来（取 DT 命名的十一个区域中最热的那个），于是内核的 `step_wise` 在 85 C 开始限频。`extra-modules` 加载它；`/opt/openf50/bin/thermal-guard` 之后只做监视（并保留其 105 C 关机），只在该区域缺失时自己限制 cpufreq（FINDINGS 48）。
 
-- Watchdog: the UMP9620 PMIC watchdog that LK arms is taken over (`ump9620-pmic-wdt`), 60 s, pinged by the
-  core until procd/systemd opens it; a hard hang resets the board back to Android.
-- LEDs: UMP9620 RGB status LEDs (vendor `sc27xx-bltc`).
-- PCIe: vendor `pcie-sprd` ported to the 6.18 DWC host API. `num-vectors` from the DT is honoured, the
-  Marlin3 driver needs a contiguous block of 32 MSIs.
-- Wi-Fi/BT (SC2355 Marlin3): `modules/` holds the vendor `wcn_bsp`, `sprd_wlan_combo` (SC2355 PCIe only) and
-  `sprdbt_tty` ported to 6.18 as out-of-tree modules (`build-modules.sh`; `tools/port54.py` does the mechanical
-  5.4 API changes, `wcn_bsp/kinclude/openf50_compat.h` the rest). On OpenWrt the chip boots its firmware and the
-  5 GHz VHT80 AP beacons. The factory Wi-Fi MAC is read from `androidboot.wifimac` in `/chosen/bootargs`.
-  The WCN modules cannot be unloaded and reloaded (same as on 5.4).
+- 看门狗：LK 武装的 UMP9620 PMIC 看门狗被接管（`ump9620-pmic-wdt`），60 秒，由内核核心组件 ping，直到 procd/systemd 打开它；硬挂死会把板子复位回 Android。
+- LED：UMP9620 RGB 状态 LED（vendor `sc27xx-bltc`）。
+- PCIe：vendor `pcie-sprd` 移植到 6.18 DWC host API。DT 中的 `num-vectors` 被遵守，Marlin3 驱动需要 32 个连续 MSI。
+- Wi-Fi/BT（SC2355 Marlin3）：`modules/` 中有 vendor `wcn_bsp`、`sprd_wlan_combo`（仅 SC2355 PCIe）和 `sprdbt_tty`，均移植为 6.18 的树外模块（`build-modules.sh`；`tools/port54.py` 处理机械的 5.4 API 变更，其余的由 `wcn_bsp/kinclude/openf50_compat.h` 处理）。在 OpenWrt 上芯片启动其固件，5 GHz VHT80 AP 开始广播。出厂 Wi-Fi MAC 从 `/chosen/bootargs` 中的 `androidboot.wifimac` 读取。WCN 模块不能卸载再加载（与 5.4 相同）。
 
-Not yet on mainline: modem (sipc/sipa/modem loader), GPU, audio; Bluetooth is built but untested.
+尚未上主线：调制解调器（sipc/sipa/modem loader）、GPU、音频；蓝牙已构建但未测试。
 
-### Kernel configuration and module audit
+### 内核配置与模块审计
 
-Both mainline bundles use `openf50-mainline.config`, including built-in KVM, container support,
-virtio/9p, multicast/MPLS/MPTCP, traffic control, NFS/SMB, encrypted filesystems, LVM/RAID,
-USB/IP and UVC webcams. Optional drivers are modules where possible. CBC and XTS are built
-in because filesystem encryption requires them. Kernel tracing options associated with the
-boot failures in FINDINGS 31p remain disabled.
+两个主线 bundle 都使用 `openf50-mainline.config`，包括内建的 KVM、容器支持、virtio/9p、组播/MPLS/MPTCP、流量控制、NFS/SMB、加密文件系统、LVM/RAID、USB/IP 和 UVC 摄像头。可选驱动尽可能做成模块。CBC 和 XTS 内建，因为文件系统加密需要它们。与 FINDINGS 31p 中启动失败相关的内核跟踪选项保持禁用。
 
-`make-bundle.sh` checks the configuration embedded in the actual Image against the requested
-fragment and requires every module recorded by `build-modules.sh`. Each bundle includes
-`kernel.config`, `modules.in-tree` and `modules.list` for inspection. On arm64 KVM is built
-in (`CONFIG_KVM=y`), so there is no `kvm.ko`; check `/dev/kvm` and the boot log on the device.
+`make-bundle.sh` 将实际 Image 中嵌入的配置与请求的 fragment 核对，并要求 `build-modules.sh` 记录的每个模块都存在。每个 bundle 都包含 `kernel.config`、`modules.in-tree` 和 `modules.list` 供检查。在 arm64 上 KVM 是内建的（`CONFIG_KVM=y`），所以没有 `kvm.ko`；请在设备上检查 `/dev/kvm` 和启动日志。
 
-An audit of the published v2026.10.18 (7.2.9) and v2026.10.25 (7.2.10) bundles found KVM
-built in to both, and all 376 older modules present in the latter, plus `openf50_thermal.ko`.
-The expanded set adds capabilities to that baseline; it does not repair a missing KVM module.
+对已发布的 v2026.10.18（7.2.9）和 v2026.10.25（7.2.10）bundle 的审计发现两者均内建 KVM，后者包含全部 376 个旧模块，外加 `openf50_thermal.ko`。扩充后的集合是在该基线之上增加能力；它不能修复缺失的 KVM 模块。

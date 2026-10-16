@@ -80,7 +80,7 @@ BACKEND_DYNAMIC_OK = {('openf50dash', 'refuse', '"$2"'),   # reply_obj passing i
 # CJK: only these files may contain it (repository paths; with --root, only po/ of that copy)
 CJK = re.compile('[\u2e80-\u9fff\uf900-\ufaff\uff00-\uffef]')
 CJK_SCOPE = ['openwrt', 'rootfs/overlay', 'boot', 'tools', 'install.sh', 'uninstall.sh']
-CJK_ALLOWED = re.compile(r'^(tools/i18n\.sh|i18n/[^/]+\.tsv|openwrt/luci-app-openf50/po/.*|openwrt/luci-languages\.tsv|tests/fixtures/.*)$')
+CJK_ALLOWED = re.compile(r'^(tools/i18n\.sh|i18n/[^/]+\.tsv|openwrt/luci-app-openf50/po/.*|openwrt/luci-languages\.tsv|tests/fixtures/.*|.*\.md)$')
 
 PLACEHOLDER = re.compile(r'%(?:%|[-+#0]*\d*(?:\.\d+)?[a-zA-Z])')
 

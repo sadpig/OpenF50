@@ -1,4 +1,4 @@
-# OpenF50 — Linux on the ZTE F50 / MU300 and U30 Air
+# OpenF50 — 在 ZTE F50 / MU300 与 U30 Air 上运行 Linux
 
 > OpenF50 是 [mu300-linux](https://github.com/dikeckaan/mu300-linux) 的社区分支（sadpig 维护）：同样的硬件（ZTE F50 / MU300、U30 Air、V50），
 > 系统品牌、命令与构建均改为 OpenF50，并默认集成 iStore 应用商店。硬件适配与底层实现归上游所有。
@@ -10,175 +10,175 @@
 [![Issues](https://img.shields.io/github/issues/dikeckaan/openf50-linux?logo=github)](https://github.com/dikeckaan/openf50-linux/issues)
 [![License](https://img.shields.io/badge/license-MIT%20%2F%20GPL--2.0-blue)](LICENSE)
 
-New here? The [website](https://github.com/sadpig/OpenF50) explains it step by step, with pictures (English, Türkçe, 中文), and the [wiki](https://github.com/sadpig/OpenF50/wiki) has a glossary and deeper pages.
+新来的？[网站](https://github.com/sadpig/OpenF50) 配有图片逐步讲解（English、Türkçe、中文），[wiki](https://github.com/sadpig/OpenF50/wiki) 里有术语表和更深入的页面。
 
-News and new releases: watch the GitHub releases of this repository
-about updates first.
+消息与新版本：关注本仓库的 GitHub releases，
+第一时间了解更新。
 
-The ZTE F50 is a pocket 5G router. This project turns it into a small Linux computer: **Ubuntu** (24.04 or
-26.04 LTS) or **OpenWrt** (plain, or with a control panel for the modem), with SSH, Wi-Fi, Bluetooth and its 5G
-modem working. Android stays on the device, and you can go back to it at any time.
+ZTE F50 是一台口袋 5G 路由器。本项目把它变成一台小型 Linux 电脑：**Ubuntu**（24.04 或
+26.04 LTS）或 **OpenWrt**（原版，或带调制解调器控制面板），SSH、Wi-Fi、蓝牙和它的 5G
+调制解调器都能工作。Android 仍留在设备上，你随时可以切回去。
 
-Think of it as a Raspberry Pi that already has a 5G modem, a Wi-Fi access point and 32 GB of storage inside.
+可以把它想象成一台内置了 5G 调制解调器、Wi-Fi 接入点和 32 GB 存储的树莓派。
 
-The **ZTE U30 Air** is supported too: the same board and chip with a battery. The installer recognises which one it
-is talking to; see [Supported devices](#supported-devices).
+**ZTE U30 Air** 同样受支持：相同的主板和芯片，但带电池。安装程序会自动识别它在和哪台
+设备通信；见[支持的设备](#supported-devices)。
 
-> **Türkçe:** ZTE F50 / MU300'ü küçük bir Linux bilgisayarına çevirir: Ubuntu (24.04 veya 26.04) veya OpenWrt
-> (düz ya da modem kontrol paneliyle); SSH, Wi-Fi, Bluetooth ve 5G modem çalışır. Android cihazda kalır,
-> istediğiniz an geri dönersiniz. Kurulum: önce `./install.sh --check` ile cihazınıza bakın, sonra `./install.sh`
-> ile kurun; `./uninstall.sh` ile kaldırın. Linux dahili belleğe ya da SD karta kurulur; bilgisayarsız kurulum için
-> Magisk zip'leri de var. ZTE U30 Air de desteklenir (aynı kart, pilli); kurulum programı cihazı kendisi tanır.
-
----
-
-## A hobby project, at your own risk
-
-This is an experimental hobby project, made in spare time by people who like these devices. It is not a product,
-it has no support line, and it comes with **no warranty of any kind**. Everything here is offered as it is; a release
-that works on our boards may not work on yours.
-
-What you do with your device is your decision and your responsibility. In particular:
-
-* **Rooting, unlocking and recovery are not part of this project.** Getting a device rooted, flashing with Magisk,
-  SPD/BROM or any other third-party tool, and anything you download from anywhere else to do so, is done at your own
-  risk, following those tools' own instructions. We did not write them, we do not check them, and we cannot say
-  what they do to your device, your data or your warranty.
-* **Writing to a phone-class device can leave it unusable.** The installer takes care to touch as little as it can
-  (see [Before you start](#before-you-start)), and the device falls back to Android when Linux does not start, but a
-  wrong partition, a power cut at the wrong moment, a bad cable or a mistake on our side can still brick it or erase
-  it. Keep a backup; do not install on a device you cannot afford to lose.
-* **The modem, the radio and the network are yours to use lawfully.** Changing what your device sends (TTL, IMEI-related
-  settings, band locks, VPNs) may break your operator's terms or local law. Check before you turn something on.
-* **Nothing here is endorsed by ZTE, Unisoc or any operator**, and no trademark is claimed.
-
-To the fullest extent allowed by law, the authors and contributors are not liable for any damage, loss of data,
-loss of service, cost or injury arising from the use of this software, this documentation or anything linked from
-them. If that is not acceptable to you, do not install it.
-
-> **Türkçe:** Bu deneysel bir hobi projesidir; ürün değildir, desteği ve hiçbir garantisi yoktur. Cihazın root'lanması,
-> kilidinin açılması ve Magisk, SPD/BROM gibi üçüncü taraf araçlarla yapılan her türlü işlem bu projenin dışındadır ve
-> tamamen sizin sorumluluğunuzdadır. Kurulum cihazı kullanılamaz hâle getirebilir ya da verilerinizi silebilir; yedek
-> alın, kaybetmeyi göze alamayacağınız bir cihaza kurmayın. Yazarlar ve katkıda bulunanlar, bu yazılımın kullanımından
-> doğabilecek hiçbir zarar, veri veya hizmet kaybından sorumlu değildir.
+> **中文：** 把 ZTE F50 / MU300 变成一台小型 Linux 电脑：Ubuntu（24.04 或 26.04）或 OpenWrt
+> （原版，或带调制解调器控制面板）；SSH、Wi-Fi、蓝牙和 5G 调制解调器均可工作。Android 保留在设备上，
+> 随时可以切回。安装：先用 `./install.sh --check` 查看你的设备，再用 `./install.sh`
+> 安装；用 `./uninstall.sh` 卸载。Linux 可以装到内部存储或 SD 卡上；也有无需电脑、通过
+> Magisk zip 安装的方式。ZTE U30 Air 同样受支持（同一主板，带电池）；安装程序会自行识别设备。
 
 ---
 
-## Supported devices
+## 业余爱好项目，风险自负
+
+这是一个实验性的业余项目，由喜欢这些设备的人在业余时间制作。它不是产品，
+没有支持渠道，也**不提供任何形式的担保**。这里的一切都按原样提供；在我们的板子上能运行的
+版本，在你的板子上未必能运行。
+
+你对自己的设备做什么，由你自己决定并负责。特别是：
+
+* **获取 root、解锁和救砖不属于本项目的范围。** 给设备 root、用 Magisk、
+  SPD/BROM 或任何其他第三方工具刷机，以及为此从其他任何来源下载的东西，都由你自行
+  承担风险，并遵循那些工具自己的说明。它们不是我们写的，我们不做检查，也无法说明
+  它们会对你的设备、数据或保修造成什么影响。
+* **向手机级设备写入数据可能使其无法使用。** 安装程序尽量少动设备
+  （见[开始之前](#before-you-start)），且 Linux 启动失败时设备会回退到 Android，
+  但写错分区、在不巧的时刻断电、数据线故障或我们这边的失误，仍可能让设备变砖或清空
+  数据。请做好备份；不要在你承担不起损失的设备上安装。
+* **调制解调器、射频和网络由你依法使用。** 改变设备发出的内容（TTL、与 IMEI 相关的
+  设置、频段锁、VPN）可能违反运营商条款或当地法律。开启某项功能前请先确认。
+* **这里的一切均未获得 ZTE、Unisoc 或任何运营商的认可**，也不主张任何商标权利。
+
+在法律允许的最大范围内，作者和贡献者不对因使用本软件、本文档或其中链接的任何内容而
+产生的任何损害、数据丢失、服务中断、费用或伤害承担责任。如果你不能接受，
+请不要安装。
+
+> **中文：** 这是一个实验性的业余项目；不是产品，没有支持，也没有任何担保。设备的 root、
+> 解锁以及使用 Magisk、SPD/BROM 等第三方工具进行的一切操作都不在本项目范围内，
+> 完全由你自己负责。安装可能使设备无法使用或清空你的数据；请做好
+> 备份，不要在你承担不起损失的设备上安装。作者和贡献者不对因使用本软件
+> 可能产生的任何损害、数据或服务丢失负责。
+
+---
+
+## 支持的设备
 
 | | ZTE F50 / MU300 | ZTE U30 Air |
 |---|---|---|
-| Board, chip | `ums9620_2h10_feimao`, Unisoc T760 (UMS9620) | the same |
-| Power | USB only | battery (4050 mAh), charger and fuel gauge |
-| LEDs used by Linux | as in ZTE's firmware: network (blue: 4G, white: 5G, red: no service), Wi-Fi (on while the hotspot is up) | as in ZTE's firmware: battery (white: Linux is up), network (blue: 4G, white: 5G, red: no service), Wi-Fi (white: 2.4 GHz, blue: 5 GHz) |
-| Heat alarm | the network LED flashes red, white, blue in turn: the SoC at 85 °C, until it cools down (`thermal-guard`) | the battery LED flashes red, white, blue in turn: the SoC at 85 °C or the battery at 50 °C, until they cool down (`thermal-guard`) |
-| USB network | `192.168.77.1` | `192.168.78.1` (so both can be plugged into one computer) |
-| Tested | everything below | 5.4, 6.18 and 7.2: USB, Wi-Fi hotspot, Bluetooth, mobile data, VPN, LEDs |
-| Battery | - | level, voltage, current, temperature and charging state in `openf50-toolkit`, the `openwrt-luci` dashboard and `/sys/class/power_supply` on every kernel (mainline: `sc27xx-fgu`). Charging: on 5.4 by the vendor charger stack; on 6.18 and 7.2 by the `bq256xx` driver (from v2026.10.12; the mainline kernels of v2026.10.11 and older leave charging off). From v2026.10.20: a **charge limit** of 0-100 % (`sudo openf50-power charge-limit 80`, `CHARGE_TO` in the power settings, System > Power on the panel; charging stops at the limit and resumes 5 points below it, and the battery is never held under 5 %), and on the mainline kernels the **Type-C current** the port advertises is read, so a 1.5 A or 3 A port charges at up to 2 A instead of 500 mA |
-| USB host (OTG) | - (its USB port is its power supply) | `sudo openf50-usb host` with an OTG adapter: flash drives (FAT, exFAT), keyboards and mice, USB modems and Ethernet adapters, with 5 V from the battery; `sudo openf50-usb device` back to the computer (the default at every boot). Mainline kernels; HDMI through USB-C adapters does not work |
-| SD card | the Linux filesystem can live on a card instead of the internal storage (see [Install](#install)) | no card slot |
-| Buttons | power: held 3 s shuts down | power: a short press wakes the LEDs (they go dark after 60 s), held 3 s shuts down; the Wi-Fi key switches the hotspot 2.4 / 5 GHz, held 3 s turns it off or on |
-| NFC | - | a phone held to the device joins the hotspot, as with ZTE's firmware: `sudo openf50-nfc` shows the tag, `wifi` writes the hotspot's name and password (again at every hotspot start), `url https://...` or `text ...` anything else, `clear` empties it, `on`/`off` is the NFC switch of ZTE's web interface (kept in the tag) |
+| 主板、芯片 | `ums9620_2h10_feimao`，Unisoc T760 (UMS9620) | 相同 |
+| 供电 | 仅 USB | 电池（4050 mAh）、充电器和电量计 |
+| Linux 使用的 LED | 与 ZTE 固件一致：网络灯（蓝：4G，白：5G，红：无服务）、Wi-Fi 灯（热点开启时亮） | 与 ZTE 固件一致：电池灯（白：Linux 已启动）、网络灯（蓝：4G，白：5G，红：无服务）、Wi-Fi 灯（白：2.4 GHz，蓝：5 GHz） |
+| 过热告警 | 网络灯依次闪红、白、蓝：SoC 达到 85 °C，直到冷却（`thermal-guard`） | 电池灯依次闪红、白、蓝：SoC 达到 85 °C 或电池达到 50 °C，直到冷却（`thermal-guard`） |
+| USB 网络 | `192.168.77.1` | `192.168.78.1`（这样两台设备可以同时插在一台电脑上） |
+| 已测试 | 以下全部 | 5.4、6.18 和 7.2：USB、Wi-Fi 热点、蓝牙、移动数据、VPN、LED |
+| 电池 | - | 电量、电压、电流、温度和充电状态，可在 `openf50-toolkit`、`openwrt-luci` 面板和每个内核的 `/sys/class/power_supply` 中查看（主线内核：`sc27xx-fgu`）。充电：5.4 上由厂商充电栈负责；6.18 和 7.2 上由 `bq256xx` 驱动负责（自 v2026.10.12 起；v2026.10.11 及更早的主线内核不开启充电）。自 v2026.10.20 起：支持 0-100 % 的**充电上限**（`sudo openf50-power charge-limit 80`、电源设置中的 `CHARGE_TO`、面板上的 System > Power；充到上限即停，低于上限 5 个百分点时恢复，且电池永远不会被维持在 5 % 以下）；在主线内核上还会读取端口宣告的 **Type-C 电流**，因此 1.5 A 或 3 A 的端口最高可以 2 A 充电，而不是 500 mA |
+| USB host (OTG) | -（其 USB 口即供电口） | 配合 OTG 转接头使用 `sudo openf50-usb host`：U 盘（FAT、exFAT）、键盘鼠标、USB 调制解调器和网卡，由电池提供 5 V；`sudo openf50-usb device` 切回电脑模式（每次开机的默认）。仅主线内核；经 USB-C 转接器的 HDMI 不可用 |
+| SD 卡 | Linux 文件系统可以放在卡上而非内部存储（见[安装](#install)） | 无卡槽 |
+| 按键 | 电源键：按住 3 秒关机 | 电源键：短按点亮 LED（60 秒后熄灭），按住 3 秒关机；Wi-Fi 键切换热点 2.4 / 5 GHz，按住 3 秒关闭或开启热点 |
+| NFC | - | 手机贴近设备即可加入热点，与 ZTE 固件一致：`sudo openf50-nfc` 显示标签内容，`wifi` 写入热点的名称和密码（每次热点启动时都会重写），`url https://...` 或 `text ...` 写入任意其他内容，`clear` 清空，`on`/`off` 是 ZTE 网页界面的 NFC 开关（保存在标签中） |
 
-Both run the same kernel, the same systems and the same releases; what differs is a handful of drivers for the U30
-Air's charger and LEDs, which its boot image loads in place of the F50's ([`kernel/u30air.fragment`](kernel/u30air.fragment)).
-Nothing about the device has to be chosen by hand: the installer reads it from Android, and the boot image, the
-LEDs and the default address follow. The U30 **Pro** is a different chip (UMS9632) and is not supported.
+两者运行相同的内核、相同的系统和相同的发布版本；差别仅在于 U30 Air
+充电器和 LED 的少数几个驱动，其启动镜像会加载它们来替代 F50 的（[`kernel/u30air.fragment`](kernel/u30air.fragment)）。
+设备相关的任何内容都无需手动选择：安装程序从 Android 读取设备信息，启动镜像、
+LED 和默认地址随之确定。U30 **Pro** 是不同的芯片（UMS9632），不受支持。
 
-### ZTE V50 (MU3351): experimental
+### ZTE V50 (MU3351)：实验性支持
 
-The ZTE **V50** (`ro.product.model` V50, `ro.product.device` MU3351, platform `ums9620`; not the Blade V50 phone) is
-the F50's platform with two SIM slots, NFC and three front lamps on an AW9523B LED controller. kano (kanoqwq) ported
-this project to it in his line of it; what he found and measured is in [FINDINGS 95](docs/FINDINGS.md). **Nobody in
-this project has a V50 or has tested one**: install it only if you can get back to Android on your own.
+ZTE **V50**（`ro.product.model` V50，`ro.product.device` MU3351，平台 `ums9620`；不是 Blade V50 手机）
+采用与 F50 相同的平台，但有两个 SIM 卡槽、NFC，以及由 AW9523B LED 控制器驱动的三颗前灯。kano（kanoqwq）
+在他自己的分支中把本项目移植到了它上面；他的发现和测量结果见 [FINDINGS 95](docs/FINDINGS.md)。**本项目
+没有人拥有 V50，也没有人测试过它**：只有在你能自行切回 Android 的前提下才安装。
 
 | | ZTE V50 / MU3351 |
 |---|---|
-| Kernel | mainline only: 6.18 or 7.2 of a release that names the V50 (its kernel bundle lists `v50` in `devices`); 5.4 is refused |
-| What runs | what runs on an F50: the same systems, modules and settings, USB-powered (no battery) |
-| LEDs | NET1 lamp: blue 4G, white 5G, red no service; Wi-Fi lamp: white 5 GHz, blue 2.4 GHz; NET2 dark (`leds-aw9523b`, mainline) |
-| USB network | `192.168.79.1` (neither the F50's nor the U30 Air's subnet) |
-| Not yet | the second SIM (SIM 1 only), NFC, SIM selection; the eMMC host is kept awake (kano's fix for lost files, patch 0017) |
+| 内核 | 仅主线：某个标明支持 V50 的发布版本的 6.18 或 7.2（其内核包在 `devices` 中列出 `v50`）；拒绝 5.4 |
+| 能运行的 | F50 上能运行的都行：相同的系统、模块和设置，USB 供电（无电池） |
+| LED | NET1 灯：蓝 4G、白 5G、红无服务；Wi-Fi 灯：白 5 GHz、蓝 2.4 GHz；NET2 不亮（`leds-aw9523b`，主线） |
+| USB 网络 | `192.168.79.1`（既不是 F50 的也不是 U30 Air 的网段） |
+| 尚未支持 | 第二张 SIM（仅 SIM 1）、NFC、SIM 选择；eMMC host 保持唤醒（kano 修复文件丢失问题的 patch 0017） |
 
-The installers say so in one line and stop a V50 that is not exactly that (a model V50 with another device or
-platform). Linux tells the board by its device tree, as before for the other two: the V50's has the AW9523B, which no
-F50's or U30 Air's has, so `openf50-device` says `v50` even where an older installer had labelled it `f50` (after an
-update such an installation moves from `192.168.77.1` to `192.168.79.1` unless `/etc/openf50/lan.conf` or OpenWrt's
-LAN setting pins the address).
+安装程序会用一行话说明这一点，并拦下不完全符合的 V50（型号为 V50 但 device 或
+平台不同的设备）。Linux 通过设备树识别主板，与之前另外两台设备一样：V50 的设备树中有
+AW9523B，而任何 F50 或 U30 Air 都没有，因此即使旧版安装程序曾把它标为 `f50`，
+`openf50-device` 也会报 `v50`（这样的安装在更新后会从 `192.168.77.1` 变为 `192.168.79.1`，
+除非 `/etc/openf50/lan.conf` 或 OpenWrt 的 LAN 设置固定了地址）。
 
-## What you get
+## 你将得到什么
 
-* **A real Linux system**, not an app or a container: Ubuntu 24.04 or 26.04 LTS with systemd and `apt`, OpenWrt
-  with its LuCI web interface, or OpenWrt with the OPENF50 control panel (below).
-* **Three kernels to choose from:** Unisoc's vendor 5.4, mainline 6.18 LTS and mainline 7.2 (6.18.56 and 7.2.10 in
-  v2026.10.20, with BTF and the eBPF hooks that [dae](https://github.com/daeuniverse/dae) needs), with KVM
-  (`/dev/kvm`) on all three.
-* **Internet over 5G/LTE**, shared with everything connected to the device.
-* **A Wi-Fi hotspot** (5 GHz or 2.4 GHz) and **USB networking**: plug it into a computer and it shows up as a network adapter.
-* **SSH access** at `192.168.77.1` (U30 Air: `192.168.78.1`), plus a USB serial console.
-* **Bluetooth** and the **Mali GPU** (OpenCL; no screen output).
-* **`openf50-toolkit`**, a menu like `raspi-config`: temperatures, CPU and RAM use, network speeds, performance
-  profiles, stress tests, VPN and services.
-* **Android stays installed.** One command switches back.
+* **一个真正的 Linux 系统**，不是 App 也不是容器：带 systemd 和 `apt` 的 Ubuntu 24.04 或 26.04 LTS、
+  带 LuCI 网页界面的 OpenWrt，或带 OPENF50 控制面板的 OpenWrt（见下文）。
+* **三个内核可选：** Unisoc 厂商内核 5.4、主线 6.18 LTS 和主线 7.2（v2026.10.20 中为
+  6.18.56 和 7.2.10，带 BTF 和 [dae](https://github.com/daeuniverse/dae) 所需的 eBPF 钩子），
+  三个内核都有 KVM（`/dev/kvm`）。
+* **5G/LTE 上网**，与连接到设备的一切共享。
+* **Wi-Fi 热点**（5 GHz 或 2.4 GHz）和 **USB 网络**：插到电脑上就会显示为一个网卡。
+* **SSH 访问**：`192.168.77.1`（U30 Air：`192.168.78.1`），另有 USB 串口控制台。
+* **蓝牙** 和 **Mali GPU**（OpenCL；无屏幕输出）。
+* **`openf50-toolkit`**：类似 `raspi-config` 的菜单：温度、CPU 和内存占用、网速、性能
+  模式、压力测试、VPN 和服务。
+* **Android 保留。** 一条命令即可切回。
 
-## What you lose (spoiler: nothing)
+## 你会失去什么（剧透：什么都不失去）
 
-Android on these boxes has no screen, no speaker and no HDMI either, so Linux takes nothing away that was there. All
-it takes is your last excuse for not having a 5G Linux server in your pocket. Installing it costs you nothing; not
-trying it costs you the server.
+这些设备上的 Android 本来就没有屏幕、没有扬声器，也没有 HDMI，所以 Linux 不会带走任何原本
+拥有的东西。它带走的只是你"口袋里还没有一台 5G Linux 服务器"的最后借口。安装它不花你
+一分钱；不试试，你才会失去这台服务器。
 
-* **Android stays.** Only one of the two runs at a time, and a reboot switches between them (`openf50-next-boot
-  android`, or `su -c openf50-linux` from Android).
-* **The hardware stays what it is**, under either system:
-  * no screen output: HDMI over USB-C does not work (the power-delivery chip never answers), so it is a headless
-    machine you use over SSH or the web interface;
-  * no speaker or microphone: voice calls with audio, through the modem's audio DSP, are work in progress and carry
-    no sound yet (see [What works](#what-works-and-what-does-not));
-  * about 1.4 GB of RAM, because the modem firmware reserves most of the rest.
+* **Android 保留。** 两者同一时间只运行一个，重启即可切换（`openf50-next-boot
+  android`，或在 Android 中执行 `su -c openf50-linux`）。
+* **硬件保持原样**，无论运行哪个系统：
+  * 无屏幕输出：USB-C 的 HDMI 不可用（供电芯片从不应答），所以这是一台无头（headless）
+    机器，通过 SSH 或网页界面使用；
+  * 无扬声器和麦克风：经调制解调器音频 DSP 的语音通话仍在开发中，
+    还没有声音（见[可用与不可用](#what-works-and-what-does-not)）；
+  * 可用内存约 1.4 GB，因为其余大部分被调制解调器固件保留。
 
-## Before you start
+## 开始之前
 
-Your device must already be **rooted and unlocked** (it must already boot a modified Android boot image), and you
-need `adb` on your computer. Getting to that point is not part of this project.
+你的设备必须已经 **root 并解锁**（必须已经能启动修改过的 Android boot 镜像），电脑上
+需要有 `adb`。如何做到这一步不属于本项目的范围。
 
-> **Warning.** Installing writes to the `boot_b` and `misc` partitions (`boot_a` instead of `boot_b` when Android
-> runs from slot b, as it often does after an OTA update). If something goes badly wrong you may need a
-> recovery tool (SPD/BROM) to revive the device. On the usual 64 GB device Android, its data and the partition table
-> are never modified. The **32 GB variant** is the exception: it has no free space at all, and the installer offers to
-> make some by shrinking `userdata` — that rewrites the partition table and erases everything in Android, it is
-> experimental, and it asks first. Take a full backup with `tools/backup-device.sh` before going that way.
-> There is always some risk. Nothing here is endorsed by ZTE or Unisoc.
+> **警告。** 安装会写入 `boot_b` 和 `misc` 分区（当 Android 运行在 slot b 时——OTA
+> 更新后常如此——则写 `boot_a` 而非 `boot_b`）。如果出现严重问题，你可能需要
+> 救砖工具（SPD/BROM）来恢复设备。在常见的 64 GB 设备上，Android、其数据和分区表
+> 绝不会被修改。**32 GB 版本**是例外：它完全没有空闲空间，安装程序会提议通过
+> 缩小 `userdata` 来腾出空间——那会重写分区表并清空 Android 中的一切，属于
+> 实验性功能，且会先征求同意。走这条路之前请用 `tools/backup-device.sh` 做完整备份。
+> 风险始终存在。这里的一切均未获得 ZTE 或 Unisoc 的认可。
 
-**What protects you:**
-* Linux is installed into empty, unused space on the internal storage, or onto an SD card; Android's partitions are not touched (except on the 32 GB variant, where you can choose to shrink `userdata` to create that space).
-* Linux starts as a "trial boot". If it fails to start 5 times in a row (you choose 1-6), the device returns to
-  Android by itself.
+**保护你的机制：**
+* Linux 安装到内部存储中空闲未用的区域，或 SD 卡上；不触碰 Android 的分区（32 GB 版本除外，你可以选择缩小 `userdata` 来创造空间）。
+* Linux 以"试启动（trial boot）"方式启动。如果连续 5 次启动失败（可选 1-6），
+  设备会自行回到 Android。
 
-* `./uninstall.sh` puts everything back.
+* `./uninstall.sh` 会把一切恢复原样。
 
-**You need:**
-* A ZTE F50 / OPENF50 or U30 Air, rooted, connected by USB, with USB debugging enabled.
-* A computer with `adb`:
-  * **macOS or Linux:** also Python 3, `lz4` and `curl` (usually already installed).
-  * **Windows 10/11:** PowerShell. The installer installs Python 3 (for your user, with winget or from
-    python.org) and its `lz4` module itself when they are missing. Use `install.ps1` / `uninstall.ps1` below,
-    or `install.cmd` / `uninstall.cmd` from cmd.exe (no execution-policy change needed).
-* About 15 minutes.
+**你需要：**
+* 一台 ZTE F50 / OPENF50 或 U30 Air，已 root，通过 USB 连接，并开启了 USB 调试。
+* 一台装有 `adb` 的电脑：
+  * **macOS 或 Linux：** 另需 Python 3、`lz4` 和 `curl`（通常已安装）。
+  * **Windows 10/11：** PowerShell。缺少时，安装程序会自行安装 Python 3（为你的用户，用 winget 或从
+    python.org）及其 `lz4` 模块。使用下面的 `install.ps1` / `uninstall.ps1`，
+    或在 cmd.exe 中用 `install.cmd` / `uninstall.cmd`（无需更改执行策略）。
+* 大约 15 分钟。
 
-## Install
+## 安装
 
-**Step 0 — back up what cannot be replaced (recommended).**
+**第 0 步——备份无法替代的东西（推荐）。**
 
 ```sh
 tools/backup-device.sh          # macOS / Linux, device in rooted Android
 ```
 
-This copies your unit's own data — `prodnv`, the modem calibration and IMEI partitions, the bootloader chain — to
-your computer and verifies every dump against the device. Installing never touches these, but if they are ever lost
-no firmware download can bring them back, and the modem stays broken. Keep the folder somewhere safe and out of any
-repository: it contains your IMEI.
+它会把你这台设备独有的数据——`prodnv`、调制解调器校准和 IMEI 分区、bootloader 链——复制到
+你的电脑上，并逐项与设备校验。安装过程绝不触碰这些数据，但一旦丢失，
+任何固件下载都无法找回，调制解调器将永久损坏。请把备份文件夹放在安全的地方，
+且不要放进任何代码仓库：里面有你的 IMEI。
 
-**Step 1 — check your device.** This only reads; it writes nothing.
+**第 1 步——检查设备。** 这一步只读取，不写入任何内容。
 
 ```sh
 ./install.sh --check          # macOS / Linux
@@ -186,31 +186,32 @@ repository: it contains your IMEI.
 install.cmd -Check            # Windows (cmd)
 ```
 
-It reports the storage size, where Android's partitions end and how much free space follows them. On the 64 GB
-device that is about 32 GiB.
+它会报告存储容量、Android 分区的结束位置以及其后有多少空闲空间。64 GB
+设备上约为 32 GiB。
 
-If it reports none at all, you have the **32 GB variant**, where `userdata` fills the disk (a 64 GB unit can look
-the same after a vendor firmware flash replaced its partition table, issue #32). The installer can make
-room by shrinking it — that erases everything in Android and rewrites the partition table, so it is experimental
-and it asks first. Back the device up with `tools/backup-device.sh` before saying yes. If the numbers look like
-neither case, stop and open an issue with what `--check` printed; they identify the variant. With an SD card in the
-slot there is a way that erases nothing: `--check` says so, and the installer offers the card instead.
+如果它报告完全没有空闲空间，说明你的设备是 **32 GB 版本**，`userdata`
+占满了整盘（64 GB 设备在刷入替换过分区表的厂商固件后也会呈现同样状况，issue #32）。
+安装程序可以通过缩小 `userdata` 腾出空间——那会清空 Android 中的一切并重写
+分区表，因此属于实验性功能，会先征求同意。同意之前请先用 `tools/backup-device.sh`
+备份设备。如果数字看起来两种都不是，请停下，把 `--check` 的输出贴到 issue
+中；这些数字能识别版本。如果卡槽里有 SD 卡，还有一种不清除任何数据的办法：
+`--check` 会说明，安装程序也会提议改用 SD 卡。
 
-**On the SD card.** With a card of at least 700 MiB in the slot the installer asks whether the Linux filesystem
-goes there instead of into the free eMMC space (`OPENF50_STORAGE=sd` answers it). The card is formatted (ext4,
-label `openf50sd`); on the eMMC only `boot_b` (or `boot_a`) and 32 bytes of `misc` are written, so a device with a small eMMC
-needs no repartitioning. A card that holds another Linux (ext4) filesystem is never formatted. A `openf50sd` card
-always comes first. Without the card the device starts the internal installation if there is one; with none, it
-waits 8 s for the card (30 s while one is still being detected), then returns to Android after about five minutes.
-All three kernels read the card. The U30 Air has no card slot, so it never asks there.
+**关于 SD 卡。** 卡槽中有一张至少 700 MiB 的卡时，安装程序会询问是否把 Linux 文件系统
+装到卡上而不是 eMMC 的空闲区域（`OPENF50_STORAGE=sd` 可免提问直接回答）。卡会被格式化
+（ext4，卷标 `openf50sd`）；eMMC 上只写 `boot_b`（或 `boot_a`）和 `misc` 的 32 字节，
+所以 eMMC 较小的设备无需重新分区。存有其他 Linux（ext4）文件系统的卡绝不会被格式化。
+`openf50sd` 卡总是优先。没有卡时，设备会启动内部安装（如果有）；两者都没有时，
+它会等卡 8 秒（仍在检测中的话 30 秒），约五分钟后回到 Android。
+三个内核都能读卡。U30 Air 没有卡槽，因此不会询问。
 
 
-* Put the card in while the device is switched off. A card inserted while Linux runs is seen, but it cannot be
-  read until the next reboot.
-* The boot image starts any card whose filesystem is labelled `openf50sd`. That keeps the device bootable when the
-  card is replaced, and it also means that whoever has the device can start a system of their own from a card.
+* 请在设备关机状态下插卡。Linux 运行中插入的卡能被识别，但要到
+  下次重启才能读取。
+* 启动镜像会启动任何文件系统卷标为 `openf50sd` 的卡。这保证了换卡后
+  设备仍可启动，同时也意味着任何拿到设备的人都能从卡上启动自己的系统。
 
-**Step 2 — install.**
+**第 2 步——安装。**
 
 ```sh
 ./install.sh                  # macOS / Linux
@@ -218,148 +219,149 @@ All three kernels read the card. The U30 Air has no card slot, so it never asks 
 install.cmd                   # Windows (cmd)
 ```
 
-![The installer: language, checks, systems and Ubuntu release](docs/images/installer/installer-1-start.png)
+![安装程序：语言、检查、系统与 Ubuntu 版本](docs/images/installer/installer-1-start.png)
 
-It asks a few questions (internal storage or SD card; Ubuntu, OpenWrt or both, and which Ubuntu, which OpenWrt and
-which kernel; which one boots; whether Linux boots by default; a password; the VPN module), downloads the ready-made images,
-copies the Wi-Fi and modem files from your own device, shows exactly what it is about to write, and waits for you to
-type `INSTALL`. Then it reboots into Linux.
+它会问几个问题（内部存储还是 SD 卡；装 Ubuntu、OpenWrt 还是两者都装，以及哪个 Ubuntu、哪个 OpenWrt 和
+哪个内核；哪个系统启动；是否默认启动 Linux；密码；VPN 模块），下载预构建镜像，
+从你设备里复制 Wi-Fi 和调制解调器文件，然后精确展示即将写入的内容，
+并等待你输入 `INSTALL`。随后它会重启进入 Linux。
 
-The installer speaks **English, Türkçe and 中文**: it asks at the start (English is the default; `OPENF50_LANG=tr`
-or `.\install.ps1 -Lang zh` skips the question). Adding a language is one file: see `i18n/README.md`. Before anything else it brings your copy of the project up to date
-with GitHub - a `git clone` is fast-forwarded, a downloaded zip gets the files that changed - and restarts itself if
-there was anything new; without GitHub it simply continues (`OPENF50_NO_SELF_UPDATE=1` / `-NoSelfUpdate` skips it).
+安装程序会说 **English、Türkçe 和 中文**：开始时询问（默认为 English；`OPENF50_LANG=tr`
+或 `.\install.ps1 -Lang zh` 可跳过询问）。增加一种语言只需一个文件：见 `i18n/README.md`。在做任何其他事之前，它会先把你的项目副本
+与 GitHub 同步——`git clone` 的仓库会被快进（fast-forward），下载的 zip 会获得有变化的文件——如有更新就重启自身；
+无法访问 GitHub 时则直接继续（`OPENF50_NO_SELF_UPDATE=1` / `-NoSelfUpdate` 跳过）。
 
-With Ubuntu it asks for the release: **24.04 LTS** (the default, the longest tested) or **26.04 LTS** - the
-newest, with systemd 259, on kernel 6.18 or 7.2. An installed Ubuntu moves
-to the other release with `sudo OPENF50_UBUNTU=26.04 openf50-update apply` (or `24.04`), keeping settings and data.
+选 Ubuntu 时会询问版本：**24.04 LTS**（默认，测试时间最长）或 **26.04 LTS**——最新，
+带 systemd 259，需内核 6.18 或 7.2。已安装的 Ubuntu 可以
+用 `sudo OPENF50_UBUNTU=26.04 openf50-update apply`（或 `24.04`）切换到另一个版本，设置和数据保留。
 
-It also asks for the **kernel**:
+它还会询问**内核**：
 
-| choice | kernel | |
+| 选项 | 内核 | |
 |---|---|---|
-| 1 | 5.4 | Unisoc's vendor kernel (Android 12 base): the longest tested, everything this project supports |
-| 2 | 6.18 | mainline Linux, the current long-term (LTS) release: newer drivers and security fixes, the same functions (hotspot, mobile data, SMS, Bluetooth, VPN, GPU); no USB-C video output yet |
-| 3 | latest stable (7.2 for now) | the newest mainline release: the newest drivers, the same functions as 6.18; tested less than 6.18 |
+| 1 | 5.4 | Unisoc 厂商内核（Android 12 底座）：测试时间最长，支持本项目的一切功能 |
+| 2 | 6.18 | 主线 Linux，当前的长期支持（LTS）版本：更新的驱动和安全修复，功能相同（热点、移动数据、短信、蓝牙、VPN、GPU）；暂不支持 USB-C 视频输出 |
+| 3 | 最新稳定版（目前是 7.2） | 最新的主线版本：最新的驱动，功能与 6.18 相同；测试不如 6.18 充分 |
 
-It can be changed later on the device with `sudo openf50-update kernel 5.4`, `... kernel 6.18` or `... kernel 7.2`.
-Ubuntu 26.04 needs 6.18 or 7.2 (its programs use system calls 5.4 does not have), and so does USB host mode on the
-U30 Air.
+之后可在设备上用 `sudo openf50-update kernel 5.4`、`... kernel 6.18` 或 `... kernel 7.2` 更换。
+Ubuntu 26.04 需要 6.18 或 7.2（它的程序使用 5.4 没有的系统调用），U30 Air 的 USB host
+模式也是。
 
-![The kernel question, in Turkish](docs/images/installer/installer-2-kernel-tr.png)
+![内核选择问题（土耳其语界面）](docs/images/installer/installer-2-kernel-tr.png)
 
-Before it writes anything it shows what it is about to do and waits for `INSTALL`:
+写入任何内容之前，它会展示将要做什么并等待输入 `INSTALL`：
 
-![The summary before installing, and the end of the install](docs/images/installer/installer-3-summary.png)
+![安装前的摘要，以及安装结束](docs/images/installer/installer-3-summary.png)
 
-**The boot chain of the Linux slot.** Linux boots with the bootloader chain of its own slot, but runs Android's modem.
-After an Android update (OTA) the two slots hold different firmware builds, and the Linux slot's chain is still the
-factory one (issue #86). So the installer copies `uboot`, `sml`, `teecfg`, `trustos` and `vbmeta` of Android's slot to
-the Linux slot whenever they differ - and only those five, never the NV or calibration partitions or anything of
-Android's slot. The images the Linux slot held are backed up first, to the Linux filesystem (`.openf50/bootchain/`) and
-to `work/bootchain/` on the computer; each written image is read back, and a mismatch puts the old ones back and stops
-before Linux is armed. The summary says what it will do ("boot chain: identical on both slots" on a device that never
-took an update). Experts can skip it: `OPENF50_SYNC_BOOTCHAIN=0 ./install.sh`, `.\install.ps1 -NoBootchainSync`.
-Details: [FINDINGS 40](docs/FINDINGS.md). Thanks to kano for the advice.
+**Linux 槽位的启动链（boot chain）。** Linux 用自己槽位的 bootloader 链启动，但运行的是 Android 的调制解调器。
+Android 更新（OTA）之后，两个槽位的固件版本不同，而 Linux 槽位的链还是
+出厂那套（issue #86）。因此安装程序会在两者不一致时把 Android 槽位的 `uboot`、`sml`、`teecfg`、`trustos`
+和 `vbmeta` 复制到 Linux 槽位——且只复制这五个，绝不碰 NV、校准分区或
+Android 槽位的任何其他东西。Linux 槽位原有的镜像会先备份到 Linux 文件系统（`.openf50/bootchain/`）和
+电脑上的 `work/bootchain/`；每写入一个镜像都会回读校验，不一致就把旧镜像写回
+并在 Linux 武装完成前停止。摘要会说明它将做什么（从未更新过的设备上显示
+"boot chain: identical on both slots"）。专家可跳过：`OPENF50_SYNC_BOOTCHAIN=0 ./install.sh`、`.\install.ps1 -NoBootchainSync`。
+详情：[FINDINGS 40](docs/FINDINGS.md)。感谢 kano 的建议。
 
-If Linux is already installed it asks whether to **update** or **wipe**:
+如果已装有 Linux，它会询问是 **update（更新）** 还是 **wipe（清空重装）**：
 
-* **update** — reinstalls the systems but keeps your settings and data: `/etc/openf50` (hotspot, VPN, toolkit), user
-  accounts and home directories, `/usr/local`, SSH host keys, OpenWrt's UCI config, and the services you enabled
-  yourself. Packages you installed yourself are installed again at the first boot (see [Updating](#updating)).
-* **wipe** — erases the Linux filesystem and installs from scratch.
+* **update**——重装系统但保留你的设置和数据：`/etc/openf50`（热点、VPN、工具箱）、
+  用户账号和家目录、`/usr/local`、SSH host keys、OpenWrt 的 UCI 配置，以及你自己启用
+  的服务。你自己安装的软件包会在首次开机时重新安装（见[更新](#updating)）。
+* **wipe**——清空 Linux 文件系统，从头安装。
 
-If the device is running Linux rather than Android when you start, the installer notices and offers to reboot it
-into Android for you over SSH.
+如果开始时设备运行的是 Linux 而不是 Android，安装程序会察觉，并提议
+通过 SSH 帮你把它重启进 Android。
 
-**Step 3 — log in.** Wait about a minute, then on the computer it is plugged into:
+**第 3 步——登录。** 等约一分钟，然后在它所插的电脑上：
 
 ```sh
 ssh ubuntu@192.168.77.1        # the password you chose during the install
 ```
 
-For OpenWrt use `ssh root@192.168.77.1`, or open `http://192.168.77.1` in a browser for LuCI. On a U30 Air the
-address is `192.168.78.1` instead.
+OpenWrt 用 `ssh root@192.168.77.1`，或在浏览器打开 `http://192.168.77.1` 进入 LuCI。
+U30 Air 的地址是 `192.168.78.1`。
 
-The Wi-Fi network the device broadcasts is its hotspot; unless you chose otherwise it uses the name and password
-copied from Android.
+设备广播的 Wi-Fi 网络就是它的热点；除非你另做选择，
+否则使用从 Android 复制的名称和密码。
 
-### OpenWrt with the OPENF50 control panel
+### 带 OPENF50 控制面板的 OpenWrt
 
-The third system, `openwrt-luci`, is OpenWrt 25.12 with a LuCI application written for these devices, in English,
-Turkish and Chinese (29 more with the lang extra, see [Languages](#languages)). It is an option next to plain OpenWrt, not a replacement: the installer asks "Which OpenWrt?"
-whenever OpenWrt is chosen (`OPENF50_OPENWRT=plain|luci` answers without asking), and the system lives in
-`/openwrt-luci` on the Linux disk. Its release asset is `openf50-openwrt-luci-rootfs.tar.gz`; switch to it with
-`sudo openf50-os openwrt-luci`. The panel's pages:
+第三个系统 `openwrt-luci` 是 OpenWrt 25.12 加上为这类设备编写的 LuCI 应用，
+界面有英文、土耳其语和中文（安装语言扩展另有 29 种，见[语言](#languages)）。它是与原版 OpenWrt 并列的选项，不是替代品：每当选择 OpenWrt 时
+安装程序都会问"Which OpenWrt?"（`OPENF50_OPENWRT=plain|luci` 可免提问），系统存放在
+Linux 磁盘的 `/openwrt-luci`。其发布文件是 `openf50-openwrt-luci-rootfs.tar.gz`；
+用 `sudo openf50-os openwrt-luci` 切换过去。面板的页面：
 
-* **Status dashboard:** live radio readings (signal, bands, cells, temperatures), mobile data state, the Wi-Fi clients
-  with their speeds, connected time, name and address, the carrier's DNS servers and the connection count; on the U30 Air
-  also the battery: its level, whether it charges, and the power in watts. When the modem is busy the page keeps its
-  last readings and says how old they are instead of going blank.
-* **Cellular > Network locks:** network mode, band, cell and EN-DC locks that persist across reboots and are replayed at boot, before
-  the radio comes on where the modem allows it.
-* **Cellular > SMS:** read, send and delete messages. A pool daemon syncs the SIM every 30 s with `AT+CMGL`, which marks
-  unread messages on the SIM as read (measured, FINDINGS 35; the panel keeps its own unread state). Do not run
-  `sms delete read` on this system. A message leaves the SIM only once the pool's copy is on the disk (an fsync of
-  that file and its directory, never a global sync). A long message whose other parts never come is shown after an
-  hour with what did arrive, marked incomplete.
-* **Cellular > SMS forwarding:** off until turned on. Received messages go on to a webhook (JSON, form or plain text,
-  extra headers; the standard fields or a body of your own with `{sender}`, `{time}`, `{text}`, `{device}`,
-  `{message}`, each value escaped for the type), a Telegram chat, an e-mail address (only when the image has `msmtp`) and/or another phone by SMS, through a
-  template (`{sender}`, `{time}`, `{text}`, `{device}`), with sender allow/deny lists and keywords. Failed deliveries
-  are retried (30 s, doubling, an hour at most, ten times); a delivery log (with a "Clear" button) and a "Send test"
-  button. For services that answer HTTP 200 with their own error inside, the webhook can check the answer
-  (`errcode=0`, `code=0`, `ok=true`): the device keeps only the result, never the answer. Tokens, passwords
-  and the webhook address and headers stay in `/etc/openf50/sms-forward.conf` (root only) and are never shown again.
-* **Cellular > AT terminal:** guarded AT commands over the same channel daemons the system uses. A command that scans,
-  changes the radio, the APN, the SIM or a setting that persists into Android is explained and sent only after a
-  click; a network scan runs in the background and the page follows it. The Device page keeps a log of the panel's
-  recent modem operations (names and timings, never values or messages).
-* **VPN** (its own top-level menu, with the [VPN module](#vpn) v2): **Overview** (state, active profile, engine, tunnel
-  addresses, uptime, live rates, the exit IP behind a button, Start/Stop/Restart, the kill switch and the IPv6 setting
-  behind a confirmation), **Profiles** (add from a share link, pasted text, a file or a URL; test the latency; rename,
-  show and edit the config, delete), **Subscriptions** (a URL that yields profiles, refreshed by hand or on a schedule),
-  **Engines** (Xray, sing-box, mihomo, dae: install, update or remove, online or from an uploaded tarball checked
-  against the module's release), **Settings** (kill switch, IPv6, LAN ranges that bypass the tunnel, Tailscale, DNS)
-  and **Logs**. Without the module every page offers to install it.
-* **Cellular > Device management:** USB role (device or host), the USB network mode (NCM, ECM or RNDIS, applied at the next boot) and
-  adapters in host mode that can join the LAN bridge.
-* **Cellular > Adapter settings:** how the panel reaches the modem (AT backend, serial port, custom AT adapter).
-* **System > Languages:** the language of the interface, and the lang extra: download it, or upload the file.
-* **System > Power:** the active power profile and why (in the page's language), the battery, the power source and the charger's input current, the idle knobs of the three profiles (Wi-Fi idle minutes, radio idle keep/lte/off, LEDs, CPU), the saver threshold and the charge limit (0-100 %, U30 Air; also `openf50-power charge-limit N`).
-* **System > Packages after an update:** the packages you had installed yourself and what the update did with them
-  (see [Updating](#updating)): what came back, what is pending or failed and why, the settings set aside, and the
-  buttons Try again, Repair DNS (after a confirmation) and Dismiss.
-* **System > Terminal:** a root shell in the browser ([ttyd](https://github.com/tsl0922/ttyd)). It listens on the LAN
-  address only (port 7681; the cellular side never reaches it), and opens a shell only for a one-time token the page
-  gets for a logged-in panel session: there is no second password to guess. It closes after 15 minutes without
-  activity (`uci set ttyd.openf50.idle=<seconds>`, 0 never). A panel opened over https opens it in a tab of its own
-  (ttyd serves HTTP: its websocket over TLS fails in Chrome). **Terminal settings** is ttyd's own page; turning the
-  instance off (`enable`) removes the terminal.
+* **状态仪表盘：** 实时射频读数（信号、频段、小区、温度）、移动数据状态、Wi-Fi 客户端
+  及其速率、连接时长、名称和地址、运营商 DNS 服务器和连接数；U30 Air 上
+  还有电池：电量、是否在充电、功率（瓦）。调制解调器忙时页面保留
+  上次读数并显示其距今时间，而不是一片空白。
+* **Cellular > Network locks（网络锁）：** 网络模式、频段、小区和 EN-DC 锁定，重启后保持，
+  并在开机时、射频启动前（调制解调器允许的情况下）重放。
+* **Cellular > SMS（短信）：** 读取、发送和删除短信。一个轮询守护进程每 30 秒用 `AT+CMGL`
+  同步一次 SIM 卡，这会把 SIM 卡上的未读短信标记为已读（实测，FINDINGS 35；面板自己维护
+  未读状态）。不要在这个系统上运行 `sms delete read`。一条短信只有在轮询副本
+  落盘后才从 SIM 卡删除（对那个文件及其目录做 fsync，绝不做全局 sync）。
+  其余部分一直未到齐的长短信，会在一小时后按已收到的部分显示，并标记为不完整。
+* **Cellular > SMS forwarding（短信转发）：** 默认关闭，手动开启。收到的短信可继续发往
+  webhook（JSON、表单或纯文本，可加额外请求头；标准字段或自定义正文，可用 `{sender}`、`{time}`、
+  `{text}`、`{device}`、`{message}`，每个值按类型转义）、Telegram 聊天、电子邮箱
+  （仅当镜像带 `msmtp` 时）和/或通过短信转发到另一部手机（模板：`{sender}`、`{time}`、
+  `{text}`、`{device}`），支持发件人允许/拒绝名单和关键词。发送失败
+  会重试（30 秒起，倍增，最长一小时，共十次）；有发送日志（带"Clear"按钮）和"Send test"
+  按钮。对那些以 HTTP 200 包装自身错误的服务，webhook 可以校验应答
+  （`errcode=0`、`code=0`、`ok=true`）：设备只保留结果，绝不保留应答内容。令牌、密码
+  以及 webhook 地址和请求头保存在 `/etc/openf50/sms-forward.conf`（仅 root 可读），且不再显示。
+* **Cellular > AT terminal（AT 终端）：** 经系统守护进程使用的同一通道发送受防护的 AT 命令。
+  扫描类、会改变射频、APN、SIM 或会带入 Android 的持久设置的命令，会先解释再经点击确认后
+  发送；网络扫描在后台运行，页面实时跟随。Device 页面保存面板近期
+  调制解调器操作的日志（只有名称和耗时，绝不含数值或短信内容）。
+* **VPN**（独立的顶级菜单，基于 [VPN 模块](#vpn) v2）：**Overview**（状态、活动配置、引擎、隧道
+  地址、运行时长、实时速率、按钮查看出口 IP、Start/Stop/Restart、kill switch（防泄漏开关）和需确认的 IPv6
+  设置）、**Profiles**（从分享链接、粘贴文本、文件或 URL 添加；测延迟；重命名、
+  查看和编辑配置、删除）、**Subscriptions**（产出配置的 URL，可手动或定时刷新）、
+  **Engines**（Xray、sing-box、mihomo、dae：安装、更新或移除，在线或从上传的 tar 包安装并与
+  模块发布校验）、**Settings**（kill switch、IPv6、绕过隧道的 LAN 网段、Tailscale、DNS）
+  和 **Logs**。未装模块时每个页面都会提供安装入口。
+* **Cellular > Device management（设备管理）：** USB 角色（device 或 host）、USB 网络模式（NCM、ECM 或 RNDIS，
+  下次开机生效），以及 host 模式下可加入 LAN 网桥的适配器。
+* **Cellular > Adapter settings（适配器设置）：** 面板如何连接调制解调器（AT 后端、串口、自定义 AT 适配器）。
+* **System > Languages（语言）：** 界面语言，以及语言扩展：下载它，或上传文件。
+* **System > Power（电源）：** 当前电源模式及原因（以页面语言显示）、电池、电源来源和充电器输入电流、三种模式的空闲参数（Wi-Fi 空闲分钟数、射频空闲 keep/lte/off、LED、CPU）、节电阈值和充电上限（0-100 %，U30 Air；也可用 `openf50-power charge-limit N`）。
+* **System > Packages after an update（更新后的软件包）：** 你自己安装过的软件包以及更新对它们的处理
+  （见[更新](#updating)）：哪些已装回、哪些待处理或失败及原因、被搁置的设置，以及
+  Try again、Repair DNS（需确认）和 Dismiss 按钮。
+* **System > Terminal（终端）：** 浏览器中的 root shell（[ttyd](https://github.com/tsl0922/ttyd)）。
+  它只监听 LAN 地址（端口 7681；蜂窝侧永远到不了），且只为页面为已登录面板会话获取的
+  一次性令牌打开 shell：没有第二个可猜的密码。15 分钟无活动即关闭
+  （`uci set ttyd.openf50.idle=<秒数>`，0 为永不）。经 https 打开的面板会在独立标签页中打开它
+  （ttyd 提供的是 HTTP：其 TLS 上的 websocket 在 Chrome 中会失败）。**Terminal settings**
+  是 ttyd 自己的页面；关闭该实例（`enable`）即移除终端。
 
-IPv6 on this system is relayed from the carrier (router advertisements and NAT66) instead of the prefix extension
-plain OpenWrt uses. Aurora is the default theme, Bootstrap stays installed. Its boot timings, measured on an F50
-and a U30 Air, are in [FINDINGS 35](docs/FINDINGS.md).
+这个系统上的 IPv6 是从运营商中继的（路由器通告和 NAT66），而不是原版
+OpenWrt 使用的前缀扩展。Aurora 是默认主题，Bootstrap 仍然保留。在一台 F50
+和一台 U30 Air 上实测的启动耗时见 [FINDINGS 35](docs/FINDINGS.md)。
 
-From v2026.10.20 one stuck AT command no longer takes the whole panel down: every modem read has a deadline, the
-pages send their calls one at a time and back off after failures, and the lock reading is served from a cache while
-the modem is busy. On OpenWrt an AT command now takes about 0.13 s instead of a full second (the shell's `read` could
-not wait for fractions of a second), so the dashboard's readings arrive 7 times faster ([FINDINGS 40](docs/FINDINGS.md)).
+自 v2026.10.20 起，一条卡住的 AT 命令不再拖垮整个面板：每次调制解调器读取都有超时 deadline，
+各页面逐条发送请求、失败后退避，调制解调器忙时锁定状态读数由缓存提供。
+在 OpenWrt 上，一条 AT 命令现在约需 0.13 秒而不是整整一秒（shell 的 `read` 无法
+等待不足一秒的时间），因此仪表盘的读数快了 7 倍（[FINDINGS 40](docs/FINDINGS.md)）。
 
 
-The panel is the work of kanoqwq ([`kanoqwq/openf50-linux`](https://github.com/kanoqwq/openf50-linux), branch
-`clean-tf-7.2`); this repository ports it, with translations rewritten as standard LuCI catalogs and the shared
-fixes applied to all three systems. The theme is [Aurora](https://github.com/eamonxg/luci-theme-aurora) by
-eamonxg. The app's own notes are in [`openwrt/luci-app-openf50/README.md`](openwrt/luci-app-openf50/README.md).
+该面板是 kanoqwq 的作品（[`kanoqwq/openf50-linux`](https://github.com/kanoqwq/openf50-linux)，分支
+`clean-tf-7.2`）；本仓库将其移植过来，翻译改写为标准 LuCI 目录，共享
+修复应用到全部三个系统。主题是 eamonxg 的
+[Aurora](https://github.com/eamonxg/luci-theme-aurora)。应用自己的说明见 [`openwrt/luci-app-openf50/README.md`](openwrt/luci-app-openf50/README.md)。
 
-### A web panel on Ubuntu (optional)
+### Ubuntu 上的网页面板（可选）
 
-Ubuntu can have a web panel too: [Cockpit](https://cockpit-project.org/), Ubuntu's own web console (a terminal,
-logs, services, networking, storage, accounts), with an **MU300** page in it: the mobile network (operator,
-technology, registration, RSRP/RSRQ), mobile data on/off, data usage and live rates, the battery and temperatures,
-SMS (read, send, delete), the VPN (on/off, profiles; with the VPN module), the CPU profile and the power state, the
-hotspot's name and password, joining a Wi-Fi network, and updates (`openf50-update check` / `apply`). Network locks stay
-a feature of the OpenWrt panel. It is the panel extra, not part of the image:
+Ubuntu 也可以有网页面板：[Cockpit](https://cockpit-project.org/)——Ubuntu 自己的网页控制台（终端、
+日志、服务、网络、存储、账户），其中带一个 **MU300** 页面：移动网络（运营商、
+制式、注册状态、RSRP/RSRQ）、移动数据开关、流量用量和实时速率、电池和温度、
+短信（读、发、删）、VPN（开关、配置；需 VPN 模块）、CPU 模式和电源状态、
+热点名称和密码、加入 Wi-Fi 网络，以及更新（`openf50-update check` / `apply`）。网络锁
+仍是 OpenWrt 面板独有的功能。它是面板扩展（panel extra），不在镜像中：
 
 ```sh
 sudo openf50-extra install panel                      # Cockpit from Ubuntu's archive (about 12 MB, online)
@@ -367,65 +369,65 @@ sudo openf50-extra install panel --from openf50-extra-panel-offline.tar.gz   # o
 sudo openf50-extra remove panel
 ```
 
-or answer yes to the installer's question (it takes the offline file, so the first boot needs no network). Then open
-`https://192.168.77.1:9090` (the U30 Air: `.78.1`; your LAN address if you changed it), accept Cockpit's own
-certificate, and log in as `ubuntu` with your password; "Turn on administrative access" (your password again) for
-the pages that need root. Cockpit listens on the LAN bridge only (USB and the hotspot: `BindToDevice=br-lan`), and the
-firewall drops everything new from the cellular uplink (and a Wi-Fi uplink) in front of it anyway; root cannot log in,
-the login page offers no other host, and a session ends after 15 minutes idle. An update replaces Ubuntu without
-Cockpit's packages: its first boot puts them back in the background (from the extra when it carries them, else from
-the archive once online). `openf50-panel status` says where it is.
+或者在安装程序的提问中回答 yes（它使用离线文件，因此首次开机无需联网）。然后打开
+`https://192.168.77.1:9090`（U30 Air：`.78.1`；如果你改过则用你的 LAN 地址），接受 Cockpit
+的自签证书，以 `ubuntu` 用户和你的密码登录；需要 root 的页面要点
+"Turn on administrative access"（再次输入你的密码）。Cockpit 只监听 LAN 网桥（USB 和热点：
+`BindToDevice=br-lan`），而且防火墙本来就丢弃来自蜂窝上行（以及 Wi-Fi 上行）的所有新连接；
+root 无法登录，登录页不提供其他主机，会话空闲 15 分钟后结束。更新会换掉 Ubuntu 而没有
+Cockpit 的软件包：首次开机会在后台把它们装回（扩展里带着就从扩展装，否则联网后
+从软件仓库装）。`openf50-panel status` 可查看其状态。
 
-## Everyday use
+## 日常使用
 
-`sudo openf50-toolkit` opens a menu for everything below. The direct commands:
+`sudo openf50-toolkit` 打开的菜单涵盖下面所有功能。直接命令：
 
-| I want to… | Command |
+| 我想…… | 命令 |
 |---|---|
-| Watch temperatures, CPU, RAM, network speed | `openf50-toolkit top` |
-| Make it faster, or cooler and quieter | `sudo openf50-toolkit profile performance` (also `eco`, `balanced`) |
-| Test stability under load | `sudo openf50-toolkit stress all 10` |
-| Check the mobile connection | `sudo mobile-data status` |
-| Set the APN | Ubuntu: `/etc/openf50/mobile-data.conf` (`OPENF50_APN`, `OPENF50_PDP_TYPE`). OpenWrt: LuCI → Network → Interfaces → wan, or `uci set network.wan.apn='…'; uci commit network; ifup wan`. Leave it empty to keep the context the SIM defines, which is what most carriers expect |
-| Use the F50's internal SIM instead of the card in the slot | `sudo openf50-sim select internal` (`external` goes back; it takes effect at the next boot, the external card is the default, and nothing is written to the modem or the SIM). OpenWrt: LuCI → Network → Interfaces → wan → SIM source, with that card's own APN; Ubuntu: its APN in `/etc/openf50/mobile-data.conf`. F50 only, and the device must have an internal SIM fitted (docs/SIM-SELECTION.md) |
-| Change the Wi-Fi name or password | Ubuntu: edit `/etc/openf50/hotspot.conf`, then `sudo systemctl restart openf50-hotspot`. OpenWrt: LuCI → Network → Wireless (that file is only read once, at the first boot) |
-| Change the hotspot's channel | Ubuntu: `CHANNEL=` in `/etc/openf50/hotspot.conf` (`auto`, or on 5 GHz 36-48 / 149-165). OpenWrt: LuCI → Network → Wireless. Never a DFS channel (52-144): the Wi-Fi driver cannot detect radar, so hostapd could not start there; a DFS channel is replaced by 36 (149 where 36-48 are not allowed) and the log says why (FINDINGS 42) |
-| Read and send SMS | `sudo sms list`, `sudo sms send NUMBER TEXT...`, `sudo sms delete INDEX` (an index, `read` or `all`; anything else is refused before it reaches the modem) (OpenWrt with the panel: Cellular → SMS; Ubuntu with the panel extra: the OPENF50 page) |
-| Send a USSD code (balance, own number) | `sudo openf50-ussd '*101#'` |
-| Change the kernel | `sudo openf50-update kernel 6.18` (or `5.4`, `7.2`), then reboot |
-| Connect the device to someone else's Wi-Fi | `sudo openf50-toolkit` → Network → Wi-Fi → "Join a network", or `sudo wifi-client scan` then `sudo wifi-client connect "NAME"` (it asks for the password); see [Wi-Fi client](#wi-fi-client) |
-| Update to the newest release | `sudo openf50-update check` then `sudo openf50-update apply`. The device looks for a new release at boot and every 6 hours and says so at login and in `openf50-toolkit`; it never installs one by itself |
-| Fixed TTL for mobile data (so the operator cannot tell hotspot traffic from the device's own) | `sudo openf50-ttl set 64` (`sudo openf50-ttl off` goes back to the default), `openf50-toolkit` -> Network -> TTL, or LuCI Cellular -> TTL. On the mainline kernels the rule is in tc and flow offloading stays on; on 5.4 it is in nftables and offloading is off while a TTL is set |
-| Switch between OpenWrt and Ubuntu | `sudo openf50-os openwrt` / `sudo openf50-os ubuntu` (`openwrt-luci` for the one with the control panel) |
-| Failed boots in a row before it falls back to Android (1-6, default 5) | `sudo openf50-next-boot attempts N` |
-| Keep Linux for good: never back to Android by itself, only by hand | `sudo openf50-next-boot lock` (or "Lock Linux" on the panel's home page); `unlock` goes back to the attempts. See [Locked Linux](#locked-linux) |
-| Go back to Android | `sudo openf50-next-boot android`, then `sudo reboot` |
-| Return to Linux from Android | `su -c openf50-linux` on the device (see below), or `boot/android-boot-linux.sh work/boot-linux-slotb.img` from a computer |
-| Send all traffic through a VPN | see below (`sudo openf50-extra install vpn` first) |
-| Add or remove optional parts (the VPN module, more web interface languages) | `openf50-extra list`, `sudo openf50-extra install vpn`, `sudo openf50-extra remove vpn` (`lang` for the languages) |
-| Save battery: profiles, radios that go idle when nobody is connected, a charge limit | `openf50-power status`, `sudo openf50-power profile battery` (`plugged`, `saver`, `auto`), `sudo openf50-power set battery.WIFI_IDLE 10`, `openf50-power log 5 /tmp/power.csv`; on `openwrt-luci` the page System -> Power. A boot that started from a charger stays a charging boot (LED blinking, hotspot and modem down) until the Wi-Fi key is pressed; see FINDINGS 36 |
-| Language of the web interface (OpenWrt) | System -> System -> Language and Style; more languages: see Languages below |
-| Find out which LED is which | `sudo openf50-led test` |
-| `adb shell`, `adb push`/`pull`, `adb forward` to Linux from a computer, as with Android | on by default, for every computer (a root shell without a password for anyone with a cable); only your own computers: `sudo openf50-usb adb key adbkey.pub`, then `sudo openf50-usb adb auth keys`; not at all: `sudo openf50-usb adb off`; see [adb to Linux](#adb-to-linux) |
+| 查看温度、CPU、内存、网速 | `openf50-toolkit top` |
+| 让它更快，或更凉更安静 | `sudo openf50-toolkit profile performance`（还有 `eco`、`balanced`） |
+| 负载下测试稳定性 | `sudo openf50-toolkit stress all 10` |
+| 检查移动连接 | `sudo mobile-data status` |
+| 设置 APN | Ubuntu：`/etc/openf50/mobile-data.conf`（`OPENF50_APN`、`OPENF50_PDP_TYPE`）。OpenWrt：LuCI → Network → Interfaces → wan，或 `uci set network.wan.apn='…'; uci commit network; ifup wan`。留空则使用 SIM 卡定义的上下文，这是大多数运营商所期望的 |
+| 使用 F50 的内置 SIM 而非卡槽中的卡 | `sudo openf50-sim select internal`（`external` 切回；下次开机生效，默认是外置卡，不会向调制解调器或 SIM 写入任何内容）。OpenWrt：LuCI → Network → Interfaces → wan → SIM source，用该卡自己的 APN；Ubuntu：APN 在 `/etc/openf50/mobile-data.conf` 中。仅 F50，且设备必须装有内置 SIM（docs/SIM-SELECTION.md） |
+| 修改 Wi-Fi 名称或密码 | Ubuntu：编辑 `/etc/openf50/hotspot.conf`，然后 `sudo systemctl restart openf50-hotspot`。OpenWrt：LuCI → Network → Wireless（那个文件只在首次开机时读取一次） |
+| 修改热点信道 | Ubuntu：`/etc/openf50/hotspot.conf` 中的 `CHANNEL=`（`auto`，或 5 GHz 的 36-48 / 149-165）。OpenWrt：LuCI → Network → Wireless。绝不要用 DFS 信道（52-144）：Wi-Fi 驱动无法检测雷达，hostapd 无法在那里启动；DFS 信道会被替换为 36（36-48 不可用时用 149），日志会说明原因（FINDINGS 42） |
+| 收发短信 | `sudo sms list`、`sudo sms send NUMBER TEXT...`、`sudo sms delete INDEX`（序号、`read` 或 `all`；其他值在到达调制解调器前就会被拒绝）（带面板的 OpenWrt：Cellular → SMS；带面板扩展的 Ubuntu：OPENF50 页面） |
+| 发送 USSD 代码（查余额、本机号码） | `sudo openf50-ussd '*101#'` |
+| 更换内核 | `sudo openf50-update kernel 6.18`（或 `5.4`、`7.2`），然后重启 |
+| 让设备加入别人的 Wi-Fi | `sudo openf50-toolkit` → Network → Wi-Fi → "Join a network"，或先 `sudo wifi-client scan` 再 `sudo wifi-client connect "名称"`（会询问密码）；见 [Wi-Fi 客户端](#wi-fi-client) |
+| 更新到最新版本 | `sudo openf50-update check` 然后 `sudo openf50-update apply`。设备会在开机时和每 6 小时检查新版本，并在登录时和 `openf50-toolkit` 中提示；它绝不自行安装 |
+| 移动数据固定 TTL（让运营商无法区分热点流量和设备自身流量） | `sudo openf50-ttl set 64`（`sudo openf50-ttl off` 恢复默认），`openf50-toolkit` -> Network -> TTL，或 LuCI Cellular -> TTL。主线内核上规则在 tc 中，flow offloading 保持开启；5.4 上在 nftables 中，设置 TTL 期间 offloading 关闭 |
+| 在 OpenWrt 和 Ubuntu 之间切换 | `sudo openf50-os openwrt` / `sudo openf50-os ubuntu`（带控制面板的是 `openwrt-luci`） |
+| 连续失败多少次启动后回退 Android（1-6，默认 5） | `sudo openf50-next-boot attempts N` |
+| 永久保留 Linux：绝不自行回到 Android，只能手动 | `sudo openf50-next-boot lock`（或面板首页的"Lock Linux"）；`unlock` 恢复按次数回退。见[锁定 Linux](#locked-linux) |
+| 回到 Android | `sudo openf50-next-boot android`，然后 `sudo reboot` |
+| 从 Android 回到 Linux | 在设备上 `su -c openf50-linux`（见下文），或从电脑执行 `boot/android-boot-linux.sh work/boot-linux-slotb.img` |
+| 让所有流量走 VPN | 见下文（先 `sudo openf50-extra install vpn`） |
+| 增删可选部件（VPN 模块、更多网页界面语言） | `openf50-extra list`、`sudo openf50-extra install vpn`、`sudo openf50-extra remove vpn`（语言用 `lang`） |
+| 省电：电源模式、无人连接时射频休眠、充电上限 | `openf50-power status`、`sudo openf50-power profile battery`（`plugged`、`saver`、`auto`）、`sudo openf50-power set battery.WIFI_IDLE 10`、`openf50-power log 5 /tmp/power.csv`；在 `openwrt-luci` 上是 System -> Power 页面。由充电器触发开机的设备会保持充电启动状态（LED 闪烁，热点和调制解调器关闭），直到按下 Wi-Fi 键；见 FINDINGS 36 |
+| 网页界面语言（OpenWrt） | System -> System -> Language and Style；更多语言：见下文"语言"一节 |
+| 弄清每颗 LED 的用途 | `sudo openf50-led test` |
+| 像 Android 一样从电脑 `adb shell`、`adb push`/`pull`、`adb forward` 到 Linux | 默认开启，对所有电脑开放（任何有数据线的人都能获得无密码 root shell）；只允许自己的电脑：`sudo openf50-usb adb key adbkey.pub`，然后 `sudo openf50-usb adb auth keys`；完全关闭：`sudo openf50-usb adb off`；见 [adb 连接 Linux](#adb-to-linux) |
 
-### adb to Linux
+### adb 连接 Linux
 
-Linux offers adb over the USB cable, next to the USB network and the serial console, as Android does: `adb shell`
-(a root login shell), `adb push`/`pull`, `adb forward`/`reverse`. From the release after v2026.10.23 it is **on by
-default and lets every computer in**, so that a browser (the web installer, over WebUSB) or a GUI can talk to the
-device without a key having been put on it first.
+和 Android 一样，Linux 在 USB 线上提供 adb，与 USB 网络和串口控制台并列：
+`adb shell`（root 登录 shell）、`adb push`/`pull`、`adb forward`/`reverse`。从 v2026.10.23
+之后的版本起，它**默认开启且允许所有电脑接入**，这样浏览器（网页安装器，
+经 WebUSB）或图形工具无需先放置密钥即可与设备通信。
 
-> **What that means.** adb has no password. With the default, **anyone who can plug a USB cable into the device
-> gets a root shell**, also after you set passwords for `ubuntu` or `root`, and can read and change everything on
-> it. Nothing is reachable over Wi-Fi, the LAN or mobile data: adb is on the cable only. If the device is ever out
-> of your hands, close it with one of these:
+> **这意味着什么。** adb 没有密码。默认状态下，**任何能把 USB 线插到设备上的人
+> 都能得到 root shell**——即使你已为 `ubuntu` 或 `root` 设了密码——并能读写设备上
+> 的一切。Wi-Fi、LAN 或移动数据网络都到不了它：adb 只在线上。如果设备可能离开
+> 你的掌控，用以下方式之一关掉它：
 
 ```sh
 sudo openf50-usb adb auth keys           # only computers whose key you authorised get in (others: "unauthorized")
 sudo openf50-usb adb off                 # no adb at all
 ```
 
-Both stay across reboots and updates. The rest:
+两者在重启和更新后都保持。其余命令：
 
 ```sh
 openf50-usb adb status                   # on or off, whom it lets in, the number of authorised keys
@@ -437,212 +439,216 @@ sudo openf50-usb adb auth open           # every computer again
 sudo openf50-usb adb on                  # after "off"; the USB connection drops for a moment and comes back with adb
 ```
 
-* **A device that was set up before** keeps what it had: `adb off` stays off, and a device where adb was turned on
-  or a key was authorised under v2026.10.20-23 (when adb took keys only) stays keys-only until
-  `sudo openf50-usb adb auth open`. Every other device has adb on and open after `openf50-update apply`.
-* The installers (`install.sh`, `install.ps1`) ask whether to let in only the computer they run on, from the first
-  boot; the Magisk zip has no such question, its systems start open.
-* The device shows up in `adb devices` as `OPENF50LINUX-...`; a device in Android has another serial number, and the
-  installers tell the two apart (a device in Linux is sent back to Android first, over adb where it lets them in).
-  In keys mode a computer whose key is not authorised sees `unauthorized` and gets nothing: there is no prompt to
-  accept a key on the device.
-* There is no TCP port in either mode (adb over Wi-Fi and `adb tcpip` are left out of the daemon).
-* Where it is not there: a mainline kernel from before v2026.10.20 (no FunctionFS; `openf50-update kernel` brings one),
-  an image without adbd, and the U30 Air while its port is a USB host (`openf50-usb host`). `openf50-usb adb status`
-  says which.
-* Like Android's, the adb interface asks Windows for its WinUSB driver (MS OS descriptors; not tried on Windows yet -
-  without it, Google's USB driver serves).
+* **之前配置好的设备**保持原状：`adb off` 保持关闭；在 v2026.10.20-23 期间
+  （那时 adb 只收密钥）开启过 adb 或授权过密钥的设备保持仅密钥模式，直到
+  `sudo openf50-usb adb auth open`。其他设备在 `openf50-update apply` 之后 adb 开启且开放。
+* 安装程序（`install.sh`、`install.ps1`）会询问是否从首次开机起
+  只允许安装程序所在的电脑接入；Magisk zip 没有这个问题，其系统默认开放。
+* 设备在 `adb devices` 中显示为 `OPENF50LINUX-...`；Android 中的设备是另一个序列号，
+  安装程序能区分两者（处于 Linux 的设备会先被送回 Android，adb 允许的话经 adb 操作）。
+  密钥模式下，密钥未授权的电脑会看到 `unauthorized`，什么也得不到：设备上不会弹出
+  接受密钥的提示。
+* 两种模式都没有 TCP 端口（adb over Wi-Fi 和 `adb tcpip` 都未编进守护进程）。
+* 没有 adb 的情况：v2026.10.20 之前的主线内核（无 FunctionFS；`openf50-update kernel` 可换一个）、
+  不含 adbd 的镜像，以及 U30 Air 的端口处于 USB host 模式时（`openf50-usb host`）。`openf50-usb adb status`
+  会说明是哪种。
+* 与 Android 一样，adb 接口会向 Windows 请求 WinUSB 驱动（MS OS descriptors；尚未在 Windows 上
+  试过——没有它时可用 Google 的 USB 驱动）。
 
-For programs that talk to the device over adb: [docs/ADB-INTERFACE.md](docs/ADB-INTERFACE.md). The daemon is AOSP's
-adbd (platform-tools 34.0.5), built static for both systems by `tools/adbd/build.sh`; see FINDINGS 43 and 70.
+需要通过 adb 与设备通信的程序：[docs/ADB-INTERFACE.md](docs/ADB-INTERFACE.md)。守护进程是 AOSP 的
+adbd（platform-tools 34.0.5），由 `tools/adbd/build.sh` 为两个系统静态构建；见 FINDINGS 43 和 70。
 
 
-### Installing from Android with a Magisk zip
+### 用 Magisk zip 从 Android 安装
 
-If the device already runs a rooted Android with Magisk 26 or newer, Linux can be installed from the device itself,
-without a computer: from the Magisk app (reached through scrcpy, a web panel or a phone running adb) or from
-`adb shell`. The zips are built from the files of a release by the "Magisk installers" workflow
-(`.github/workflows/magisk.yml`), which attaches them to that release together with `SHA256SUMS-magisk`. It runs
-by itself when a release is published, so the zips follow the other assets after a few minutes. Building them yourself:
-`tools/make-magisk-zips.sh RELEASE_DIR OUT_DIR`.
+如果设备已经在运行带 Magisk 26 或更新版本的已 root Android，可以不用电脑、
+直接从设备本身安装 Linux：从 Magisk app（通过 scrcpy、网页面板或一部运行 adb 的手机访问）
+或从 `adb shell`。这些 zip 由 "Magisk installers" 工作流
+（`.github/workflows/magisk.yml`）从发布版本的文件构建，并与 `SHA256SUMS-magisk` 一起附加到该
+发布。发布时它自动运行，所以 zip 会在几分钟后跟上其他资产。自行构建：
+`tools/make-magisk-zips.sh RELEASE_DIR OUT_DIR`。
 
-**1. Take one zip.** One per system and kernel, 11 in all. The same zip works on the F50 and on the U30 Air, and
-installs to the internal storage or to an SD card: the installer recognises the device and finds the place.
+**1. 取一个 zip。** 每个系统与内核组合一个，共 11 个。同一个 zip 在 F50 和 U30 Air 上都可用，
+可装到内部存储或 SD 卡：安装程序会识别设备并找到位置。
 
-| zip | system | kernel | size |
+| zip | 系统 | 内核 | 大小 |
 |---|---|---|---|
 | `openf50-magisk-<tag>-openwrt-k5.4.zip` | OpenWrt | 5.4 (vendor) | 48.5 MB |
 | `openf50-magisk-<tag>-openwrt-k6.18.zip` | OpenWrt | 6.18 LTS | 37.2 MB |
 | `openf50-magisk-<tag>-openwrt-k7.2.zip` | OpenWrt | 7.2 | 37.9 MB |
-| `openf50-magisk-<tag>-openwrt-luci-k5.4.zip` | OpenWrt with the control panel | 5.4 (vendor) | 48.8 MB |
-| `openf50-magisk-<tag>-openwrt-luci-k6.18.zip` | OpenWrt with the control panel | 6.18 LTS | 37.6 MB |
-| `openf50-magisk-<tag>-openwrt-luci-k7.2.zip` | OpenWrt with the control panel | 7.2 | 38.3 MB |
+| `openf50-magisk-<tag>-openwrt-luci-k5.4.zip` | 带控制面板的 OpenWrt | 5.4 (vendor) | 48.8 MB |
+| `openf50-magisk-<tag>-openwrt-luci-k6.18.zip` | 带控制面板的 OpenWrt | 6.18 LTS | 37.6 MB |
+| `openf50-magisk-<tag>-openwrt-luci-k7.2.zip` | 带控制面板的 OpenWrt | 7.2 | 38.3 MB |
 | `openf50-magisk-<tag>-ubuntu-24.04-k5.4.zip` | Ubuntu 24.04 | 5.4 | 124.1 MB |
 | `openf50-magisk-<tag>-ubuntu-24.04-k6.18.zip` | Ubuntu 24.04 | 6.18 LTS | 112.9 MB |
 | `openf50-magisk-<tag>-ubuntu-24.04-k7.2.zip` | Ubuntu 24.04 | 7.2 | 113.6 MB |
 | `openf50-magisk-<tag>-ubuntu-26.04-k6.18.zip` | Ubuntu 26.04 | 6.18 LTS | 125.2 MB |
 | `openf50-magisk-<tag>-ubuntu-26.04-k7.2.zip` | Ubuntu 26.04 | 7.2 | 125.9 MB |
 
-The sizes are those of the v2026.10.18 build. The VPN is not in the zips: add its module on the device with
-`sudo openf50-extra install vpn` (see [VPN](#vpn)). There is no Ubuntu 26.04 zip with kernel 5.4: its programs need system
-calls that kernel does not have, the same rule as for `install.sh`. Check a download with `SHA256SUMS-magisk`.
+大小为 v2026.10.18 构建的数值。zip 中不含 VPN：在设备上用
+`sudo openf50-extra install vpn` 添加其模块（见 [VPN](#vpn)）。没有内核 5.4 的 Ubuntu 26.04 zip：
+它的程序需要该内核没有的系统调用，与 `install.sh` 的规则相同。用 `SHA256SUMS-magisk` 校验下载。
 
-**2. Install it.** Put the zip on the device and open it in the Magisk app (Modules, Install from storage), or run
-`su -c 'magisk --install-module /sdcard/Download/<zip>'`. Not from recovery.
+**2. 安装它。** 把 zip 放到设备上，在 Magisk app 中打开（Modules，Install from storage），或运行
+`su -c 'magisk --install-module /sdcard/Download/<zip>'`。不要从 recovery 安装。
 
-**3. Read the output.** It shows the device it found, where Linux goes, what it will write, and which password works:
-the images' own, as on a computer install without one of your choice - Ubuntu's user `ubuntu` has the password
-`ubuntu`, OpenWrt's `root` has none until you set one (`passwd`, or LuCI's System > Administration). The same note is
-in `/data/adb/openf50-linux-password.txt` (`su -c cat /data/adb/openf50-linux-password.txt`). A zip installed over a
-system that is already there (an update) keeps its accounts and passwords and says "unchanged".
+**3. 阅读输出。** 它会显示识别到的设备、Linux 的去向、将要写入的内容，以及哪个密码可用：
+镜像自带的密码——如同电脑安装时不自设密码——Ubuntu 的用户 `ubuntu` 密码是
+`ubuntu`，OpenWrt 的 `root` 在你设置之前没有密码（`passwd`，或 LuCI 的 System > Administration）。
+同样的说明在 `/data/adb/openf50-linux-password.txt`（`su -c cat /data/adb/openf50-linux-password.txt`）。
+覆盖已有系统安装 zip（即更新）会保留其账号和密码，并显示"unchanged"。
 
-**4. Reboot.** Linux starts. If it does not, the device returns to Android by itself.
+**4. 重启。** Linux 启动。如果没有，设备会自行回到 Android。
 
-**Both systems: two zips.** Install the OpenWrt zip and the Ubuntu zip one after the other, in either order. The
-second one adds its system next to the first and becomes the one that boots; `openf50-os openwrt` and
-`openf50-os ubuntu` switch. Ubuntu 26.04 needs kernel 6.18 or 7.2, so with it installed a zip with kernel 5.4 refuses.
+**两个系统：两个 zip。** 先后安装 OpenWrt zip 和 Ubuntu zip，顺序不限。
+第二个把自己的系统加到第一个旁边，并成为启动的那个；`openf50-os openwrt` 和
+`openf50-os ubuntu` 可切换。Ubuntu 26.04 需要内核 6.18 或 7.2，所以装了它之后，
+内核 5.4 的 zip 会拒绝安装。
 
-After a successful install the zip stays as the Magisk module "OPENF50 Linux" (the switch module of
-[android/magisk/README.md](android/magisk/README.md), same id): its Action button and `su -c openf50-linux` start
-Linux from Android later.
+安装成功后，zip 会保留为 Magisk 模块 "OPENF50 Linux"（即
+[android/magisk/README.md](android/magisk/README.md) 中的切换模块，id 相同）：以后可用它的 Action
+按钮和 `su -c openf50-linux` 从 Android 启动 Linux。
 
-**What is written.** Linux goes to its own place: a free region of the internal storage behind the partitions, or an
-SD card (a card that already holds a Linux installation of this project is used first, as the device does when it
-boots). Beyond that:
+**写入了什么。** Linux 去到自己的位置：内部分区之后的空闲区域，或一张
+SD 卡（已存有本项目 Linux 安装的卡优先使用，与设备开机时的行为一致）。除此之外：
 
-* the boot partition of the slot Android is **not** on (`boot_b` when Android runs from slot a, `boot_a` when it runs
-  from slot b), checked after writing;
-* the bootloader chain of the Linux slot (`uboot`, `sml`, `teecfg`, `trustos`, `vbmeta`), only where it differs from
-  Android's slot, backed up first to `.openf50/bootchain/` on the Linux filesystem and checked after writing
-  (`OPENF50_SYNC_BOOTCHAIN=0` keeps it as it is; see [Install](#install));
-* 32 bytes of `misc`, written last, only when everything before succeeded.
+* Android **不在**的那个槽位的 boot 分区（Android 在 slot a 时是 `boot_b`，
+  在 slot b 时是 `boot_a`），写入后校验；
+* Linux 槽位的 bootloader 链（`uboot`、`sml`、`teecfg`、`trustos`、`vbmeta`），
+  仅在与 Android 槽位不一致时写入，先备份到 Linux 文件系统的 `.openf50/bootchain/`，
+  写入后校验（`OPENF50_SYNC_BOOTCHAIN=0` 保持原样；见[安装](#install)）；
+* `misc` 的 32 字节，最后写入，且仅在之前全部成功时。
 
-Android's own boot partition, Android's slot of every partition, the partition table and `userdata` are never written. If the install stops
-before the last step, `misc` is as it was and Android boots. If `misc` itself does not read back right after the last
-step, the installer writes back the block it held before and says whether that worked.
+Android 自己的 boot 分区、每个分区的 Android 槽位、分区表和 `userdata` 绝不写入。
+如果安装在最后一步之前停止，`misc` 保持原样，Android 正常启动。如果最后一步之后 `misc`
+本身回读不正确，安装程序会写回它之前保存的块，并告知是否成功。
 
-**Back to Android.** From Linux: `sudo openf50-next-boot android`, then `sudo reboot`. Without doing anything, the device
-falls back to Android after 5 failed boots in a row (1-6, `OPENF50_BOOT_ATTEMPTS` below, `openf50-next-boot attempts N`
-later) and when Linux does not come up at all - unless Linux is locked (below).
+**回到 Android。** 在 Linux 中：`sudo openf50-next-boot android`，然后 `sudo reboot`。
+什么都不做的话，设备在连续 5 次启动失败后（1-6 可选，见下文 `OPENF50_BOOT_ATTEMPTS`，
+之后可用 `openf50-next-boot attempts N` 修改）以及 Linux 完全起不来时会回退到 Android——
+除非 Linux 被锁定（见下文）。
 
-<a id="locked-linux"></a>**Locked Linux.** `sudo openf50-next-boot lock` (or "Lock Linux" on the panel's home page) keeps
-Linux whatever happens: the device never goes to Android by itself, not after failed boots and not when the system
-does not start (then it waits on USB with a telnet shell at the device's address, where `sh /run/to-android` goes to
-Android). Android is then only by hand: `openf50-next-boot android`, or "Switch to Android" on the panel. The one
-exception is a new kernel: `openf50-update` gives a new boot image its first boots on the usual attempts, so a kernel
-that does not start still falls back, and the first boot that succeeds locks again. `sudo openf50-next-boot unlock`
-goes back. The forgotten-password way out below (unplugging during boot) does not work while Linux is locked.
+<a id="locked-linux"></a>**锁定 Linux。** `sudo openf50-next-boot lock`（或面板首页的"Lock Linux"）让
+Linux 无论如何都保留：设备绝不自行回到 Android，启动失败后不会，系统
+完全起不来时也不会（此时它在 USB 上等待，在设备地址提供 telnet shell，
+执行 `sh /run/to-android` 可去 Android）。此后只能手动回 Android：
+`openf50-next-boot android`，或面板上的"Switch to Android"。唯一例外是新内核：
+`openf50-update` 会让新启动镜像先按常规次数试启动，所以起不来的内核仍会回退，
+第一次成功启动后再次锁定。`sudo openf50-next-boot unlock` 恢复。下面忘记密码的出路
+（启动中途拔线）在 Linux 锁定时无效。
 
-**Not offered here.** Shrinking `userdata` to make room (the 32 GB variant) rewrites the partition table and erases
-Android's data. It stays with the computer installers (`./install.sh`, `.\install.ps1`), where a backup step and a
-typed `ERASE` come first. When there is not enough room inside, the installer says so and names what this device has:
-the SD card, a bigger card, or the computer installer.
+**这里不提供。** 缩小 `userdata` 腾空间（32 GB 版本）会重写分区表并清空
+Android 的数据。该功能只保留在电脑安装程序（`./install.sh`、`.\install.ps1`）中，
+那里有备份步骤和手动输入 `ERASE` 在前。内部空间不足时，安装程序会说明，
+并列出这台设备的选项：SD 卡、更大的卡，或电脑安装程序。
 
-#### Choosing something else: `openf50-install.conf`
+#### 自定义选择：`openf50-install.conf`
 
-Magisk's install screen cannot ask questions, so the installer decides from what is on the device and only a
-settings file changes that. The file is `KEY=VALUE` lines (`#` for comments, quotes optional). It is read, never run;
-a key that is not in the table is reported and ignored, and a value that is not one of those listed stops the
-installer before anything is written. Every run writes `/sdcard/openf50-install.conf.example` with every key, its
-meaning (on the comment line above it) and the value that run used; copy it to `openf50-install.conf`, remove the `#`
-in front of the keys you want, and install the zip again. `OPENF50_DRY_RUN=1` prints the plan and writes nothing; the zip is then not installed as a module.
+Magisk 的安装界面无法提问，所以安装程序根据设备上的情况自行决定，只有
+设置文件能改变这一点。文件由 `KEY=VALUE` 行组成（`#` 为注释，引号可选）。它只被读取，
+绝不执行；不在表中的键会被报告并忽略，值不在列出范围会在写入任何内容前停止
+安装。每次运行都会写出 `/sdcard/openf50-install.conf.example`，包含每个键、其含义
+（在它上方的注释行）和本次运行所用的值；把它复制为 `openf50-install.conf`，删掉
+你想要的键前面的 `#`，再装一次 zip。`OPENF50_DRY_RUN=1` 只打印计划、不写入任何内容；
+此时 zip 也不会作为模块安装。
 
-There are two places for the file, because any app with storage access can write `/sdcard`:
+这个文件有两个位置，因为任何有存储权限的 app 都能写 `/sdcard`：
 
-* `/sdcard/openf50-install.conf` (or `/sdcard/Download/openf50-install.conf`) may choose only what destroys nothing and
-  reveals nothing.
-* `/data/adb/openf50-install.conf` counts for everything. Only root can create files there, and the installer uses it
-  only when root owns it and neither group nor others can write it. A `openf50-install.conf` inside the zip's `openf50/`
-  folder counts the same (it is as trusted as the scripts next to it).
+* `/sdcard/openf50-install.conf`（或 `/sdcard/Download/openf50-install.conf`）只能选择不破坏任何东西、
+  不泄露任何东西的项。
+* `/data/adb/openf50-install.conf` 对所有项生效。那里只有 root 能创建文件，且安装程序
+  只在它属 root 所有、组和其他人都不可写时才使用它。zip 的 `openf50/` 文件夹里的
+  `openf50-install.conf` 同等有效（它与旁边的脚本同等可信）。
 
-A key of the second kind found in the `/sdcard` file is reported and ignored, and the installer prints the command
-that turns that file into one only root can change:
+在 `/sdcard` 文件中发现第二类键时会被报告并忽略，安装程序会打印
+把该文件变成仅 root 可改的命令：
 
 ```sh
 su -c 'cp /sdcard/openf50-install.conf /data/adb/openf50-install.conf && chmod 600 /data/adb/openf50-install.conf'
 ```
 
-Where both files name a key, the one from `/data/adb` wins, and the plan the installer prints says which file each
-value came from. A permission to erase counts only when the choice of storage it applies to comes from `/data/adb`
-too: erasing an SD card needs `OPENF50_STORAGE=sd` and `OPENF50_SD_ERASE=yes` both there (or a card that already holds
-`openf50sd`, with no `OPENF50_STORAGE` set), and overwriting internal space needs `OPENF50_REGION_OVERWRITE=yes` with
-`OPENF50_STORAGE=internal` there, or no `OPENF50_STORAGE`.
+两个文件都给出同一个键时，以 `/data/adb` 的为准，安装程序打印的计划会注明每个值
+来自哪个文件。擦除许可仅在其对应的存储选择也来自 `/data/adb` 时生效：
+擦除 SD 卡需要那里同时有 `OPENF50_STORAGE=sd` 和 `OPENF50_SD_ERASE=yes`（或者卡上已有
+`openf50sd` 且未设置 `OPENF50_STORAGE`）；覆盖内部空间需要那里有
+`OPENF50_REGION_OVERWRITE=yes` 且 `OPENF50_STORAGE=internal`，或未设置 `OPENF50_STORAGE`。
 
-A setting that erases counts for one install: once a successful install has used `OPENF50_MODE=wipe`,
-`OPENF50_SD_ERASE=yes` or `OPENF50_REGION_OVERWRITE=yes` from `/data/adb/openf50-install.conf`, the installer turns that line
-into a comment (as it does with `OPENF50_PASSWORD` and `OPENF50_PASSWORD_RESET`) and says so. Otherwise the next zip - the second of two, or an
-update - would wipe or erase again. For another erase, put the line back.
+擦除类设置只对一次安装生效：一旦一次成功的安装使用了 `/data/adb/openf50-install.conf`
+中的 `OPENF50_MODE=wipe`、`OPENF50_SD_ERASE=yes` 或 `OPENF50_REGION_OVERWRITE=yes`，安装程序会把那一行
+变成注释（对 `OPENF50_PASSWORD` 和 `OPENF50_PASSWORD_RESET` 也一样）并说明。否则下一个 zip——
+两个中的第二个，或一次更新——会再次清空或擦除。如需再次擦除，把那一行放回去。
 
-| key | values | from | default |
+| 键 | 值 | 来源 | 默认值 |
 |---|---|---|---|
-| `OPENF50_STORAGE` | `internal`, `sd` | either | Where an installation already is (the card first); else internal when the free region is big enough; else the install is refused with the reason |
-| `OPENF50_SD_ERASE` | `yes` | `/data/adb` only | Not set: an SD card is never formatted, not a new one and not one holding an installation with `OPENF50_MODE=wipe` |
-| `OPENF50_REGION_OVERWRITE` | `yes` | `/data/adb` only | Not set: an internal region whose free space holds data is not used |
-| `OPENF50_MODE` | `update`, `wipe` | `update` either, `wipe` `/data/adb` only | `update` when a filesystem is there already (settings and data are kept) |
-| `OPENF50_BOOT_OS` | `ubuntu`, `openwrt`, `openwrt-luci` | either | The system of this zip |
+| `OPENF50_STORAGE` | `internal`、`sd` | 两者皆可 | 已有安装所在的位置（卡优先）；否则空闲区域够大时为内部存储；否则拒绝安装并说明原因 |
+| `OPENF50_SD_ERASE` | `yes` | 仅 `/data/adb` | 未设置：SD 卡绝不会被格式化，新卡不会，存有安装且带 `OPENF50_MODE=wipe` 的卡也不会 |
+| `OPENF50_REGION_OVERWRITE` | `yes` | 仅 `/data/adb` | 未设置：空闲区域中存有数据的内部区域不会被使用 |
+| `OPENF50_MODE` | `update`、`wipe` | `update` 两者皆可，`wipe` 仅 `/data/adb` | 已有文件系统时为 `update`（保留设置和数据） |
+| `OPENF50_BOOT_OS` | `ubuntu`、`openwrt`、`openwrt-luci` | 两者皆可 | 本 zip 的系统 |
 
-| `OPENF50_BOOT` | `linux`, `android` | either | `linux`: Linux is the default boot, Android after failed boots. `android`: Android stays the default and Linux starts on demand |
-| `OPENF50_BOOT_ATTEMPTS` | `1` to `6` | either | `5` |
-| `OPENF50_HOTSPOT` | `yes`, `no` | either | `yes`: Android's hotspot name and password are copied |
-| `OPENF50_GPU` | `yes`, `no` | either | `yes` (skipped with a message when this device lacks a file of the GPU set) |
-| `OPENF50_PASSWORD` | 6 or more characters | `/data/adb` only | The images' own for a new system: Ubuntu's `ubuntu`/`ubuntu`, OpenWrt's `root` without a password. An update keeps the existing password |
-| `OPENF50_PASSWORD_RESET` | `yes` | `/data/adb` only | Not set: an update keeps the existing password. `yes`: the images' own again |
-| `OPENF50_PASSWORD_FILE` | `sdcard` | `/data/adb` only | Not set: the password note is `/data/adb/openf50-linux-password.txt` |
-| `OPENF50_DEVICE` | `f50`, `u30air` | `/data/adb` only | Detected; needed only for a model name the installer does not know |
-| `OPENF50_LANG` | `en`, `tr`, `zh` | either | The language of the Android locale |
-| `OPENF50_DRY_RUN` | `1` | either | Not set |
-| `OPENF50_SYNC_BOOTCHAIN` | `0`, `1` | either | `1`: the Linux slot gets the boot chain of Android's slot where it differs (backed up first). `0`: left as it is, for experts |
-| `OPENF50_ADB_KEY` | the line of a computer's `~/.android/adbkey.pub` | `/data/adb` only | adb over USB to the installed Linux, on, for that one key (whoever holds it gets a root shell). Without it nothing about adb changes |
+| `OPENF50_BOOT` | `linux`、`android` | 两者皆可 | `linux`：默认启动 Linux，启动失败后回 Android。`android`：Android 保持默认，Linux 按需启动 |
+| `OPENF50_BOOT_ATTEMPTS` | `1` 到 `6` | 两者皆可 | `5` |
+| `OPENF50_HOTSPOT` | `yes`、`no` | 两者皆可 | `yes`：复制 Android 的热点名称和密码 |
+| `OPENF50_GPU` | `yes`、`no` | 两者皆可 | `yes`（本设备缺少 GPU 文件组中的某个文件时跳过并提示） |
+| `OPENF50_PASSWORD` | 6 个或更多字符 | 仅 `/data/adb` | 新系统用镜像自带密码：Ubuntu 的 `ubuntu`/`ubuntu`，OpenWrt 的 `root` 无密码。更新保留现有密码 |
+| `OPENF50_PASSWORD_RESET` | `yes` | 仅 `/data/adb` | 未设置：更新保留现有密码。`yes`：恢复镜像自带密码 |
+| `OPENF50_PASSWORD_FILE` | `sdcard` | 仅 `/data/adb` | 未设置：密码说明为 `/data/adb/openf50-linux-password.txt` |
+| `OPENF50_DEVICE` | `f50`、`u30air` | 仅 `/data/adb` | 自动检测；仅当安装程序不认识型号名时才需要 |
+| `OPENF50_LANG` | `en`、`tr`、`zh` | 两者皆可 | Android 区域设置的语言 |
+| `OPENF50_DRY_RUN` | `1` | 两者皆可 | 未设置 |
+| `OPENF50_SYNC_BOOTCHAIN` | `0`、`1` | 两者皆可 | `1`：Linux 槽位在与 Android 槽位不同时获得其启动链（先备份）。`0`：保持原样，供专家使用 |
+| `OPENF50_ADB_KEY` | 电脑 `~/.android/adbkey.pub` 的一行 | 仅 `/data/adb` | 对安装的 Linux 开启 USB adb，仅授权这一个密钥（持有者可获得 root shell）。没有它，adb 状态不变 |
 
-Examples. Install to the card, formatting it (everything on it is erased), with a password of your own, from
-`adb shell` as root:
+示例。装到卡上并格式化（卡上一切都被清空），使用自设密码，
+以 root 在 `adb shell` 中执行：
 
 ```sh
 su -c 'printf "OPENF50_STORAGE=sd\nOPENF50_SD_ERASE=yes\nOPENF50_PASSWORD=choose-one-here\n" > /data/adb/openf50-install.conf'
 su -c 'chmod 600 /data/adb/openf50-install.conf'
 ```
 
-Only look at what an install would do, with the file on `/sdcard`: `OPENF50_DRY_RUN=1` on a line of its own.
+只想看看安装会做什么、文件放在 `/sdcard`：单独一行 `OPENF50_DRY_RUN=1`。
 
-**The password.** A system the zip installs gets the images' own, well-known one: Ubuntu's user `ubuntu` has the
-password `ubuntu`, OpenWrt's `root` has none (as stock OpenWrt ships: dropbear and LuCI let root in without one until
-you set one with `passwd` or in LuCI, System > Administration). Nothing random: a random password shown in nothing
-but a root-only file, which the next zip overwrote, left systems added beside a first one with a password nobody knew
-(FINDINGS 47). An update keeps the accounts and passwords the system has, as `openf50-update` does: the images' own
-apply only to a system that has none of its own yet (a first install, a wipe, the second system next to the first), or
-when `/data/adb/openf50-install.conf` asks with `OPENF50_PASSWORD_RESET=yes`. `OPENF50_PASSWORD` there sets one of your own
-instead, for every system it installs (put these there, not into a zip's own `openf50/openf50-install.conf`, which is
-never edited and would reset the password at every update); it is hashed and never shown or written down. Which
-password works is said in the Magisk output before anything is installed and noted in
-`/data/adb/openf50-linux-password.txt` (a trusted `OPENF50_PASSWORD_FILE=sdcard` puts the note in
-`/sdcard/openf50-linux-password.txt` instead). A `OPENF50_PASSWORD` or `OPENF50_PASSWORD_RESET` from
-`/data/adb/openf50-install.conf` is replaced by a comment in that file after a successful install.
+**密码。** zip 安装的系统使用镜像自带的公开密码：Ubuntu 的用户 `ubuntu` 密码为
+`ubuntu`，OpenWrt 的 `root` 无密码（与官方 OpenWrt 一致：在你用 `passwd` 或 LuCI
+的 System > Administration 设置之前，dropbear 和 LuCI 允许 root 无密码登录）。不用随机密码：
+随机密码只显示在一个 root 可读的文件中，而下一个 zip 会覆盖它，导致后来加在第一个
+系统旁边的系统密码无人知晓（FINDINGS 47）。更新保留系统现有的账号和密码，
+与 `openf50-update` 一致：镜像自带密码只用于还没有自己密码的系统（首次安装、
+wipe、加在第一个旁边的第二个系统），或 `/data/adb/openf50-install.conf` 用
+`OPENF50_PASSWORD_RESET=yes` 要求时。`OPENF50_PASSWORD` 则为其安装的每个系统设置你自己的
+密码（这些要放在那里，不要放进 zip 自带的 `openf50/openf50-install.conf`——它从不被编辑，
+且会在每次更新时重置密码）；它会做哈希，绝不显示或记录。哪个密码可用会在
+安装任何东西之前显示在 Magisk 输出中，并记录在 `/data/adb/openf50-linux-password.txt`
+（可信的 `OPENF50_PASSWORD_FILE=sdcard` 会把说明放到 `/sdcard/openf50-linux-password.txt`）。
+安装成功后，`/data/adb/openf50-install.conf` 中的 `OPENF50_PASSWORD` 或 `OPENF50_PASSWORD_RESET`
+会被替换为注释。
 
-### Starting Linux from Android without a computer
+### 无需电脑从 Android 启动 Linux
 
-`android/magisk/build.sh` builds a small Magisk module for a device that already has Linux (installed from a computer;
-the zips above are this module plus the installer). Once it is installed, the Magisk app gets an **Action**
-button that reboots the device into Linux, and `su -c openf50-linux` does the same from a terminal
-(`su -c 'openf50-linux status'` just shows which system is on which slot). It writes only the same 32 bytes of
-`misc` that the installer does. `su -c 'openf50-linux bootchain'` shows whether the boot chain differs between the
-slots, and `su -c 'openf50-linux bootchain sync'` copies Android's to the Linux slot as the installer does (after an
-Android update, say), with the backup in `/data/adb/openf50-bootchain/`. See [android/magisk/README.md](android/magisk/README.md).
+`android/magisk/build.sh` 为已装有 Linux 的设备构建一个小型 Magisk 模块
+（从电脑安装；上面的 zip 就是这个模块加安装器）。装好后，Magisk app 会出现一个
+**Action** 按钮，可把设备重启进 Linux，终端中 `su -c openf50-linux` 效果相同
+（`su -c 'openf50-linux status'` 只是显示哪个系统在哪个槽位）。它只写与安装程序相同的
+`misc` 那 32 字节。`su -c 'openf50-linux bootchain'` 显示两个槽位的启动链是否不同，
+`su -c 'openf50-linux bootchain sync'` 则像安装程序一样把 Android 槽位的复制到 Linux 槽位
+（比如 Android 更新之后），备份在 `/data/adb/openf50-bootchain/`。见 [android/magisk/README.md](android/magisk/README.md)。
 
 ### VPN
 
-The device can send its own traffic **and** everything from connected clients through a VPN server: `openf50-vpn`
-keeps profiles - a WireGuard `.conf`, an OpenVPN `.ovpn`, a Clash/mihomo YAML, a VLESS, VMess, Trojan or Shadowsocks
-share link, a hysteria2 or TUIC link for dae, or a raw Xray or sing-box JSON - and runs the active one with a kill
-switch, Tailscale through the tunnel, on Ubuntu and OpenWrt alike. It is a module of its own, developed and released in
-**[dikeckaan/mu300-linux-vpn](https://github.com/dikeckaan/mu300-linux-vpn)** (commands, profiles, settings, the
-security model): the images carry none of it, and openf50-linux keeps the kernel support (TUN, WireGuard, nftables)
-and the places that work with it (mobile data, the Wi-Fi client, power saving, the toolkit, the panel).
+设备可以让自身流量**以及**所有已连接客户端的流量都经过 VPN 服务器：`openf50-vpn`
+保存配置——WireGuard `.conf`、OpenVPN `.ovpn`、Clash/mihomo YAML、VLESS、VMess、Trojan 或 Shadowsocks
+分享链接、dae 用的 hysteria2 或 TUIC 链接，或原始 Xray、sing-box JSON——并运行激活的那个，
+带 kill switch（防泄漏开关）、Tailscale 走隧道，Ubuntu 和 OpenWrt 上都一样。它是独立模块，
+在 **[dikeckaan/mu300-linux-vpn](https://github.com/dikeckaan/mu300-linux-vpn)** 开发和发布
+（命令、配置、设置、安全模型）：镜像不含它的任何部分，openf50-linux 只保留内核支持
+（TUN、WireGuard、nftables）和与它配合的部分（移动数据、Wi-Fi 客户端、省电、工具箱、面板）。
 
-Module **v2.0.0** (with openf50-linux v2026.10.20) splits it into a core and engine extras, adds subscriptions (a URL
-that yields profiles, refreshed on a schedule), a `--json` interface the control panel's VPN section is built on, and
-an **IPv6 guard**: `IPV6` is `auto`, `1` or `0`; when the tunnel carries no IPv6, IPv6 is blocked beside it instead
-of leaking past the kill switch. [dae](https://github.com/daeuniverse/dae), the eBPF engine, needs kernel 6.18 or
-7.2 of v2026.10.20 or newer (they carry BTF); 5.4 cannot run it.
+模块 **v2.0.0**（随 openf50-linux v2026.10.20）把它拆成核心和引擎扩展，新增订阅（产出配置
+的 URL，定时刷新）、供控制面板 VPN 部分使用的 `--json` 接口，以及 **IPv6
+防护**：`IPV6` 为 `auto`、`1` 或 `0`；当隧道不带 IPv6 时，IPv6 在隧道旁被阻断，
+而不是绕过 kill switch 泄漏。eBPF 引擎 [dae](https://github.com/daeuniverse/dae) 需要
+v2026.10.20 或更新的内核 6.18、7.2（它们带 BTF）；5.4 无法运行。
 
 ```sh
 sudo openf50-extra install vpn                                # online: the core and the engines its profiles need (first time: xray)
@@ -652,30 +658,31 @@ sudo openf50-extra remove vpn-mihomo                          # an engine; refus
 sudo openf50-extra remove vpn                                 # turn the VPN off first
 ```
 
-The installer asks for it too. The module lives on the Linux partition (`/mnt/openf50-disk/extra/vpn`, the engines in
-`extra/vpn-xray`, `vpn-singbox`, `vpn-mihomo`, `vpn-dae`), so Ubuntu and OpenWrt share one copy; installing it links
-it into every installed system, and each system links it again at boot. `openf50-update apply` brings the core and every
-engine the device has or a profile needs to their latest release, as one set (engines first, the core last), and a
-device that uses the VPN is never updated without them: offline, the update stops before it changes anything and says
-how to stage the module (`openf50-linux-vpn-core.tar.gz` with the engine tarballs, or `openf50-linux-vpn.tar.gz` - the
-core with xray and sing-box - and `SHA256SUMS`, in `/mnt/openf50-disk/.openf50-update/vpn/`, or `OPENF50_VPN_MODULE=DIR
-openf50-update apply`). Module v1 (the engines inside the vpn extra) keeps both its engines when it is upgraded. A
-system whose VPN is on with its kill switch and has lost the module fails closed: mobile data and the Wi-Fi client stay
-down until it is installed again (`openf50-extra install vpn`) or the VPN is turned off. A missing engine fails closed
-too, behind the kill switch, while the service fetches it again; openf50-toolkit says which one.
+安装程序也会询问它。模块存放在 Linux 分区（`/mnt/openf50-disk/extra/vpn`，引擎在
+`extra/vpn-xray`、`vpn-singbox`、`vpn-mihomo`、`vpn-dae`），所以 Ubuntu 和 OpenWrt 共享一份；
+安装时链接进每个已装系统，每个系统开机时再链接一次。`openf50-update apply` 把核心和
+设备上有的或配置需要的每个引擎作为一组更新到最新版本（引擎在前，核心最后），
+使用 VPN 的设备绝不会在没有它们的情况下被更新：离线时，更新会在改动任何东西之前停下，
+并说明如何准备好模块（`openf50-linux-vpn-core.tar.gz` 加各引擎 tar 包，或
+`openf50-linux-vpn.tar.gz`——核心加 xray 和 sing-box——以及 `SHA256SUMS`，放到
+`/mnt/openf50-disk/.openf50-update/vpn/`，或 `OPENF50_VPN_MODULE=DIR
+openf50-update apply`）。v1 模块（引擎在 vpn 扩展内部）升级时保留其两个引擎。
+VPN 开启且带 kill switch 的系统丢了模块会关闭式失败（fail closed）：移动数据和 Wi-Fi 客户端
+保持关闭，直到重新安装（`openf50-extra install vpn`）或关闭 VPN。缺少引擎也会关闭式
+失败，在 kill switch 保护下，服务会重新拉取它；openf50-toolkit 会说明是哪一个。
 
-### Languages
+### 语言
 
-Both OpenWrt systems speak **English, Turkish and Simplified Chinese** out of the box: LuCI's own pages (from
-OpenWrt's translations of LuCI, its firewall and its package manager) and, on `openwrt-luci`, the OPENF50 control
-panel. The web interface starts in **English**; switch it under System -> System -> Language and Style, or on
-`openwrt-luci` under System -> Languages. An update keeps the language you picked.
+两个 OpenWrt 系统开箱即说**英语、土耳其语和简体中文**：LuCI 自己的页面（来自
+OpenWrt 对 LuCI、防火墙和软件包管理器的翻译），以及 `openwrt-luci` 上的 OPENF50 控制
+面板。网页界面默认是**英语**；在 System -> System -> Language and Style 切换，
+`openwrt-luci` 上在 System -> Languages。更新会保留你选的语言。
 
-Every other language is the **lang extra** (about 2 MB, OpenWrt only - Ubuntu has no web interface): LuCI in the 40
-further languages OpenWrt 25.12.5 translates it to, and the control panel in 29 of them (ar, az, bg, cs, da, de, el,
-es, fa, fi, fr, he, hi, hu, id, it, ja, kk, ko, nl, pl, pt-BR, ro, ru, sk, sv, uk, vi, zh-TW; az, kk and id have no
-LuCI translation, only the panel's). Install it from the panel (System -> Languages: download it, or upload
-`openf50-extra-lang.tar.gz` from the release page when the device has no internet) or on the device:
+其他语言是 **lang 扩展**（约 2 MB，仅 OpenWrt——Ubuntu 没有网页界面）：LuCI 有 OpenWrt
+25.12.5 翻译的另外 40 种语言，控制面板有其中 29 种（ar、az、bg、cs、da、de、el、
+es、fa、fi、fr、he、hi、hu、id、it、ja、kk、ko、nl、pl、pt-BR、ro、ru、sk、sv、uk、
+vi、zh-TW；az、kk 和 id 没有 LuCI 翻译，只有面板的）。可从面板安装（System -> Languages：
+下载它，或在设备无网络时从发布页上传 `openf50-extra-lang.tar.gz`），也可在设备上安装：
 
 ```sh
 openf50-extra install lang                                 # from the release of this system
@@ -685,18 +692,18 @@ openf50-extra lang disable all; openf50-extra lang enable de ja   # offer only s
 openf50-extra remove lang
 ```
 
-The languages appear in the language list at once (no reboot); the extra stays across updates and is updated with
-them. Which of its languages a system offers is that system's own setting (`/etc/openf50/languages`).
+语言立刻出现在语言列表中（无需重启）；扩展在更新后保留并随之一同更新。
+某个系统提供其中哪些语言是该系统自己的设置（`/etc/openf50/languages`）。
 
-The control panel's translations other than Turkish and Chinese are **machine (AI) translations** from the English
-original. Corrections are very welcome: edit `openwrt/luci-app-openf50/po/<language>/openf50.po` and open a pull request
-(`python3 tools/luci-i18n.py check` must stay clean; a new language also needs a row in
-`openwrt/luci-languages.tsv`).
+控制面板除土耳其语和中文外的翻译都是英文原文的**机器（AI）翻译**。非常欢迎修正：
+编辑 `openwrt/luci-app-openf50/po/<language>/openf50.po` 并提交 pull request
+（`python3 tools/luci-i18n.py check` 必须保持无错；新语言还需要在
+`openwrt/luci-languages.tsv` 中加一行）。
 
-### Wi-Fi client
+### Wi-Fi 客户端
 
-The radio can join another Wi-Fi network instead of being the hotspot (one or the other: the SC2355 does one at a
-time). The device then uses that network for itself and shares it with its USB clients, as it does mobile data.
+射频可以加入另一个 Wi-Fi 网络而不是做热点（二选一：SC2355 同一时间只做一种）。
+此时设备自己使用该网络，并像共享移动数据一样把它共享给 USB 客户端。
 
 ```sh
 sudo wifi-client scan                    # the networks in range: signal, security, name
@@ -708,48 +715,48 @@ sudo wifi-client reconnect               # join the saved network again
 sudo wifi-client forget                  # delete the saved network
 ```
 
-* **Give the password when asked, not on the command line.** `sudo` writes the whole command line to the system
-  journal, so `sudo wifi-client connect "NAME" "PASSWORD"` leaves the password there (it still works, with a
-  warning). From a script, pipe it in with `-`: `printf '%s\n' "$PW" | sudo wifi-client connect "NAME" -`, or keep it
-  in a file only root can read and use `--password-file FILE`. The joined network and its password are saved in
-  `/etc/openf50/wifi-client.conf` (root only) and joined again at every boot.
-* **`disconnect` lasts**: the next boot keeps the hotspot too. `sudo wifi-client disconnect --keep` leaves the
-  network joined at the next boot; `reconnect` turns it back on.
-* **Joining needs the radio as a client**, which is decided at boot: while it is the hotspot, `connect` saves the
-  network and asks for a reboot (or use `openf50-toolkit`, which offers a reboot with the hotspot off to scan).
-* **WPA2 and WPA2/WPA3 mixed networks work; WPA3-only ones do not.** The scan labels them `WPA3` (`WPA2/3` is mixed
-  mode, joined as WPA2), and `connect` refuses them as soon as it sees one: this Wi-Fi driver has no SAE. Set the
-  router to WPA2/WPA3 mixed mode to join it. (A driver that has SAE is used with it.)
-* **Sharing, and what it does not share**: USB clients reach the internet through the network, and only the
-  internet: its own devices and router (private, link-local, CGNAT, multicast and other special-purpose addresses,
-  and its subnet) are not reachable from the LAN, nor anything over IPv6, so a guest on the device's USB does not
-  end up on your home or hotel network (its router's public address is the internet's, though, and some routers
-  answer on it). From that network only ping, DHCP, IPv6 neighbour discovery and answers
-  come in: SSH and the device's other services are closed to it, as they are to the modem (use USB to reach the
-  device). The firewall is up, closed, before the radio joins; sharing starts only once DHCP has answered and the
-  address is checked (a network on the LAN's own subnet is refused). A lost link closes the sharing again and drops
-  the address (mobile data takes over); when the link comes back, DHCP is asked again and the new address checked
-  before anything is shared. The lease is renewed while joined, and a renewal
-  that brings another address goes through the same check. Leaving (`disconnect`, `forget`, a failed or interrupted join) removes everything in
-  one step, and only once the radio is off the network: a supplicant that will not stop keeps the firewall closed.
-  Forwarding is turned off again then unless mobile data is sharing. What counts is the table nft lists, never a
-  file: after every change the listing is compared rule for rule with what was asked, and a mismatch (or an nft that
-  cannot say) ends closed, or with the address and routes dropped; `wifi-client status` shows the state nft reports.
-  Stopping `openf50-wifi-client.service` takes the client down the same way, without touching the saved settings.
-  nftables tables `ip openf50_wifi_nat` (Ubuntu)
-  and `inet openf50_wifi_filter`; on OpenWrt `wlan0` also joins the `wan` firewall zone (fw4 does the NAT), with a
-  rule (`openf50-wifi-client-private`) for the private addresses. (A `LAN_CIDRS` entry in vpn.conf does not open the
-  other network to LAN clients either.) With the [VPN](#vpn) on, clients still go through the tunnel, and its kill
-  switch covers `wlan0` as it does the modem; these tables never let anything past it.
-* Names are shown as the network sends them when they are printable UTF-8; control characters, terminal escape
-  sequences, invisible and bidirectional characters, bytes that are not UTF-8 and a backslash itself are shown
-  as `\xNN`, and so are spaces at either end of a name. Such a network cannot be picked from the `openf50-toolkit`
-  list; join it with `sudo wifi-client connect` and its real name (a name with control characters cannot be joined).
-* The Wi-Fi route has metric 50 and mobile data 100, so with both the Wi-Fi is used and the SIM stays idle.
+* **在被询问时输入密码，不要写在命令行上。** `sudo` 会把整条命令行写进系统
+  日志，所以 `sudo wifi-client connect "NAME" "PASSWORD"` 会把密码留在那里（仍可用，但会
+  警告）。脚本中可用 `-` 从管道读入：`printf '%s\n' "$PW" | sudo wifi-client connect "NAME" -`，
+  或把它放在仅 root 可读的文件中并用 `--password-file FILE`。已加入的网络及其密码保存在
+  `/etc/openf50/wifi-client.conf`（仅 root），每次开机都会重新加入。
+* **`disconnect` 是持久的**：下次开机也保持热点。`sudo wifi-client disconnect --keep`
+  让下次开机仍加入该网络；`reconnect` 重新开启。
+* **加入网络需要射频处于客户端模式**，这在开机时决定：当它是热点时，`connect` 会保存
+  网络并请求重启（或用 `openf50-toolkit`，它提供关闭热点重启以便扫描的选项）。
+* **WPA2 和 WPA2/WPA3 混合网络可用；纯 WPA3 不行。** 扫描把它们标为 `WPA3`
+  （`WPA2/3` 是混合模式，按 WPA2 加入），`connect` 一发现就拒绝：这个 Wi-Fi 驱动
+  没有 SAE。把路由器设为 WPA2/WPA3 混合模式即可加入。（系统随附了一个带 SAE 的驱动。）
+* **共享，以及它不共享的东西**：USB 客户端经该网络访问互联网，且只能是
+  互联网：它自己的设备和路由器（私有、链路本地、CGNAT、组播和其他特殊用途地址，
+  以及它的子网）从 LAN 不可达，IPv6 也一概不通，所以设备 USB 上的访客不会
+  进入你的家庭或酒店网络（不过该路由器的公网地址属于互联网，有些路由器
+  会在其上应答）。从那个网络只有 ping、DHCP、IPv6 邻居发现和应答能进来：
+  SSH 和设备的其他服务对它关闭，就像对调制解调器一样（用 USB 访问设备）。
+  防火墙在射频加入之前就已就位且关闭；只有 DHCP 应答且地址通过检查后
+  共享才开始（与 LAN 同子网的网络会被拒绝）。链路丢失会立刻关闭共享并丢弃
+  地址（移动数据接管）；链路恢复时重新请求 DHCP，新地址经检查后
+  才开始共享。连接期间会续租，带来新地址的续租同样要过检查。离开
+  （`disconnect`、`forget`、失败或中断的加入）会一步清除一切，
+  且只在射频离开该网络之后：不肯停下的 supplicant 会让防火墙保持关闭。
+  此后除非移动数据在共享，转发也会关闭。以 nft 列出的表为准，绝不看文件：
+  每次改动后都把规则逐条与请求比对，不一致（或 nft 无法作答）就关闭，
+  或丢弃地址和路由；`wifi-client status` 显示 nft 报告的状态。停止
+  `openf50-wifi-client.service` 以同样方式关闭客户端，不动保存的设置。
+  nftables 表为 `ip openf50_wifi_nat`（Ubuntu）和 `inet openf50_wifi_filter`；
+  OpenWrt 上 `wlan0` 还加入 `wan` 防火墙区域（由 fw4 做 NAT），并有一条针对私有地址的
+  规则（`openf50-wifi-client-private`）。（vpn.conf 中的 `LAN_CIDRS` 条目也不会把另一个
+  网络开放给 LAN 客户端。）[VPN](#vpn) 开启时，客户端仍走隧道，其 kill
+  switch 像覆盖调制解调器一样覆盖 `wlan0`；这些表绝不会放任何东西绕过它。
+* 网络名称按网络发送的内容显示，只要它们是可打印 UTF-8；控制字符、终端转义
+  序列、不可见和双向字符、非 UTF-8 字节以及反斜杠本身都显示为 `\xNN`，
+  名称首尾的空格也一样。这种网络无法从 `openf50-toolkit` 列表中选择；
+  用 `sudo wifi-client connect` 和它的真实名称加入（带控制字符的名称无法加入）。
+* Wi-Fi 路由的 metric 是 50，移动数据是 100，所以两者都有时用 Wi-Fi，SIM 保持空闲。
 
-### Updating
+### 更新
 
-The device can update itself from a published release, without a computer:
+设备可以无需电脑、从已发布的版本自行更新：
 
 ```sh
 sudo openf50-update check           # installed version vs newest release
@@ -759,52 +766,52 @@ sudo openf50-update rollback-boot   # back to the previous kernel and boot image
 sudo openf50-update kernel 7.2      # another kernel: 5.4 (vendor), 6.18 (LTS) or 7.2; no argument shows the current one
 ```
 
-`openf50-toolkit` offers the same under System -> Software update. Your settings, users, `/usr/local` and the vendor
-files (Wi-Fi firmware, Android modem userspace) and the installed extras are carried over (the lang extra is brought
-to the new release, the [VPN](#vpn) module to its latest one), and the previous version is kept as `<os>.old` for
+`openf50-toolkit` 在 System -> Software update 下提供同样的功能。你的设置、用户、`/usr/local`、
+厂商文件（Wi-Fi 固件、Android 调制解调器用户态）和已装的扩展都会带过来（lang 扩展升到
+新版本，[VPN](#vpn) 模块升到其最新版本），旧版本保留为 `<os>.old` 供回退（rollback），
+直到你运行 `openf50-update clean`。新文件系统解包在旧系统旁边，最后才换入，
+所以下载中断不会留下更新一半的系统。
 
-a rollback until you run `openf50-update clean`. The new filesystem is unpacked beside the old one and only swapped in
-at the end, so an interrupted download cannot leave a half-updated system.
+**你自己安装的软件包**（OpenWrt 上 `apk add`，Ubuntu 上 `apt install`）不在发布镜像中。
+`apply` 会在切换前列出它们，把它们的 OpenWrt 设置（`/etc/config/<name>`）暂存到
+`/etc/openf50/orphaned-config/`，新系统首次开机联网后把它们装回，
+并恢复其设置和服务的启用/禁用状态。Ubuntu 保留你添加的 apt 源
+（PPA 及其密钥）；在新版本上导致 `apt-get update` 失败的源会被关闭并说明。
+面板在 System -> Packages after an update 下展示这一切。软件源里没有的包
+（从文件安装的）不会被装回，其设置暂存：`openf50-user-packages status` 说明
+哪些回来了、如何恢复其余。如果这类代理（OpenClash）曾把 dnsmasq 指向自己，
+设备会报告，且绝不自行回退到连接的解析器：`openf50-user-packages repair-dns`
+按需执行。`openf50-update apply --no-reinstall`（或 `OPENF50_KEEP_PACKAGES=0`）跳过重装。
+安装程序的 **update** 做同样的事。
 
-**Packages you installed yourself** (`apk add` on OpenWrt, `apt install` on Ubuntu) are not part of the release's
-image. `apply` lists them before the switch, sets their OpenWrt settings (`/etc/config/<name>`) aside in
-`/etc/openf50/orphaned-config/` until they are back, and the new system installs them again at its first boot once it
-is online, with their settings and their services' enabled/disabled state put back. Ubuntu keeps the apt sources you
-added (a PPA, with its key); one that makes `apt-get update` fail on the new release is turned off and said so. The
-panel shows it all under System -> Packages after an update. A package the feeds do not have (installed from a file) stays out, with its
-settings aside: `openf50-user-packages status` says what came back and how to restore the rest. If such a proxy
-(OpenClash) had pointed dnsmasq at itself, the device reports it and never falls back to the connection's resolvers by
-itself: `openf50-user-packages repair-dns` does that on request. `openf50-update apply --no-reinstall` (or
-`OPENF50_KEEP_PACKAGES=0`) skips the reinstall. The installers' **update** does the same.
+内核和启动镜像也会更新。启动镜像保留你设备自己的部分（其 Android 文件和
+原厂头），换上发布版的内核和 ramdisk 的通用部分，所以不需要电脑，
+也不需要 Android 的任何东西。旧镜像保留给 `rollback-boot`，起不来的内核
+会在常规次数的启动失败后让设备自行回到 Android。
 
-The kernel and the boot image are updated too. The boot image keeps your device's own part (its Android files and
-the stock header) as it is and gets the release's kernel and the generic part of its ramdisk, so no computer and
-nothing from Android are needed. The previous image is kept for `rollback-boot`, and a kernel that does not start
-sends the device back to Android on its own after the usual number of failed boots.
+`openf50-update apply` 先下载并校验每个文件，全部就绪前不改动任何内容；
+从 v2026.09.28 起，它还会在开始之前先切换到所装版本的更新器。
 
-`openf50-update apply` downloads and checks every file first and changes nothing before all of them are there; from
-v2026.09.28 on it also switches to the updater of the release it installs before it starts.
-
-**Updating from v2026.09.27 or older?** Fetch the new updater first, then update; do both right after a reboot
-(older boot images can lose mobile data after a few quiet minutes, see docs/FINDINGS.md 32):
+**从 v2026.09.27 或更旧版本更新？** 先获取新更新器再更新；两步都在刚重启后执行
+（旧启动镜像可能在安静几分钟后丢移动数据，见 docs/FINDINGS.md 32）：
 
 ```sh
 sudo curl -fL https://github.com/dikeckaan/openf50-linux/releases/latest/download/openf50-update -o /opt/openf50/bin/openf50-update
 sudo openf50-update apply
 ```
 
-On OpenWrt, as root: `wget -O /opt/openf50/bin/openf50-update https://github.com/dikeckaan/openf50-linux/releases/latest/download/openf50-update`
-and then `openf50-update apply`. Reboot afterwards to start the new system and kernel.
+在 OpenWrt 上，以 root 执行：`wget -O /opt/openf50/bin/openf50-update https://github.com/dikeckaan/openf50-linux/releases/latest/download/openf50-update`
+然后 `openf50-update apply`。之后重启以启动新系统和内核。
 
-**Back in Android after an update?** With the older boot images a single crash or reset of Linux (the update could
-cause one, see above) makes the device fall back to Android and stay there. Start Linux again with the Linux button
-of the Magisk module or `su -c openf50-linux`, then update as above. If Linux does not start any more, the boot image
-did not survive: run the installer again from a computer and choose `update` - it writes a fresh boot image and
-keeps your settings and data.
+**更新后回到了 Android？** 用旧启动镜像时，Linux 的一次崩溃或复位（更新可能
+引发，见上文）就会让设备回退到 Android 并停在那里。用 Magisk 模块的 Linux
+按钮或 `su -c openf50-linux` 再次启动 Linux，然后按上文更新。如果 Linux 再也
+起不来，说明启动镜像没保住：从电脑再跑一遍安装程序并选 `update`——它会写入
+新的启动镜像并保留你的设置和数据。
 
-## Uninstall
+## 卸载
 
-With the device back in Android:
+设备回到 Android 后：
 
 ```sh
 ./uninstall.sh                # macOS / Linux
@@ -812,189 +819,191 @@ With the device back in Android:
 uninstall.cmd                 # Windows (cmd)
 ```
 
-It makes Android the boot system again, restores the second boot partition and erases the Linux filesystem. Your
-Android data is left alone, unless you ask it to give the space back (see below). You choose how thorough the erase is:
+它让 Android 重新成为启动系统，恢复第二个 boot 分区，并擦除 Linux 文件系统。你的
+Android 数据不受影响，除非你要求归还空间（见下文）。擦除的彻底程度由你选：
 
-* **secure** (default) — overwrites the whole Linux region and then verifies it is empty, so your files are really
-  gone. Takes a few minutes.
-* **quick** — only erases the filesystem headers; the files stay readable on the flash until the space is reused.
-* **keep** — leaves the Linux filesystem alone; it simply never boots again.
+* **secure**（默认）——覆写整个 Linux 区域并校验为空，文件真正消失。
+  需要几分钟。
+* **quick**——只擦除文件系统头；文件在闪存上仍可读，直到空间被重用。
+* **keep**——不动 Linux 文件系统；只是它再也不会启动。
 
-A Linux filesystem on the SD card gets its own question: **erase** (the default) overwrites its first 64 MiB, which
-is quick, and the files stay readable on the card until the space is reused; **keep** leaves the card as it is. A
-card with any other filesystem is never touched.
+SD 卡上的 Linux 文件系统有单独的问题：**erase**（默认）覆写其前 64 MiB，
+很快，文件在卡上仍可读直到空间被重用；**keep** 保持卡原样。装有任何其他
+文件系统的卡绝不动。
 
-If you shrank `userdata` to make room on the 32 GB variant, it then offers to grow it back over the freed space.
-That is off by default and asks twice, because on the 64 GB device the same answer would hand Android the free
-area it has always had — and like the shrink, it erases Android's data again.
+如果你在 32 GB 版本上缩小过 `userdata` 来腾空间，它会接着提议把它扩展回
+释放出的空间。这默认关闭且询问两次，因为在 64 GB 设备上同样的回答会把一直
+空闲的区域交给 Android——而且和缩小一样，它会再次清空 Android 的数据。
 
-Like the installer, it offers to reboot the device from Linux into Android first.
+和安装程序一样，它会先提议把设备从 Linux 重启进 Android。
 
-## What works and what does not
+## 可用与不可用
 
 | | |
 |---|---|
-| Ubuntu 24.04 LTS, OpenWrt 25.12, OpenWrt with the control panel | ✅ |
-| Ubuntu 26.04 LTS | ✅ kernel 6.18 or 7.2 (its programs need system calls 5.4 does not have) |
-| Kernels | ✅ vendor 5.4, mainline 6.18 LTS and 7.2 (6.18.56 and 7.2.10 in v2026.10.20, with BTF and the BPF JIT, so dae runs), with the same functions (USB host on the U30 Air: mainline only); the mainline bundles carry about 360 modules (WireGuard, SQM, tunnels, USB adapters and modems, NTFS/exFAT/btrfs/NFS/CIFS, dm-crypt, containers). 6.18 hangs at boot about once in 20 boots and the device goes back to Android ([FINDINGS 31m](docs/FINDINGS.md)) |
-| KVM | ✅ `/dev/kvm` on all three kernels |
-| Mobile data (5G NSA / LTE) | ✅ shared with Wi-Fi and USB clients; reconnects by itself after modem resets |
-| SMS, USSD | ✅ `sms`, `openf50-ussd`; on `openwrt-luci` also in the panel |
-| Wi-Fi access point | ✅ 5 GHz (802.11ac) or 2.4 GHz, one at a time |
-| Wi-Fi client | ✅ WPA2 and WPA2/WPA3 mixed, shared with USB clients; ✗ WPA3-only networks (the driver has no SAE) |
-| USB network + serial console | ✅ `192.168.77.1` (U30 Air `192.168.78.1`), `screen /dev/cu.usbmodem* 115200` |
-| SSH, telnet | ✅ |
-| VPN | ✅ profiles: WireGuard, OpenVPN, VLESS/VMess/Trojan/Shadowsocks links, Clash/mihomo, raw Xray or sing-box JSON; kill switch, Tailscale through the tunnel; the module of [openf50-linux-vpn](https://github.com/dikeckaan/mu300-linux-vpn) |
-| Bluetooth | ✅ BlueZ, scanning works |
-| GPU (Mali-G57) | ✅ OpenCL 3.0, headless |
-| Storage | ✅ about 32 GB in the unused area of the internal eMMC on the 64 GB device; on the 32 GB one you choose the split with Android, or use an SD card (F50) |
-| RAM | ✅ about 1.4 GB usable (MemTotal 1473 MiB; the modem firmware keeps most of the rest) |
-| Temperature control, status LEDs, SIM tray | ✅ |
-| U30 Air: battery, buttons, NFC, USB host | ✅ battery readings on every kernel; charging on every kernel (mainline from v2026.10.12), a charge limit and the Type-C charging current from v2026.10.20 (see [Supported devices](#supported-devices)); USB host on mainline only, also while on outside power |
-| Web panels | ✅ OpenWrt: LuCI, and the OPENF50 control panel on `openwrt-luci` (with a terminal in the browser); Ubuntu: Cockpit with an OPENF50 page as the panel extra; adb to Linux over USB on both (off by default) |
-| Back to Android, automatic rollback | ✅ |
-| Screen output (HDMI over USB-C) | ✗ the USB-C power chip never answers, so no display |
-| Sound | ✗ the board has no speaker and no microphone. Call audio through the modem's audio DSP is work in progress and not in the releases (`kernel/build-audio.sh`, `openf50-audio-dsp`, `openf50-voice`): with those, the sound card comes up (`sprdphone-sc2730`, 19 PCM devices) and the DSP answers, but no audio moves in any scene, and a call without audio ends after about 20 seconds, as it does under Android on this board ([FINDINGS 24, 24b](docs/FINDINGS.md)). The call sequence and kernel fixes of kano's [e5-linux](https://github.com/kanoqwq/e5-linux) are ported, with a Bluetooth headset as the output (`openf50-voice audio start bt`, `tools/hfp`); the DSP image is yours to supply (`openf50-audio-dsp install`), and with it this is not yet measured ([FINDINGS 24c](docs/FINDINGS.md)). The kernels have USB audio drivers, not tried here |
+| Ubuntu 24.04 LTS、OpenWrt 25.12、带控制面板的 OpenWrt | ✅ |
+| Ubuntu 26.04 LTS | ✅ 内核 6.18 或 7.2（其程序需要 5.4 没有的系统调用） |
+| 内核 | ✅ 厂商 5.4、主线 6.18 LTS 和 7.2（v2026.10.20 中为 6.18.56 和 7.2.10，带 BTF 和 BPF JIT，可运行 dae），功能相同（U30 Air 的 USB host：仅主线）；主线包带约 360 个模块（WireGuard、SQM、隧道、USB 网卡和调制解调器、NTFS/exFAT/btrfs/NFS/CIFS、dm-crypt、容器）。6.18 大约每 20 次开机有一次卡在启动，设备回到 Android（[FINDINGS 31m](docs/FINDINGS.md)） |
+| KVM | ✅ 三个内核都有 `/dev/kvm` |
+| 移动数据（5G NSA / LTE） | ✅ 与 Wi-Fi 和 USB 客户端共享；调制解调器复位后自行重连 |
+| 短信、USSD | ✅ `sms`、`openf50-ussd`；`openwrt-luci` 上面板中也有 |
+| Wi-Fi 接入点 | ✅ 5 GHz（802.11ac）或 2.4 GHz，同一时间一种 |
+| Wi-Fi 客户端 | ✅ WPA2 和 WPA2/WPA3 混合，共享给 USB 客户端；✗ 纯 WPA3 网络（驱动无 SAE） |
+| USB 网络 + 串口控制台 | ✅ `192.168.77.1`（U30 Air `192.168.78.1`），`screen /dev/cu.usbmodem* 115200` |
+| SSH、telnet | ✅ |
+| VPN | ✅ 配置：WireGuard、OpenVPN、VLESS/VMess/Trojan/Shadowsocks 链接、Clash/mihomo、原始 Xray 或 sing-box JSON；kill switch、Tailscale 走隧道；[openf50-linux-vpn](https://github.com/dikeckaan/mu300-linux-vpn) 的模块 |
+| 蓝牙 | ✅ BlueZ，可扫描 |
+| GPU（Mali-G57） | ✅ OpenCL 3.0，无头 |
+| 存储 | ✅ 64 GB 设备内部 eMMC 未用区域约 32 GB；32 GB 设备由你选择与 Android 的分割比例，或用 SD 卡（F50） |
+| 内存 | ✅ 可用约 1.4 GB（MemTotal 1473 MiB；其余大部分被调制解调器固件保留） |
+| 温控、状态 LED、SIM 卡托 | ✅ |
+| U30 Air：电池、按键、NFC、USB host | ✅ 每个内核都有电池读数；每个内核都可充电（主线自 v2026.10.12 起），充电上限和 Type-C 充电电流自 v2026.10.20 起（见[支持的设备](#supported-devices)）；USB host 仅主线，外部供电时也可用 |
+| 网页面板 | ✅ OpenWrt：LuCI，以及 `openwrt-luci` 上的 OPENF50 控制面板（浏览器内带终端）；Ubuntu：Cockpit 带 OPENF50 页面，作为面板扩展；两者都支持经 USB adb 到 Linux（默认关闭） |
+| 回到 Android、自动回退 | ✅ |
+| 屏幕输出（USB-C HDMI） | ✗ USB-C 供电芯片从不应答，所以无显示 |
+| 声音 | ✗ 主板无扬声器无麦克风。经调制解调器音频 DSP 的通话音频仍在开发中，未进发布（`kernel/build-audio.sh`、`openf50-audio-dsp`、`openf50-voice`）：有了它们声卡能起来（`sprdphone-sc2730`，19 个 PCM 设备），DSP 有应答，但任何场景都没有声音流动，无音频的通话约 20 秒后结束，与该板在 Android 下一致（[FINDINGS 24, 24b](docs/FINDINGS.md)）。kano 的 [e5-linux](https://github.com/kanoqwq/e5-linux) 的通话序列和内核修复已移植，以蓝牙耳机为输出（`openf50-voice audio start bt`、`tools/hfp`）；DSP 镜像由你自己提供（`openf50-audio-dsp install`），有了它之后尚未实测（[FINDINGS 24c](docs/FINDINGS.md)）。内核有 USB 音频驱动，此处未试 |
 
-## How it works, in short
+## 原理简述
 
-The device has two Android boot slots, A and B. Android lives on one of them (A, when the computer installer is
-used) and is left alone. The installer puts a Linux kernel into the other slot and marks it as a trial. At boot, a
-small startup program loads the device's drivers, finds the Linux filesystem on the SD card or in the unused part of
-the internal storage and starts Ubuntu or OpenWrt from it. If Linux fails to start several times in a row (5 unless
-you chose otherwise), the device falls back to Android by itself. Three small Android programs (`modem_control`,
-`refnotify`, `cp_diskserver`) keep running inside Linux in a sandbox, because the modem needs them. From v2026.10.20
-the first two run under a system account of their own, `openf50vnd`, with only the capabilities they keep on Android,
-and the modem's device nodes (its calibration partitions among them) belong to that account rather than to the login
-user, and nothing in `/dev` is world-writable ([FINDINGS 41](docs/FINDINGS.md)).
+设备有两个 Android 启动槽位：A 和 B。Android 住在其中一个里（用电脑安装程序时
+是 A），不被触碰。安装程序把 Linux 内核放进另一个槽位并标记为试启动。开机时，
+一个小启动程序加载设备驱动，在 SD 卡或内部存储的未用区域找到 Linux 文件系统，
+并从中启动 Ubuntu 或 OpenWrt。如果 Linux 连续几次启动失败（除非你另选，默认 5 次），
+设备自行回退到 Android。三个 Android 小程序（`modem_control`、
+`refnotify`、`cp_diskserver`）在 Linux 内的沙箱中持续运行，因为调制解调器需要它们。
+从 v2026.10.20 起，前两个运行在自己的系统账号 `openf50vnd` 下，只带它们在 Android 上
+保留的权能（capabilities），调制解调器的设备节点（包括其校准分区）属于该账号
+而非登录用户，`/dev` 中没有任何全局可写文件（[FINDINGS 41](docs/FINDINGS.md)）。
 
-The 5.4 kernel is built from ZTE's published (GPL) source; 6.18 and 7.2 are mainline Linux with this project's
-patches and the vendor drivers ported to them ([`upstream/`](upstream/)). The reasoning behind each step is in
-[`docs/FINDINGS.md`](docs/FINDINGS.md), and the full build is in [`docs/BUILD.md`](docs/BUILD.md).
+5.4 内核由 ZTE 发布的（GPL）源码构建；6.18 和 7.2 是主线 Linux 加上本项目的
+补丁和移植过去的厂商驱动（[`upstream/`](upstream/)）。每一步背后的推理在
+[`docs/FINDINGS.md`](docs/FINDINGS.md)，完整构建流程在 [`docs/BUILD.md`](docs/BUILD.md)。
 
-## Common problems
+## 常见问题
 
-**The device does not come back after installing.** Wait two minutes. If there is still nothing, unplug and replug
-it. Every boot that does not finish counts, and after 5 of them in a row (or the number you chose) the device starts
-Android. Collect logs with `tools/collect-logs.sh`.
+**安装后设备没回来。** 等两分钟。如果还是没有，拔掉重插。每次没完成的启动都计数，
+连续 5 次（或你选的次数）后设备启动 Android。用 `tools/collect-logs.sh` 收集日志。
 
-**Back in Android without having asked for it, on kernel 6.18.** About one boot in 20 hangs in its first seconds
-([FINDINGS 31m](docs/FINDINGS.md)), and the device then falls back to Android. Start Linux again with the Linux
-button of the Magisk module or `su -c openf50-linux`.
+**内核 6.18 上，没要求却回到了 Android。** 大约每 20 次开机有一次在最初几秒卡死
+（[FINDINGS 31m](docs/FINDINGS.md)），随后设备回退到 Android。用 Magisk 模块的 Linux
+按钮或 `su -c openf50-linux` 再次启动 Linux。
 
-**The computer sees the device but gets no address (macOS).** macOS does not set up a network interface it has
-never seen while the screen is locked. Each device has its own USB MAC address, so the first time one is plugged in
-(or after an update that brought these addresses) unlock the Mac, and the interface appears. With both an F50 and a
-U30 Air plugged in, they are `192.168.77.1` and `192.168.78.1`; two of the same kind need `/etc/openf50/lan.conf` to
-tell them apart.
+**电脑看得到设备但拿不到地址（macOS）。** macOS 在锁屏时不会配置它从未见过的
+网络接口。每台设备有自己的 USB MAC 地址，所以第一次插入某台设备时（或在
+带来这些地址的更新之后）解锁 Mac，接口就会出现。F50 和 U30 Air 同时插入时，
+分别是 `192.168.77.1` 和 `192.168.78.1`；两台同型号设备需要 `/etc/openf50/lan.conf`
+来区分。
 
-**No internet.** Check that the SIM has a data plan, then run `sudo mobile-data status`. A missing plan looks like a
-connection that keeps dropping.
+**没有网络。** 先确认 SIM 卡有流量套餐，再运行 `sudo mobile-data status`。没套餐
+看起来就像连接不停掉线。
 
-**OpenWrt on kernel 5.4: no address, no web interface, nothing connects to the hotspot** (releases up to
-v2026.10.11). The firewall's boot ruleset had no rules for the LAN, and on 5.4 the reload that should have added them
-always failed ([FINDINGS 38c](docs/FINDINGS.md)). Fixed from the next release; until then the USB serial console
-(`ttyGS0`, a root shell) is the way in, and `nft delete flowtable inet fw4 ft; fw4 reload` brings the LAN up. On
-5.4 a firewall change saved in LuCI still needs those two commands (or a reboot) to take effect.
+**内核 5.4 上的 OpenWrt：没有地址、没有网页界面、热点无人连得上**（v2026.10.11
+及之前的版本）。防火墙的开机规则集没有 LAN 的规则，5.4 上本该补上它们的
+reload 总是失败（[FINDINGS 38c](docs/FINDINGS.md)）。从下一版本起修复；在那之前，
+USB 串口控制台（`ttyGS0`，root shell）是入口，`nft delete flowtable inet fw4 ft; fw4 reload`
+可拉起 LAN。5.4 上在 LuCI 保存的防火墙改动仍需那两条命令（或重启）才能生效。
 
-**The hotspot does not start on a 5 GHz channel between 52 and 144** (hostapd: `start_dfs_cac() failed`,
-`AP-DISABLED`; releases up to v2026.10.18). Those are DFS channels, and the Wi-Fi driver cannot detect radar
-([FINDINGS 42](docs/FINDINGS.md)). Fixed from v2026.10.20 on: such a channel is replaced by 36 (or 149). Until then
-choose 36-48 or 149-165 (165 at 20 MHz), or `auto` on Ubuntu.
+**热点无法在 52 到 144 之间的 5 GHz 信道启动**（hostapd：`start_dfs_cac() failed`、
+`AP-DISABLED`；v2026.10.18 及之前的版本）。那些是 DFS 信道，而 Wi-Fi 驱动无法检测雷达
+（[FINDINGS 42](docs/FINDINGS.md)）。从 v2026.10.20 起修复：这种信道会被替换为 36
+（或 149）。在那之前请选 36-48 或 149-165（165 用 20 MHz），Ubuntu 上可用 `auto`。
 
-**The control panel stops answering after an AT command got stuck** (`openwrt-luci`, releases up to v2026.10.18):
-every page went blank, even the battery tile, and came back by itself after minutes. The panel's lock wait counted
-whole seconds instead of tenths, and some pages read the modem inside the request ([FINDINGS 40](docs/FINDINGS.md)).
-Fixed from v2026.10.20 on; until then wait, or restart `rpcd` and `openf50-atd`.
+**一条 AT 命令卡住后控制面板不再响应**（`openwrt-luci`，v2026.10.18 及之前的版本）：
+每个页面都空白，连电池卡片也是，几分钟后自行恢复。面板的锁等待按整秒计
+而非十分之一秒，且有些页面在请求内读调制解调器（[FINDINGS 40](docs/FINDINGS.md)）。
+从 v2026.10.20 起修复；在那之前请等待，或重启 `rpcd` 和 `openf50-atd`。
 
-**The installer prints nothing for minutes and the device gets hot.** A read past the end of the eMMC never
-returned on devices whose partition table ends at the end of the disk (the 32 GB variant and an F50 with no gap
-behind `userdata`; [FINDINGS 38a](docs/FINDINGS.md)). Fixed from the next release; reboot the device to end the
-stuck reads, then install with the new installer.
+**安装程序几分钟没有输出且设备发热。** 分区表结束位置恰好是磁盘结尾的设备
+（32 GB 版本和 `userdata` 后面没有空隙的 F50），读 eMMC 末尾之后的位置永不返回
+（[FINDINGS 38a](docs/FINDINGS.md)）。从下一版本起修复；重启设备结束卡住的读取，
+然后用新安装程序安装。
 
-**Kernel warnings are not in `journalctl -k`.** On Ubuntu they are in `journalctl -t kernel` (warnings and errors
-only, from the start of each boot, with the kernel's own timestamps; repeating vendor chatter is left out, see
-`/etc/openf50/kmsg-ignore`). Everything else is in `dmesg`.
+**内核警告不在 `journalctl -k` 里。** Ubuntu 上它们在 `journalctl -t kernel`
+（仅警告和错误，从每次开机起点开始，带内核自己的时间戳；重复的厂商噪音被过滤，见
+`/etc/openf50/kmsg-ignore`）。其余在 `dmesg`。
 
-**Websites think you are in another country.** The device has no GPS, so sites guess from the IP address; mobile
-operators and VPN servers often look like a different city.
+**网站以为你在另一个国家。** 设备没有 GPS，网站按 IP 地址猜测；移动运营商和
+VPN 服务器常常看起来像另一个城市。
 
-**I forgot the password, and Linux boots by default.** You do not need to log in to get out (unless Linux is
-[locked](#locked-linux): then the computer route below, step 2, is the way):
+**我忘了密码，而 Linux 默认启动。** 要脱身不需要登录（除非 Linux 被
+[锁定](#locked-linux)：那就走下面电脑路线的第 2 步）：
 
-1. **Back to Android:** unplug the device about ten seconds after it powers on, then plug it in again, as many
-   times in a row as the failed boots you chose (5 by default; `openf50-next-boot attempts`). The device then sees
-   unfinished boots and falls back to Android by itself (`openf50-boot-ok` only confirms a boot ~30 s after the
-   system is up, so an interrupted boot never counts as successful).
-2. **Set a new password** from your computer, without booting Linux:
+1. **回到 Android：** 设备通电约十秒后拔掉，再插上，连续重复你选择的
+   失败启动次数（默认 5；`openf50-next-boot attempts`）。设备会看到未完成的启动
+   并自行回退到 Android（`openf50-boot-ok` 只在系统起来约 30 秒后才确认启动，
+   所以中断的启动绝不算成功）。
+2. **设新密码**：从电脑上，不启动 Linux：
    ```sh
    tools/reset-password.sh            # ubuntu, openwrt or both
    ```
-   It mounts the Linux filesystem from Android and rewrites the password hash, keeping all your data.
-3. Start Linux again with `boot/android-boot-linux.sh work/boot-linux-slotb.img`, or reboot if Linux is the default.
+   它从 Android 挂载 Linux 文件系统并重写密码哈希，保留你的所有数据。
+3. 用 `boot/android-boot-linux.sh work/boot-linux-slotb.img` 再次启动 Linux，
+   或者如果 Linux 是默认系统就直接重启。
 
-Re-running `./install.sh` and choosing **update** keeps your data and sets the password you type (the Magisk zip's
-update keeps the old one unless `OPENF50_PASSWORD_RESET=yes` is in `/data/adb/openf50-install.conf`).
+重新运行 `./install.sh` 并选择 **update** 会保留你的数据并设置你输入的密码
+（Magisk zip 的更新保留旧密码，除非 `/data/adb/openf50-install.conf` 中有
+`OPENF50_PASSWORD_RESET=yes`）。
 
-**Downloads are slow.** GitHub's release CDN throttles single connections in some regions (0.2 MB/s on a
-180 Mbit/s line here). The installer already downloads in 8 parallel chunks, which measured 8x faster; set
-`OPENF50_FETCH_JOBS` to change that, or point `OPENF50_RELEASE_URL` at your own mirror.
+**下载慢。** GitHub 的发布 CDN 在某些地区限制单连接速度（这里 180 Mbit/s 的线路
+只有 0.2 MB/s）。安装程序已用 8 个并行分块下载，实测快 8 倍；
+用 `OPENF50_FETCH_JOBS` 调整，或把 `OPENF50_RELEASE_URL` 指向你自己的镜像。
 
-**Never use OpenWrt's `sysupgrade` or flash OpenWrt firmware images here.** They are written for ordinary computers
-and would overwrite the device's storage. A normal `apk upgrade` is fine, except `kernel` and `kmod-*` packages.
+**绝不要在这里用 OpenWrt 的 `sysupgrade` 或刷 OpenWrt 固件镜像。** 它们是为普通电脑
+写的，会覆盖设备的存储。正常的 `apk upgrade` 没问题，除了 `kernel` 和 `kmod-*` 软件包。
 
-## For developers
+## 开发者
 
-* [`docs/BUILD.md`](docs/BUILD.md) — build the kernel and images yourself (`kernel/build-all.sh` does it in one step).
-* [`docs/FINDINGS.md`](docs/FINDINGS.md) — everything learned about this hardware and why each workaround exists.
-* [`docs/DISTROS.md`](docs/DISTROS.md) — running other distributions (ImmortalWrt, Arch Linux ARM, Debian, Kali; the
-  Ubuntu image's `Dockerfile` takes another base with `--build-arg BASE=...`) and what the 5.4 kernel rules out.
-* [`upstream/`](upstream/) — the mainline kernel port, 6.18 LTS and 7.2.
-* [`tests/`](tests/README.md) — `cd tests && python3 -m unittest` runs them all (standard library only; `lz4` for
-  the boot image tests), and `python3 tools/check-i18n.py` checks the installers' translations. CI
-  (`.github/workflows/`): `tests.yml` on Ubuntu, macOS and Windows, `installer.yml` (translations, script syntax),
-  `mainline.yml` (the port built every week against the newest longterm and stable kernels) and `magisk.yml` (the
-  Magisk zips of each release).
-* [Releases](https://github.com/dikeckaan/openf50-linux/releases) — prebuilt images. They contain **no proprietary
-  files**; the installer takes those from your own device.
+* [`docs/BUILD.md`](docs/BUILD.md)——自行构建内核和镜像（`kernel/build-all.sh` 一步完成）。
+* [`docs/FINDINGS.md`](docs/FINDINGS.md)——关于这套硬件的所有发现，以及每个变通方案存在的原因。
+* [`docs/DISTROS.md`](docs/DISTROS.md)——运行其他发行版（ImmortalWrt、Arch Linux ARM、Debian、Kali；
+  Ubuntu 镜像的 `Dockerfile` 可用 `--build-arg BASE=...` 换底座），以及 5.4 内核排除掉的东西。
+* [`upstream/`](upstream/)——主线内核移植，6.18 LTS 和 7.2。
+* [`tests/`](tests/README.md)——`cd tests && python3 -m unittest` 运行全部（仅用标准库；
+  boot 镜像测试需要 `lz4`），`python3 tools/check-i18n.py` 检查安装程序的翻译。CI
+  （`.github/workflows/`）：`tests.yml` 在 Ubuntu、macOS 和 Windows 上跑，`installer.yml`
+  （翻译、脚本语法）、`mainline.yml`（每周对最新 longterm 和 stable 内核构建移植）和
+  `magisk.yml`（每个发布的 Magisk zip）。
+* [Releases](https://github.com/dikeckaan/openf50-linux/releases)——预构建镜像。它们
+  **不含任何专有文件**；安装程序从你自己的设备提取那些文件。
 
-| Path | Contents |
+| 路径 | 内容 |
 |---|---|
-| `install.sh`, `uninstall.sh` | installer and remover for macOS/Linux |
-| `install.ps1`, `uninstall.ps1` | the same for Windows (PowerShell); `install.cmd`, `uninstall.cmd` launch them from cmd.exe |
-| `kernel/` | kernel build environment, config, patches |
-| `boot/` | initramfs `init`, boot image builder, slot handling |
-| `rootfs/` | Ubuntu image: `Dockerfile`, `assemble.sh`, services and scripts in `overlay/` |
-| `openwrt/` | OpenWrt and ImmortalWrt image build; `luci-overlay/` and `luci-app-openf50/` make the `openwrt-luci` system |
-| `arch/` | Arch Linux ARM image build |
-| `upstream/` | the mainline kernel port (6.18, 7.2) |
-| `android/magisk/` | the Magisk module and the zip installer |
-| `android-vendor/` | scripts that copy the needed Android files from *your* device |
-| `tests/` | unit tests for the installers, the boot image, `boot/init` and the device scripts |
-| `tools/` | helper programs, release tooling, backup, SSH/serial/log helpers |
+| `install.sh`、`uninstall.sh` | macOS/Linux 的安装程序和卸载程序 |
+| `install.ps1`、`uninstall.ps1` | Windows（PowerShell）的对应脚本；`install.cmd`、`uninstall.cmd` 从 cmd.exe 启动它们 |
+| `kernel/` | 内核构建环境、配置、补丁 |
+| `boot/` | initramfs `init`、启动镜像构建器、槽位处理 |
+| `rootfs/` | Ubuntu 镜像：`Dockerfile`、`assemble.sh`，服务和脚本在 `overlay/` |
+| `openwrt/` | OpenWrt 和 ImmortalWrt 镜像构建；`luci-overlay/` 和 `luci-app-openf50/` 组成 `openwrt-luci` 系统 |
+| `arch/` | Arch Linux ARM 镜像构建 |
+| `upstream/` | 主线内核移植（6.18、7.2） |
+| `android/magisk/` | Magisk 模块和 zip 安装器 |
+| `android-vendor/` | 从*你的*设备复制所需 Android 文件的脚本 |
+| `tests/` | 安装程序、启动镜像、`boot/init` 和设备脚本的单元测试 |
+| `tools/` | 辅助程序、发布工具、备份、SSH/串口/日志助手 |
 
-The kernel source used here is mirrored at
-[`dikeckaan/zte-ums9620-kernel-5.4.254`](https://github.com/dikeckaan/zte-ums9620-kernel-5.4.254).
+这里使用的内核源码镜像在
+[`dikeckaan/zte-ums9620-kernel-5.4.254`](https://github.com/dikeckaan/zte-ums9620-kernel-5.4.254)。
 
-## Credits and licenses
+## 致谢与许可证
 
-* Kernel source: ZTE's GPL release for the U30 Air (mirrored by Enceka) and the Unisoc drivers in it — GPL-2.0.
-  The mainline kernels are Linux from kernel.org — GPL-2.0.
-* Wi-Fi, Bluetooth and GPU drivers: realme C51/C53 AndroidT kernel release — GPL-2.0; the patches in
-  `kernel/patches` are GPL-2.0.
-* Scripts, tools and documentation in this repository: MIT (see `LICENSE`).
-* kanoqwq (`kanoqwq/openf50-linux`, `clean-tf-7.2`): `openwrt/luci-app-openf50`, the control panel, changed here; the
-  idea of the SD card installation and the core of its boot-side change; and fixes ported from that branch (the
-  faster USB rebind, the early DHCP lease, RNDIS, the radio-on sequence; on `openwrt-luci` the SMS pool and IPv6
-  relay mode), measured in [FINDINGS 35](docs/FINDINGS.md).
-* The Aurora theme (`luci-theme-aurora`) by eamonxg is downloaded at build time, pinned and checked by hash.
-* The VPN module ([openf50-linux-vpn](https://github.com/dikeckaan/mu300-linux-vpn)) carries
-  [Xray-core](https://github.com/XTLS/Xray-core) (MPL-2.0), [sing-box](https://github.com/SagerNet/sing-box)
-  (GPL-3.0-or-later), [hev-socks5-tunnel](https://github.com/heiher/hev-socks5-tunnel) (MIT) and, as vpn-mihomo,
-  [mihomo](https://github.com/MetaCubeX/mihomo) (MIT); its releases list them.
+* 内核源码：ZTE 为 U30 Air 发布的 GPL 版本（由 Enceka 镜像）及其中 Unisoc 驱动——GPL-2.0。
+  主线内核是 kernel.org 的 Linux——GPL-2.0。
+* Wi-Fi、蓝牙和 GPU 驱动：realme C51/C53 AndroidT 内核发布——GPL-2.0；
+  `kernel/patches` 中的补丁为 GPL-2.0。
+* 本仓库中的脚本、工具和文档：MIT（见 `LICENSE`）。
+* kanoqwq（`kanoqwq/openf50-linux`，`clean-tf-7.2`）：`openwrt/luci-app-openf50`（控制面板，
+  此处有修改）；SD 卡安装的构想及其启动侧改动的核心；以及从该分支移植的修复
+  （更快的 USB 重绑定、提前的 DHCP 租约、RNDIS、射频开启序列；`openwrt-luci` 上的短信池和
+  IPv6 中继模式），实测见 [FINDINGS 35](docs/FINDINGS.md)。
+* eamonxg 的 Aurora 主题（`luci-theme-aurora`）在构建时下载，版本固定并按哈希校验。
+* VPN 模块（[openf50-linux-vpn](https://github.com/dikeckaan/mu300-linux-vpn)）包含
+  [Xray-core](https://github.com/XTLS/Xray-core)（MPL-2.0）、[sing-box](https://github.com/SagerNet/sing-box)
+  （GPL-3.0-or-later）、[hev-socks5-tunnel](https://github.com/heiher/hev-socks5-tunnel)（MIT），
+  以及作为 vpn-mihomo 的 [mihomo](https://github.com/MetaCubeX/mihomo)（MIT）；其发布会列出它们。
 
-* Stock firmware, Android vendor components and bootloaders belong to their owners and are not distributed here.
-  The one stock image the project keeps available, the `trustos` (TEE) image for firmware `ZYV1.0.0B09` as a
-  last-resort repair for devices whose own TEE is damaged, is hosted on the Internet Archive
-  (https://archive.org/details/zte-f50-openf50-trustos-ZYV1.0.0B09; all rights to it remain with ZTE/Unisoc). Read [`stock/README.md`](stock/README.md) before touching it — it can make
-  a non-booting device worse.
+* 原厂固件、Android 厂商组件和 bootloader 归各自所有者，不在此分发。
+  项目保留的唯一原厂镜像——固件 `ZYV1.0.0B09` 的 `trustos`（TEE）镜像，
+  用作自身 TEE 损坏设备的最后修复手段——托管在 Internet Archive
+  （https://archive.org/details/zte-f50-openf50-trustos-ZYV1.0.0B09；其一切权利归 ZTE/Unisoc 所有）。
+  使用前请先读 [`stock/README.md`](stock/README.md)——它可能让
+  本就启动不了的设备更糟。

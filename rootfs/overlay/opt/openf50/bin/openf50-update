@@ -228,13 +228,13 @@ latest_release() {
 
 
 # --- auto-update begin
-# auto-update 开关在 /etc/openf50/auto-update（on/off），定时跑由 /etc/crontabs/root 里的一行负责
-#（该文件随系统更新保留，FINDINGS 83）。auto-run 每天由 cron 触发：发现新版就 apply（自带重启）。
+# the auto-update switch lives in /etc/openf50/auto-update (on/off); the daily run is one line in
+# /etc/crontabs/root (kept across updates, FINDINGS 83). auto-run: a newer release gets applied (with its reboot).
 AUTO_LOG=$DISK/.openf50/auto-update.log
 auto() {  # auto [on|off|status|run]
     _f=$CONF/auto-update
     case ${1:-status} in
-        on)  echo on > "$_f"; auto_cron add; echo "auto-update: on（每天 04:15 检查并应用；日志 $AUTO_LOG）" ;;
+        on)  echo on > "$_f"; auto_cron add; echo "auto-update: on (daily at 04:15; log $AUTO_LOG)" ;;
         off) echo off > "$_f"; auto_cron del; echo "auto-update: off" ;;
         run) auto_run ;;
         status)

@@ -722,7 +722,7 @@ class Rules(unittest.TestCase):
                                               'nft delete flowtable inet fw4 ft'], (rel, calls))
         # software offloading on, hardware off: the SIPA and SC2355 drivers have no nftables hardware offload
         uci = (OPENWRT / 'etc' / 'uci-defaults' / '90-openf50').read_text()
-        self.assertIn("uci -q set firewall.@defaults[0].flow_offloading='1'", uci)
+        self.assertIn("uci -q set firewall.@defaults[0].flow_offloading='0'", uci)  # OpenF50: 默认关闭（实机坑）
         self.assertIn("uci -q set firewall.@defaults[0].flow_offloading_hw='0'", uci)
         self.assertIn('uci commit firewall', uci)
 

@@ -1,30 +1,28 @@
 # Building from Source
 
-**In one sentence:** you never need this to install (the installer downloads ready-made images), but everything can be
-built from public sources with Docker.
+**一句话概括：** 安装永远不需要本页（安装器会下载现成镜像），但一切都可以用 Docker 从公开源码构建。
 
-**The simple version:** the releases are bread from the bakery. This page is the recipe, for when you want to bake it
-yourself or change an ingredient.
+**通俗版说明：** 发布包是面包房的面包。本页是配方，留给想自己烤或改配料的人。
 
-The full, authoritative instructions are in
-[docs/BUILD.md](https://github.com/dikeckaan/openf50-linux/blob/main/docs/BUILD.md). This page is a map.
+完整的权威说明在
+[docs/BUILD.md](https://github.com/dikeckaan/openf50-linux/blob/main/docs/BUILD.md)。本页是地图。
 
-## What a release contains
+## 发布包包含什么
 
-| File | Contents |
+| 文件 | 内容 |
 |---|---|
-| `openf50-kernel.tar.gz` | Linux 5.4.254 `Image` and modules (with the U30 Air's own), static busybox and logdw, the generic boot ramdisk segment |
-| `openf50-kernel-6.18.tar.gz`, `openf50-kernel-7.2.tar.gz` | the mainline kernels and their modules |
-| `openf50-ubuntu-rootfs.tar.gz`, `openf50-ubuntu-26.04-rootfs.tar.gz` | Ubuntu 24.04 and 26.04 |
-| `openf50-openwrt-rootfs.tar.gz`, `openf50-openwrt-luci-rootfs.tar.gz` | OpenWrt 25.12.5, plain and with the control panel |
-| `openf50-extra-lang.tar.gz` | more web interface languages |
-| `openf50-update` | the on-device updater |
-| `openf50-magisk-*.zip` | Magisk installers, one per system and kernel |
-| `SHA256SUMS`, `SHA256SUMS-magisk` | checksums |
+| `openf50-kernel.tar.gz` | Linux 5.4.254 `Image` 和模块（含 U30 Air 自己的）、静态 busybox 和 logdw、通用启动 ramdisk 段 |
+| `openf50-kernel-6.18.tar.gz`、`openf50-kernel-7.2.tar.gz` | 主线内核及其模块 |
+| `openf50-ubuntu-rootfs.tar.gz`、`openf50-ubuntu-26.04-rootfs.tar.gz` | Ubuntu 24.04 和 26.04 |
+| `openf50-openwrt-rootfs.tar.gz`、`openf50-openwrt-luci-rootfs.tar.gz` | OpenWrt 25.12.5，纯净版和带控制面板版 |
+| `openf50-extra-lang.tar.gz` | 更多网页界面语言 |
+| `openf50-update` | 设备上的更新器 |
+| `openf50-magisk-*.zip` | Magisk 安装包，每个系统和内核一个 |
+| `SHA256SUMS`、`SHA256SUMS-magisk` | 校验和 |
 
-The images contain **no proprietary files**; the installer takes those from your own device.
+镜像**不含专有文件**；安装器从你自己的设备取那些。
 
-## How a boot goes
+## 一次启动的经过
 
 ```mermaid
 flowchart TD
@@ -39,57 +37,56 @@ flowchart TD
     S --> W[Wi-Fi, mobile data, Bluetooth, SSH]
 ```
 
-## The build in one step
+## 一步构建
 
 ```sh
 kernel/build-all.sh    # -> out/Image, out/modules/*.ko, out/modules.builtin*
 ```
 
-That builds the 5.4 kernel and its Wi-Fi, Bluetooth and Mali modules from pinned public sources with all patches
-applied (about 10 minutes on Apple silicon). Then:
+它从固定版本的公开源码带全部补丁构建 5.4 内核及其 Wi-Fi、蓝牙和 Mali 模块（Apple silicon 上约 10 分钟）。
+然后：
 
-* **Root filesystems:** Ubuntu from `rootfs/` (Docker), OpenWrt with `openwrt/build-rootfs.sh`, the control-panel system
-  with `OPENF50_SYSTEM=openwrt-luci openwrt/build-rootfs.sh`.
-* **Install your own build:** `./install.sh --build` uses your local kernel outputs and builds the root filesystems
-  instead of downloading them.
-* **Release:** `tools/make-release.sh TAG --publish` (it refuses to publish an image that contains firmware, Android
-  files, host keys or local settings), or the Release workflow in GitHub Actions.
-* **Magisk zips:** `tools/make-magisk-zips.sh RELEASE_DIR OUT_DIR`.
+* **根文件系统：** Ubuntu 从 `rootfs/`（Docker），OpenWrt 用 `openwrt/build-rootfs.sh`，带控制面板的系统
+  用 `OPENF50_SYSTEM=openwrt-luci openwrt/build-rootfs.sh`。
+* **安装你自己的构建：** `./install.sh --build` 使用你本地的内核产物并构建根文件系统，而不是下载。
+* **发布：** `tools/make-release.sh TAG --publish`（它拒绝发布含固件、Android 文件、主机密钥或本地设置
+  的镜像），或 GitHub Actions 里的 Release 工作流。
+* **Magisk zip：** `tools/make-magisk-zips.sh RELEASE_DIR OUT_DIR`。
 
-## Sources
+## 源码来源
 
-* 5.4 kernel: ZTE's GPL release for the U30 Air, mirrored at
-  [dikeckaan/zte-ums9620-kernel-5.4.254](https://github.com/dikeckaan/zte-ums9620-kernel-5.4.254).
-* Wi-Fi, Bluetooth and GPU drivers: realme C51/C53 AndroidT kernel release (GPL-2.0).
-* Mainline 6.18 and 7.2: kernel.org Linux plus the port in
-  [`upstream/`](https://github.com/dikeckaan/openf50-linux/tree/main/upstream).
-* Each release's notes list the exact source commits.
+* 5.4 内核：ZTE 为 U30 Air 发布的 GPL 源码，镜像在
+  [dikeckaan/zte-ums9620-kernel-5.4.254](https://github.com/dikeckaan/zte-ums9620-kernel-5.4.254)。
+* Wi-Fi、蓝牙和 GPU 驱动：realme C51/C53 AndroidT 内核发布（GPL-2.0）。
+* 主线 6.18 和 7.2：kernel.org 的 Linux 加
+  [`upstream/`](https://github.com/dikeckaan/openf50-linux/tree/main/upstream) 里的移植。
+* 每个发布包的说明列出确切的源码提交。
 
-## Other distributions
+## 其他发行版
 
-Debian 13, Kali, Arch Linux ARM and ImmortalWrt build from this repository too; how, and what to expect:
-[docs/DISTROS.md](https://github.com/dikeckaan/openf50-linux/blob/main/docs/DISTROS.md). A distribution must be arm64 and
-work on the kernel you run; one with a different init system than systemd or procd needs its ~15 services written again.
+Debian 13、Kali、Arch Linux ARM 和 ImmortalWrt 也能从本仓库构建；怎么构建、会有什么坑：
+[docs/DISTROS.md](https://github.com/dikeckaan/openf50-linux/blob/main/docs/DISTROS.md)。发行版必须是
+arm64 且能在你运行的内核上工作；init 系统不是 systemd 或 procd 的需要重写约 15 个服务。
 
-## Repository layout
+## 仓库布局
 
-| Path | Contents |
+| 路径 | 内容 |
 |---|---|
-| `install.sh`, `install.ps1`, `install.cmd` | installers (macOS/Linux, Windows) |
-| `uninstall.*` | removers |
-| `kernel/` | kernel build environment, config, patches |
-| `upstream/` | the mainline kernel port |
-| `boot/` | initramfs `init`, boot image builder, slot handling |
-| `rootfs/` | Ubuntu image and the device services in `overlay/` |
-| `openwrt/` | OpenWrt builds and the control panel |
-| `arch/` | Arch Linux ARM build |
-| `android/magisk/` | the Magisk module and zip installer |
-| `android-vendor/` | scripts that copy the needed Android files from your device |
-| `tests/` | unit tests |
-| `tools/` | helpers: backup, logs, release tooling |
-| `docs/` | BUILD, DISTROS, FINDINGS |
+| `install.sh`、`install.ps1`、`install.cmd` | 安装器（macOS/Linux、Windows） |
+| `uninstall.*` | 卸载器 |
+| `kernel/` | 内核构建环境、配置、补丁 |
+| `upstream/` | 主线内核移植 |
+| `boot/` | initramfs `init`、启动镜像构建器、槽位处理 |
+| `rootfs/` | Ubuntu 镜像和 `overlay/` 里的设备服务 |
+| `openwrt/` | OpenWrt 构建和控制面板 |
+| `arch/` | Arch Linux ARM 构建 |
+| `android/magisk/` | Magisk 模块和 zip 安装器 |
+| `android-vendor/` | 从你的设备复制所需 Android 文件的脚本 |
+| `tests/` | 单元测试 |
+| `tools/` | 辅助工具：备份、日志、发布工具 |
+| `docs/` | BUILD、DISTROS、FINDINGS |
 
-## Licences
+## 许可证
 
-Scripts, tools and documentation: MIT. Kernel and the patches in `kernel/patches`: GPL-2.0. Stock firmware and Android
-vendor components belong to their owners and are not distributed here.
+脚本、工具和文档：MIT。内核和 `kernel/patches` 里的补丁：GPL-2.0。原厂固件和 Android 厂商组件属于其
+所有者，不在此分发。

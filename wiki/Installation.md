@@ -1,14 +1,13 @@
 # Installation
 
-**In one sentence:** you plug the rooted device into a computer, run one script that first only *looks*, then run
-it again to install, answer a few questions, type `INSTALL`, and the device restarts into Linux.
+**一句话概括：** 把已 root 的设备插到电脑上，先运行一个只*看*不动的脚本，再运行一次正式安装，回答几个问题，
+输入 `INSTALL`，设备就会重启进入 Linux。
 
-**The simple version:** the installer is a careful mover. It measures the empty room first (`--check`), tells you
-exactly which boxes it will put where, waits for you to say yes, and never moves Android's furniture.
+**通俗版说明：** 安装器是个细心的搬家公司。它先量好空房间（`--check`），精确告诉你哪个箱子放在哪里，
+等你点头，并且绝不动 Android 的家具。
 
-> **Hobby project, no warranty.** Rooting and unlocking are not part of this project and happen at your own risk.
-> A wrong step, a power cut or a bad cable can still leave a device unusable. Keep a backup. See the
-> [full notice](https://github.com/dikeckaan/openf50-linux#a-hobby-project-at-your-own-risk).
+> **业余项目，无担保。** Root 和解锁不是本项目的一部分，风险自负。一次误操作、断电或一根坏数据线仍可能
+> 让设备无法使用。请做好备份。见[完整声明](https://github.com/dikeckaan/openf50-linux#a-hobby-project-at-your-own-risk)。
 
 ```mermaid
 flowchart TD
@@ -23,44 +22,43 @@ flowchart TD
     H --> I["ssh ubuntu@192.168.77.1<br/>(U30 Air: 192.168.78.1)"]
 ```
 
-## What you need
+## 你需要什么
 
-* A **ZTE F50 / OPENF50** or **ZTE U30 Air** that is already **rooted and unlocked**: it must already boot a modified
-  Android boot image. Getting there is not part of this project.
-* **USB debugging** enabled, and the device connected by USB.
-* A computer with **`adb`**:
-  * **macOS or Linux:** also Python 3, `lz4` and `curl` (usually already there).
-  * **Windows 10/11:** PowerShell. The installer installs Python 3 (for your user, with winget or from python.org)
-    and its `lz4` module itself when they are missing. Use `install.ps1`, or `install.cmd` from cmd.exe (no
-    execution-policy change needed).
-* About 15 minutes.
+* 一台已经 **root 并解锁**的 **ZTE F50 / OPENF50** 或 **ZTE U30 Air**：它必须已经能启动修改过的 Android
+  启动镜像。如何做到这一步不属于本项目。
+* 已开启 **USB 调试**，设备通过 USB 连接。
+* 一台装有 **`adb`** 的电脑：
+  * **macOS 或 Linux：** 另需 Python 3、`lz4` 和 `curl`（通常已自带）。
+  * **Windows 10/11：** PowerShell。缺少时安装器会自行安装 Python 3（为你的用户，通过 winget 或来自
+    python.org）及其 `lz4` 模块。使用 `install.ps1`，或在 cmd.exe 中用 `install.cmd`（无需修改
+    执行策略）。
+* 约 15 分钟。
 
-Get the project with `git clone https://github.com/dikeckaan/openf50-linux` or download it as a zip from GitHub. You
-do not need to download the images yourself: the installer fetches the newest release and checks its SHA256 sums.
+用 `git clone https://github.com/dikeckaan/openf50-linux` 获取本项目，或从 GitHub 下载 zip。你不需要自己
+下载镜像：安装器会获取最新发布包并校验其 SHA256。
 
-## What gets written (and what never does)
+## 会写入什么（以及绝不写什么）
 
-* Linux goes into **empty, unused space** on the internal storage (about 32 GiB on the usual 64 GB device), or onto
-  an **SD card** (F50 only).
-* The installer writes the boot partition of the slot Android is **not** on (`boot_b`, or `boot_a` when Android runs
-  from slot b, as it often does after an OTA update) and **32 bytes of `misc`**.
-* On the 64 GB device, **Android, its data and the partition table are never modified.**
-* The exception is the 32 GB variant, see below.
-* From v2026.10.20 the installer also copies the **boot chain** of Android's slot to the Linux slot where the two
-  differ, see [below](#the-boot-chain-of-the-linux-slot).
+* Linux 装进内置存储中**空闲、未使用的空间**（常见的 64 GB 设备上约 32 GiB），或装到 **SD 卡**上
+  （仅 F50）。
+* 安装器写入 Android **不在**的那个槽位的 boot 分区（`boot_b`，当 Android 从槽位 b 运行时则写 `boot_a`，
+  OTA 更新后常常如此）以及 **32 字节的 `misc`**。
+* 在 64 GB 设备上，**Android、其数据和分区表绝不被修改。**
+* 例外是 32 GB 变体，见下文。
+* 从 v2026.10.20 起，安装器还会在两个槽位不同时把 Android 槽位的**启动链**复制到 Linux 槽位，见
+  [下文](#the-boot-chain-of-the-linux-slot)。
 
-### The boot chain of the Linux slot
+### Linux 槽位的启动链
 
-Linux boots with the bootloader chain of its own slot but runs Android's modem. After an Android update (OTA) the two
-slots hold different firmware builds, and the Linux slot's chain is still the factory one, which has kept the modem
-from starting on updated devices (issue #86). So the installer copies `uboot`, `sml`, `teecfg`, `trustos` and
-`vbmeta` of Android's slot to the Linux slot whenever they differ - only those five, never the NV or calibration
-partitions or anything of Android's slot. The images the Linux slot held are backed up first (`.openf50/bootchain/` on
-the Linux filesystem and `work/bootchain/` on the computer), every written image is read back, and a mismatch puts
-the old ones back and stops before Linux is armed. The summary says what it will do ("boot chain: identical on both
-slots" on a device that never took an update). Experts skip it with `OPENF50_SYNC_BOOTCHAIN=0` (`install.ps1
--NoBootchainSync`). From Android, `su -c 'openf50-linux bootchain'` shows the state and `... bootchain sync` copies.
-Thanks to kano for the advice.
+Linux 用它自己槽位的引导链启动，但运行 Android 的调制解调器。Android 更新（OTA）之后，两个槽位里的
+固件版本不同，而 Linux 槽位的链还是出厂那套，这曾让更新过的设备无法启动调制解调器（issue #86）。所以
+安装器在两者不同时，把 Android 槽位的 `uboot`、`sml`、`teecfg`、`trustos` 和 `vbmeta` 复制到 Linux
+槽位——只复制这五个，绝不碰 NV 或校准分区，也不碰 Android 槽位的其他任何东西。Linux 槽位原有的镜像会先
+备份（Linux 文件系统上的 `.openf50/bootchain/` 和电脑上的 `work/bootchain/`），每个写入的镜像都会回读，
+不匹配就把旧的放回去并在 Linux 武装之前停止。摘要会说明它将做什么（从未更新过的设备上是 "boot chain:
+identical on both slots"）。专家可用 `OPENF50_SYNC_BOOTCHAIN=0` 跳过（`install.ps1 -NoBootchainSync`）。
+在 Android 里，`su -c 'openf50-linux bootchain'` 查看状态，`... bootchain sync` 执行复制。感谢 kano 的
+建议。
 
 ```mermaid
 flowchart LR
@@ -71,17 +69,16 @@ flowchart LR
     SD[("SD card, F50 only<br/>ext4 labelled openf50sd")] -.->|"or here instead"| L
 ```
 
-## Step 0: back up what cannot be replaced (recommended)
+## 第 0 步：备份无法替代的东西（推荐）
 
 ```sh
 tools/backup-device.sh          # macOS / Linux, device in rooted Android
 ```
 
-It copies your unit's own data (`prodnv`, the modem calibration and IMEI partitions, the bootloader chain) to your
-computer and verifies every dump. Installing never touches these, but if they are ever lost no firmware download can
-bring them back. Keep the folder private: it contains your IMEI.
+它把你这台机器独有的数据（`prodnv`、调制解调器校准和 IMEI 分区、引导链）复制到电脑并校验每一份转储。
+安装绝不碰这些，但一旦丢失，任何固件下载都无法找回。请妥善保管该文件夹：里面有你的 IMEI。
 
-## Step 1: check the device (reads only)
+## 第 1 步：检查设备（只读）
 
 ```sh
 ./install.sh --check          # macOS / Linux
@@ -89,39 +86,36 @@ bring them back. Keep the folder private: it contains your IMEI.
 install.cmd -Check            # Windows (cmd)
 ```
 
-It prints the storage size, where Android's partitions end and how much free space follows. What the result means:
+它打印存储容量、Android 分区到哪里结束、后面有多少空闲空间。结果的含义：
 
-| `--check` says | Meaning |
+| `--check` 说 | 含义 |
 |---|---|
-| about 32 GiB free, `OK: free and empty, same layout as the tested device` | the usual 64 GB device, ready |
-| `OK: free and empty, smaller than on the tested device but enough for both systems` | fine |
-| `room for one system only` / `OpenWrt fits, Ubuntu does not` | a smaller gap: pick accordingly |
-| no free space at all | the **32 GB variant** (see below) |
-| `the installer will offer the SD card instead` | no room inside, but a card is in the slot: no repartitioning needed |
-| `WARNING: the unpartitioned space is not empty` | something wrote there; installing would overwrite it (you would have to type `overwrite`) |
+| 约 32 GiB 空闲，`OK: free and empty, same layout as the tested device` | 常见的 64 GB 设备，就绪 |
+| `OK: free and empty, smaller than on the tested device but enough for both systems` | 没问题 |
+| `room for one system only` / `OpenWrt fits, Ubuntu does not` | 空隙较小：据此选择 |
+| 完全没有空闲空间 | **32 GB 变体**（见下文） |
+| `the installer will offer the SD card instead` | 内部没地方，但卡槽里有卡：无需重新分区 |
+| `WARNING: the unpartitioned space is not empty` | 有东西写过那里；安装将覆盖它（你需要输入 `overwrite`） |
 
-If the numbers look like none of these, stop and [open an issue](https://github.com/dikeckaan/openf50-linux/issues)
-with what `--check` printed.
+如果数字与这些都不像，停下来，带着 `--check` 的输出[开一个 issue](https://github.com/dikeckaan/openf50-linux/issues)。
 
-### The 32 GB variant
+### 32 GB 变体
 
-On the 32 GB device `userdata` fills the whole disk, so there is no free space. You have two ways:
+在 32 GB 设备上 `userdata` 占满整盘，所以没有空闲空间。你有两条路：
 
-* **An SD card (F50):** erases nothing on the internal storage. The installer offers it.
-* **Shrink `userdata`:** the installer can make room, asks how many GiB to give Linux and keeps at least 4 GiB for
-  Android. **This rewrites the partition table and erases everything in Android. It is experimental** and you must
-  type `ERASE`. Take a full backup with `tools/backup-device.sh` first. Android sets its data up again on the next
-  boot; then run the installer again.
+* **SD 卡（F50）：** 不动内置存储上的任何东西。安装器会主动提供。
+* **收缩 `userdata`：** 安装器可以腾出空间，会问给 Linux 多少 GiB，并至少给 Android 留 4 GiB。
+  **这会重写分区表并清空 Android 里的一切。它是实验性的**，你必须输入 `ERASE`。先用
+  `tools/backup-device.sh` 做完整备份。Android 会在下次启动时重新初始化它的数据；然后再运行一次安装器。
 
-### The SD card (F50 only)
+### SD 卡（仅 F50）
 
-With a card of at least 700 MiB in the slot, the installer asks whether Linux goes there or into the internal free
-space (`OPENF50_STORAGE=sd` answers it). The card is formatted as ext4 labelled `openf50sd`; a card that holds another
-Linux (ext4) filesystem is never formatted. Insert the card while the device is **off**. A `openf50sd` card always
-starts first. Note: the boot image starts *any* card labelled `openf50sd`, so whoever holds the device can start a
-system of their own from a card. The U30 Air has no card slot.
+卡槽里有一张至少 700 MiB 的卡时，安装器会问 Linux 装到卡上还是内置空闲空间（`OPENF50_STORAGE=sd` 可直接
+回答）。卡会被格式化为 ext4，卷标 `openf50sd`；已装有其他 Linux（ext4）文件系统的卡绝不会被格式化。
+请在设备**关机**时插卡。`openf50sd` 卡总是优先启动。注意：启动镜像会启动*任何*卷标为 `openf50sd` 的卡，
+所以拿到设备的人可以从卡上启动他们自己的系统。U30 Air 没有卡槽。
 
-## Step 2: install
+## 第 2 步：安装
 
 ```sh
 ./install.sh                  # macOS / Linux
@@ -129,39 +123,38 @@ system of their own from a card. The U30 Air has no card slot.
 install.cmd                   # Windows (cmd)
 ```
 
-First it brings your copy of the project up to date from GitHub and restarts itself if anything changed
-(`OPENF50_NO_SELF_UPDATE=1` / `-NoSelfUpdate` skips that). Then it asks the language: English, Türkçe or 中文
-(`OPENF50_LANG=tr` or `.\install.ps1 -Lang zh` skips the question).
+它先把你这份项目副本从 GitHub 更新到最新，如有变化则自我重启（`OPENF50_NO_SELF_UPDATE=1` /
+`-NoSelfUpdate` 可跳过）。然后问语言：English、Türkçe 或 中文（`OPENF50_LANG=tr` 或
+`.\install.ps1 -Lang zh` 可跳过此问题）。
 
-### The questions, one by one
+### 逐个问题
 
-| The installer asks | What it means | If unsure |
+| 安装器问 | 含义 | 拿不准时 |
 |---|---|---|
-| *Where should the Linux filesystem go: internal storage or the SD card?* (only with a card) | where Linux lives | `internal` on a 64 GB device |
-| *What should be installed?* 1) Ubuntu LTS 2) OpenWrt 3) both | the system(s); see [Choosing a System](Choosing-a-System) | 3 (both) is the default |
-| *Which OpenWrt?* 1) the standard LuCI web interface 2) with the OPENF50 control panel | plain OpenWrt, or OpenWrt with the modem panel | see [Control Panel (LuCI)](Control-Panel-(LuCI)) |
-| *Which one should boot* | with two systems: which starts first | either; switch later with `openf50-os` |
-| *Which Ubuntu?* 1) 24.04 LTS 2) 26.04 LTS | Ubuntu release | 24.04 (the longest tested) |
-| *Boot Linux by default instead of Android?* | yes: Linux starts on every power-on, Android after failed boots | yes |
-| *Failed boots before Android (1-6)* | how many unfinished starts in a row before it gives up and goes to Android | 5 (default) |
-| *Copy Android's hotspot name and password to Linux?* | your Wi-Fi keeps its name and password | yes |
-| *Include the Mali GPU (OpenCL) userspace (~90 MiB)?* | GPU compute support | yes |
-| *Install the VPN module?* | the optional [VPN](VPN) (about 40 MB to download) | no, add it later if needed |
-| *Install the web panel for Ubuntu?* (Ubuntu only) | Cockpit with the OPENF50 page, from the release's offline file (about 24 MB more; see [Control Panel (LuCI)](Control-Panel-(LuCI)#a-web-panel-on-ubuntu-cockpit)) | no, add it later with `openf50-extra install panel` |
-| *adb to Linux is on and lets every computer in ... Let in only this computer's adb key instead?* | adb to Linux over the cable is on by default, with a root shell and no password for anyone who plugs in a cable; `yes` closes it to all but the computer you install from (see [adb to Linux](#adb-to-linux)) | no (every computer; change it later with `openf50-usb adb auth keys` or `openf50-usb adb off`) |
-| *Which kernel?* 1) 5.4 2) 6.18 3) 7.2 | the core of Linux; see [Kernels](Kernels) | 1 (5.4), or 2 (6.18) for Ubuntu 26.04 |
-| *update or wipe* (only when Linux is already there) | `update` keeps settings and data, `wipe` starts fresh | update |
-| *Password for the "ubuntu" user (Ubuntu) and "root" (OpenWrt)* | your login password, at least 6 characters | choose a good one |
+| *Where should the Linux filesystem go: internal storage or the SD card?*（仅在有卡时） | Linux 住在哪里 | 64 GB 设备上选 `internal` |
+| *What should be installed?* 1) Ubuntu LTS 2) OpenWrt 3) both | 装哪个（些）系统；见 [Choosing a System](Choosing-a-System) | 默认 3（都装） |
+| *Which OpenWrt?* 1) the standard LuCI web interface 2) with the OPENF50 control panel | 纯净 OpenWrt，还是带调制解调器面板的 OpenWrt | 见 [Control Panel (LuCI)](Control-Panel-(LuCI)) |
+| *Which one should boot* | 装两个系统时：哪个先启动 | 都行；之后可用 `openf50-os` 切换 |
+| *Which Ubuntu?* 1) 24.04 LTS 2) 26.04 LTS | Ubuntu 版本 | 24.04（测试时间最长） |
+| *Boot Linux by default instead of Android?* | 是：每次上电启动 Linux，启动失败若干次后进 Android | 是 |
+| *Failed boots before Android (1-6)* | 连续多少次未完成的启动后放弃并回退到 Android | 5（默认） |
+| *Copy Android's hotspot name and password to Linux?* | 你的 Wi-Fi 保持原来的名称和密码 | 是 |
+| *Include the Mali GPU (OpenCL) userspace (~90 MiB)?* | GPU 计算支持 | 是 |
+| *Install the VPN module?* | 可选的 [VPN](VPN)（约需下载 40 MB） | 否，需要时以后再加 |
+| *Install the web panel for Ubuntu?*（仅 Ubuntu） | Cockpit 加 OPENF50 页面，来自发布包的离线文件（约多 24 MB；见 [Control Panel (LuCI)](Control-Panel-(LuCI)#a-web-panel-on-ubuntu-cockpit)） | 否，以后可用 `openf50-extra install panel` 添加 |
+| *adb to Linux is on and lets every computer in ... Let in only this computer's adb key instead?* | 经数据线连到 Linux 的 adb 默认开启，任何插上数据线的人都能得到 root shell 且无需密码；答 `yes` 则只允许你用于安装的这台电脑（见 [adb to Linux](#adb-to-linux)） | 否（所有电脑；之后可用 `openf50-usb adb auth keys` 或 `openf50-usb adb off` 改） |
+| *Which kernel?* 1) 5.4 2) 6.18 3) 7.2 | Linux 的核心；见 [Kernels](Kernels) | 1（5.4），Ubuntu 26.04 选 2（6.18） |
+| *update or wipe*（仅在已有 Linux 时） | `update` 保留设置和数据，`wipe` 重新开始 | update |
+| *Password for the "ubuntu" user (Ubuntu) and "root" (OpenWrt)* | 你的登录密码，至少 6 个字符 | 选个好的 |
 
-**About the failed-boot count:** a boot counts as failed when it never finishes starting up (power goes, the battery
-runs out, Linux hangs) before about a minute after power-on. One good boot resets the count. Higher is more
-forgiving of flaky cables; lower gets you to Android sooner. It is also your way back to Android without a computer:
-cut the power while it is starting that many times in a row.
+**关于失败启动计数：** 一次启动在上电后约一分钟内没有完成启动（断电、电池耗尽、Linux 卡死）就算失败。
+一次成功的启动会把计数清零。数值高对接触不良的数据线更宽容；数值低让你更快回到 Android。它也是你不用
+电脑回到 Android 的方法：在它启动时连续断电这么多次。
 
-### The summary, and `INSTALL`
+### 摘要和 `INSTALL`
 
-The installer downloads the images, copies the Wi-Fi and modem files **from your own device** (the published images
-contain no proprietary files), then shows exactly what it will write, for example:
+安装器下载镜像，**从你自己的设备**复制 Wi-Fi 和调制解调器文件（发布的镜像不含任何专有文件），然后精确
+展示它将写入什么，例如：
 
 ```
 ==> Ready to install
@@ -173,47 +166,44 @@ contain no proprietary files), then shows exactly what it will write, for exampl
 Type INSTALL to continue [no]:
 ```
 
-Type `INSTALL` (in capitals) to go ahead; anything else cancels. It also installs a small Magisk module in Android
-so you can start Linux from Android later, then reboots into Linux.
+输入 `INSTALL`（大写）继续；输入其他任何内容都会取消。它还会在 Android 里装一个小 Magisk 模块，以便你
+以后从 Android 启动 Linux，然后重启进入 Linux。
 
-If the device is running Linux rather than Android when you start, the installer notices and offers to reboot it into
-Android for you: over adb where the device lets the computer in (the default; no password to type), else over SSH.
-A device in Linux is in `adb devices` too, as `OPENF50LINUX-...`, and is never installed to as it is.
+如果你开始时设备运行的是 Linux 而不是 Android，安装器会察觉并提议帮你重启进 Android：设备允许电脑进入
+时走 adb（默认；无需输入密码），否则走 SSH。处于 Linux 的设备也会出现在 `adb devices` 里，显示为
+`OPENF50LINUX-...`，绝不会被当作安装目标。
 
-## Step 3: log in
+## 第 3 步：登录
 
-Wait about a minute, then on the computer the device is plugged into:
+等约一分钟，然后在设备所插的电脑上：
 
 | | F50 / OPENF50 | U30 Air |
 |---|---|---|
 | Ubuntu | `ssh ubuntu@192.168.77.1` | `ssh ubuntu@192.168.78.1` |
 | OpenWrt | `ssh root@192.168.77.1` | `ssh root@192.168.78.1` |
-| OpenWrt web interface | http://192.168.77.1 | http://192.168.78.1 |
+| OpenWrt 网页界面 | http://192.168.77.1 | http://192.168.78.1 |
 
-Use the password you chose. The Wi-Fi network the device broadcasts is its hotspot; unless you chose otherwise it has
-the name and password copied from Android. A USB serial console is there too: `screen /dev/cu.usbmodem* 115200` on
-macOS. Then try `sudo openf50-toolkit`.
+使用你选的密码。设备广播的 Wi-Fi 网络就是它的热点；除非你另有选择，它的名称和密码是从 Android 复制来
+的。USB 串口控制台也在：macOS 上用 `screen /dev/cu.usbmodem* 115200`。然后试试 `sudo openf50-toolkit`。
 
-**macOS tip:** macOS does not set up a network interface it has never seen while the screen is locked. Unlock the Mac
-the first time you plug the device in.
+**macOS 提示：** macOS 在锁屏时不会配置它从未见过的网络接口。第一次插设备时请解锁 Mac。
 
-### adb to Linux
+### 连到 Linux 的 adb
 
-Linux offers `adb` over the same cable, next to the USB network and the serial console, as Android does: `adb shell`
-(a root shell), `adb push`/`pull`, `adb forward`. From the release after v2026.10.23 it is **on by default and lets
-every computer in**, so that the web installer (a browser) or a GUI can talk to the device without a key having been
-put on it first.
+Linux 在同一条数据线上提供 `adb`，与 USB 网络和串口控制台并存，和 Android 一样：`adb shell`
+（root shell）、`adb push`/`pull`、`adb forward`。从 v2026.10.23 之后的发布包起，它**默认开启且让所有
+电脑进入**，这样网页安装器（浏览器）或 GUI 无需先放密钥就能与设备通信。
 
-**What that means:** adb has no password. With the default, **anyone who can plug a USB cable into the device gets
-a root shell**, also after you set passwords, and can read and change everything on it. It is on the cable only:
-nothing is reachable over Wi-Fi, the LAN or mobile data. If the device is ever out of your hands, close it:
+**这意味着什么：** adb 没有密码。默认情况下，**任何能把 USB 数据线插到设备上的人都能得到 root shell**，
+在你设置密码之后也一样，并且可以读取和修改上面的一切。它只存在于数据线上：Wi-Fi、LAN 或移动数据都
+够不到它。如果设备可能离开你的掌控，请关闭它：
 
 ```sh
 sudo openf50-usb adb auth keys                        # only computers whose key you authorised get in
 sudo openf50-usb adb off                              # no adb at all
 ```
 
-Both stay across reboots and updates. The rest:
+两者在重启和更新后都保持。其余用法：
 
 ```sh
 openf50-usb adb status                                # on or off, whom it lets in
@@ -224,74 +214,70 @@ sudo openf50-usb adb auth open                        # every computer again
 sudo openf50-usb adb on                               # after "off"
 ```
 
-A device that was set up before keeps what it had: `adb off` stays off, and a device where adb was turned on or a
-key was authorised under v2026.10.20-23 stays keys-only until `sudo openf50-usb adb auth open`. Every other device has
-adb on and open after an update. The installers ask whether to let in only the computer they run on; the Magisk zip
-does not ask, its systems start open.
+之前配置过的设备保持原样：`adb off` 保持关闭，在 v2026.10.20-23 期间开启过 adb 或授权过密钥的设备保持
+仅密钥模式，直到 `sudo openf50-usb adb auth open`。其他所有设备在更新后 adb 开启且开放。安装器会问是否
+只让它运行的这台电脑进入；Magisk zip 不问，它装的系统以开放状态启动。
 
-The device shows up in `adb devices` as `OPENF50LINUX-...`. In keys mode a computer whose key is not authorised sees
-`unauthorized` and gets nothing (no prompt on the device). There is no TCP port in either mode. adb needs a kernel
-with FunctionFS: 5.4, or the mainline kernels of v2026.10.20 or newer; it is not there while a U30 Air's port is a
-USB host.
+设备在 `adb devices` 中显示为 `OPENF50LINUX-...`。密钥模式下，密钥未授权的电脑会看到 `unauthorized` 且
+一无所获（设备上也不会有提示）。两种模式下都没有 TCP 端口。adb 需要带 FunctionFS 的内核：5.4，或
+v2026.10.20 及更新的主线内核；U30 Air 的端口处于 USB host 模式时没有 adb。
 
-## Installing from the browser: the web installer
+## 从浏览器安装：网页安装器
 
-https://kaandikec.com/openf50-linux/web-installer/ installs, updates and removes Linux from **Chrome or Edge** over
-USB, with no adb, Python or script on the computer. **Tested** (2026-10-13, release v2026.10.25): from start to
-finish on an F50 (64 GB, Magisk 30.6) from Chrome 155 on macOS - one system and two, a tab closed in the middle,
-Linux started and managed, back to Android, uninstalled. **Not tested yet:** Windows (the adb interface needs the
-WinUSB driver), a Linux computer (it needs a udev rule), a U30 Air, an SD card as the target, a root manager other
-than Magisk, and the device's own download over real mobile data. The installers above cover those.
+https://kaandikec.com/openf50-linux/web-installer/ 从 **Chrome 或 Edge** 经 USB 安装、更新和移除 Linux，
+电脑上无需 adb、Python 或脚本。**已测试**（2026-10-13，发布包 v2026.10.25）：在 macOS 的 Chrome 155 上
+对一台 F50（64 GB，Magisk 30.6）从头到尾——单系统和双系统、中途关掉标签页、启动和管理 Linux、回到
+Android、卸载。**尚未测试：** Windows（adb 接口需要 WinUSB 驱动）、Linux 电脑（需要 udev 规则）、U30
+Air、以 SD 卡为目标、Magisk 以外的 root 管理器，以及设备自己经真实移动数据下载。上述场景请用前面的
+安装器。
 
-* It needs a device rooted with **Magisk 26 or newer**, USB debugging on, and a release newer than `v2026.10.23`.
-  It shows whether the device is rooted and what its bootloader says about its lock, and changes neither. An F50
-  has no screen: its Android lets every computer's adb in without asking, and Magisk must already allow "Shell"
-  root, as the installer for computers needs it too (if it does not: the Magisk app through scrcpy, Superuser).
-* You choose the system, the kernel and the release; the page names the file and its size and has the **device
-  download it itself** from the release on GitHub, over the device's own internet connection (39 to 124 MB of
-  mobile data per system; a download that breaks continues). A device without a connection is told apart, and the
-  page then takes a file you download (GitHub does not let a page read release files). Either way the device uses
-  the file only with the checksum GitHub publishes for it. The page then starts the **zip's own installer** on the
-  device with your answers and shows its progress. Closing the tab does not stop it: connect again and the page
-  shows where it is.
-* It can back up what an installation writes (not the IMEI/calibration partitions: use `tools/backup-device.sh` for
-  those), uninstall, and manage a device that runs Linux with adb on (updates, kernel, restart, logs).
-* It does not shrink `userdata` on the 32 GB variant.
-* If the browser cannot open the device: another program has it - stop a running adb server (`adb kill-server`)
-  and close any other browser window or tab that has the page open and connected; on Windows the adb interface
-  needs the WinUSB driver; on Linux a udev rule. The page says which, and has the details.
-* "Restart into Android" in the page makes Android the default boot (it is `openf50-next-boot android`); "Make Linux
-  the default again" in the page's Linux view, or `openf50-next-boot linux`, undoes it.
+* 它需要一台用 **Magisk 26 或更新** root 的设备、开启 USB 调试，以及比 `v2026.10.23` 新的发布包。它会
+  显示设备是否已 root、引导加载器报告的锁状态，并且两者都不改变。F50 没有屏幕：它的 Android 不问就
+  让任何电脑的 adb 进入，且 Magisk 必须已经允许 "Shell" root——电脑版安装器也需要它（如果没有：通过
+  scrcpy 打开 Magisk 应用，Superuser）。
+* 你选择系统、内核和发布包；页面给出文件名和大小，并让**设备自己**从 GitHub 的发布包下载，走设备自己
+  的网络连接（每个系统 39 到 124 MB 移动数据；断掉的下载会续传）。没有连接的设备会被区分出来，此时
+  页面接受你下载的文件（GitHub 不允许页面读取发布文件）。无论哪种方式，设备只在校验 GitHub 公布的
+  校验和后使用该文件。然后页面在设备上以你的回答启动 **zip 自带的安装器**并显示进度。关掉标签页不会
+  停止它：重新连接，页面会显示进行到哪一步。
+* 它可以备份安装所写入的东西（IMEI/校准分区不行：那些用 `tools/backup-device.sh`）、卸载，以及管理
+  一台运行 Linux 且 adb 开启的设备（更新、内核、重启、日志）。
+* 它不会在 32 GB 变体上收缩 `userdata`。
+* 如果浏览器打不开设备：另一个程序占着它——停掉正在运行的 adb 服务（`adb kill-server`），并关掉其他
+  打开并连接着该页面的浏览器窗口或标签页；在 Windows 上 adb 接口需要 WinUSB 驱动；在 Linux 上需要
+  udev 规则。页面会说明是哪一种，并给出细节。
+* 页面里的 "Restart into Android" 会把 Android 设为默认启动（它就是 `openf50-next-boot android`）；
+  页面的 Linux 视图里的 "Make Linux the default again"，或 `openf50-next-boot linux`，可以撤销。
 
-How it is built and how to test it: [docs/web-installer.md](https://github.com/dikeckaan/openf50-linux/blob/main/docs/web-installer.md).
+它的构建方式和测试方法：[docs/web-installer.md](https://github.com/dikeckaan/openf50-linux/blob/main/docs/web-installer.md)。
 
-## Installing from Android with a Magisk zip (no computer)
+## 从 Android 用 Magisk zip 安装（无需电脑）
 
-If the device runs a rooted Android with **Magisk 26 or newer**, Linux can be installed from the device itself. Each
-release has one zip per system and kernel, 11 in all, e.g. `openf50-magisk-<tag>-ubuntu-24.04-k5.4.zip` or
-`openf50-magisk-<tag>-openwrt-luci-k7.2.zip` (OpenWrt with the control panel); the same zip works on the F50 and the
-U30 Air and finds the place by itself. There is no Ubuntu 26.04 zip with kernel 5.4.
+如果设备运行着已 root 的 Android 且有 **Magisk 26 或更新**，Linux 可以从设备自身安装。每个发布包按系统
+和内核各有一个 zip，共 11 个，例如 `openf50-magisk-<tag>-ubuntu-24.04-k5.4.zip` 或
+`openf50-magisk-<tag>-openwrt-luci-k7.2.zip`（带控制面板的 OpenWrt）；同一个 zip 在 F50 和 U30 Air 上
+都可用，会自己找到位置。没有内核 5.4 的 Ubuntu 26.04 zip。
 
-1. Put the zip on the device and open it in the Magisk app (Modules, Install from storage), or run
-   `su -c 'magisk --install-module /sdcard/Download/<zip>'`. Not from recovery.
-2. Read the output: it shows the device, where Linux goes, what it writes and **which password works** - the images'
-   own: Ubuntu's user `ubuntu` has the password `ubuntu`, OpenWrt's `root` has none until you set one (`passwd`, or
-   LuCI's System > Administration); `OPENF50_PASSWORD` in the settings file sets one of your own. The same note is in
-   `/data/adb/openf50-linux-password.txt` (`su -c cat /data/adb/openf50-linux-password.txt`).
-3. Reboot. If Linux does not start, the device returns to Android by itself.
+1. 把 zip 放到设备上，在 Magisk 应用里打开（模块、从存储安装），或运行
+   `su -c 'magisk --install-module /sdcard/Download/<zip>'`。不要从 recovery 安装。
+2. 阅读输出：它显示设备、Linux 装到哪里、写什么，以及**哪个密码可用**——镜像自带的：Ubuntu 的用户
+   `ubuntu` 密码为 `ubuntu`，OpenWrt 的 `root` 在你设置之前没有密码（`passwd`，或 LuCI 的
+   System > Administration）；设置文件里的 `OPENF50_PASSWORD` 可设置你自己的密码。同样的说明在
+   `/data/adb/openf50-linux-password.txt`（`su -c cat /data/adb/openf50-linux-password.txt`）。
+3. 重启。如果 Linux 没起来，设备会自己回到 Android。
 
-Magisk cannot ask questions, so choices go in a settings file, `openf50-install.conf`. Shrinking `userdata` is not
-offered from a zip. The keys, where the file may live and the rules for erasing are in the
-[README](https://github.com/dikeckaan/openf50-linux#choosing-something-else-openf50-installconf).
+Magisk 无法提问，所以选择写在一个设置文件 `openf50-install.conf` 里。zip 不提供收缩 `userdata`。各个
+键、文件可放的位置和擦除规则在
+[README](https://github.com/dikeckaan/openf50-linux#choosing-something-else-openf50-installconf) 中。
 
-## Downloads are slow?
+## 下载慢？
 
-GitHub's release CDN throttles single connections in some regions. The installer already downloads in 8 parallel
-chunks; `OPENF50_FETCH_JOBS` changes that, and `OPENF50_RELEASE_URL` points it at your own mirror.
+GitHub 的发布 CDN 在某些地区会对单连接限速。安装器已经用 8 个并行分块下载；`OPENF50_FETCH_JOBS` 可以改
+这个数，`OPENF50_RELEASE_URL` 可以指向你自己的镜像。
 
-## Next
+## 接下来
 
-* [Choosing a System](Choosing-a-System) and [Kernels](Kernels), if you have not decided yet
+* 还没决定的话：[Choosing a System](Choosing-a-System) 和 [Kernels](Kernels)
 * [Going Back to Android](Going-Back-to-Android)
 * [Troubleshooting](Troubleshooting)
-* The illustrated guide: https://kaandikec.com/openf50-linux/install/
+* 图文指南：https://kaandikec.com/openf50-linux/install/

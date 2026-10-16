@@ -1,22 +1,15 @@
-# Magisk module: switch to Linux from Android
+# Magisk 模块：从 Android 切换到 Linux
 
-A one-tap way to start the Linux system from Android. It replaces having a computer plugged in just to change the
-boot slot. There are two ways to get it:
+一键从 Android 启动 Linux 系统。它取代了"只为了改启动槽位就得插电脑"的做法。有两种获取方式：
 
-* **The release's installer zips** (`openf50-magisk-<tag>-<system>-k<kernel>.zip`, see "Installing from Android with a
-  Magisk zip" in the [main README](../../README.md)) install Linux and then stay on the device as this module. After
-  the install it is called "OPENF50 Linux" instead of "OPENF50 Linux switch"; the module id is the same
-  (`openf50_linux_switch`), so the two replace each other. The Action button, `openf50-linux` and everything below work
-  the same. Their files come from this directory (`installer/` is the installation part, `openf50-linux-switch/` is
-  this module), assembled by `tools/make-magisk-zips.sh`.
-* **The switch-only module**, for a device where Linux was installed from a computer (`./install.sh`). It installs
-  nothing and only changes the boot slot:
+* **release 的安装器 zip**（`openf50-magisk-<tag>-<system>-k<kernel>.zip`，见[主 README](../../README.md) 中的 "Installing from Android with a Magisk zip" 一节）安装 Linux，然后作为本模块留在设备上。安装完成后它显示为 "OPENF50 Linux" 而不是 "OPENF50 Linux switch"；模块 id 相同（`openf50_linux_switch`），所以两者互相替换。Action 按钮、`openf50-linux` 和下面的一切都同样工作。它们的文件来自本目录（`installer/` 是安装部分，`openf50-linux-switch/` 是本模块），由 `tools/make-magisk-zips.sh` 组装。
+* **仅切换的模块**，用于从电脑（`./install.sh`）安装过 Linux 的设备。它不安装任何东西，只修改启动槽位：
 
 ```sh
 android/magisk/build.sh          # builds openf50-linux-switch.zip
 ```
 
-Install the zip in the Magisk app (Modules → Install from storage), or from a computer:
+在 Magisk 应用中安装该 zip（模块 → 从存储安装），或从电脑安装：
 
 ```sh
 adb push android/magisk/openf50-linux-switch.zip /data/local/tmp/
@@ -24,11 +17,10 @@ adb shell "su -c 'magisk --install-module /data/local/tmp/openf50-linux-switch.z
 adb reboot                      # Magisk applies a new module on the next boot
 ```
 
-## Using it
+## 使用方法
 
-* **Magisk app → Modules → OPENF50 Linux switch → Action.** The device arms the slot Android is not on and reboots
-  into Linux.
-* **From a terminal or adb:**
+* **Magisk 应用 → 模块 → OPENF50 Linux switch → Action。** 设备会武装 Android 当前不在的槽位并重启进入 Linux。
+* **从终端或 adb：**
 
 ```sh
 su -c openf50-linux               # switch to Linux now
@@ -38,30 +30,16 @@ su -c 'openf50-linux bootchain'   # does the boot chain differ between the slots
 su -c 'openf50-linux bootchain sync'   # copy Android's slot's chain to the Linux slot (backed up first)
 ```
 
-`bootchain sync` is the installers' step on its own (`bootchain.sh`, a copy of `tools/android-bootchain.sh`; FINDINGS
-40): where `uboot`, `sml`, `teecfg`, `trustos` or `vbmeta` differ between the slots - after an Android update, say -
-both slots' images go to `/data/adb/openf50-bootchain/<date>/` with a `SHA256SUMS`, then Android's are written to the
-Linux slot and read back; a mismatch writes the old ones back. It refuses when Android's slot is not marked as booted
-successfully, when the other slot is set to boot next without Linux on it (an update waiting for its restart), when
-any of the ten partitions is missing or the two slots of one differ in size, and on any other model.
+`bootchain sync` 是安装器那一步的独立版本（`bootchain.sh`，`tools/android-bootchain.sh` 的副本；FINDINGS 40）：当两个槽位之间的 `uboot`、`sml`、`teecfg`、`trustos` 或 `vbmeta` 不同——比如 Android 更新之后——两个槽位的镜像会先连同 `SHA256SUMS` 一起保存到 `/data/adb/openf50-bootchain/<日期>/`，然后把 Android 槽位的写入 Linux 槽位并读回校验；不匹配会把旧的写回去。以下情况它会拒绝执行：Android 槽位未标记为启动成功；另一个槽位被设为下次启动但上面没有 Linux（一个等待重启的更新）；十个分区中任何一个缺失，或同一分区的两个槽位大小不同；以及在任何其他机型上。
 
-Going back needs nothing: Linux restores Android's block during its own boot, so the next reboot returns to
-Android. From inside Linux, `openf50-next-boot linux` arms another Linux boot and `openf50-os <name>` picks which
-system starts.
+回去什么都不用做：Linux 会在自己的启动过程中恢复 Android 的块，所以下次重启就回到 Android。在 Linux 内，`openf50-next-boot linux` 武装下一次 Linux 启动，`openf50-os <名称>` 选择启动哪个系统。
 
-## What it writes
+## 它写什么
 
-Switching writes exactly 32 bytes: the AOSP `bootloader_control` block at offset `0x800` of `misc`, with the slot Android is not on
-at the highest priority and `tries_remaining = 2` (LK treats 1 as an already failed boot), Android's slot still
-bootable and marked successful. `boot_a`, `boot_b`, the GPT, `userdata` and every other partition are untouched, so
-the worst case of a Linux that does not boot is that LK falls back to Android by itself.
+切换只写 32 字节：`misc` 偏移 `0x800` 处的 AOSP `bootloader_control` 块，把 Android 不在的槽位置为最高优先级且 `tries_remaining = 2`（LK 把 1 视为已经失败的启动），Android 的槽位保持可启动并标记为成功。`boot_a`、`boot_b`、GPT、`userdata` 和其他所有分区都不动，所以 Linux 起不来的最坏结果也只是 LK 自己回退到 Android。
 
-The block is not a canned blob: the module reads the live one, changes the slot suffix and the two metadata bytes,
-and recomputes the CRC32 (zlib, over the first 28 bytes) in `awk`, so it stays correct on a device whose block
-differs. It refuses to do anything when the magic is not `BCAB`, when Android's slot is unknown, or when the other
-boot partition is missing, is not a boot image, or is just a copy of Android's (no Linux installed).
+这个块不是预制好的二进制 blob：模块读取设备上实时的块，修改槽位后缀和两个元数据字节，并在 `awk` 中重新计算 CRC32（zlib，覆盖前 28 字节），所以在块内容不同的设备上也能保持正确。以下情况它会拒绝任何操作：magic 不是 `BCAB`；Android 的槽位未知；或另一个 boot 分区缺失、不是 boot 镜像、或只是 Android boot 镜像的副本（即未安装 Linux）。
 
-## Checked on hardware
+## 已在硬件上验证
 
-ZTE F50 / OPENF50, Magisk 30.7, Android 13: `status` and `--dry-run` produce exactly the trial block that
-`boot/flash-trial.sh` computes on a computer, and the Action/`openf50-linux` path rebooted the device into Linux.
+ZTE F50 / OPENF50，Magisk 30.7，Android 13：`status` 和 `--dry-run` 输出的试用块与电脑上 `boot/flash-trial.sh` 计算的完全一致，Action/`openf50-linux` 路径已将设备重启进入 Linux。

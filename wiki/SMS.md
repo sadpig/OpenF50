@@ -1,12 +1,11 @@
 # SMS
 
-**In one sentence:** `sudo sms list` reads the text messages on your SIM and `sudo sms send NUMBER TEXT` sends one,
-straight from the modem, with no Android involved.
+**一句话概括：** `sudo sms list` 读取你 SIM 卡上的短信，`sudo sms send NUMBER TEXT` 发送短信——直接经
+调制解调器，不经过 Android。
 
-**The simple version:** the modem keeps a small mailbox on the SIM card. These commands open the mailbox, read the
-letters and post new ones.
+**通俗版说明：** 调制解调器在 SIM 卡上保管一个小信箱。这些命令打开信箱、读信、寄新信。
 
-## Commands
+## 命令
 
 ```sh
 sudo sms list                       # every message, long ones joined back together
@@ -16,91 +15,85 @@ sudo sms delete INDEX               # remove one from the SIM (also: read, all)
 sudo sms watch [COMMAND]            # wait for new messages, run COMMAND for each
 ```
 
-No `sudo` on OpenWrt. All of it goes through `openf50-atd`, so it queues behind anything else talking to the modem.
-From v2026.10.22 a send is one transaction: the channel is held from the setup to the submission, and the SMSC the
-modem reports is written back to it unchanged first; some networks refused every send without that (issue #176, see
-[Troubleshooting](Troubleshooting)).
-`sms delete` accepts only a message index, `read` or `all` (from v2026.10.20); anything else is refused before the
-modem sees it, so a stray `1,4` can no longer wipe the mailbox.
+OpenWrt 上不需要 `sudo`。一切都经过 `openf50-atd`，所以它会排在其他正在和调制解调器对话的东西后面。
+从 v2026.10.22 起，发送是一次事务：从建立到提交通道一直被占用，且调制解调器报告的 SMSC 先原样写回；
+没有这些，一些网络会拒绝每次发送（issue #176，见 [Troubleshooting](Troubleshooting)）。
+`sms delete` 只接受消息索引、`read` 或 `all`（v2026.10.20 起）；其他任何东西在调制解调器看到之前就被
+拒绝，所以一个手滑的 `1,4` 再也不能清空信箱。
 
-On Ubuntu with the web panel extra (Cockpit), the OPENF50 page reads, sends and deletes messages too.
+在带网页面板 extra（Cockpit）的 Ubuntu 上，OPENF50 页面也能读取、发送和删除消息。
 
-## On OpenWrt with the control panel
+## 在带控制面板的 OpenWrt 上
 
-Use **Cellular -> SMS** in the panel: read, send and delete. There a pool daemon syncs the SIM every 30 s with
-`AT+CMGL`, which **marks unread messages on the SIM as read**; the panel keeps its own unread state.
+用面板的 **Cellular -> SMS**：读取、发送、删除。那里有一个池守护进程每 30 秒用 `AT+CMGL` 同步一次
+SIM，它会**把 SIM 上未读的消息标记为已读**；面板自己维护未读状态。
 
-> **Do not run `sms delete read` on that system.** Because the pool marks everything it has seen as read, it would
-> delete messages nobody has looked at. Delete from the panel, or with `openf50-sms delete` (which touches the SIM only
-> with `--sim`). For automation use the panel's hook, `/etc/openf50/sms-hook`, rather than `sms watch`.
+> **不要在该系统上运行 `sms delete read`。** 因为池把它见过的一切都标记为已读，这会删掉没人看过的
+> 消息。请从面板删除，或用 `openf50-sms delete`（它只在加 `--sim` 时才碰 SIM）。自动化请用面板的钩子
+> `/etc/openf50/sms-hook`，而不是 `sms watch`。
 
-## SMS forwarding
+## 短信转发
 
-On OpenWrt with the control panel, **Cellular > SMS forwarding** passes incoming messages on to a webhook (JSON or a
-form), a Telegram chat or another phone by SMS. It is off until you turn it on. Each target has a template
-(`{sender}`, `{time}`, `{text}`, `{device}`) and can filter by sender and keyword; there is a "Send test" button and
-a delivery log, and failed deliveries are retried with a growing wait. Tokens, passwords and the webhook's address
-stay in `/etc/openf50/sms-forward.conf` (root only) and never appear in a log. E-mail forwarding needs `msmtp`, which
-the image does not include.
+在带控制面板的 OpenWrt 上，**Cellular > SMS forwarding** 把收到的消息转发到 webhook（JSON 或表单）、
+Telegram 聊天或经短信转发到另一部手机。它默认关闭，需要你打开。每个目标有一个模板（`{sender}`、
+`{time}`、`{text}`、`{device}`），可按发送方和关键词过滤；有 "Send test" 按钮和投递日志，失败的投递
+会以逐渐拉长的间隔重试。令牌、密码和 webhook 地址留在 `/etc/openf50/sms-forward.conf`（仅 root）里，
+从不出现在日志中。邮件转发需要 `msmtp`，镜像未包含。
 
-From v2026.10.23 the webhook can send a body of your own instead of the standard fields (`sender`, `time`, `text`,
-`device`, `message`), for services that want their own format (Lark/Feishu, DingTalk, WeCom, Slack, Discord, Bark,
-ntfy). Choose the type (JSON, form or plain text; it sets the `Content-Type`) and write the body under "Custom
-body" with the placeholders `{sender}`, `{time}`, `{text}`, `{device}` and `{message}` (the message template filled
-in). Each value is escaped for the type - in JSON as the inside of a string, so write the quotes yourself:
+从 v2026.10.23 起 webhook 可以发送自定义正文，代替标准字段（`sender`、`time`、`text`、`device`、
+`message`），以适应想要自己格式的服务（Lark/飞书、钉钉、企业微信、Slack、Discord、Bark、ntfy）。选择
+类型（JSON、表单或纯文本；它会设置 `Content-Type`），在 "Custom body" 下写正文，用占位符 `{sender}`、
+`{time}`、`{text}`、`{device}` 和 `{message}`（填好的消息模板）。每个值按类型转义——JSON 里作为
+字符串内部内容，所以引号自己写：
 
 ```json
 {"msg_type": "text", "content": {"text": "{message}"}}
 ```
 
-In a form body the values are percent-encoded (`title={sender}&body={text}`); in plain text they are put in as they
-are, and an empty body is the message alone (enough for ntfy). The body may be 2000 bytes long. Unlike the address
-and the headers it is shown again in the panel, so keep keys and tokens in the address or in a header. "Send test"
-sends the same body.
+表单正文里值会做百分号编码（`title={sender}&body={text}`）；纯文本里原样放入，空正文就是消息本身
+（对 ntfy 足够）。正文最长 2000 字节。与地址和请求头不同，它会在面板里再次显示，所以密钥和令牌请放在
+地址或请求头里。"Send test" 发送同样的正文。
 
-A delivery counts as delivered on any HTTP 2xx. From the release after v2026.10.23 the webhook can also check the
-answer: many chat services answer 200 even when they refuse the message and
-say so in the body; for those, fill in "The answer must contain" with the key and the value a good answer has:
+任何 HTTP 2xx 都算投递成功。从 v2026.10.23 之后的发布包起，webhook 还可以检查应答：许多聊天服务即使
+拒绝消息也回答 200，并在正文里说明；对这类服务，在 "The answer must contain" 里填入正常应答应有的键
+和值：
 
-| Service | The answer must contain |
+| 服务 | 应答必须包含 |
 |---|---|
-| DingTalk, WeCom | `errcode=0` |
-| Feishu / Lark | `code=0` |
-| Slack Web API, Telegram Bot API | `ok=true` |
-| Bark | not needed (it answers HTTP 400/500 on failure); `code=200` works |
-| Slack incoming webhook, Discord, ntfy | leave empty: they answer with the HTTP status, not with JSON |
+| 钉钉、企业微信 | `errcode=0` |
+| 飞书 / Lark | `code=0` |
+| Slack Web API、Telegram Bot API | `ok=true` |
+| Bark | 不需要（失败时它回答 HTTP 400/500）；`code=200` 也可用 |
+| Slack incoming webhook、Discord、ntfy | 留空：它们用 HTTP 状态码应答，不用 JSON |
 
-The answer must then be a JSON object with that value under that key at its top level. If the key has another value,
-the delivery fails and is retried like any other failure, and the log shows it (`HTTP 200, the service answered
-errcode=310000`; a value that is not a whole number, `true`, `false` or `null` is not shown, only that it is
-another one). If the answer has no such value (`no errcode in the answer`), the delivery fails and is **not** sent
-again, because the message may well have arrived: check the rule with "Send test", which applies it too (one test
-every 5 seconds at most). The device reads at most the first 4096 bytes of the answer, in memory, and keeps only
-the result: the answer itself is never logged or shown. The key is a name of letters, digits and `_` (32 at most);
-the value is a whole number or lowercase letters (16 at most).
+应答随后必须是顶层含有该键该值的 JSON 对象。如果键是另一个值，投递失败并像其他失败一样重试，日志会
+显示（`HTTP 200, the service answered errcode=310000`；不是整数、`true`、`false` 或 `null` 的值不显示，
+只说明是另一个值）。如果应答里没有这个值（`no errcode in the answer`），投递失败且**不再**重发，因为
+消息很可能已经到达：用 "Send test" 验证规则（它也应用该规则，最多每 5 秒一次）。设备最多读取应答的
+前 4096 字节，在内存中，只保留结果：应答本身从不记录或显示。键是由字母、数字和 `_` 组成的名字（最多
+32 个）；值是整数或小写字母（最多 16 个）。
 
-The delivery log is kept in memory (the last 100 lines, gone after a reboot); "Clear" under it empties it. Messages
-that still wait to be delivered are not affected.
+投递日志保存在内存里（最后 100 行，重启后丢失）；下面的 "Clear" 清空它。仍在等待投递的消息不受影响。
 
-Since v2026.10.18 a message leaves the SIM only once its copy is on the disk, so a power cut loses none, and a long
-message whose other parts never arrive is shown after an hour, marked incomplete.
+从 v2026.10.18 起，消息只有在副本落盘后才从 SIM 删除，所以断电也不会丢；其余部分迟迟不到的长短信会
+在一小时后显示，标记为不完整。
 
 ## USSD
 
-Balance checks and similar codes:
+查余额之类的代码：
 
 ```sh
 sudo openf50-ussd '*101#'
 ```
 
-## Why PDU mode
+## 为什么用 PDU 模式
 
-The modem's text mode garbles senders that are names rather than numbers and cannot tell that several stored parts
-are one long message, so `sms` uses PDU mode and decodes the frames itself, including the Turkish national language
-shift. Sending picks GSM 7-bit when every character fits, UCS-2 otherwise. Details:
-[FINDINGS 26c](https://github.com/dikeckaan/openf50-linux/blob/main/docs/FINDINGS.md#26c-sms-needs-pdu-mode-and-turkish-needs-more-than-that).
+调制解调器的文本模式会弄乱名字而非号码的发送方，也无法看出几个存储部分其实是一条长短信，所以 `sms`
+使用 PDU 模式并自行解码帧，包括土耳其语国家语言移位。发送时每个字符都装得下就用 GSM 7-bit，否则用
+UCS-2。细节：
+[FINDINGS 26c](https://github.com/dikeckaan/openf50-linux/blob/main/docs/FINDINGS.md#26c-sms-needs-pdu-mode-and-turkish-needs-more-than-that)。
 
-## Voice calls
+## 语音通话
 
-Not available: the board has no speaker or microphone, and call audio through the modem's audio DSP is work in
-progress that does not carry sound yet. See [Hardware Notes](Hardware-Notes#no-sound-no-screen).
+不可用：板子没有扬声器和麦克风，经调制解调器音频 DSP 的通话音频仍在开发中，还传不出声音。见
+[Hardware Notes](Hardware-Notes#no-sound-no-screen)。

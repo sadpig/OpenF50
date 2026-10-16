@@ -1,15 +1,14 @@
 # Going Back to Android
 
-**In one sentence:** Android never leaves the device; `sudo openf50-next-boot android` and a reboot take you back,
-`su -c openf50-linux` in Android takes you to Linux again, and `./uninstall.sh` removes Linux completely.
+**一句话概括：** Android 从不离开设备；`sudo openf50-next-boot android` 加一次重启带你回去，Android 里的
+`su -c openf50-linux` 带你回 Linux，`./uninstall.sh` 彻底移除 Linux。
 
-**The simple version:** the device is a house with two rooms. Linux is the room you walk into by default. If the
-Linux room's door jams a few times in a row, the device walks into the Android room by itself. You can also just
-walk over whenever you like.
+**通俗版说明：** 设备是一栋有两个房间的房子。Linux 是你默认走进的那个房间。如果 Linux 房间的门连续几
+次卡住，设备会自己走进 Android 房间。你也可以随时自己走过去。
 
-![Boot and fallback](https://kaandikec.com/openf50-linux/assets/img/boot-fallback.svg)
+![启动与回退](https://kaandikec.com/openf50-linux/assets/img/boot-fallback.svg)
 
-## How the automatic fallback works
+## 自动回退如何工作
 
 ```mermaid
 flowchart TD
@@ -23,51 +22,48 @@ flowchart TD
     L[Locked Linux] -.->|never counts down| OK
 ```
 
-* The count is chosen at install (1-6, default 5). Change it with `sudo openf50-next-boot attempts N`.
-* A boot that never reaches `openf50-boot-ok` (about a minute after power-on) counts as failed. One good boot resets the
-  count.
-* If Linux does not come up at all, the device also returns to Android, unless Linux is locked.
+* 次数在安装时选择（1-6，默认 5）。用 `sudo openf50-next-boot attempts N` 修改。
+* 一次没走到 `openf50-boot-ok` 的启动（上电后约一分钟）算失败。一次成功的启动把计数清零。
+* 如果 Linux 完全起不来，设备也会回到 Android，除非 Linux 被锁定。
 
-## Switching by hand
+## 手动切换
 
-| I want to… | Do this |
+| 我想…… | 这样做 |
 |---|---|
-| go to Android from Linux | `sudo openf50-next-boot android`, then `sudo reboot` (panel: **Switch to Android**) |
-| go to Linux from Android | `su -c openf50-linux` on the device, or the **Action** button of the "OPENF50 Linux" Magisk module |
-| see which system is on which slot (Android) | `su -c 'openf50-linux status'` |
-| go to Linux from Android, from a computer | `boot/android-boot-linux.sh work/boot-linux-slotb.img` |
-| make Linux the default again | `sudo openf50-next-boot linux` |
-| check the boot state | `sudo openf50-next-boot status` |
+| 从 Linux 去 Android | `sudo openf50-next-boot android`，然后 `sudo reboot`（面板：**Switch to Android**） |
+| 从 Android 去 Linux | 设备上 `su -c openf50-linux`，或 "OPENF50 Linux" Magisk 模块的 **Action** 按钮 |
+| 看哪个系统在哪个槽位（Android） | `su -c 'openf50-linux status'` |
+| 从电脑让 Android 设备去 Linux | `boot/android-boot-linux.sh work/boot-linux-slotb.img` |
+| 让 Linux 重新成为默认 | `sudo openf50-next-boot linux` |
+| 查看启动状态 | `sudo openf50-next-boot status` |
 
-The installer puts the Magisk module in Android for you. It writes only the same 32 bytes of `misc` that the installer
-does. On the panel, "Switch to Android" warns when band or cell locks are still set (those live in the modem and also
-apply under Android) and offers to reset them first.
+安装器替你把 Magisk 模块装进 Android。它只写安装器写的那同样的 32 字节 `misc`。面板上 "Switch to
+Android" 会在频段或小区锁仍设置时警告（锁存在调制解调器里，在 Android 下也生效）并提议先重置它们。
 
-### No password, no computer
+### 没密码，没电脑
 
-If you forgot the password and Linux boots by default: unplug the device about ten seconds after it powers on, plug
-it in again, and repeat as many times in a row as your failed-boot count (5 by default). The device then sees
-unfinished boots and falls back to Android. A new password can be set from a computer with
-`tools/reset-password.sh` without booting Linux (see [Troubleshooting](Troubleshooting#i-forgot-the-password)).
-This does **not** work while Linux is locked.
+如果你忘了密码且 Linux 默认启动：设备上电约十秒后拔掉，再插上，连续重复你的失败启动计数次（默认 5
+次）。设备随后看到未完成的启动并回退到 Android。新密码可以从电脑用 `tools/reset-password.sh` 设置，
+无需启动 Linux（见 [Troubleshooting](Troubleshooting#i-forgot-the-password)）。Linux 被锁定时这**不**
+起作用。
 
-## Locked Linux
+## 锁定的 Linux
 
 ```sh
 sudo openf50-next-boot lock      # or "Lock Linux" on the panel's home page
 sudo openf50-next-boot unlock    # back to the failed-boot attempts
 ```
 
-Locked, the device **never** goes to Android by itself: not after failed boots, and not when the system does not
-start. In that case it waits on USB with a telnet shell at the device's address, where `sh /run/to-android` goes to
-Android. Android is then only by hand: `openf50-next-boot android` or "Switch to Android" on the panel.
+锁定后，设备**绝不**自己去 Android：失败启动后不会，系统起不来时也不会。那种情况下它在 USB 上等待，
+在设备地址提供 telnet shell，里面 `sh /run/to-android` 去 Android。Android 这时只能手动到达：
+`openf50-next-boot android` 或面板上的 "Switch to Android"。
 
-The one exception is a new kernel: `openf50-update` gives a new boot image its first boots on the usual attempts, so a
-kernel that does not start still falls back, and the first good boot locks again.
+唯一的例外是新内核：`openf50-update` 让新启动镜像的最初几次启动按惯常次数计算，所以起不来的内核仍会
+回退，而第一次成功的启动会再次锁定。
 
-## Uninstalling
+## 卸载
 
-With the device back in Android:
+设备回到 Android 后：
 
 ```sh
 ./uninstall.sh                # macOS / Linux
@@ -75,18 +71,17 @@ With the device back in Android:
 uninstall.cmd                 # Windows (cmd)
 ```
 
-It makes Android the boot system again, restores the second boot partition and erases the Linux filesystem. Your
-Android data is left alone. Like the installer, it offers to reboot the device from Linux into Android first.
+它让 Android 重新成为启动系统，恢复第二个 boot 分区并擦除 Linux 文件系统。你的 Android 数据不动。和
+安装器一样，它会先提议把设备从 Linux 重启进 Android。
 
-| Erase choice | What happens |
+| 擦除选项 | 会发生什么 |
 |---|---|
-| **secure** (default) | overwrites the whole Linux region, then checks it is empty; takes a few minutes |
-| **quick** | erases only the filesystem headers; files stay readable on the flash until reused |
-| **keep** | leaves the Linux filesystem; it simply never boots again |
+| **secure**（默认） | 覆写整个 Linux 区域，然后检查它是空的；需要几分钟 |
+| **quick** | 只擦文件系统头；文件在闪存上仍可读，直到空间被复用 |
+| **keep** | 留下 Linux 文件系统；它只是再也不启动 |
 
-On an SD card: **erase** (default) overwrites the first 64 MiB, which is quick (the files stay readable until the
-space is reused); **keep** leaves the card. A card with any other filesystem is never touched.
+SD 卡上：**erase**（默认）覆写前 64 MiB，很快（文件在空间被复用前仍可读）；**keep** 留下卡。装着其他
+文件系统的卡绝不被碰。
 
-If you shrank `userdata` on the 32 GB variant, the uninstaller offers to grow it back. That is off by default and asks
-twice, because it erases Android's data again (and on the 64 GB device would hand Android the free area it has always
-had).
+如果你在 32 GB 变体上收缩过 `userdata`，卸载器会提议把它扩回去。它默认关闭且会问两次，因为它会再次
+清空 Android 的数据（而在 64 GB 设备上会把 Android 一直拥有的空闲区域还给它）。

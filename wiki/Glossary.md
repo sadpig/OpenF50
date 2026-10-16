@@ -1,143 +1,188 @@
 # Glossary
 
-Every word in plain language first, then what it means for this device. Grouped by topic.
+每个词先用大白话解释，再说它对本设备意味着什么。按主题分组。
 
-## The device and its insides
+## 设备和它的内脏
 
-**SoC (system on a chip):** The one chip that holds the processor, graphics, modem and more, like the brain and heart in one. *Here:* the Unisoc T760.
+**SoC（片上系统）：** 把处理器、图形、调制解调器等装进一颗芯片，像大脑和心脏合为一体。*这里：* Unisoc T760。
 
-**Unisoc T760 / UMS9620:** Two names for the same chip, made by Unisoc. *Here:* both the F50 and the U30 Air use it on the board `ums9620_2h10_feimao`. The U30 Pro uses a different chip (UMS9632) and is not supported.
+**Unisoc T760 / UMS9620：** 同一颗芯片的两个名字，Unisoc 制造。*这里：* F50 和 U30 Air 都把它用在
+`ums9620_2h10_feimao` 板型上。U30 Pro 用另一款芯片（UMS9632），不受支持。
 
-**Modem:** The part that talks to the mobile network, like a phone without a screen. *Here:* it needs a few Android programs (`modem_control` and friends) that Linux runs in a sandbox.
+**调制解调器（Modem）：** 和移动网络对话的部分，像一部没有屏幕的手机。*这里：* 它需要几个 Android 程序
+（`modem_control` 和它的朋友们），由 Linux 在沙箱里运行。
 
-**eMMC:** The built-in storage chip, like a soldered-in memory card. *Here:* about 58 GiB on the 64 GB device; Linux uses the part no partition owns.
+**eMMC：** 内置存储芯片，像焊死的存储卡。*这里：* 64 GB 设备上约 58 GiB；Linux 使用没有分区认领的部分。
 
-**Partition:** A fenced-off area of the storage with a name, like rooms in a house. *Here:* Android has many (boot, system, userdata, …); Linux does not get one, it lives in the unfenced space behind them.
+**分区（Partition）：** 存储上一块有名字的围栏区域，像房子里的房间。*这里：* Android 有很多（boot、
+system、userdata……）；Linux 分不到一间，它住在它们后面没围栏的空地里。
 
-**Partition table (GPT):** The map that says where each partition starts and ends. *Here:* the installer never changes it, except when you choose to shrink `userdata` on the 32 GB variant.
+**分区表（GPT）：** 标明每个分区起止位置的地图。*这里：* 安装器从不改它，除非你在 32 GB 变体上选择收缩
+`userdata`。
 
-**userdata:** Android's partition for apps, settings and files. *Here:* it is encrypted as a whole, so Linux cannot keep its files inside it; on the 32 GB variant it fills the disk.
+**userdata：** Android 放应用、设置和文件的分区。*这里：* 它整体加密，所以 Linux 不能把文件放在里面；
+在 32 GB 变体上它占满整盘。
 
-**misc:** A tiny partition where the bootloader keeps notes, such as which slot to start and how many tries are left. *Here:* the installer writes 32 bytes of it to tell the bootloader to try Linux.
+**misc：** 一个极小的分区，引导加载器在这里记笔记，比如启动哪个槽位、还剩几次尝试。*这里：* 安装器写入
+它的 32 字节，告诉引导加载器试试 Linux。
 
-**OpenCL / GPU:** The GPU is the graphics processor; OpenCL lets programs use it for number crunching. *Here:* the Mali-G57 runs OpenCL 3.0 without a screen.
+**OpenCL / GPU：** GPU 是图形处理器；OpenCL 让程序用它做数值计算。*这里：* Mali-G57 在没有屏幕的情况下
+运行 OpenCL 3.0。
 
-**KVM:** A Linux feature for running virtual machines fast. *Here:* `/dev/kvm` exists on all three kernels.
+**KVM：** Linux 快速运行虚拟机的功能。*这里：* `/dev/kvm` 在三个内核上都存在。
 
-**zram:** Compressed swap kept in RAM, so more fits in memory. *Here:* `openf50-zram` adds lz4 zram of half the RAM.
+**zram：** 放在内存里的压缩交换空间，让内存装下更多。*这里：* `openf50-zram` 添加占内存一半的 lz4 zram。
 
-**OTG / USB host:** Normally the device is the "guest" on your computer's USB; in host mode it is the "boss" and you can plug things into it. *Here:* the U30 Air can be a USB host on the mainline kernels (`sudo openf50-usb host`); the F50's port is its power supply, so no.
+**OTG / USB host：** 正常情况下设备是你电脑 USB 上的"客人"；host 模式下它是"主人"，你可以往它上面插东西。
+*这里：* U30 Air 在主线内核上可以做 USB host（`sudo openf50-usb host`）；F50 的口是电源，所以不行。
 
-## Starting up
+## 启动
 
-**Bootloader (LK):** The first small program that runs at power-on and decides what to start. *Here:* Unisoc's LK picks the slot from the notes in `misc`.
+**引导加载器（LK）：** 上电后第一个运行的小程序，决定启动什么。*这里：* Unisoc 的 LK 根据 `misc` 里的
+笔记挑选槽位。
 
-**Slot (A/B):** The device has two copies of the boot partitions, A and B, so an update can be tried on one while the other stays safe. *Here:* Android uses one slot; Linux's boot image goes into the other.
+**槽位（A/B）：** 设备有两份启动分区，A 和 B，这样可以在一个上试更新而另一个保持安全。*这里：* Android
+用一个槽位；Linux 的启动镜像进另一个。
 
-**Boot image:** A package holding the kernel and a small starter program (initramfs) that the bootloader loads. *Here:* the Linux boot image is built from your device's own Android boot image plus this project's kernel.
+**启动镜像（Boot image）：** 一个包裹，装着内核和一个小启动程序（initramfs），由引导加载器加载。
+*这里：* Linux 启动镜像由你设备自己的 Android 启动镜像加本项目的内核构建而成。
 
-**Kernel:** The core of an operating system, which talks to the hardware. *Here:* you choose 5.4, 6.18 or 7.2 ([Kernels](Kernels)).
+**内核（Kernel）：** 操作系统的核心，负责和硬件对话。*这里：* 你在 5.4、6.18 或 7.2 中选择
+（[Kernels](Kernels)）。
 
-**Vendor kernel vs. mainline kernel:** A vendor kernel is the chip maker's own modified Linux; mainline is the official Linux from kernel.org. *Here:* 5.4 is the vendor kernel, 6.18 and 7.2 are mainline with this project's patches.
+**厂商内核 vs. 主线内核：** 厂商内核是芯片厂商自己修改的 Linux；主线是 kernel.org 的官方 Linux。
+*这里：* 5.4 是厂商内核，6.18 和 7.2 是带本项目补丁的主线。
 
-**LTS (long-term support):** A version that gets fixes for years. *Here:* Ubuntu 24.04/26.04 LTS and Linux 6.18 LTS.
+**LTS（长期支持）：** 能获得多年修复的版本。*这里：* Ubuntu 24.04/26.04 LTS 和 Linux 6.18 LTS。
 
-**initramfs:** A tiny temporary system inside the boot image that prepares everything before the real system starts. *Here:* it loads the drivers, finds the Linux filesystem (SD card or free eMMC space) and counts failed boots.
+**initramfs：** 启动镜像里的一个微型临时系统，在真正的系统启动前做好一切准备。*这里：* 它加载驱动、
+找到 Linux 文件系统（SD 卡或空闲 eMMC 空间）并统计失败启动次数。
 
-**Trial boot:** Starting something on probation: if it does not report back as healthy, it does not count as good. *Here:* each Linux boot must be confirmed by `openf50-boot-ok` about 30 s after the USB network and SSH are up.
+**试启动（Trial boot）：** 以试用状态启动某个东西：如果它没有报告自己健康，就不算成功。*这里：* 每次
+Linux 启动都必须在 USB 网络和 SSH 起来约 30 秒后由 `openf50-boot-ok` 确认。
 
-**Fallback:** Going back to the safe option automatically. *Here:* after N unconfirmed Linux boots in a row (1-6, default 5) the device starts Android.
+**回退（Fallback）：** 自动回到安全的选项。*这里：* 连续 N 次 Linux 启动未获确认（1-6，默认 5）后，
+设备启动 Android。
 
-**Rollback:** Undoing an update. *Here:* `openf50-update rollback` (system) and `rollback-boot` (kernel and boot image).
+**回滚（Rollback）：** 撤销一次更新。*这里：* `openf50-update rollback`（系统）和 `rollback-boot`
+（内核和启动镜像）。
 
-## Android side
+## Android 侧
 
-**Root:** Full administrator rights on Android. *Here:* required before installing; getting it is not part of this project.
+**Root：** Android 上的完全管理员权限。*这里：* 安装前必须具备；如何获取不属于本项目。
 
-**Unlock:** Allowing the bootloader to start software it was not shipped with. *Here:* the device must already boot a modified Android boot image.
+**解锁（Unlock）：** 允许引导加载器启动出厂时没有的软件。*这里：* 设备必须已经能启动修改过的 Android
+启动镜像。
 
-**Magisk:** A popular tool that gives Android root and can install "modules". *Here:* the installer adds a module whose Action button (or `su -c openf50-linux`) starts Linux; releases also ship Magisk zips that install Linux from the device.
+**Magisk：** 流行的 Android root 工具，可安装"模块"。*这里：* 安装器添加一个模块，其 Action 按钮
+（或 `su -c openf50-linux`）启动 Linux；发布包也附带从设备直接安装 Linux 的 Magisk zip。
 
-**adb:** Android Debug Bridge, a computer program that talks to an Android device over USB. *Here:* the installer uses it; Linux offers it too, on by default and for every computer, with a root shell and no password (`sudo openf50-usb adb auth keys` lets in only computers whose key you authorised, `sudo openf50-usb adb off` turns it off).
+**adb：** Android Debug Bridge，电脑上经 USB 与 Android 设备对话的程序。*这里：* 安装器使用它；Linux
+也提供它，默认开启且对所有电脑开放，root shell 无密码（`sudo openf50-usb adb auth keys` 只让你授权过
+密钥的电脑进入，`sudo openf50-usb adb off` 关闭它）。
 
-**USB debugging:** The Android setting that lets `adb` connect. *Here:* must be on.
+**USB 调试：** 让 `adb` 能连上的 Android 设置。*这里：* 必须开启。
 
-## Linux and systems
+## Linux 和系统
 
-**Distribution:** A complete Linux system: kernel plus programs plus a way to install more. *Here:* Ubuntu and OpenWrt are offered.
+**发行版（Distribution）：** 一套完整的 Linux 系统：内核加程序再加安装更多程序的方式。*这里：* 提供
+Ubuntu 和 OpenWrt。
 
-**Ubuntu:** A widely used general-purpose Linux distribution, with `apt` for software. *Here:* 24.04 LTS (default) or 26.04 LTS (needs a mainline kernel).
+**Ubuntu：** 广泛使用的通用 Linux 发行版，用 `apt` 装软件。*这里：* 24.04 LTS（默认）或 26.04 LTS
+（需要主线内核）。
 
-**OpenWrt:** A Linux distribution made for routers: small and network-focused. *Here:* 25.12, plain or with the OPENF50 control panel.
+**OpenWrt：** 为路由器而生的 Linux 发行版：小巧、专注网络。*这里：* 25.12，纯净版或带 OPENF50 控制面板。
 
-**LuCI:** OpenWrt's web interface. *Here:* at http://192.168.77.1 (U30 Air: .78.1).
+**LuCI：** OpenWrt 的网页界面。*这里：* 在 http://192.168.77.1（U30 Air：.78.1）。
 
-**UCI:** OpenWrt's settings system (`uci set …; uci commit`). *Here:* updates keep your UCI configuration.
+**UCI：** OpenWrt 的设置系统（`uci set …; uci commit`）。*这里：* 更新保留你的 UCI 配置。
 
-**rootfs / filesystem:** The tree of folders and files a system lives in. *Here:* each system is a folder on the Linux disk (`/ubuntu`, `/openwrt`, `/openwrt-luci`).
+**rootfs / 文件系统：** 一个系统栖身的目录和文件树。*这里：* 每个系统是 Linux 磁盘上的一个目录
+（`/ubuntu`、`/openwrt`、`/openwrt-luci`）。
 
-**ext4:** The standard Linux way of organising files on a disk. *Here:* the Linux disk is ext4, labelled `openf50root` (internal) or `openf50sd` (SD card).
+**ext4：** Linux 在磁盘上组织文件的标准方式。*这里：* Linux 磁盘是 ext4，卷标 `openf50root`（内置）
+或 `openf50sd`（SD 卡）。
 
-**SSH:** A secure way to type commands on another computer over the network. *Here:* `ssh ubuntu@192.168.77.1`.
+**SSH：** 通过网络在另一台电脑上敲命令的安全方式。*这里：* `ssh ubuntu@192.168.77.1`。
 
-**Serial console:** A plain text connection that works even when the network does not. *Here:* over the same USB cable, `screen /dev/cu.usbmodem* 115200` on macOS.
+**串口控制台：** 纯文本连接，网络不通时也能用。*这里：* 走同一条 USB 线，macOS 上
+`screen /dev/cu.usbmodem* 115200`。
 
-## Networking
+## 网络
 
-**Hotspot / access point:** A Wi-Fi network the device creates for others to join. *Here:* 5 GHz or 2.4 GHz, one at a time.
+**热点 / 接入点（Hotspot / access point）：** 设备创建给别人加入的 Wi-Fi 网络。*这里：* 5 GHz 或
+2.4 GHz，一次一个。
 
-**Wi-Fi client / station:** The device joining someone else's Wi-Fi, like a phone does. *Here:* `wifi-client`; the radio is either hotspot or client, decided at boot.
+**Wi-Fi 客户端 / station：** 设备加入别人的 Wi-Fi，像手机那样。*这里：* `wifi-client`；射频要么做热点
+要么做客户端，启动时决定。
 
-**WPA2 / WPA3 / SAE:** Wi-Fi password security standards; SAE is the handshake WPA3 uses. *Here:* the driver has no SAE, so WPA3-only networks cannot be joined; WPA2 and mixed mode work.
+**WPA2 / WPA3 / SAE：** Wi-Fi 密码安全标准；SAE 是 WPA3 使用的握手。*这里：* 驱动没有 SAE，所以仅 WPA3
+的网络无法加入；WPA2 和混合模式可以。
 
-**NCM / ECM / RNDIS:** Ways for a USB device to appear as a network card to a computer. *Here:* NCM is the default, ECM the fallback, RNDIS selectable.
+**NCM / ECM / RNDIS：** 让 USB 设备在电脑上显示为网卡的几种方式。*这里：* NCM 是默认，ECM 是后备，
+RNDIS 可选。
 
-**LTE:** 4G mobile data.
+**LTE：** 4G 移动数据。
 
-**5G NSA / EN-DC:** "Non-standalone" 5G, which uses a 4G connection as an anchor and adds 5G on top; EN-DC is the name of that combination. *Here:* mobile data runs on 5G NSA or LTE; the panel can lock EN-DC.
+**5G NSA / EN-DC：** "非独立组网"5G，以 4G 连接为锚点再叠加 5G；EN-DC 是这种组合的名字。*这里：* 移动
+数据跑在 5G NSA 或 LTE 上；面板可以锁 EN-DC。
 
-**Band lock:** Telling the modem to use only certain frequency bands or cells. *Here:* in the panel's Network locks; stored in the modem, so it also applies in Android until reset.
+**频段锁（Band lock）：** 告诉调制解调器只用某些频段或小区。*这里：* 在面板的 Network locks 里；存在
+调制解调器里，所以在 Android 下也同样生效，直到重置。
 
-**APN:** The name of the "door" into your carrier's data network. *Here:* leave it empty to use what the SIM defines.
+**APN：** 进入运营商数据网络的"门"的名字。*这里：* 留空即使用 SIM 卡自己定义的那个。
 
-**PDP context:** The data session the modem opens with the carrier, using the APN. *Here:* `OPENF50_PDP_TYPE` sets its type on Ubuntu.
+**PDP 上下文：** 调制解调器用 APN 与运营商建立的数据会话。*这里：* `OPENF50_PDP_TYPE` 在 Ubuntu 上设置
+它的类型。
 
-**AT commands:** Short text commands for talking to a modem (they start with `AT`). *Here:* the panel has a guarded AT terminal; all tools share one channel through `openf50-atd`.
+**AT 命令：** 与调制解调器对话的短文本命令（以 `AT` 开头）。*这里：* 面板有一个带防护的 AT 终端；所有
+工具通过 `openf50-atd` 共用一条通道。
 
-**SMS / PDU:** Text messages; PDU is the raw encoded form a modem uses. *Here:* `sms` uses PDU mode because text mode garbles some senders.
+**SMS / PDU：** 短信；PDU 是调制解调器使用的原始编码形式。*这里：* `sms` 用 PDU 模式，因为文本模式会
+弄乱某些发送方。
 
-**USSD:** The short codes like `*101#` that ask the carrier for your balance. *Here:* `sudo openf50-ussd '*101#'`.
+**USSD：** `*101#` 这类向运营商查余额的短码。*这里：* `sudo openf50-ussd '*101#'`。
 
-**DHCP:** How devices get an address automatically when they join a network. *Here:* the device hands out addresses to its clients.
+**DHCP：** 设备加入网络时自动获得地址的方式。*这里：* 设备给它的客户端分发地址。
 
-**DNS:** The internet's phone book, turning names into addresses.
+**DNS：** 互联网的电话簿，把名字变成地址。
 
-**IPv6:** The newer kind of internet address.
+**IPv6：** 较新的一种互联网地址。
 
-**RA (router advertisement):** An IPv6 message in which a router tells devices "here is the network and how to reach the internet". *Here:* the control-panel OpenWrt relays the carrier's RAs to the LAN.
+**RA（路由器通告）：** 一种 IPv6 消息，路由器在其中告诉设备"这是网络，以及这样上互联网"。*这里：* 带
+控制面板的 OpenWrt 把运营商的 RA 中继到 LAN。
 
-**NAT / NAT66:** Sharing one public address among many devices; NAT66 is the IPv6 version. *Here:* how clients share the mobile connection.
+**NAT / NAT66：** 多台设备共享一个公网地址；NAT66 是 IPv6 版本。*这里：* 客户端借此共享移动连接。
 
-**TTL:** A counter in every packet that drops by one at each router. *Here:* `openf50-ttl set 64` fixes it for mobile data. Check your operator's terms first.
+**TTL：** 每个数据包里的一台路由器减一的计数器。*这里：* `openf50-ttl set 64` 为移动数据固定它。请先
+查看运营商条款。
 
 ## VPN
 
-**VPN:** A protected tunnel to another server that your traffic goes through. *Here:* the optional `openf50-vpn` module.
+**VPN：** 一条通往另一台服务器的受保护隧道，你的流量从里面走。*这里：* 可选的 `openf50-vpn` 模块。
 
-**Kill switch:** A rule that blocks all traffic when the VPN is down, so nothing leaks. *Here:* on by default in `openf50-vpn`.
+**Kill switch（断流开关）：** 一条规则：VPN 断开时阻断所有流量，什么都不泄漏。*这里：* `openf50-vpn`
+中默认开启。
 
-**WireGuard:** A modern, fast VPN built into the Linux kernel. *Here:* available on the mainline kernels.
+**WireGuard：** 现代、快速的 VPN，内置于 Linux 内核。*这里：* 在主线内核上可用。
 
-**OpenVPN:** An older, widely used VPN program. *Here:* install the system's OpenVPN package to use `.ovpn` profiles.
+**OpenVPN：** 较老、广泛使用的 VPN 程序。*这里：* 装系统的 OpenVPN 包即可使用 `.ovpn` 配置。
 
-**Xray / sing-box / mihomo / dae:** Proxy engines for protocols such as VLESS, VMess, Trojan and Shadowsocks, for Clash-style configs, and (dae) an eBPF proxy that runs inside the kernel. *Here:* the VPN module picks the engine that speaks your profile; from v2.0.0 each engine is an extra (`vpn-xray`, `vpn-singbox`, `vpn-mihomo`, `vpn-dae`), and dae needs kernel 6.18 or 7.2 of v2026.10.20 or newer.
+**Xray / sing-box / mihomo / dae：** 代理引擎，支持 VLESS、VMess、Trojan、Shadowsocks 等协议、Clash
+风格配置，以及（dae）运行在内核里的 eBPF 代理。*这里：* VPN 模块挑选会说你的配置的引擎；从 v2.0.0 起
+每个引擎是一个 extra（`vpn-xray`、`vpn-singbox`、`vpn-mihomo`、`vpn-dae`），且 dae 需要 v2026.10.20 或
+更新的 6.18 或 7.2 内核。
 
-**BTF / eBPF:** eBPF lets programs run safely inside the kernel; BTF is the type information such programs need to find their way around. *Here:* the mainline kernels carry BTF from v2026.10.20 so that dae can run.
+**BTF / eBPF：** eBPF 让程序安全地运行在内核里；BTF 是这类程序找路所需的类型信息。*这里：* 主线内核从
+v2026.10.20 起携带 BTF，以便 dae 运行。
 
-**DFS channel:** A 5 GHz Wi-Fi channel (52-144) that radar also uses; an access point there must first listen for radar. *Here:* the Wi-Fi driver cannot, so the hotspot never uses one (a DFS channel you pick is replaced by 36 or 149).
+**DFS 信道：** 雷达也在用的 5 GHz Wi-Fi 信道（52-144）；接入点在那里必须先监听雷达。*这里：* Wi-Fi
+驱动做不到，所以热点绝不使用（你选的 DFS 信道会被替换成 36 或 149）。
 
-**Cockpit:** Ubuntu's web console (terminal, logs, services, networking). *Here:* the optional `panel` extra on Ubuntu, with an OPENF50 page for the modem, SMS, VPN and power.
+**Cockpit：** Ubuntu 的网页控制台（终端、日志、服务、网络）。*这里：* Ubuntu 上可选的 `panel` extra，
+带一个用于调制解调器、短信、VPN 和电源的 OPENF50 页面。
 
-**Subscription (VPN):** A URL your VPN provider gives you that yields a list of profiles. *Here:* `openf50-vpn subscription add`, refreshed by hand or on a schedule; also in the panel's VPN menu.
+**订阅（VPN）：** VPN 提供商给你的 URL，能产出一组配置。*这里：* `openf50-vpn subscription add`，手动
+或按计划刷新；也在面板的 VPN 菜单里。
 
-**Tailscale:** A mesh VPN for reaching your own devices. *Here:* its traffic goes through the active tunnel by default.
+**Tailscale：** 用于到达你自己设备的网状 VPN。*这里：* 它的流量默认走当前隧道。

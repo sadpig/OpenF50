@@ -1,115 +1,113 @@
 # FAQ
 
-### What is this, in plain words?
-It puts a real Linux system (Ubuntu or OpenWrt) on the ZTE F50 / OPENF50 or ZTE U30 Air 5G hotspot, next to Android. The
-hotspot becomes a small Linux computer and router with its own 5G modem. See [Home](Home).
+### 用大白话说，这是什么？
+它在 ZTE F50 / OPENF50 或 ZTE U30 Air 5G 热点上、在 Android 之外装一套真正的 Linux 系统（Ubuntu 或
+OpenWrt）。热点变成一台自带 5G 调制解调器的小型 Linux 电脑和路由器。见 [Home](Home)。
 
-### Will I lose Android?
-No. Android stays on the device. On the usual 64 GB device Android, its data and the partition table are never
-modified. Only on the 32 GB variant can you *choose* to shrink Android's data partition, which erases Android's data.
-See [Going Back to Android](Going-Back-to-Android).
+### 我会失去 Android 吗？
+不会。Android 留在设备上。在常见的 64 GB 设备上，Android、其数据和分区表从不被修改。只有在 32 GB 变体
+上你可以*选择*收缩 Android 的数据分区，那会清空 Android 的数据。见
+[Going Back to Android](Going-Back-to-Android)。
 
-### Which devices work?
-The ZTE F50 / OPENF50 and the ZTE U30 Air (same board, with a battery). The U30 **Pro** uses a different chip (UMS9632)
-and is not supported.
+### 支持哪些设备？
+ZTE F50 / OPENF50 和 ZTE U30 Air（同一块板子，带电池）。U30 **Pro** 用另一款芯片（UMS9632），不受支持。
 
-### Do I need to root the device?
-Yes. The device must already be rooted and unlocked (booting a modified Android boot image) before you start. How to do
-that is not part of this project, and it is done at your own risk.
+### 我需要 root 设备吗？
+需要。设备在你开始前必须已经 root 并解锁（能启动修改过的 Android 启动镜像）。如何做到不属于本项目，
+且风险自负。
 
-### Does it work from Windows?
-Yes: `install.ps1` (PowerShell) or `install.cmd` (cmd.exe) on Windows 10/11. macOS and Linux use `install.sh`. You need
-`adb` on every system.
+### Windows 上能用吗？
+能：Windows 10/11 上用 `install.ps1`（PowerShell）或 `install.cmd`（cmd.exe）。macOS 和 Linux 用
+`install.sh`。每个系统都需要 `adb`。
 
-### Can I install without a computer?
-Yes, if Magisk 26 or newer is on the device: install the Magisk zip of a release from the Magisk app. See
-[Installation](Installation#installing-from-android-with-a-magisk-zip-no-computer).
+### 不用电脑能安装吗？
+能，只要设备上有 Magisk 26 或更新：从 Magisk 应用安装发布包里的 Magisk zip。见
+[Installation](Installation#installing-from-android-with-a-magisk-zip-no-computer)。
 
-### Ubuntu or OpenWrt?
-Ubuntu for a general Linux computer, OpenWrt for a lean router, OpenWrt with the control panel for a router with a web
-dashboard for the modem. You can install both. See [Choosing a System](Choosing-a-System).
+### Ubuntu 还是 OpenWrt？
+要通用 Linux 电脑选 Ubuntu，要精简路由器选 OpenWrt，要带调制解调器网页仪表盘的路由器选带控制面板的
+OpenWrt。也可以两个都装。见 [Choosing a System](Choosing-a-System)。
 
-### Which kernel?
-5.4 if unsure (the longest tested); 6.18 or 7.2 for Ubuntu 26.04, U30 Air USB host mode or WireGuard. You can change it
-later. See [Kernels](Kernels).
+### 哪个内核？
+拿不准选 5.4（测试时间最长）；Ubuntu 26.04、U30 Air USB host 模式或 WireGuard 选 6.18 或 7.2。以后可以
+换。见 [Kernels](Kernels)。
 
-### How do I connect to it?
-Plug it into a computer with USB and run `ssh ubuntu@192.168.77.1` (Ubuntu) or `ssh root@192.168.77.1` (OpenWrt). On a
-U30 Air the address is `192.168.78.1`. OpenWrt also has a web page at the same address. Or join its Wi-Fi hotspot.
+### 怎么连上它？
+用 USB 插到电脑上，运行 `ssh ubuntu@192.168.77.1`（Ubuntu）或 `ssh root@192.168.77.1`（OpenWrt）。
+U30 Air 上地址是 `192.168.78.1`。OpenWrt 在同一地址还有网页。或者加入它的 Wi-Fi 热点。
 
-### What is the default password?
-There is none: you choose it during installation (at least 6 characters). A Magisk zip generates one and shows it.
+### 默认密码是什么？
+没有默认密码：安装时你自己选（至少 6 个字符）。Magisk zip 会生成一个并显示出来。
 
-### Does 5G work?
-Yes: 5G NSA and LTE, shared with Wi-Fi and USB clients, reconnecting by itself after modem resets. See
-[Mobile Data and APN](Mobile-Data-and-APN).
+### 5G 能用吗？
+能：5G NSA 和 LTE，分享给 Wi-Fi 和 USB 客户端，调制解调器复位后自己重连。见
+[Mobile Data and APN](Mobile-Data-and-APN)。
 
-### Can it join my home Wi-Fi instead of using the SIM?
-Yes, with `wifi-client`, as long as the network is WPA2 or WPA2/WPA3 mixed (not WPA3-only). The hotspot is off while it
-does. See [Wi-Fi Hotspot and Client](Wi-Fi-Hotspot-and-Client).
+### 它能加入我家的 Wi-Fi 而不是用 SIM 卡吗？
+能，用 `wifi-client`，只要网络是 WPA2 或 WPA2/WPA3 混合（不能是仅 WPA3）。期间热点关闭。见
+[Wi-Fi Hotspot and Client](Wi-Fi-Hotspot-and-Client)。
 
-### Can it run a VPN for everything connected to it?
-Yes, with the optional module (WireGuard, OpenVPN, VLESS/VMess/Trojan/Shadowsocks, Clash/mihomo, Xray/sing-box JSON),
-with a kill switch. See [VPN](VPN).
+### 它能为所有连上来的设备跑 VPN 吗？
+能，用可选模块（WireGuard、OpenVPN、VLESS/VMess/Trojan/Shadowsocks、Clash/mihomo、Xray/sing-box
+JSON），带断流开关。见 [VPN](VPN)。
 
-### Is there a web page on Ubuntu too?
-Optionally, from v2026.10.20: `sudo openf50-extra install panel` adds Cockpit (Ubuntu's web console) with an OPENF50 page
-for the modem, SMS, VPN, power, Wi-Fi and updates, at `https://192.168.77.1:9090`, on the LAN only. See
-[Control Panel (LuCI)](Control-Panel-(LuCI)#a-web-panel-on-ubuntu-cockpit).
+### Ubuntu 上也有网页吗？
+可选，v2026.10.20 起：`sudo openf50-extra install panel` 添加 Cockpit（Ubuntu 的网页控制台）加一个
+OPENF50 页面，用于调制解调器、短信、VPN、电源、Wi-Fi 和更新，地址 `https://192.168.77.1:9090`，仅限
+LAN。见 [Control Panel (LuCI)](Control-Panel-(LuCI)#a-web-panel-on-ubuntu-cockpit)。
 
-### Can I use `adb shell` with Linux, like with Android?
-Yes. From the release after v2026.10.23 it is on by default and lets every computer in, with a root shell, so the web
-installer and other tools work without setting anything up. See [Installation](Installation#adb-to-linux).
+### Linux 也能像 Android 一样用 `adb shell` 吗？
+能。从 v2026.10.23 之后的发布包起，它默认开启且让所有电脑进入，带 root shell，这样网页安装器和其他
+工具无需任何设置就能用。见 [Installation](Installation#adb-to-linux)。
 
-### Can anyone with a USB cable get into my device, then?
-With the default, yes: adb has no password, so whoever plugs a cable into the device gets a root shell, also after
-you set passwords. Only the cable: nothing is reachable over Wi-Fi or the mobile network. To close it, run one of
-these on the device; both stay across reboots and updates:
+### 那岂不是任何有 USB 线的人都能进我的设备？
+默认情况下是的：adb 没有密码，所以谁把数据线插上设备谁就能得到 root shell，在你设置密码之后也一样。
+仅限数据线：Wi-Fi 或移动网络都够不到任何东西。要关闭它，在设备上运行下面之一；两者在重启和更新后都
+保持：
 
 ```sh
 sudo openf50-usb adb auth keys    # only computers whose key you authorised (sudo openf50-usb adb key adbkey.pub)
 sudo openf50-usb adb off          # no adb at all
 ```
 
-A device where you turned adb off, or set it up with a key, before this release stays as it was.
+在这个发布包之前你把 adb 关掉过、或配成密钥模式的设备，保持原样。
 
-### Can I make calls or play sound?
-No. The board has no speaker or microphone; call audio is work in progress and carries no sound yet.
+### 能打电话或放声音吗？
+不能。板子没有扬声器和麦克风；通话音频仍在开发中，还传不出声音。
 
-### Can I plug in a screen?
-No. HDMI over USB-C does not work (the USB-C power-delivery chip never answers). It is a headless machine.
+### 能接屏幕吗？
+不能。USB-C 的 HDMI 不工作（USB-C 供电协商芯片从不应答）。这是一台无头机器。
 
-### How much memory and storage do I get?
-About 1.4 GB of RAM (the modem firmware reserves most of the rest of the 2 GB) and about 32 GB of storage on the 64 GB
-device. On the F50 an SD card can hold Linux instead.
+### 有多少内存和存储？
+约 1.4 GB 内存（2 GB 里其余大部分被调制解调器固件保留），64 GB 设备上约 32 GB 存储。F50 上 Linux 也
+可以装在 SD 卡上。
 
-### Can I run Docker, VMs, other distributions?
-The kernels include KVM (`/dev/kvm`) and container support. Debian, Kali, Arch Linux ARM and ImmortalWrt can be built
-from this repository; see [docs/DISTROS.md](https://github.com/dikeckaan/openf50-linux/blob/main/docs/DISTROS.md).
+### 能跑 Docker、虚拟机、其他发行版吗？
+内核包含 KVM（`/dev/kvm`）和容器支持。Debian、Kali、Arch Linux ARM 和 ImmortalWrt 可以从本仓库构建；
+见 [docs/DISTROS.md](https://github.com/dikeckaan/openf50-linux/blob/main/docs/DISTROS.md)。
 
-### What happens if Linux breaks?
-After a number of failed starts in a row (5 by default, 1-6 at your choice), the device goes back to Android by itself.
-From Android, `su -c openf50-linux` starts Linux again.
+### Linux 坏了会怎样？
+连续若干次启动失败（默认 5 次，可在 1-6 之间选择）后，设备自己回到 Android。在 Android 里用
+`su -c openf50-linux` 再次启动 Linux。
 
-### How do I update?
-`sudo openf50-update check`, then `sudo openf50-update apply`, then reboot. It never updates by itself. From v2026.10.20
-the packages you installed yourself come back after the update. See [Updating](Updating).
+### 怎么更新？
+`sudo openf50-update check`，然后 `sudo openf50-update apply`，然后重启。它绝不自行更新。从
+v2026.10.20 起，你自己安装的软件包会在更新后回来。见 [Updating](Updating)。
 
-### How do I remove it?
-Go back to Android and run `./uninstall.sh` (or `uninstall.ps1` / `uninstall.cmd`). See
-[Going Back to Android](Going-Back-to-Android#uninstalling).
+### 怎么卸载？
+回到 Android，运行 `./uninstall.sh`（或 `uninstall.ps1` / `uninstall.cmd`）。见
+[Going Back to Android](Going-Back-to-Android#uninstalling)。
 
-### Does the release contain Android or ZTE files?
-No. The images contain no proprietary files; the installer copies the Wi-Fi firmware and the Android modem and GPU
-userspace from your own device.
+### 发布包里含 Android 或 ZTE 的文件吗？
+不含。镜像不含任何专有文件；安装器从你自己的设备复制 Wi-Fi 固件和 Android 调制解调器及 GPU 用户态。
 
-### Can I use OpenWrt's sysupgrade?
-**Never.** It would overwrite the device's storage. Use `openf50-update`.
+### 能用 OpenWrt 的 sysupgrade 吗？
+**永远不要。** 它会覆盖设备的存储。用 `openf50-update`。
 
-### Is this safe?
-It is designed to touch as little as possible and to fall back to Android, but it is an experimental hobby project with
-no warranty. A power cut or a mistake can still brick a device. Back up first with `tools/backup-device.sh`.
+### 这安全吗？
+它的设计是尽量少碰、并能回退到 Android，但它是无担保的实验性业余项目。断电或误操作仍可能让设备变砖。
+先用 `tools/backup-device.sh` 备份。
 
-### Where can I get help?
-Read [Troubleshooting](Troubleshooting), then open an issue at https://github.com/dikeckaan/openf50-linux/issues with the
-`--check` output or the logs from `tools/collect-logs.sh`. Never post your IMEI.
+### 去哪里求助？
+先读 [Troubleshooting](Troubleshooting)，然后到 https://github.com/dikeckaan/openf50-linux/issues 开
+issue，附上 `--check` 的输出或 `tools/collect-logs.sh` 的日志。永远不要发布你的 IMEI。

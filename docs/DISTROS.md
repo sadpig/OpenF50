@@ -1,100 +1,75 @@
-# Running other distributions
+# 运行其他发行版
 
-The boot path does not care which distribution it starts. The initramfs mounts the Linux filesystem (ext4 on an SD
-card labelled `openf50sd`, else the one in the free eMMC area), reads `/.openf50/boot-os`, and `switch_root`s into the directory named there. So a system is just a directory
-with a root filesystem in it, and `openf50-os <name>` picks the one to boot next.
+启动路径并不关心它启动的是哪个发行版。initramfs 挂载 Linux 文件系统（SD 卡上标签为 `openf50sd` 的 ext4，否则是 eMMC 空闲区域中的那个），读取 `/.openf50/boot-os`，然后 `switch_root` 进入其中指定的目录。所以一个系统就是一个装有根文件系统的目录，`openf50-os <名称>` 选择下次启动哪一个。
 
-What a distribution has to bring:
+发行版必须自带的东西：
 
-* **arm64 (aarch64) userspace.**
-* **It must work on the kernel you run.** With ZTE's vendor 5.4 this is the limit in practice: the newest
-  userspaces have started to depend on newer kernels. Ubuntu 26.04's `tar` resolves every path with `openat2`
-  (Linux 5.6) and fails on 5.4, which is why Ubuntu 26.04 is offered only with the mainline kernels (6.18, 7.2).
-* **Nothing else.** Drivers, firmware and the Android vendor chroot come from this repository's overlay, which is
-  copied into every image.
+* **arm64（aarch64）用户空间。**
+* **它必须能在你运行的内核上工作。** 对 ZTE 原厂 5.4 内核来说，这是实际中的限制：最新的用户空间已经开始依赖更新的内核。Ubuntu 26.04 的 `tar` 用 `openat2`（Linux 5.6）解析每个路径，在 5.4 上会失败，这就是 Ubuntu 26.04 只随主线内核（6.18、7.2）提供的原因。
+* **其他都不需要。** 驱动、固件和 Android vendor chroot 都来自本仓库的 overlay，会被复制进每个镜像。
 
-## Ready to build here
+## 此处可直接构建
 
-| Distribution | Build | Notes |
+| 发行版 | 构建 | 备注 |
 |---|---|---|
-| Ubuntu 24.04 LTS | `rootfs/` (default) | the tested default, systemd 255 |
-| Ubuntu 26.04 LTS | `docker build --build-arg BASE=ubuntu:26.04 -t openf50-ubuntu:26.04 rootfs/` then `rootfs/assemble.sh` | released; needs kernel 6.18 or 7.2 |
-| OpenWrt 25.12 | `openwrt/build-rootfs.sh` | router use, LuCI, ~140 MiB RAM |
-| OpenWrt 25.12 with the OPENF50 panel | `OPENF50_SYSTEM=openwrt-luci openwrt/build-rootfs.sh` | released as `openwrt-luci`, see [BUILD.md](BUILD.md) |
-| ImmortalWrt 25.12 | `OPENF50_FLAVOUR=immortalwrt openwrt/build-rootfs.sh` | OpenWrt fork with more drivers and LuCI apps |
-| Arch Linux ARM | `arch/build-rootfs.sh` | rolling, 258 MiB image / 922 MiB installed; built, not yet booted on hardware |
-| Debian 13 | `docker build --build-arg BASE=debian:13 -t openf50-debian:13 rootfs/` then `rootfs/assemble.sh` | same package names as Ubuntu |
-| Kali Linux | `docker build --build-arg BASE=kalilinux/kali-rolling -t openf50-kali rootfs/` then `rootfs/assemble.sh` | see below |
+| Ubuntu 24.04 LTS | `rootfs/`（默认） | 经过测试的默认系统，systemd 255 |
+| Ubuntu 26.04 LTS | `docker build --build-arg BASE=ubuntu:26.04 -t openf50-ubuntu:26.04 rootfs/`，然后 `rootfs/assemble.sh` | 已发布；需要内核 6.18 或 7.2 |
+| OpenWrt 25.12 | `openwrt/build-rootfs.sh` | 路由器用途，LuCI，约 140 MiB 内存 |
+| 带 OPENF50 面板的 OpenWrt 25.12 | `OPENF50_SYSTEM=openwrt-luci openwrt/build-rootfs.sh` | 以 `openwrt-luci` 发布，见 [BUILD.md](BUILD.md) |
+| ImmortalWrt 25.12 | `OPENF50_FLAVOUR=immortalwrt openwrt/build-rootfs.sh` | 带更多驱动和 LuCI 应用的 OpenWrt 分支 |
+| Arch Linux ARM | `arch/build-rootfs.sh` | 滚动更新，258 MiB 镜像 / 安装后 922 MiB；已构建，尚未在硬件上启动 |
+| Debian 13 | `docker build --build-arg BASE=debian:13 -t openf50-debian:13 rootfs/`，然后 `rootfs/assemble.sh` | 包名与 Ubuntu 相同 |
+| Kali Linux | `docker build --build-arg BASE=kalilinux/kali-rolling -t openf50-kali rootfs/`，然后 `rootfs/assemble.sh` | 见下文 |
 
-The Arch build removes the `linux-aarch64` kernel and `linux-firmware` packages that the generic Arch ARM image
-ships (about 1.5 GB): this device boots the vendor kernel from the boot image and takes its firmware from Android.
-`pacman`'s Landlock sandbox is disabled for the build only, because it cannot work inside the build container.
+Arch 构建会移除通用 Arch ARM 镜像自带的 `linux-aarch64` 内核和 `linux-firmware` 软件包（约 1.5 GB）：本设备从启动镜像引导原厂内核，并从 Android 获取固件。`pacman` 的 Landlock 沙箱仅在构建期间禁用，因为它无法在构建容器内工作。
 
-## Kali Linux, honestly
+## 如实介绍 Kali Linux
 
-Kali is Debian, so it installs and runs exactly like the Debian image, with its tools available through `apt`. What
-it cannot do on this device:
+Kali 就是 Debian，所以它的安装和运行与 Debian 镜像完全一样，其工具通过 `apt` 提供。它在这台设备上做不到的：
 
-* **No monitor mode or packet injection.** The Wi-Fi chip is a Unisoc SC2355 with a vendor driver that offers
-  station and access-point mode only. `airmon-ng` has nothing to switch, so the classic Wi-Fi attacks are out.
-* **No external Wi-Fi adapter on the F50**: its USB-C port runs as a *gadget* (the device pretends to be a network
-  card for your computer) and is its power supply. The U30 Air has host mode on the mainline kernels
-  (`openf50-usb host`), and those kernels carry MediaTek, Ralink and Realtek USB Wi-Fi drivers; an adapter has not
-  been tried here.
-* **No screen.** Everything is over SSH; Kali's desktop tooling is pointless on this hardware.
+* **没有监听模式和报文注入。** Wi-Fi 芯片是 Unisoc SC2355，其 vendor 驱动只提供 station 和接入点模式。`airmon-ng` 没有可切换的对象，所以经典的 Wi-Fi 攻击无从谈起。
+* **F50 上不能接外置 Wi-Fi 网卡**：它的 USB-C 口以 *gadget* 模式运行（设备伪装成你电脑的网卡），而且还是它的供电口。U30 Air 在主线内核上有 host 模式（`openf50-usb host`），且这些内核带有 MediaTek、Ralink 和 Realtek USB Wi-Fi 驱动；但此处尚未试过外接网卡。
+* **没有屏幕。** 一切都通过 SSH 进行；Kali 的桌面工具在这台硬件上毫无意义。
 
-What is left is still useful: a pocket-sized box with its own 5G modem that can run `nmap`, `sqlmap`, `metasploit`,
-proxies and scanners over the mobile connection or the Wi-Fi it is connected to.
+剩下的仍然有用：一个口袋大小、自带 5G 调制解调器的盒子，可以通过移动连接或它接入的 Wi-Fi 运行 `nmap`、`sqlmap`、`metasploit`、代理和扫描器。
 
-## Survey of the popular distributions (measured 2026-09-18)
+## 热门发行版调查（2026-09-18 实测）
 
-Two things decide whether a distribution can run on this device's 5.4 kernel, and both are readable from its own
-binaries: the minimum kernel its glibc was compiled for (the ELF ABI note), and whether its userspace already uses
-syscalls 5.4 does not have — `openat2` (5.6) in `tar` is the one that bit us with Ubuntu 26.04.
+两件事决定一个发行版能否在本设备的 5.4 内核上运行，且两者都能从它自己的二进制文件中读出：其 glibc 编译时要求的最低内核版本（ELF ABI note），以及它的用户空间是否已经在使用 5.4 没有的系统调用——`tar` 里的 `openat2`（5.6）就是 Ubuntu 26.04 上坑到我们的那个。
 
-| Distribution (arm64) | glibc needs | `tar` uses `openat2` | Verdict |
+| 发行版（arm64） | glibc 要求 | `tar` 使用 `openat2` | 结论 |
 |---|---|---|---|
-| Ubuntu 22.04 / 24.04 LTS | 3.7 | no | ✅ works (24.04 is the tested default) |
-| Debian 12 / 13 / sid | 3.7 | no | ✅ works, built here |
-| Kali rolling | 3.7 | no | ✅ works, built here (see the Kali section) |
-| Arch Linux ARM | — | no | ✅ works, built here |
-| OpenWrt / ImmortalWrt 25.12 | musl | no | ✅ works, built here |
-| Alpine 3.22 | musl | no | ✅ userspace fine — but OpenRC, so the services need porting |
-| Fedora 42 / 43 | 3.7 | no | ✅ userspace fine, not built yet |
-| Rocky 9, AlmaLinux 10, Oracle Linux 9 | 3.7 | no | ✅ userspace fine, not built yet |
-| Amazon Linux 2023 | 3.7 | n/a | ✅ userspace fine, not built yet |
-| Gentoo stage3 arm64 | 3.7 | no | ✅ userspace fine; OpenRC unless the systemd stage3 is used |
-| Void Linux | — | — | ✅ rootfs tarball exists; runit, so the services need porting |
-| Raspberry Pi OS arm64 | Debian | no | ✅ Debian underneath; take the rootfs out of its image |
-| openSUSE Tumbleweed | 4.3 | **yes** | ⚠️ works only after replacing `tar` (same trap as Ubuntu 26.04) |
-| Ubuntu 26.04+ | 3.7 | **yes** | ⚠️ same on 5.4; fine on 6.18 and 7.2, where it is released |
-| Arch (official image), Void (official image), Clear Linux | — | — | ❌ no arm64 container image (Arch: use Arch Linux ARM) |
+| Ubuntu 22.04 / 24.04 LTS | 3.7 | 否 | ✅ 可用（24.04 是经过测试的默认系统） |
+| Debian 12 / 13 / sid | 3.7 | 否 | ✅ 可用，已在此构建 |
+| Kali rolling | 3.7 | 否 | ✅ 可用，已在此构建（见 Kali 一节） |
+| Arch Linux ARM | — | 否 | ✅ 可用，已在此构建 |
+| OpenWrt / ImmortalWrt 25.12 | musl | 否 | ✅ 可用，已在此构建 |
+| Alpine 3.22 | musl | 否 | ✅ 用户空间没问题——但它是 OpenRC，服务需要移植 |
+| Fedora 42 / 43 | 3.7 | 否 | ✅ 用户空间没问题，尚未构建 |
+| Rocky 9、AlmaLinux 10、Oracle Linux 9 | 3.7 | 否 | ✅ 用户空间没问题，尚未构建 |
+| Amazon Linux 2023 | 3.7 | n/a | ✅ 用户空间没问题，尚未构建 |
+| Gentoo stage3 arm64 | 3.7 | 否 | ✅ 用户空间没问题；除非使用 systemd stage3，否则是 OpenRC |
+| Void Linux | — | — | ✅ 有 rootfs tar 包；runit，所以服务需要移植 |
+| Raspberry Pi OS arm64 | Debian | 否 | ✅ 底层是 Debian；从其镜像中取出 rootfs 即可 |
+| openSUSE Tumbleweed | 4.3 | **是** | ⚠️ 只有替换 `tar` 后才能用（与 Ubuntu 26.04 相同的坑） |
+| Ubuntu 26.04+ | 3.7 | **是** | ⚠️ 在 5.4 上同样如此；在 6.18 和 7.2 上正常，并已发布 |
+| Arch（官方镜像）、Void（官方镜像）、Clear Linux | — | — | ❌ 没有 arm64 容器镜像（Arch：请用 Arch Linux ARM） |
 
-No glibc on this list demands a kernel newer than 5.4, so the kernel is rarely the blocker; what breaks is individual
-programs reaching for new syscalls, and those can be swapped out one by one.
+此列表中没有 glibc 要求比 5.4 更新的内核，所以内核很少是阻碍；出问题的是个别程序调用了新系统调用，而这些程序可以逐个替换掉。
 
-### The part that is actual work
+### 真正需要动手做的部分
 
-The OPENF50 services — modem bring-up, the Android vendor chroot, Wi-Fi, the LAN bridge, the hotspot, the toolkit —
-exist as **systemd units** (used by Ubuntu, Debian, Kali, Arch, Fedora and friends) and as **procd init scripts**
-for OpenWrt/ImmortalWrt. A distribution with a different init (Alpine's OpenRC, Void's runit) boots fine, but
-somebody has to write those ~15 service definitions again before the modem and Wi-Fi come up by themselves.
+OPENF50 服务——调制解调器启动、Android vendor chroot、Wi-Fi、LAN 网桥、热点、工具箱——以 **systemd 单元**（Ubuntu、Debian、Kali、Arch、Fedora 等使用）和面向 OpenWrt/ImmortalWrt 的 **procd init 脚本**两种形式存在。使用其他 init 的发行版（Alpine 的 OpenRC、Void 的 runit）能正常启动，但必须有人重新编写那约 15 个服务定义，调制解调器和 Wi-Fi 才能自动起来。
 
-## What does not fit
+## 放不进来的
 
-* **Anything that needs its own kernel** (Fedora IoT, postmarketOS images, Home Assistant OS): they ship kernels
-  built for other devices, and this one only boots this project's kernels (vendor 5.4, mainline 6.18 and 7.2) from
-  the boot image.
-* **On 5.4, distributions whose userspace requires a newer kernel**: Ubuntu 26.04 and later, and eventually any
-  rolling distribution; use 6.18 or 7.2 for those. Arch works today; a future `glibc` or `systemd` may end that, which is why it is the "fun" option
-  and not the default.
-* **x86 anything.**
+* **任何需要自带内核的东西**（Fedora IoT、postmarketOS 镜像、Home Assistant OS）：它们附带的是为其他设备构建的内核，而本设备只能从启动镜像引导本项目的内核（原厂 5.4、主线 6.18 和 7.2）。
+* **在 5.4 上，用户空间要求更新内核的发行版**：Ubuntu 26.04 及以后，以及迟早所有的滚动发行版；这些请用 6.18 或 7.2。Arch 今天还能用；未来的某个 `glibc` 或 `systemd` 可能会终结它，这就是它是"玩票"选项而非默认的原因。
+* **任何 x86 的东西。**
 
-## Installing a distribution you built
+## 安装你自己构建的发行版
 
-The installer knows `ubuntu`, `openwrt` and `openwrt-luci` by name.
- For anything else, unpack the tarball next to them and select
-it (from Android, with the Linux filesystem mounted as in `tools/android-mount-openf50root.sh`):
+安装器认得 `ubuntu`、`openwrt` 和 `openwrt-luci` 这几个名字。除此之外的，把 tar 包解到它们旁边并选中它（在 Android 上操作，Linux 文件系统按 `tools/android-mount-openf50root.sh` 中的方式挂载）：
 
 ```sh
 mkdir -p /data/local/tmp/openf50root/arch
@@ -102,6 +77,4 @@ tar -xzpf openf50-arch-rootfs.tar.gz -C /data/local/tmp/openf50root/arch
 echo arch > /data/local/tmp/openf50root/.openf50/boot-os
 ```
 
-From a running Linux on the device, the same thing under `/mnt/openf50-disk/`, then `openf50-os arch` and reboot.
-If it does not boot, the bootloader falls back to Android by itself, and `openf50-os ubuntu` brings the old system
-back.
+在设备上已运行的 Linux 中，在 `/mnt/openf50-disk/` 下做同样的事，然后 `openf50-os arch` 并重启。如果它起不来，bootloader 会自己回退到 Android，`openf50-os ubuntu` 可以把旧系统带回来。
