@@ -10,6 +10,9 @@ name: Release
 # workflow's own token does not start it by itself). A release published by hand with tools/make-release.sh does not
 # start this workflow: it only ever runs when asked.
 on:
+  schedule:
+    # OpenF50: 每周自动出正式版，设备端自动更新即可吃到最新组件
+    - cron: '30 4 * * 1'
   workflow_dispatch:
     inputs:
       tag:
@@ -39,12 +42,20 @@ jobs:
       actions: write    # the Magisk installers dispatch at the end
     env:
       TAG: ${{ inputs.tag }}
+      SCHED: ${{ github.event_name == 'schedule' && '1' || '' }}
       GH_TOKEN: ${{ github.token }}
       OPENF50_REPO: ${{ github.repository }}
     steps:
       - name: Tag and ref
         run: |
-          [ "$GITHUB_REF_NAME" = main ] || { echo "releases come from main, not $GITHUB_REF_NAME"; exit 1; }
+          [ "$GITHUB_REF_NAME" = main ] || [ "$GITHUB_REF_NAME" = OpenF50 ] || { echo "releases come from main/OpenF50, not $GITHUB_REF_NAME"; exit 1; }
+          if [ "$SCHED" = 1 ]; then
+            TAG="v$(date -u +%Y.%m.%d)"
+            n=1; while gh release view "$TAG" -R "$GITHUB_REPOSITORY" >/dev/null 2>&1 || \
+                   [ -n "$(git ls-remote --tags origin "refs/tags/$TAG")" ]; do n=$((n+1)); TAG="v$(date -u +%Y.%m.%d)-$n"; done
+            echo "TAG=$TAG" >> "$GITHUB_ENV"
+            echo "scheduled release $TAG"
+          fi
           tag_ok=1
           case "$TAG" in v[0-9]*) ;; *) tag_ok= ;; esac
           case "$TAG" in *[!0-9A-Za-z._-]*|*..*) tag_ok= ;; esac
@@ -166,9 +177,9 @@ jobs:
         env:
           INPUT_PRERELEASE: ${{ inputs.prerelease }}
         run: |
-          pre=; [ "$INPUT_PRERELEASE" != true ] || pre=--prerelease
+          pre=; [ "$INPUT_PRERELEASE" = true ] && [ "$SCHED" != 1 ] && pre=--prerelease
           # the build outputs are ignored by git, so the tree is still the commit the release says it is
           sudo -E git status --porcelain
           sudo -E sh tools/make-release.sh "$TAG" --publish $pre
       - name: Magisk installers
-        run: gh workflow run magisk.yml -R "$GITHUB_REPOSITORY" --ref main -f tag="$TAG"
+        run: gh workflow run magisk.yml -R "$GITHUB_REPOSITORY" --ref "$GITHUB_REF_NAME" -f tag="$TAG"

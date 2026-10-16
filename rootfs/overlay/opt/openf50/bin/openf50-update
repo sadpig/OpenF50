@@ -212,10 +212,58 @@ installed_systems() {
 }
 
 latest_release() {
+    # no api.github.com first: its per-IP limit is shared with everyone behind the same carrier NAT, and
+    # the redirect of /releases/latest names the tag for free (curl or wget, both here)
+    if have curl; then
+        _t=$(curl -fsSI --connect-timeout 15 --max-time 40 "https://github.com/$REPO/releases/latest" 2>/dev/null \
+            | sed -n 's#^[Ll]ocation:.*/tag/\([^ ]*\).*#\1#p' | tail -n 1)
+    else
+        _t=$(wget --spider -S -T 30 "https://github.com/$REPO/releases/latest" 2>&1 \
+            | sed -n 's#^[Ll]ocation:.*/tag/\([^ ]*\).*#\1#p' | tail -n 1)
+    fi
+    [ -n "$_t" ] && { printf '%s\n' "$_t"; return 0; }
     fetch_stdout "https://api.github.com/repos/$REPO/releases/latest" \
         | sed -n 's/.*"tag_name"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -n1
 }
 
+
+# --- auto-update begin
+# auto-update 开关在 /etc/openf50/auto-update（on/off），定时跑由 /etc/crontabs/root 里的一行负责
+#（该文件随系统更新保留，FINDINGS 83）。auto-run 每天由 cron 触发：发现新版就 apply（自带重启）。
+AUTO_LOG=$DISK/.openf50/auto-update.log
+auto() {  # auto [on|off|status|run]
+    _f=$CONF/auto-update
+    case ${1:-status} in
+        on)  echo on > "$_f"; auto_cron add; echo "auto-update: on（每天 04:15 检查并应用；日志 $AUTO_LOG）" ;;
+        off) echo off > "$_f"; auto_cron del; echo "auto-update: off" ;;
+        run) auto_run ;;
+        status)
+            printf 'auto-update: %s\n' "$(cat "$_f" 2>/dev/null || echo off)"
+            [ -s "$AUTO_LOG" ] && tail -n 5 "$AUTO_LOG" ;;
+        *) echo "usage: openf50-update auto on|off|status|run" >&2; exit 2 ;;
+    esac
+}
+auto_cron() {  # auto_cron add|del
+    _c=/etc/crontabs/root; touch "$_c"
+    grep -v "openf50-update auto-run" "$_c" > "$_c.new" 2>/dev/null || true
+    [ "$1" = add ] && echo "15 4 * * * /opt/openf50/bin/openf50-update auto-run >/dev/null 2>&1" >> "$_c.new"
+    mv "$_c.new" "$_c"
+    /etc/init.d/cron restart 2>/dev/null || true
+}
+auto_run() {
+    [ "$(cat "$CONF/auto-update" 2>/dev/null)" = on ] || exit 0
+    _lt=$(latest_release) || exit 0
+    [ -n "$_lt" ] || exit 0
+    [ "$_lt" = "$(installed_version)" ] && exit 0
+    printf '%s applying %s\n' "$(date '+%F %T')" "$_lt" >> "$AUTO_LOG"
+    if apply; then
+        printf '%s %s applied\n' "$(date '+%F %T')" "$_lt" >> "$AUTO_LOG"
+    else
+        printf '%s %s FAILED\n' "$(date '+%F %T')" "$_lt" >> "$AUTO_LOG"
+        exit 1
+    fi
+}
+# --- auto-update end
 mounted_disk() {
     for n in $SYSTEMS; do [ -d "$DISK/$n" ] && return 0; done
     die "the Linux partition is not mounted at $DISK"
@@ -693,6 +741,8 @@ apply_one() {  # apply_one OS TAG
     rm -rf "$DISK/$os.old"
     mv "$old" "$DISK/$os.old" || die "could not move the old system aside"
     mv "$new" "$old" || { mv "$DISK/$os.old" "$old"; die "could not put the new system in place (old one restored)"; }
+    # the version belongs to the filesystem in place, whatever the carry-over brought: write it after the swap
+    printf '%s\n' "$tag" > "$old/etc/openf50/image-version" 2>/dev/null || true
     sync
     printf '%s: updated %s -> %s\n' "$os" "$(cat "$DISK/$os.old$VERSION_FILE" 2>/dev/null || echo unknown)" "$(cat "$old$VERSION_FILE" 2>/dev/null || echo unknown)"
 }
@@ -2023,10 +2073,10 @@ clean() {
 
 [ "$(id -u)" = 0 ] || { echo "run as root" >&2; exit 1; }
 case ${1:-check} in
-    apply|boot|kernel|rollback|rollback-boot|clean|accounts)
+    apply|boot|kernel|rollback|rollback-boot|clean|accounts|auto-run)
         lock_take; trap 'keepalive_stop; resume_data; lock_drop' EXIT; trap 'exit 130' INT TERM HUP ;;
 esac
-case ${1:-check} in apply|boot|kernel) keepalive_start ;; esac
+case ${1:-check} in apply|boot|kernel|auto-run) keepalive_start ;; esac
 case ${1:-check} in
     check) check ;;
     version) version ;;
@@ -2039,6 +2089,8 @@ case ${1:-check} in
     accounts) accounts ;;
     clean) clean ;;
     notice) notice ;;
+    auto) shift; auto "$@" ;;
+    auto-run) auto_run ;;
     -h|--help|help) sed -n '2,19s/^# \{0,1\}//p' "$0" ;;
-    *) echo "usage: openf50-update check|version|apply [--no-reinstall] [ubuntu|openwrt|openwrt-luci ...]|boot|kernel [5.4|6.18|7.2]|rollback [os]|rollback-boot|clean|notice" >&2; exit 2 ;;
+    *) echo "usage: openf50-update check|version|apply [--no-reinstall] [ubuntu|openwrt|openwrt-luci ...]|boot|kernel [5.4|6.18|7.2]|rollback [os]|rollback-boot|clean|notice|auto [on|off|status|run]" >&2; exit 2 ;;
 esac
