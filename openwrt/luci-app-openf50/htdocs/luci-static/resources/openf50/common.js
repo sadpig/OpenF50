@@ -199,8 +199,8 @@ var CSS = `
  * Aurora's --surface token is absent, so existing Aurora styling wins intact.
  * Bootstrap's data-darkmode switch updates these aliases without a reload. */
 html.mud-bootstrap-theme{--surface:var(--background-color-high);--surface-sunken:var(--background-color-low);--brand-subtle:color-mix(in srgb,var(--primary-color-high) 10%,var(--background-color-high));--hairline:var(--border-color-low);--text:var(--text-color-high);--text-muted:var(--text-color-medium);--text-subtle:var(--text-color-low);--brand:var(--primary-color-high);--success:var(--success-color-high);--warning:var(--warn-color-high);--danger:var(--error-color-high);--info:var(--primary-color-high);--on-brand:var(--on-primary-color);--hover-faint:var(--background-color-medium)}
-/* Vantage 的 token 族（--s2/--s1/--line/--text-*；深色由 Vantage 的 html[data-darkmode] 翻转这些变量，面板自动跟随） */
-html.mud-vantage-theme{--surface:var(--s2);--surface-sunken:var(--s1);--brand-subtle:var(--accent-soft);--hairline:var(--line);--text:var(--text);--text-muted:var(--text-3);--text-subtle:var(--text-2);--brand:var(--accent-text);--success:var(--ok);--warning:var(--warn);--danger:var(--err);--info:var(--info);--on-brand:var(--accent-ink);--hover-faint:var(--s3)}
+/* Vantage 的 token 族（--text 不重定义：同名自引用在 CSS 里是非法的，Vantage :root 的 --text 直接生效）（--s2/--s1/--line/--text-*；深色由 Vantage 的 html[data-darkmode] 翻转这些变量，面板自动跟随） */
+html.mud-vantage-theme{--surface:var(--s2);--surface-sunken:var(--s1);--brand-subtle:var(--accent-soft);--hairline:var(--line);--text-muted:var(--text-3);--text-subtle:var(--text-2);--brand:var(--accent-text);--success:var(--ok);--warning:var(--warn);--danger:var(--err);--info:var(--info);--on-brand:var(--accent-ink);--hover-faint:var(--s3)}
 .mud{color:var(--text,#222);font-size:.85rem;line-height:1.45}
 .mud *{box-sizing:border-box}
 .mud-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(330px,1fr));gap:10px;margin-top:6px}
