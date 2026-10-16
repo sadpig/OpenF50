@@ -104,6 +104,24 @@ if [ "$SYSTEM" = openwrt-luci ]; then
         pw_hash=$(shasum -a 256 "$PW_PEM" 2>/dev/null || sha256sum "$PW_PEM")
         [ "${pw_hash%% *}" = "$PW_PEM_SHA" ] || { echo "passwall-build key checksum mismatch: $PW_PEM" >&2; exit 1; }
     fi
+    # Vantage theme, bundled by default (OPENF50_VANTAGE=0 keeps Aurora alone): the newest GitHub
+    # release unless OPENF50_VANTAGE_TAG pins one; files checked against that release's SHA256SUMS.
+    VANTAGE=${OPENF50_VANTAGE:-1}
+    VTAG=${OPENF50_VANTAGE_TAG:-}
+    if [ "$VANTAGE" != 0 ]; then
+        [ -n "$VTAG" ] || VTAG=$(curl -fsSL "https://api.github.com/repos/anothaDev/luci-theme-vantage/releases/latest" \
+            | sed -n 's/.*"tag_name"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -n1)
+        [ -n "$VTAG" ] || { echo "cannot find the newest luci-theme-vantage release" >&2; exit 1; }
+        VDIR=$TOP/work/vantage-$VTAG; mkdir -p "$VDIR"
+        vbase=https://github.com/anothaDev/luci-theme-vantage/releases/download/$VTAG
+        curl -fsSL -o "$VDIR/SHA256SUMS" "$vbase/SHA256SUMS" || { echo "vantage SHA256SUMS download failed" >&2; exit 1; }
+        for vf in "luci-theme-vantage-${VTAG#v}-r1.apk" "luci-app-vantage-${VTAG#v}-r1.apk" "luci-i18n-vantage-zh-cn-${VTAG#v}-r1.apk"; do
+            [ -s "$VDIR/$vf" ] || curl -fsSL -o "$VDIR/$vf" "$vbase/$vf" || { echo "vantage download failed: $vf" >&2; exit 1; }
+            want=$(awk -v f="$vf" '{print $1}' "$VDIR/SHA256SUMS" | head -1)
+            have=$( (shasum -a 256 "$VDIR/$vf" 2>/dev/null || sha256sum "$VDIR/$vf") | cut -d' ' -f1)
+            [ "$have" = "$want" ] || { echo "vantage checksum mismatch: $vf" >&2; exit 1; }
+        done
+    fi
     # The panel's catalogs in the image: Turkish and Simplified Chinese (the others are the lang extra,
     # tools/make-extra.sh). A catalog without translations (English: the msgids are the English text) is no file at
     # all. Named by LuCI's code for the language (openwrt/luci-languages.tsv: zh_Hans is zh-cn), or LuCI does not
@@ -120,6 +138,7 @@ if [ "$SYSTEM" = openwrt-luci ]; then
         -v "$TOP/openwrt/luci-overlay:/in/luci-overlay:ro" -v "$CAT:/in/catalogs:ro"
     [ "$ISTORE" = 0 ] || set -- "$@" -v "$ISTORE_PEM:/in/istore-apk.pem:ro"
     [ "$PASSWALL" = 0 ] || set -- "$@" -v "$PW_PEM:/in/openwrt-passwall-build.pem:ro"
+    [ "$VANTAGE" = 0 ] || set -- "$@" -v "$VDIR:/in/vantage:ro"
 fi
 TARBALL=$FLAVOUR-$VER-armsr-armv8-rootfs.tar.gz
 if [ -n "${OPENF50_SAE_APK_DIR:-}" ]; then
@@ -246,6 +265,11 @@ if [ -e /in/openwrt-passwall-build.pem ]; then
         ipt2socks naiveproxy v2ray-plugin xray-plugin simple-obfs-client >/dev/null
     [ -s /usr/lib/lua/luci/controller/passwall.lua ] && [ -s /usr/share/passwall/app.sh ] || { echo "PassWall install failed" >&2; exit 1; }
 fi
+# Vantage: install and make it the default theme (Aurora stays as an option)
+if [ -d /in/vantage ]; then
+    apk add --allow-untrusted /in/vantage/*.apk >/dev/null
+    [ -d /www/luci-static/vantage ] || { echo "Vantage theme assets missing" >&2; exit 1; }
+fi
 # relay mode (panel system only): ra-deprecate sends its router advertisement through a raw ICMPv6 socket (#87)
 [ -d /in/luci-plugin ] && apk add ucode-mod-socket >/dev/null
 # System > Terminal (panel system only): ttyd, and luci-app-ttyd for its settings page and translations; the image
@@ -317,9 +341,13 @@ if [ -d /in/luci-plugin ]; then
     # the panel catalogs, named as LuCI names the language (base.zh-cn.lmo: openf50.zh-cn.lmo)
     for f in /in/catalogs/openf50.*.lmo; do cp "$f" $R/usr/lib/lua/luci/i18n/; done
     [ -s $R/www/luci-static/aurora/main.css ] || { echo "Aurora theme assets missing" >&2; exit 1; }
-    # the default theme is set on first boot (etc/uci-defaults/91-openf50-luci), after the themes pick their own
-    grep -q "mediaurlbase=.*/luci-static/aurora" $R/etc/uci-defaults/91-openf50-luci || {
-        echo "Aurora theme is not the LuCI default" >&2; exit 1;
+    # the default theme is set on first boot (etc/uci-defaults/91-openf50-luci); with Vantage bundled
+    # it is the default and Aurora stays as an option
+    if [ -d $R/www/luci-static/vantage ]; then
+        sed -i "s|/luci-static/aurora|/luci-static/vantage|" $R/etc/uci-defaults/91-openf50-luci
+    fi
+    grep -qE "mediaurlbase=.*/luci-static/(aurora|vantage)" $R/etc/uci-defaults/91-openf50-luci || {
+        echo "no known default theme in 91-openf50-luci" >&2; exit 1;
     }
 fi
 # the languages LuCI offers (System > System > Language and Style lists English and these); the base catalogs register
