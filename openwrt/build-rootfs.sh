@@ -117,7 +117,8 @@ if [ "$SYSTEM" = openwrt-luci ]; then
         curl -fsSL -o "$VDIR/SHA256SUMS" "$vbase/SHA256SUMS" || { echo "vantage SHA256SUMS download failed" >&2; exit 1; }
         for vf in "luci-theme-vantage-${VTAG#v}-r1.apk" "luci-app-vantage-${VTAG#v}-r1.apk" "luci-i18n-vantage-zh-cn-${VTAG#v}-r1.apk"; do
             [ -s "$VDIR/$vf" ] || curl -fsSL -o "$VDIR/$vf" "$vbase/$vf" || { echo "vantage download failed: $vf" >&2; exit 1; }
-            want=$(awk -v f="$vf" '{print $1}' "$VDIR/SHA256SUMS" | head -1)
+            want=$(awk -v f="$vf" '$2 == f || $2 == "*" f {print $1}' "$VDIR/SHA256SUMS" | head -1)
+            [ -n "$want" ] || { echo "no checksum for $vf in Vantage SHA256SUMS" >&2; exit 1; }
             have=$( (shasum -a 256 "$VDIR/$vf" 2>/dev/null || sha256sum "$VDIR/$vf") | cut -d' ' -f1)
             [ "$have" = "$want" ] || { echo "vantage checksum mismatch: $vf" >&2; exit 1; }
         done
