@@ -21,7 +21,9 @@ SD_MIN=$((700 * 1024 * 1024))
 # function out.
 sd_probe() {
     SD_DEV=; SD_BYTES=0; SD_SMALL=0
-    set -- $(su_do 'for b in /sys/block/mmcblk[1-9]; do [ -e $b/device/type ] || continue; n=${b##*/}; if [ -e $b/${n}p1 ]; then echo /dev/block/${n}p1 $(cat $b/${n}p1/size) $(cat $b/device/type); else echo /dev/block/$n $(cat $b/size) $(cat $b/device/type); fi; break; done')
+    # size from the DISK, never from p1: a card carrying someone else's partition table (a tiny p1)
+    # is still reformattable, and judging by p1's size would refuse it (seen on a wiped-and-reused card)
+    set -- $(su_do 'for b in /sys/block/mmcblk[1-9]; do [ -e $b/device/type ] || continue; n=${b##*/}; if [ -e $b/${n}p1 ]; then echo /dev/block/${n}p1 $(cat $b/size) $(cat $b/device/type); else echo /dev/block/$n $(cat $b/size) $(cat $b/device/type); fi; break; done')
     [ $# -eq 3 ] && [ "$3" = SD ] || return 0
     if [ $(( $2 / 2048 )) -lt $(( SD_MIN / 1048576 )) ]; then SD_SMALL=1; return 0; fi
     SD_DEV=$1; SD_BYTES=$(( $2 * 512 ))
