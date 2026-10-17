@@ -181,5 +181,8 @@ jobs:
           # the build outputs are ignored by git, so the tree is still the commit the release says it is
           sudo -E git status --porcelain
           sudo -E sh tools/make-release.sh "$TAG" --publish $pre
+          # a full release is what devices on auto-update see: pin the latest pointer, it once stuck on
+          # an older tag after a prerelease was promoted by hand
+          [ -n "$pre" ] || gh release edit "$TAG" -R "$GITHUB_REPOSITORY" --latest
       - name: Magisk installers
         run: gh workflow run magisk.yml -R "$GITHUB_REPOSITORY" --ref "$GITHUB_REF_NAME" -f tag="$TAG"
