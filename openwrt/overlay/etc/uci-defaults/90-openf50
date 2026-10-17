@@ -130,6 +130,11 @@ if uci -q get luci.main >/dev/null; then
 		uci -q set luci.languages.tr='Türkçe (Turkish)'
 	[ ! -e /usr/lib/lua/luci/i18n/base.zh-cn.lmo ] || uci -q get luci.languages.zh_cn >/dev/null ||
 		uci -q set luci.languages.zh_cn="$(printf '\347\256\200\344\275\223\344\270\255\346\226\207 (Simplified Chinese)')"
+	# the bundled Vantage theme in the theme list, on every run: it is registered in the image's
+	# /etc/config/luci, but an update keeps the old config, which may predate Vantage (v2026.10.16-3 and
+	# older) - the style page then cannot show it and its save resets the theme in use
+	[ ! -d /www/luci-static/vantage ] || uci -q get luci.themes.Vantage >/dev/null ||
+		uci -q set luci.themes.Vantage='/luci-static/vantage'
 	uci commit luci
 fi
 if uci -q get luci.main >/dev/null && [ "$(uci -q get luci.openf50.lang)" != 1 ]; then
