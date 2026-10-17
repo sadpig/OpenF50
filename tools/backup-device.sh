@@ -16,11 +16,8 @@ set -eu
 # Never stream a binary through `adb exec-out "su -c ..."`: on some devices su gives the command a pty and
 # the tty layer rewrites every LF as CRLF, silently inflating the bytes by about one in 256. Write the file
 # on the device and pull it instead - correct whether or not that device's su allocates a pty (issue #2).
-dev_pull() {  # dev_pull DEVICE_PATH LOCAL_PATH
-    adb shell "su -c 'cat $1 > /data/local/tmp/openf50-pull.bin'" </dev/null >/dev/null
-    adb pull /data/local/tmp/openf50-pull.bin "$2" >/dev/null 2>&1
-    adb shell "su -c 'rm -f /data/local/tmp/openf50-pull.bin'" </dev/null >/dev/null
-}
+# su location: /debug_ramdisk on Magisk 26+ / patched B16, in PATH on older setups (tools/android-su.sh)
+. "$(cd "$(dirname "$0")" && pwd)/android-su.sh"
 OUT=${1:-backup/$(date +%Y%m%d-%H%M%S)}
 T=/data/local/tmp
 
@@ -35,7 +32,7 @@ IMAGES="boot_a boot_b vendor_boot_a vendor_boot_b init_boot_a init_boot_b dtb_a 
 
 say() { printf '\n==> %s\n' "$*"; }
 die() { printf '\nERROR: %s\n' "$*" >&2; exit 1; }
-su_do() { adb shell "${OPENF50_SU_BIN:-su} -c '$1'" </dev/null | tr -d '\r'; }
+# su_do/dev_pull come from tools/android-su.sh (sourced above)
 
 command -v adb >/dev/null || die "adb not found"
 [ "$(adb get-state 2>/dev/null)" = device ] || die "no adb device (boot Android, enable USB debugging)"
@@ -67,9 +64,9 @@ for p in $list; do
 done
 # the partition table itself, so a wiped GPT can be rebuilt
 su_do 'for p in /sys/block/mmcblk0/mmcblk0p*; do echo "${p##*/} $(cat $p/start) $(cat $p/size)"; done' > "$OUT/gpt-layout.txt"
-adb shell "su -c 'dd if=/dev/block/mmcblk0 bs=512 count=34 2>/dev/null > /data/local/tmp/openf50-pull.bin'" </dev/null >/dev/null
+adb shell "${OPENF50_SU_BIN:-su} -c 'dd if=/dev/block/mmcblk0 bs=512 count=34 2>/dev/null > /data/local/tmp/openf50-pull.bin'" </dev/null >/dev/null
 adb pull /data/local/tmp/openf50-pull.bin "$OUT/gpt-header.bin" >/dev/null 2>&1
-adb shell "su -c 'rm -f /data/local/tmp/openf50-pull.bin'" </dev/null >/dev/null
+adb shell "${OPENF50_SU_BIN:-su} -c 'rm -f /data/local/tmp/openf50-pull.bin'" </dev/null >/dev/null
 su_do 'ls -l /dev/block/by-name' > "$OUT/by-name.txt"
 
 say "Done: $((total / 1048576)) MiB in $OUT"

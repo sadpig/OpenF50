@@ -15,7 +15,7 @@ SRC=$TOP/android/magisk/openf50-linux-switch
 MOD=/data/adb/modules/openf50_linux_switch
 TMP=/data/local/tmp/openf50-magisk
 
-su_do() { adb shell "${OPENF50_SU_BIN:-su} -c '$1'" 2>/dev/null | tr -d '\r'; }
+su_do() { adb shell "${OPENF50_SU_BIN:-su} -c '$1'" </dev/null 2>/dev/null | tr -d '\r'; }
 
 have_magisk() { [ -n "$(su_do 'magisk -v' || true)" ]; }
 

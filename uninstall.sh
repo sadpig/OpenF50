@@ -20,7 +20,8 @@ TOP=$(cd "$(dirname "$0")" && pwd)
 say() { printf '\n==> %s\n' "$*"; }
 die() { printf '\nERROR: %s\n' "$*" >&2; exit 1; }
 ask() { printf '%s [%s]: ' "$2" "$3"; read -r _a; [ -n "$_a" ] || _a=$3; eval "$1=\$_a"; }
-su_do() { adb shell "${OPENF50_SU_BIN:-su} -c '$1'" </dev/null | tr -d '\r'; }
+# su_do/dev_pull + OPENF50_SU_BIN resolution (su lives in /debug_ramdisk on Magisk 26+/patched B16)
+. "$TOP/tools/android-su.sh"
 # tools/storage.sh finds the SD card; this script is English only, so its messages need no translation
 t() { printf '%s' "$1"; }
 gib() { awk -v b="$1" 'BEGIN { printf "%.1f GiB", b / 1073741824 }'; }
@@ -118,9 +119,9 @@ ask confirm "Type UNINSTALL to continue" no
 [ "$(su_do 'getprop ro.boot.slot_suffix')" = "_$ANDROID_SLOT" ] || die "Android no longer runs from slot $ANDROID_SLOT; nothing was changed"
 say "Making slot $ANDROID_SLOT the boot slot"
 MISC_TMP=$(mktemp)
-adb shell "su -c 'dd if=/dev/block/by-name/misc bs=4096 count=1 2>/dev/null > /data/local/tmp/openf50-pull.bin'" </dev/null >/dev/null
+adb shell "${OPENF50_SU_BIN:-su} -c 'dd if=/dev/block/by-name/misc bs=4096 count=1 2>/dev/null > /data/local/tmp/openf50-pull.bin'" </dev/null >/dev/null
 adb pull /data/local/tmp/openf50-pull.bin "$MISC_TMP" >/dev/null 2>&1
-adb shell "su -c 'rm -f /data/local/tmp/openf50-pull.bin'" </dev/null >/dev/null
+adb shell "${OPENF50_SU_BIN:-su} -c 'rm -f /data/local/tmp/openf50-pull.bin'" </dev/null >/dev/null
 NEW=$(python3 - "$MISC_TMP" "$ANDROID_SLOT" <<'PY'
 import struct, sys, zlib
 head = open(sys.argv[1], 'rb').read()

@@ -3,6 +3,8 @@
 # the chroot subset used by the initramfs (/android) and the rootfs (/opt/openf50/android).
 # These files are proprietary (ZTE/Unisoc/Google) and are NOT part of this repository.
 set -eu
+# OPENF50_SU_BIN resolution (su lives in /debug_ramdisk on Magisk 26+/patched B16)
+. "$(cd "$(dirname "$0")" && pwd)/../tools/android-su.sh"
 OUT=${1:-android-subset}
 TMP=$(mktemp -d)
 # The tar is built on the device and pulled as a file, never streamed through `adb exec-out "su -c ..."`:
@@ -10,9 +12,9 @@ TMP=$(mktemp -d)
 # fails with "Skipping to next header" / "A lone zero block" - or, worse, extracts a few entries and looks
 # like it worked (issue #2).
 DEVTAR=/data/local/tmp/openf50-subset.tar
-adb shell "su -c 'tar -chf $DEVTAR /apex/com.android.runtime /system/lib64 /vendor/bin/modem_control /vendor/bin/cp_diskserver /vendor/bin/refnotify /vendor/lib64/lib_crypto.so /vendor/bin/sh /vendor/bin/toybox_vendor /vendor/bin/getprop /vendor/lib64/libkernelbootcp.trusty.so /vendor/etc /dev/__properties__ 2>/dev/null'" </dev/null >/dev/null
+adb shell "${OPENF50_SU_BIN:-su} -c 'tar -chf $DEVTAR /apex/com.android.runtime /system/lib64 /vendor/bin/modem_control /vendor/bin/cp_diskserver /vendor/bin/refnotify /vendor/lib64/lib_crypto.so /vendor/bin/sh /vendor/bin/toybox_vendor /vendor/bin/getprop /vendor/lib64/libkernelbootcp.trusty.so /vendor/etc /dev/__properties__ 2>/dev/null'" </dev/null >/dev/null
 adb pull "$DEVTAR" "$TMP/subset.tar" >/dev/null 2>&1
-adb shell "su -c 'rm -f $DEVTAR'" </dev/null >/dev/null
+adb shell "${OPENF50_SU_BIN:-su} -c 'rm -f $DEVTAR'" </dev/null >/dev/null
 [ -s "$TMP/subset.tar" ] || { echo "could not build the vendor archive on the device" >&2; exit 1; }
 tar -xf "$TMP/subset.tar" -C "$TMP"
 rm -f "$TMP/subset.tar"

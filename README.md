@@ -141,6 +141,10 @@ AW9523B，而任何 F50 或 U30 Air 都没有，因此即使旧版安装程序�
 你的设备必须已经 **root 并解锁**（必须已经能启动修改过的 Android boot 镜像），电脑上
 需要有 `adb`。如何做到这一步不属于本项目的范围。
 
+> **B16 用户：** `FLYMODEM_ZYV1.0.0B16` 可以不降级直接 root 并安装——见
+> [docs/B16-ROOT.zh-CN.md](docs/B16-ROOT.zh-CN.md)（免降级补丁镜像 + 一键脚本；
+> 更早的固件仍走已验证的 B09 路线）。
+
 > **警告。** 安装会写入 `boot_b` 和 `misc` 分区（当 Android 运行在 slot b 时——OTA
 > 更新后常如此——则写 `boot_a` 而非 `boot_b`）。如果出现严重问题，你可能需要
 > 救砖工具（SPD/BROM）来恢复设备。在常见的 64 GB 设备上，Android、其数据和分区表

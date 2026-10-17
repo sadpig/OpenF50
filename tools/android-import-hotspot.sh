@@ -7,6 +7,8 @@
 # by hand (the mount helper refuses any card without that label).
 set -eu
 TOP=$(cd "$(dirname "$0")/.." && pwd)
+# su_do + OPENF50_SU_BIN resolution (su lives in /debug_ramdisk on Magisk 26+/patched B16)
+. "$TOP/tools/android-su.sh"
 SD=${OPENF50_SD_DEV:-}
 case $SD in
     '') ;;
@@ -16,7 +18,6 @@ case $SD in
 esac
 if [ -z "$SD" ]; then
     # the same search reset-password.sh does (tools/storage.sh; this script is English only)
-    su_do() { adb shell "${OPENF50_SU_BIN:-su} -c '$1'" </dev/null | tr -d '\r'; }
     t() { printf '%s' "$1"; }
     . "$TOP/tools/storage.sh"; sd_probe
     if [ -n "$SD_DEV" ] && [ "$(sd_existing)" = yes ]; then
@@ -24,7 +25,7 @@ if [ -z "$SD" ]; then
         echo "SD card $SD (openf50sd): the installation that boots"
     fi
 fi
-adb shell "su -c '
+adb shell "${OPENF50_SU_BIN:-su} -c '
 set -e
 X=/data/misc/apexdata/com.android.wifi/WifiConfigStoreSoftAp.xml
 R=/data/local/tmp/openf50root
