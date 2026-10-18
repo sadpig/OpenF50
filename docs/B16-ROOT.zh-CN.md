@@ -1,10 +1,33 @@
-# B16 固件免降级 root 与直装 OpenF50
+# B16 固件免降级 root 与直装 OpenF50（F50 / U30 Air）
 
-> 适用：`F50_FLYMODEM_ZYV1.0.0B16`（Android 13，2025-10 安全补丁）。
-> 结论：**B16 不再需要降级 B09**——打上两个补丁镜像后直接满足本项目的
+> 适用：`F50_FLYMODEM_ZYV1.0.0B16`（F50）、`U30Air_SSV1.0.0B14`（U30 Air）——
+> 两台机器同为 `ums9620_2h10_feimao` 平台。
+> 结论：**都不需要降级**——打好补丁镜像后直接满足本项目的
 > "已 root、能启动修改过的 boot 镜像"前置条件，`./install.sh` 照常使用。
 
-## 为什么 B16 以前刷不了
+## 两条路线对照（实测）
+
+| | F50 B16 | U30 Air B14 |
+|---|---|---|
+| su 弹窗死结 | 有 → autosu 补丁 | 有 → 同一 autosu 补丁 |
+| ADB 被 framework 硬禁（MBB 特性） | **有** → 需 vendor_boot cmdline 补丁 | 无（无 `zte_feature_mbb_usb_config` 属性）→ 不需要 |
+| boot 分区 AVB 强制 | 需 trustos 补丁旁路 | **不强制**：原厂 trustos 就能跑修改版 boot（社区 Magisk boot 实证） |
+| trustos 代码 | 与 B09 字节级一致 | 与 F50 仅差 515 字节（4B 补丁点 + 签名区） |
+| Linux 装哪 | 32GB 机型无空闲区 → SD 卡 | **无 SD 卡槽** → eMMC 空闲区（64GB 机型 userdata 后 ~32GiB） |
+| 电池/按键 | 无（断电即关机） | 有 |
+
+### U30 Air B14 的 root 路径（2026-10-18 实测通过）
+
+1. 后台（192.168.0.1）开"USB 调试"→ ADB 即常驻（B14 无 MBB 硬禁，无窗口期焦虑）。
+2. `adb shell "reboot autodloader"` 进下载模式，BROM 全盘备份兜底。
+3. 把 boot_a ramdisk 里 `overlay.d/sbin/magisk.xz` 换成打过 autosu 补丁的 magisk
+   （与 F50 同一二进制、同一偏移 `0x41e98`：`mov w8,#1`→`mov w8,#2`），重打包刷回 boot_a。
+   社区 root 包自带的 `adbip.rc`、`disable_fota.sh` 等其余内容原样保留。
+4. 不需要动 trustos / vendor_boot / vbmeta。
+5. 之后 `./install.sh --check` → `./install.sh` 直装（体检会报：Android 在槽位 a，
+   Linux 进槽位 b，eMMC 空闲区约 32GiB）。
+
+## 为什么 B16 以前刷不了（F50）
 
 B16 上有两个叠加的硬障碍（均由静态逆向定位，非推测）：
 
