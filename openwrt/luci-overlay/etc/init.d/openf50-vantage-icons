@@ -1,8 +1,9 @@
 #!/bin/sh /etc/rc.common
 # Patch luci-theme-vantage's menu icons when the theme is present (idempotent; runs at every boot,
 # so an apk-side theme update gets re-patched). Does nothing without the theme.
+# NOTE: no USE_PROCD here on purpose - rc.common tests it with [ -n "$USE_PROCD" ], so even
+# USE_PROCD=0 selects the procd path and start() would never run (that hid this script for a while).
 START=97
-USE_PROCD=0
 
 start() {
     [ -s /www/luci-static/resources/menu-vantage.js ] || return 0
